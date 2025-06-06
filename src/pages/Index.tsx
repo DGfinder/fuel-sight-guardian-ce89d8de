@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -8,7 +9,7 @@ import { AddDipModal } from "@/components/AddDipModal";
 import { AlertsDrawer } from "@/components/AlertsDrawer";
 import { RecentActivity } from "@/components/RecentActivity";
 import { Button } from "@/components/ui/button";
-import { Bell, Plus, Filter, ChevronDown } from "lucide-react";
+import { Bell, Plus, Filter, ChevronDown, ArrowLeft } from "lucide-react";
 import { Tank, KPIData, User, GroupSnapshot } from "@/types/fuel";
 
 // Mock data - in production this would come from Supabase
@@ -152,10 +153,10 @@ const Index = () => {
     ? mockTanks.filter(tank => {
         const percentage = (tank.currentLevel / tank.capacity) * 100;
         switch (selectedFilter) {
-          case 'below10':
-            return percentage <= 10;
           case 'below20':
             return percentage <= 20;
+          case 'criticalDays':
+            return tank.daysToMinLevel <= 2;
           default:
             return true;
         }
@@ -178,8 +179,25 @@ const Index = () => {
     console.log('Tank clicked:', tank);
   };
 
+  const handleBackToDashboard = () => {
+    setSelectedGroup(null);
+    setSelectedFilter(null);
+  };
+
   const isGlobalView = mockUser.role === 'admin' && !selectedGroup;
   const alertCount = mockTanks.filter(tank => tank.alerts.length > 0).length;
+
+  const getViewTitle = () => {
+    if (selectedGroup) return `${selectedGroup} Tank Overview`;
+    if (selectedFilter) {
+      switch (selectedFilter) {
+        case 'below20': return 'Tanks Below 20%';
+        case 'criticalDays': return 'Critical Tanks (≤ 2 Days)';
+        default: return 'Filtered View';
+      }
+    }
+    return isGlobalView ? 'Global fuel monitoring across all depots' : 'Real-time fuel monitoring';
+  };
 
   return (
     <SidebarProvider>
@@ -196,12 +214,23 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
+                {(selectedGroup || selectedFilter) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={handleBackToDashboard}
+                    className="flex items-center gap-2"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Dashboard
+                  </Button>
+                )}
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
                     Welcome back, {mockUser.name.split(' ')[0]} 👋
                   </h1>
                   <p className="text-sm text-gray-500">
-                    {isGlobalView ? 'Global fuel monitoring across all depots' : selectedGroup ? `${selectedGroup} depot overview` : 'Real-time fuel monitoring'}
+                    {getViewTitle()}
                   </p>
                 </div>
               </div>
@@ -225,6 +254,7 @@ const Index = () => {
                   size="sm"
                   className="relative"
                   onClick={() => setAlertsDrawerOpen(true)}
+                  aria-label={`View alerts (${alertCount} active)`}
                 >
                   <Bell className="w-4 h-4" />
                   {alertCount > 0 && (
