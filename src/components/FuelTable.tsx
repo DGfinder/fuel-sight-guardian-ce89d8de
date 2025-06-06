@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Clock, Droplets, Filter, TrendingDown, TrendingUp } from "lucide-react";
+import { AlertTriangle, Clock, Droplets, Filter, TrendingDown, TrendingUp, CheckCircle } from "lucide-react";
 import { Tank } from "@/types/fuel";
 
 interface FuelTableProps {
