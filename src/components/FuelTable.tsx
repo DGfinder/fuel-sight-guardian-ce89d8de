@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from 'react';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from "@/components/ui/table";
+import {
+  Card, CardContent, CardHeader, CardTitle
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Clock, Droplets, Filter, TrendingDown, TrendingUp, CheckCircle } from "lucide-react";
+import {
+  AlertTriangle, Clock, Droplets, Filter, TrendingDown,
+  TrendingUp, CheckCircle
+} from "lucide-react";
 import { Tank } from "@/types/fuel";
 
 interface FuelTableProps {
@@ -15,9 +22,7 @@ interface FuelTableProps {
 export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
   const [showCriticalOnly, setShowCriticalOnly] = useState(false);
 
-  const getPercentageFull = (tank: Tank) => {
-    return (tank.currentLevel / tank.capacity) * 100;
-  };
+  const getPercentageFull = (tank: Tank) => (tank.currentLevel / tank.capacity) * 100;
 
   const getStatusColor = (percentage: number) => {
     if (percentage <= 30) return 'fuel-critical';
@@ -38,15 +43,13 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
   };
 
   const getTrendIcon = (tank: Tank) => {
-    const mockTrendUp = tank.id === '3';
-    return mockTrendUp ? 
-      <TrendingUp className="w-3 h-3 text-green-600 ml-1" aria-label="Burn rate decreasing" /> : 
-      <TrendingDown className="w-3 h-3 text-red-500 ml-1" aria-label="Burn rate increasing" />;
+    const mockTrendUp = tank.id === '3'; // Replace with real trend logic
+    return mockTrendUp ?
+      <TrendingUp className="w-3 h-3 text-green-600 ml-1" /> :
+      <TrendingDown className="w-3 h-3 text-red-500 ml-1" />;
   };
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat().format(Math.round(num));
-  };
+  const formatNumber = (num: number) => new Intl.NumberFormat().format(Math.round(num));
 
   const sortedTanks = [...tanks]
     .filter(tank => {
@@ -80,7 +83,8 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Location</TableHead>
+                <TableHead>Depot</TableHead>
+                <TableHead>Tank</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Current Level</TableHead>
                 <TableHead>% Full</TableHead>
@@ -97,26 +101,20 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
                 const statusColor = getStatusColor(percentage);
 
                 return (
-                  <TableRow 
+                  <TableRow
                     key={tank.id}
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => onRowClick(tank)}
-                    role="button"
-                    aria-label={`View details for ${tank.location} tank`}
                   >
-                    <TableCell className="font-medium">
-                      <div>
-                        <div className="font-semibold">{tank.location}</div>
-                        <div className="text-xs text-gray-500">{tank.depot}</div>
+                    <TableCell>{tank.depot || 'N/A'}</TableCell>
+                    <TableCell>{tank.location || 'N/A'}</TableCell>
+                    <TableCell><Badge variant="outline">{tank.productType}</Badge></TableCell>
+                    <TableCell>
+                      <div className="text-sm font-medium">
+                        {formatNumber(tank.currentLevel)} L
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{tank.productType}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div className="font-medium">{formatNumber(tank.currentLevel)} L</div>
-                        <div className="text-xs text-gray-500">of {formatNumber(tank.capacity)} L</div>
+                      <div className="text-xs text-gray-500">
+                        of {formatNumber(tank.capacity)} L
                       </div>
                     </TableCell>
                     <TableCell>
@@ -126,24 +124,23 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
                             {percentage.toFixed(1)}%
                           </span>
                         </div>
-                        <Progress 
-                          value={percentage} 
+                        <Progress
+                          value={percentage}
                           className="h-3"
                           style={{ background: '#f3f4f6' }}
                         />
                       </div>
                     </TableCell>
                     <TableCell>
-                      {/* Example (if you had a cell renderer using tank.ullage) */}
-                      {/* tank.ullage (or tank.ullageL) is removed (or commented out) */}
+                      <span className="text-sm">{formatNumber(tank.capacity - tank.currentLevel)} L</span>
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(percentage)}
-                      {tank.alerts.length > 0 && (
+                      {tank.alerts?.length > 0 && (
                         <div className="flex items-center gap-1 mt-1">
                           <AlertTriangle className="w-3 h-3 text-fuel-critical" />
                           <span className="text-xs text-fuel-critical">
-                            {tank.alerts.length} {tank.alerts.length === 1 ? 'alert' : 'alerts'}
+                            {tank.alerts.length} alert{tank.alerts.length > 1 ? 's' : ''}
                           </span>
                         </div>
                       )}
