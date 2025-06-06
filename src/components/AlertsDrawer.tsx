@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Drawer, 
@@ -10,7 +9,7 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock, X, CheckCircle, Snooze } from "lucide-react";
+import { AlertTriangle, Clock, X, CheckCircle } from "lucide-react";
 import { Tank } from "@/types/fuel";
 
 interface AlertsDrawerProps {
@@ -113,7 +112,7 @@ export function AlertsDrawer({ open, onOpenChange, tanks }: AlertsDrawerProps) {
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" className="text-xs">
-                      <Snooze className="w-3 h-3 mr-1" />
+                      <Clock className="w-3 h-3 mr-1" />
                       Snooze
                     </Button>
                     <Button size="sm" variant="outline" className="text-xs">
