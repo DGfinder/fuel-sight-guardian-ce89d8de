@@ -90,6 +90,141 @@ export type Database = {
         }
         Relationships: []
       }
+      swan_burn_rates: {
+        Row: {
+          rolling_avg: number | null
+          tank_id: string
+        }
+        Insert: {
+          rolling_avg?: number | null
+          tank_id: string
+        }
+        Update: {
+          rolling_avg?: number | null
+          tank_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swan_burn_rates_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: true
+            referencedRelation: "swan_dips_latest"
+            referencedColumns: ["tank_id"]
+          },
+          {
+            foreignKeyName: "swan_burn_rates_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: true
+            referencedRelation: "swan_tanks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swan_dips: {
+        Row: {
+          created_at: string | null
+          dip_litres: number | null
+          id: string
+          refill_detected: boolean | null
+          tank_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dip_litres?: number | null
+          id?: string
+          refill_detected?: boolean | null
+          tank_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dip_litres?: number | null
+          id?: string
+          refill_detected?: boolean | null
+          tank_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swan_dips_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "swan_dips_latest"
+            referencedColumns: ["tank_id"]
+          },
+          {
+            foreignKeyName: "swan_dips_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "swan_tanks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swan_refills: {
+        Row: {
+          id: string
+          recorded_by: string | null
+          refill_litres: number | null
+          refill_time: string | null
+          tank_id: string | null
+        }
+        Insert: {
+          id?: string
+          recorded_by?: string | null
+          refill_litres?: number | null
+          refill_time?: string | null
+          tank_id?: string | null
+        }
+        Update: {
+          id?: string
+          recorded_by?: string | null
+          refill_litres?: number | null
+          refill_time?: string | null
+          tank_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swan_refills_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "swan_dips_latest"
+            referencedColumns: ["tank_id"]
+          },
+          {
+            foreignKeyName: "swan_refills_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "swan_tanks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swan_tanks: {
+        Row: {
+          depot_name: string | null
+          id: string
+          location: string
+          min_level: number | null
+          safe_fill: number | null
+        }
+        Insert: {
+          depot_name?: string | null
+          id?: string
+          location: string
+          min_level?: number | null
+          safe_fill?: number | null
+        }
+        Update: {
+          depot_name?: string | null
+          id?: string
+          location?: string
+          min_level?: number | null
+          safe_fill?: number | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           depot_id: string | null
@@ -118,10 +253,76 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      swan_dips_latest: {
+        Row: {
+          days_to_min: number | null
+          last_dip_time: string | null
+          last_refill_time: string | null
+          latest_dip: number | null
+          location: string | null
+          min_level: number | null
+          percent_full: number | null
+          safe_fill: number | null
+          tank_id: string | null
+        }
+        Relationships: []
+      }
+      swan_recent_refills: {
+        Row: {
+          last_refill_time: string | null
+          refill_litres: number | null
+          tank_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swan_dips_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "swan_dips_latest"
+            referencedColumns: ["tank_id"]
+          },
+          {
+            foreignKeyName: "swan_dips_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "swan_tanks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swan_rising_after_refill: {
+        Row: {
+          dip_litres: number | null
+          dip_time: string | null
+          id: string | null
+          last_refill_time: string | null
+          location: string | null
+          previous_dip: number | null
+          tank_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swan_dips_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "swan_dips_latest"
+            referencedColumns: ["tank_id"]
+          },
+          {
+            foreignKeyName: "swan_dips_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "swan_tanks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      [_ in never]: never
+      update_swan_burn_rates: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
