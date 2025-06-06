@@ -19,7 +19,7 @@ export function KPICards({ data, onCardClick }: KPICardsProps) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Tanks < 10%</p>
+              <p className="text-sm font-medium text-gray-600">Tanks &lt; 10%</p>
               <p className="text-2xl font-bold text-fuel-critical">{data.tanksBelow10}</p>
             </div>
             <AlertTriangle className="w-8 h-8 text-fuel-critical" />
@@ -34,7 +34,7 @@ export function KPICards({ data, onCardClick }: KPICardsProps) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Tanks < 20%</p>
+              <p className="text-sm font-medium text-gray-600">Tanks &lt; 20%</p>
               <p className="text-2xl font-bold text-fuel-warning">{data.tanksBelow20}</p>
             </div>
             <TrendingDown className="w-8 h-8 text-fuel-warning" />
