@@ -1,4 +1,3 @@
-
 export interface Tank {
   id: string;
   location: string;
@@ -48,4 +47,14 @@ export interface KPIData {
   tanksBelow20: number;
   totalStock: number;
   avgDaysToEmpty: number;
+}
+
+export interface GroupSnapshot {
+  groupName: string;
+  totalTanks: number;
+  avgPercentFull: number;
+  tanksBelow10: number;
+  tanksBelow20: number;
+  totalStock: number;
+  status: 'critical' | 'warning' | 'good';
 }
