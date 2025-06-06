@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Calendar, Droplets } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface AddDipModalProps {
   open: boolean;
@@ -25,9 +25,9 @@ export function AddDipModal({ open, onOpenChange, preSelectedTank, preSelectedLo
     timestamp: new Date().toISOString().slice(0, 16)
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!formData.location || !formData.productType || !formData.dipReading) {
       toast({
@@ -48,23 +48,40 @@ export function AddDipModal({ open, onOpenChange, preSelectedTank, preSelectedLo
       return;
     }
 
-    // Here you would normally save to database
-    console.log('New dip reading:', formData);
-    
-    toast({
-      title: "Dip Reading Added",
-      description: `Successfully recorded ${reading}L for ${formData.location}`,
-    });
+    try {
+      const { error } = await supabase.from("swan_dips").insert({
+        location: formData.location,
+        product: formData.productType,
+        dip_litres: reading,
+        created_at: new Date(formData.timestamp).toISOString(),
+        notes: formData.notes
+      });
 
-    // Reset form and close modal
-    setFormData({
-      location: '',
-      productType: '',
-      dipReading: '',
-      notes: '',
-      timestamp: new Date().toISOString().slice(0, 16)
-    });
-    onOpenChange(false);
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Dip Reading Added",
+        description: `Successfully recorded ${reading}L for ${formData.location}`,
+      });
+
+      // Reset form and close modal
+      setFormData({
+        location: '',
+        productType: '',
+        dipReading: '',
+        notes: '',
+        timestamp: new Date().toISOString().slice(0, 16)
+      });
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({
+        title: "Error Adding Dip",
+        description: err.message || "An error occurred while saving the dip.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -76,7 +93,7 @@ export function AddDipModal({ open, onOpenChange, preSelectedTank, preSelectedLo
             Add Dip Reading
           </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
