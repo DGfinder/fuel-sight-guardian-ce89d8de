@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,8 +38,7 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
   };
 
   const getTrendIcon = (tank: Tank) => {
-    // Mock trend calculation - in production this would be based on historical data
-    const mockTrendUp = tank.id === '3'; // Kalgoorlie showing improvement
+    const mockTrendUp = tank.id === '3';
     return mockTrendUp ? 
       <TrendingUp className="w-3 h-3 text-green-600 ml-1" aria-label="Burn rate decreasing" /> : 
       <TrendingDown className="w-3 h-3 text-red-500 ml-1" aria-label="Burn rate increasing" />;
@@ -50,7 +48,6 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
     return new Intl.NumberFormat().format(Math.round(num));
   };
 
-  // Sort tanks by percentage full (ascending) and filter if needed
   const sortedTanks = [...tanks]
     .filter(tank => {
       if (!showCriticalOnly) return true;
@@ -87,6 +84,7 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
                 <TableHead>Product</TableHead>
                 <TableHead>Current Level</TableHead>
                 <TableHead>% Full</TableHead>
+                <TableHead>Ullage (L)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Days-to-Min</TableHead>
                 <TableHead>Last Dip</TableHead>
@@ -97,7 +95,7 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
               {sortedTanks.map((tank) => {
                 const percentage = getPercentageFull(tank);
                 const statusColor = getStatusColor(percentage);
-                
+
                 return (
                   <TableRow 
                     key={tank.id}
@@ -131,11 +129,13 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
                         <Progress 
                           value={percentage} 
                           className="h-3"
-                          style={{
-                            background: '#f3f4f6'
-                          }}
+                          style={{ background: '#f3f4f6' }}
                         />
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {/* Example (if you had a cell renderer using tank.ullage) */}
+                      {/* tank.ullage (or tank.ullageL) is removed (or commented out) */}
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(percentage)}
@@ -172,7 +172,7 @@ export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
             </TableBody>
           </Table>
         </div>
-        
+
         {sortedTanks.length === 0 && showCriticalOnly && (
           <div className="text-center py-8 text-gray-500">
             <CheckCircle className="w-12 h-12 mx-auto mb-3 text-fuel-safe" />

@@ -1,11 +1,5 @@
-<<<<<<< HEAD
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-=======
-
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
->>>>>>> 2bc13b1efc27f86237eb6c7392b5fe031a37cc06
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,13 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Droplets, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-<<<<<<< HEAD
 import { supabase } from "@/lib/supabase";
-=======
-import { supabase } from "@/integrations/supabase/client";
 import { useTanks } from "@/hooks/useTanks";
 import { useUserRole } from "@/hooks/useUserRole";
->>>>>>> 2bc13b1efc27f86237eb6c7392b5fe031a37cc06
 
 interface AddDipModalProps {
   open: boolean;
@@ -35,8 +25,6 @@ export function AddDipModal({ open, onOpenChange, preSelectedTank }: AddDipModal
     timestamp: new Date().toISOString().slice(0, 16)
   });
 
-<<<<<<< HEAD
-=======
   const { data: userRole, isLoading: roleLoading } = useUserRole();
   const { data: tanks, isLoading: tanksLoading, error: tanksError } = useTanks(userRole?.depot_id || undefined);
   
@@ -60,7 +48,6 @@ export function AddDipModal({ open, onOpenChange, preSelectedTank }: AddDipModal
     }
   }, [preSelectedTank, open]);
 
->>>>>>> 2bc13b1efc27f86237eb6c7392b5fe031a37cc06
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -84,24 +71,6 @@ export function AddDipModal({ open, onOpenChange, preSelectedTank }: AddDipModal
       return;
     }
 
-<<<<<<< HEAD
-    try {
-      const { error } = await supabase.from("swan_dips").insert({
-        location: formData.location,
-        product: formData.productType,
-        dip_litres: reading,
-        created_at: new Date(formData.timestamp).toISOString(),
-        notes: formData.notes
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Dip Reading Added",
-        description: `Successfully recorded ${reading}L for ${formData.location}`,
-=======
     setIsSubmitting(true);
 
     try {
@@ -140,30 +109,16 @@ export function AddDipModal({ open, onOpenChange, preSelectedTank }: AddDipModal
       toast({
         title: "Dip Reading Added",
         description: `${reading.toLocaleString()}L recorded for ${tankDisplay}`,
->>>>>>> 2bc13b1efc27f86237eb6c7392b5fe031a37cc06
       });
 
       // Reset form and close modal
       setFormData({
-<<<<<<< HEAD
-        location: '',
-        productType: '',
-=======
         tankId: '',
->>>>>>> 2bc13b1efc27f86237eb6c7392b5fe031a37cc06
         dipReading: '',
         notes: '',
         timestamp: new Date().toISOString().slice(0, 16)
       });
       onOpenChange(false);
-<<<<<<< HEAD
-    } catch (err: any) {
-      toast({
-        title: "Error Adding Dip",
-        description: err.message || "An error occurred while saving the dip.",
-        variant: "destructive"
-      });
-=======
 
     } catch (error: any) {
       console.error('Error submitting dip:', error);
@@ -174,7 +129,6 @@ export function AddDipModal({ open, onOpenChange, preSelectedTank }: AddDipModal
       });
     } finally {
       setIsSubmitting(false);
->>>>>>> 2bc13b1efc27f86237eb6c7392b5fe031a37cc06
     }
   };
 
