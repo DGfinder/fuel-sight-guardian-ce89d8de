@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface UserRole {
-  role: string;
+  role: 'admin' | 'depot_manager' | 'operator';
   depot_id: string | null;
+  group_id?: string | null; // Added for compatibility
 }
 
 export function useUserRole() {
@@ -21,18 +22,22 @@ export function useUserRole() {
       
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role, depot_id')
+        .select('role, group_id')
         .eq('user_id', user.id)
         .single();
       
       if (error) {
         console.error('Error fetching user role:', error);
         // Return default role if no specific role found
-        return { role: 'operator', depot_id: null };
+        return { role: 'operator' as const, depot_id: null, group_id: null };
       }
       
       console.log('User role:', data);
-      return data as UserRole;
+      return { 
+        role: data.role as 'admin' | 'depot_manager' | 'operator', 
+        depot_id: null, 
+        group_id: data.group_id 
+      };
     }
   });
 }

@@ -1,79 +1,61 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import type { DipReading } from "@/types/fuel";
 
-// Use the correct type for dip_readings
-interface DipReading {
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+
+interface HistoryDipReading {
   id: string;
   tank_id: string;
-  reading: number;
-  recorded_at: string;
-  recorded_by: string;
-  notes: string | null;
+  value: number;
   created_at: string;
+  recorded_by: string;
+  notes: string;
   updated_at: string;
 }
-// SwanDip type for fallback/mock
-interface SwanDip {
-  created_at: string | null;
-  dip_litres: number | null;
-  id: string;
-  refill_detected: boolean | null;
-  tank_id: string;
-  user_id: string | null;
-}
 
-export type TankHistoryPoint = {
-  timestamp: string;
-  level: number;
-  source: 'dip_reading' | 'swan_dip';
-};
-
-export interface TankHistoryOptions {
+interface UseTankHistoryParams {
   tankId: string;
   enabled?: boolean;
-  days?: 7 | 30;
+  days?: number;
 }
 
-export function useTankHistory({ tankId, enabled = true, days = 30 }: TankHistoryOptions) {
+export function useTankHistory({ tankId, enabled = true, days = 30 }: UseTankHistoryParams) {
   return useQuery({
-    queryKey: ["tank-history", tankId, days],
+    queryKey: ['tank-history', tankId, days],
     queryFn: async () => {
+      console.log(`Fetching ${days} days of history for tank ${tankId}`);
+      
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - days);
+      
       const { data, error } = await supabase
-        .from("dip_readings")
-        .select("*")
-        .eq("tank_id", tankId)
-        .order("created_at", { ascending: false })
-        .limit(days);
-
-      if (error) throw error;
-      return data as DipReading[];
+        .from('dip_readings')
+        .select('*')
+        .eq('tank_id', tankId)
+        .gte('created_at', fromDate.toISOString())
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching tank history:', error);
+        throw error;
+      }
+      
+      console.log(`Fetched ${data?.length || 0} dip readings for tank ${tankId}`);
+      
+      // Map to the expected DipReading format
+      return (data || []).map((reading: HistoryDipReading) => ({
+        id: reading.id,
+        tankId: reading.tank_id,
+        tank_id: reading.tank_id,
+        reading: reading.value,
+        value: reading.value,
+        timestamp: reading.created_at,
+        created_at: reading.created_at,
+        recorded_at: reading.created_at,
+        recordedBy: reading.recorded_by,
+        recorded_by: reading.recorded_by,
+        notes: reading.notes
+      }));
     },
-    enabled,
+    enabled: enabled && !!tankId,
   });
 }
-
-// Helper function to generate mock data for demo/testing
-function generateMockData(days: number): TankHistoryPoint[] {
-  const points: TankHistoryPoint[] = [];
-  const now = new Date();
-  const baseLevel = 50000; // 50,000L base level
-  const variance = 5000; // 5,000L variance
-
-  for (let i = days; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    
-    // Generate a slightly random level around the base
-    const randomFactor = Math.random() * 2 - 1; // -1 to 1
-    const level = Math.round(baseLevel + (randomFactor * variance));
-    
-    points.push({
-      timestamp: date.toISOString(),
-      level,
-      source: 'dip_reading' as const
-    });
-  }
-
-  return points;
-} 

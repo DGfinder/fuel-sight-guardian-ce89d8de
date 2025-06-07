@@ -20,7 +20,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <>
       <AppSidebar 
-        userRole={userRole?.role || 'operator'}
+        userRole={(userRole?.role || 'operator') as 'admin' | 'depot_manager' | 'operator'}
         assignedGroups={userRole?.group_id ? [userRole.group_id] : []}
         onAddDip={handleAddDip}
       />

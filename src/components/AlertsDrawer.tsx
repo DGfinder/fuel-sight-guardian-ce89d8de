@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useTanks } from "@/hooks/useTanks";
@@ -23,7 +24,7 @@ type AlertType = Alert["type"];
 type AlertAction = 'acknowledge' | 'snooze';
 
 interface AlertWithTank extends Alert {
-  tank: Pick<Tank, "location" | "depot_id" | "product_type">;
+  tank: Pick<Tank, "location" | "group_id" | "product_type">;
 }
 
 const ALERT_TYPE_CONFIG = {
@@ -58,7 +59,7 @@ interface AlertsDrawerProps {
 
 export function AlertsDrawer({ tanks = [], open, onOpenChange }: AlertsDrawerProps) {
   const { user } = useAuthContext();
-  const { loading: tanksLoading, error: tanksError } = useTanks();
+  const { isLoading: tanksLoading, error: tanksError } = useTanks();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { alerts, isLoading, acknowledgeAlert, snoozeAlert } = useAlerts();
@@ -75,7 +76,7 @@ export function AlertsDrawer({ tanks = [], open, onOpenChange }: AlertsDrawerPro
       } else {
         const snoozeUntil = new Date();
         snoozeUntil.setHours(snoozeUntil.getHours() + 24);
-        await snoozeAlert(alertId, snoozeUntil);
+        await snoozeAlert(alertId, snoozeUntil.toISOString());
         toast({
           title: "Alert snoozed",
           description: "The alert has been snoozed for 24 hours.",
@@ -92,7 +93,7 @@ export function AlertsDrawer({ tanks = [], open, onOpenChange }: AlertsDrawerPro
 
   const filteredAlerts = alerts?.filter(alert => {
     if (!selectedAlertType) return true;
-    return alert.alert_type === selectedAlertType;
+    return (alert.type === selectedAlertType) || (alert.alert_type === selectedAlertType);
   }) || [];
 
   if (tanksError) {
@@ -172,10 +173,10 @@ export function AlertsDrawer({ tanks = [], open, onOpenChange }: AlertsDrawerPro
                         <div className="flex items-center gap-2">
                           <AlertTriangle className={cn(
                             "h-4 w-4",
-                            alert.alert_type === 'critical' ? "text-fuel-critical" : "text-fuel-warning"
+                            (alert.type === 'critical' || alert.alert_type === 'critical') ? "text-fuel-critical" : "text-fuel-warning"
                           )} />
-                          <Badge variant={alert.alert_type === 'critical' ? "destructive" : "secondary"}>
-                            {alert.alert_type}
+                          <Badge variant={(alert.type === 'critical' || alert.alert_type === 'critical') ? "destructive" : "secondary"}>
+                            {alert.type || alert.alert_type}
                           </Badge>
                         </div>
                         <p className="text-sm font-medium">{alert.message}</p>

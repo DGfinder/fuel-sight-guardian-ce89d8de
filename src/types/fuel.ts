@@ -1,8 +1,10 @@
+
 export type Tank = {
   id: string;
   location: string;
   product_type: 'ADF' | 'ULP' | 'ULP98' | 'Diesel';
   current_level: number;
+  current_level_percent: number; // Added missing property
   safe_level: number;
   min_level: number | null;
   group_id: string;
@@ -24,6 +26,7 @@ export interface TankAlert {
   id: string;
   tank_id: string;
   type: AlertType;
+  alert_type?: string; // Added for compatibility
   message: string;
   created_at: string;
   updated_at: string;
@@ -33,6 +36,8 @@ export interface TankAlert {
     id: string;
     group_id: string;
     product_type: 'ADF' | 'ULP' | 'ULP98' | 'Diesel';
+    location?: string; // Added for compatibility
+    depot_id?: string; // Added for compatibility
   };
 }
 
@@ -47,9 +52,14 @@ export interface User {
 export interface DipReading {
   id: string;
   tankId: string;
+  tank_id: string; // Added for compatibility
   reading: number;
+  value: number; // Added for compatibility
   timestamp: string;
+  created_at: string; // Added for compatibility
+  recorded_at: string; // Added for compatibility
   recordedBy: string;
+  recorded_by: string; // Added for compatibility
   notes?: string;
 }
 
