@@ -1,10 +1,10 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Droplets, AlertTriangle, TrendingUp, Building2 } from "lucide-react";
+import { Droplets, AlertTriangle, TrendingUp, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GroupSnapshot } from '@/types/fuel';
+import { useNavigate } from 'react-router-dom';
 
 interface GroupSnapshotCardsProps {
   groups: GroupSnapshot[];
@@ -13,16 +13,30 @@ interface GroupSnapshotCardsProps {
 }
 
 export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: GroupSnapshotCardsProps) {
+  const navigate = useNavigate();
   if (!groups?.length) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-8">
-          <Building2 className="h-8 w-8 text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground">No depot groups available</p>
+          <span className="text-4xl mb-2">🪫</span>
+          <p className="text-sm text-muted-foreground">No tanks in this group yet. Contact your administrator to link depot data.</p>
         </CardContent>
       </Card>
     );
   }
+
+  // Map group names to routes
+  const groupRoute = (name: string) => {
+    const slug = name.toLowerCase().replace(/ /g, '-');
+    switch (slug) {
+      case 'swan-transit': return '/swan-transit';
+      case 'kalgoorlie': return '/kalgoorlie';
+      case 'geraldton': return '/geraldton';
+      case 'gsf-depots': return '/gsf-depots';
+      case 'bgc': return '/bgc';
+      default: return `/group/${slug}`;
+    }
+  };
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -41,7 +55,7 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                 : "hover:border-gray-300",
               criticalTanks > 0 && "ring-1 ring-red-200"
             )}
-            onClick={() => onGroupClick(group.id)}
+            onClick={() => navigate(groupRoute(group.name))}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <div className="flex items-center gap-3">
@@ -49,7 +63,12 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                   <Building2 className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-base font-bold text-gray-900">{group.name}</CardTitle>
+                  <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    {group.name}
+                    <span title="Fuel stock increased 8% over 7 days">
+                      <ArrowUpRight className="w-4 h-4 text-green-500" />
+                    </span>
+                  </CardTitle>
                   <p className="text-xs text-muted-foreground mt-1">
                     Last updated: {new Date(group.lastUpdated).toLocaleDateString()}
                   </p>

@@ -1,4 +1,3 @@
-
 export type Tank = {
   id: string;
   location: string;
@@ -8,6 +7,10 @@ export type Tank = {
   safe_level: number;
   min_level: number | null;
   group_id: string;
+  group_name?: string; // Added for tanks_with_latest_dip view compatibility
+  subgroup?: string; // Added for nested grouping
+  is_favourite?: boolean; // For user-specific favourites
+  recent_viewed_at?: string; // For recent activity
   last_dip_date: string | null;
   last_dip_by: string | null;
   rolling_avg: number | null;
@@ -76,4 +79,19 @@ export type KPICardsProps = {
   tanks: Tank[];
   onCardClick: (filter: string) => void;
   selectedFilter: string | null;
+};
+
+export type UserFavourite = {
+  user_id: string;
+  tank_id?: string;
+  group_id?: string;
+  created_at: string;
+};
+
+export type UserView = {
+  user_id: string;
+  tank_id?: string;
+  group_id?: string;
+  viewed_at: string;
+  filter?: string;
 };

@@ -1,17 +1,16 @@
-
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import React, { useState } from "react";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AppStateProvider } from "@/contexts/AppStateContext";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { AppStateProvider } from "@/contexts/AppStateContext";
+import { Toaster } from "@/components/ui/sonner";
+import AppLayout from "@/components/AppLayout";
+import Index from "@/pages/Index";
+import NotFound from "@/pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppLayout } from "@/components/AppLayout";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import { useState } from "react";
+import SwanTransit from '@/pages/SwanTransit';
+import Kalgoorlie from '@/pages/Kalgoorlie';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +22,10 @@ const queryClient = new QueryClient({
   },
 });
 
+const Geraldton = () => <div className="p-8 text-2xl">Geraldton Dashboard (Coming Soon)</div>;
+const GSFDepots = () => <div className="p-8 text-2xl">GSF Depots Dashboard (Coming Soon)</div>;
+const BGC = () => <div className="p-8 text-2xl">BGC Dashboard (Coming Soon)</div>;
+
 const App = () => {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
@@ -32,28 +35,37 @@ const App = () => {
         <AppStateProvider>
           <BrowserRouter>
             <AuthProvider>
-              <SidebarProvider>
-                <div className="min-h-screen flex w-full">
-                  <Toaster />
-                  <Sonner />
-                  <Routes>
-                    <Route 
-                      path="/" 
-                      element={
-                        <ProtectedRoute>
-                          <AppLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <Index selectedGroup={selectedGroup} />
-                          </AppLayout>
-                        </ProtectedRoute>
-                      } 
-                    />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </div>
-              </SidebarProvider>
+              <div className="min-h-screen flex w-full">
+                <Toaster />
+                <Routes>
+                  <Route 
+                    path="/" 
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout 
+                          selectedGroup={selectedGroup}
+                          onGroupSelect={setSelectedGroup}
+                        >
+                          <Index selectedGroup={selectedGroup} />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/swan-transit" 
+                    element={
+                      <ProtectedRoute>
+                        <SwanTransit />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="/kalgoorlie" element={<ProtectedRoute><Kalgoorlie /></ProtectedRoute>} />
+                  <Route path="/geraldton" element={<ProtectedRoute><Geraldton /></ProtectedRoute>} />
+                  <Route path="/gsf-depots" element={<ProtectedRoute><GSFDepots /></ProtectedRoute>} />
+                  <Route path="/bgc" element={<ProtectedRoute><BGC /></ProtectedRoute>} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </div>
             </AuthProvider>
           </BrowserRouter>
         </AppStateProvider>

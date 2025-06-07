@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +13,9 @@ import { FuelTable } from '@/components/FuelTable';
 import { useAlerts } from "@/hooks/useAlerts";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { Tank } from '@/types/fuel';
+import { NeedsActionPanel } from '@/components/NeedsActionPanel';
+import { FavouritesPanel } from '@/components/FavouritesPanel';
+import { StickyMobileNav } from '@/components/StickyMobileNav';
 
 interface IndexProps {
   selectedGroup?: string | null;
@@ -59,7 +61,7 @@ export default function Index({ selectedGroup }: IndexProps) {
     },
     ...Array.from(new Set(tanks.map(t => t.group_id))).map(groupId => {
       const groupTanks = tanks.filter(t => t.group_id === groupId);
-      const groupName = groupTanks[0]?.tank_groups?.name || `Group ${groupId}`;
+      const groupName = groupTanks[0]?.group_name || groupTanks[0]?.tank_groups?.name || `Group ${groupId}`;
       return {
         id: groupId,
         name: groupName,
@@ -110,6 +112,10 @@ export default function Index({ selectedGroup }: IndexProps) {
 
   return (
     <div className="space-y-6 p-6">
+      {/* Favourites Panel */}
+      <FavouritesPanel />
+      {/* Needs Action Panel */}
+      <NeedsActionPanel tanks={displayTanks} />
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -206,6 +212,7 @@ export default function Index({ selectedGroup }: IndexProps) {
         <FuelTable
           tanks={displayTanks}
           onTankClick={handleTankClick}
+          defaultOpenGroup={null}
         />
       </div>
 
@@ -221,6 +228,7 @@ export default function Index({ selectedGroup }: IndexProps) {
         onOpenChange={setIsAlertsOpen}
         tanks={tanks ?? []}
       />
+      <StickyMobileNav />
     </div>
   );
 }
