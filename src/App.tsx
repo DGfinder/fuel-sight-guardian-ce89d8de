@@ -11,6 +11,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppLayout } from "@/components/AppLayout";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { useState } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,36 +23,43 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AppStateProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <SidebarProvider>
-              <div className="min-h-screen flex w-full">
-                <Toaster />
-                <Sonner />
-                <Routes>
-                  <Route 
-                    path="/" 
-                    element={
-                      <ProtectedRoute>
-                        <AppLayout>
-                          <Index />
-                        </AppLayout>
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </div>
-            </SidebarProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </AppStateProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AppStateProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <SidebarProvider>
+                <div className="min-h-screen flex w-full">
+                  <Toaster />
+                  <Sonner />
+                  <Routes>
+                    <Route 
+                      path="/" 
+                      element={
+                        <ProtectedRoute>
+                          <AppLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <Index selectedGroup={selectedGroup} />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </div>
+              </SidebarProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </AppStateProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

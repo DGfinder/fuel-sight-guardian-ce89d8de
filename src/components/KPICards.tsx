@@ -15,25 +15,25 @@ interface KPICardsProps {
 export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsProps) {
   const kpis = useMemo(() => {
     if (!tanks?.length) return {
-      criticalDays: 0,
       lowTanks: 0,
+      criticalDays: 0,
       totalStock: 0,
       totalUllage: 0,
       avgDaysToMin: 0
     };
 
-    // 🔴 Tanks with ≤ 2 Days to Run (Critical)
+    // 🔴 Tanks < 20% Capacity
+    const lowTanks = tanks.filter(tank => tank.current_level_percent <= 20).length;
+
+    // 🟡 Tanks ≤ 2 Days to Min
     const criticalDays = tanks.filter(tank => 
       tank.days_to_min_level !== null && tank.days_to_min_level <= 2
     ).length;
 
-    // 🟡 Tanks < 20% Capacity (Low)
-    const lowTanks = tanks.filter(tank => tank.current_level_percent <= 20).length;
-
-    // 💧 Total Stock (sum of current_level)
+    // 💧 Total Fuel on Hand (sum of current_level)
     const totalStock = tanks.reduce((sum, tank) => sum + tank.current_level, 0);
 
-    // ⛽ Total Ullage (safe_fill - current_level)
+    // ⛽ Total Ullage (safe_level - current_level)
     const totalUllage = tanks.reduce((sum, tank) => {
       return sum + Math.max(0, tank.safe_level - tank.current_level);
     }, 0);
@@ -47,8 +47,8 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       : 0;
 
     return {
-      criticalDays,
       lowTanks,
+      criticalDays,
       totalStock,
       totalUllage,
       avgDaysToMin
@@ -57,66 +57,66 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
 
   const cards = [
     {
-      id: 'critical-days',
-      title: 'Critical Tanks',
-      value: kpis.criticalDays.toString(),
-      subtitle: '≤ 2 days to run out',
+      id: 'low-tanks',
+      title: 'Tanks < 20%',
+      value: kpis.lowTanks.toString(),
+      subtitle: 'Low fuel level',
       icon: AlertTriangle,
-      color: 'text-red-600',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
-      alert: kpis.criticalDays > 0,
-      badge: '🔴'
+      color: kpis.lowTanks === 0 ? 'text-green-600' : 'text-red-600',
+      bgColor: kpis.lowTanks === 0 ? 'bg-green-50' : 'bg-red-50',
+      borderColor: kpis.lowTanks === 0 ? 'border-green-200' : 'border-red-200',
+      alert: kpis.lowTanks > 0,
+      emoji: '🔴'
     },
     {
-      id: 'low-tanks',
-      title: 'Low Tanks',
-      value: kpis.lowTanks.toString(),
-      subtitle: '< 20% capacity',
-      icon: Gauge,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-200',
-      alert: kpis.lowTanks > 0,
-      badge: '🟡'
+      id: 'critical-days',
+      title: 'Tanks ≤ 2 Days to Min',
+      value: kpis.criticalDays.toString(),
+      subtitle: 'Critical timeline',
+      icon: Clock,
+      color: kpis.criticalDays === 0 ? 'text-green-600' : 'text-yellow-600',
+      bgColor: kpis.criticalDays === 0 ? 'bg-green-50' : 'bg-yellow-50',
+      borderColor: kpis.criticalDays === 0 ? 'border-green-200' : 'border-yellow-200',
+      alert: kpis.criticalDays > 0,
+      emoji: '🟡'
     },
     {
       id: 'total-stock',
-      title: 'Total Stock',
+      title: 'Total Fuel on Hand',
       value: `${kpis.totalStock.toLocaleString()} L`,
-      subtitle: 'Fuel on hand',
+      subtitle: 'Current inventory',
       icon: Droplets,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
-      badge: '💧'
+      emoji: '💧'
     },
     {
       id: 'total-ullage',
       title: 'Total Ullage',
       value: `${kpis.totalUllage.toLocaleString()} L`,
-      subtitle: 'Capacity available',
+      subtitle: 'Available capacity',
       icon: TrendingUp,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       borderColor: 'border-purple-200',
-      badge: '⛽'
+      emoji: '⛽'
     },
     {
       id: 'avg-days',
-      title: 'Avg Days to Min',
-      value: kpis.avgDaysToMin > 0 ? `${kpis.avgDaysToMin} days` : 'N/A',
-      subtitle: 'Based on consumption',
-      icon: Clock,
+      title: 'Avg Days-to-Min',
+      value: kpis.avgDaysToMin > 0 ? `${kpis.avgDaysToMin}` : 'N/A',
+      subtitle: 'Fleet average',
+      icon: Gauge,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
-      badge: '⏳'
+      emoji: '⏳'
     }
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
       {cards.map((card) => {
         const Icon = card.icon;
         const isSelected = selectedFilter === card.id;
@@ -137,7 +137,7 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{card.badge}</span>
+                  <span className="text-lg">{card.emoji}</span>
                   {card.title}
                 </div>
               </CardTitle>

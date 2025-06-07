@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bell, AlertTriangle, Users, Activity } from "lucide-react";
+import { Bell, AlertTriangle, Users, Activity, Filter } from "lucide-react";
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { useTanks } from '@/hooks/useTanks';
@@ -15,10 +15,13 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { Tank } from '@/types/fuel';
 
-export default function Index() {
+interface IndexProps {
+  selectedGroup?: string | null;
+}
+
+export default function Index({ selectedGroup }: IndexProps) {
   const { user } = useAuth();
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
@@ -28,9 +31,21 @@ export default function Index() {
 
   const selectedTank = tanks?.find(t => t.id === selectedTankId) ?? null;
 
+  // Filter tanks based on selected group
   const filteredTanks = tanks?.filter(tank => {
     if (!selectedGroup) return true;
-    return tank.group_id === selectedGroup;
+    
+    // Map group IDs to group names for filtering
+    const groupMapping: Record<string, string> = {
+      'swan-transit': 'Swan Transit',
+      'kalgoorlie': 'Kalgoorlie',
+      'geraldton': 'Geraldton',
+      'gsf-depots': 'GSF Depots',
+      'bgc': 'BGC'
+    };
+    
+    const groupName = groupMapping[selectedGroup];
+    return tank.tank_groups?.name === groupName || tank.group_id === selectedGroup;
   }) ?? [];
 
   const groupSnapshots = tanks ? [
@@ -66,7 +81,8 @@ export default function Index() {
   };
 
   const handleGroupClick = (groupId: string) => {
-    setSelectedGroup(groupId === selectedGroup ? null : groupId);
+    // This would typically update the route/state
+    console.log('Group clicked:', groupId);
   };
 
   if (tanksLoading) {
@@ -79,7 +95,7 @@ export default function Index() {
 
   if (tanksError) {
     return (
-      <Card className="border-red-200">
+      <Card className="border-red-200 m-6">
         <CardContent className="flex flex-col items-center justify-center py-12">
           <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
           <h2 className="text-xl font-bold text-red-600 mb-2">Error Loading Data</h2>
@@ -90,15 +106,24 @@ export default function Index() {
   }
 
   const criticalAlerts = alerts?.filter(alert => !alert.acknowledged_at && !alert.snoozed_until) || [];
+  const displayTanks = selectedGroup ? filteredTanks : tanks || [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 p-6">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Fuel Insights Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {selectedGroup 
+              ? `${groupSnapshots.find(g => g.id === selectedGroup)?.name} Dashboard` 
+              : 'Fuel Insights Dashboard'
+            }
+          </h1>
           <p className="text-gray-600 mt-1">
-            Real-time monitoring across {tanks?.length || 0} fuel tanks
+            {selectedGroup 
+              ? `Monitoring ${filteredTanks.length} tanks in this group`
+              : `Real-time monitoring across ${tanks?.length || 0} fuel tanks`
+            }
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -118,15 +143,11 @@ export default function Index() {
               </Badge>
             )}
           </Button>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Activity className="h-4 w-4 text-green-500" />
-            Live Updates
-          </div>
         </div>
       </div>
 
-      {/* Welcome Card */}
-      {user && (
+      {/* Welcome Card - Only show on global dashboard */}
+      {!selectedGroup && user && (
         <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
           <CardContent className="flex items-center gap-3 py-4">
             <div className="p-2 bg-green-500 rounded-full">
@@ -146,41 +167,44 @@ export default function Index() {
       <div>
         <h2 className="text-xl font-semibold mb-4 text-gray-900">Operational Overview</h2>
         <KPICards
-          tanks={tanks ?? []}
+          tanks={displayTanks}
           onCardClick={handleCardClick}
           selectedFilter={selectedFilter}
         />
       </div>
 
-      {/* Fuel Group Overview */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 text-gray-900">Fuel Group Overview</h2>
-        <GroupSnapshotCards
-          groups={groupSnapshots}
-          selectedGroup={selectedGroup}
-          onGroupClick={handleGroupClick}
-        />
-      </div>
+      {/* Group Overview - Only show on global dashboard */}
+      {!selectedGroup && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4 text-gray-900">Fuel Group Overview</h2>
+          <GroupSnapshotCards
+            groups={groupSnapshots}
+            selectedGroup={null}
+            onGroupClick={handleGroupClick}
+          />
+        </div>
+      )}
 
       {/* Tank Status Table */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
-            {selectedGroup ? `${groupSnapshots.find(g => g.id === selectedGroup)?.name} Tanks` : 'All Tank Status'}
+            {selectedGroup ? 'Tank Status' : 'All Tank Status'}
           </h2>
-          {selectedGroup && (
+          {selectedFilter && (
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => setSelectedGroup(null)}
+              onClick={() => setSelectedFilter(null)}
               className="border-gray-300"
             >
-              Show All Groups
+              <Filter className="w-4 h-4 mr-2" />
+              Clear Filter
             </Button>
           )}
         </div>
         <FuelTable
-          tanks={filteredTanks}
+          tanks={displayTanks}
           onTankClick={handleTankClick}
         />
       </div>

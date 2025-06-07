@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface UserRole {
   role: 'admin' | 'depot_manager' | 'operator';
   depot_id: string | null;
-  group_id?: string | null; // Added for compatibility
+  group_id?: string | null;
 }
 
 export function useUserRole() {
@@ -22,7 +22,7 @@ export function useUserRole() {
       
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role, group_id')
+        .select('role')
         .eq('user_id', user.id)
         .single();
       
@@ -36,7 +36,7 @@ export function useUserRole() {
       return { 
         role: data.role as 'admin' | 'depot_manager' | 'operator', 
         depot_id: null, 
-        group_id: data.group_id 
+        group_id: null 
       };
     }
   });
