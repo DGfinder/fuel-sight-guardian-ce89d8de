@@ -50,6 +50,16 @@ export function AppSidebar({ userRole, assignedGroups, onAddDip }: AppSidebarPro
       url: "/groups/geraldton",
       icon: Building,
     },
+    {
+      title: "GSF Depots",
+      url: "/groups/gsf-depots",
+      icon: Building,
+    },
+    {
+      title: "BGC",
+      url: "/groups/bgc",
+      icon: Building,
+    },
   ];
 
   const groupItems = assignedGroups.map(group => ({
@@ -68,22 +78,22 @@ export function AppSidebar({ userRole, assignedGroups, onAddDip }: AppSidebarPro
   ];
 
   return (
-    <Sidebar className="border-r border-gray-200">
-      <SidebarHeader className="p-4 border-b border-gray-200">
+    <Sidebar className="border-r border-gray-200" style={{ backgroundColor: '#008457' }}>
+      <SidebarHeader className="p-4 border-b border-green-600">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <Gauge className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+            <Gauge className="w-4 h-4 text-green-600" />
           </div>
           <div>
-            <h2 className="font-bold text-lg text-gray-900">GSF Monitor</h2>
-            <p className="text-xs text-gray-500">Fuel Dip Platform</p>
+            <h2 className="font-bold text-lg text-white">GSF Monitor</h2>
+            <p className="text-xs text-green-100">Fuel Insights Platform</p>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">
+          <SidebarGroupLabel className="text-xs font-semibold text-green-100 uppercase tracking-wider px-3 mb-2">
             Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -93,7 +103,7 @@ export function AppSidebar({ userRole, assignedGroups, onAddDip }: AppSidebarPro
                   <SidebarMenuButton asChild className="w-full">
                     <a 
                       href={item.url}
-                      className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-green-100 rounded-lg hover:bg-green-600 hover:text-white transition-colors"
                     >
                       <item.icon className="w-4 h-4" />
                       <span>{item.title}</span>
@@ -106,14 +116,14 @@ export function AppSidebar({ userRole, assignedGroups, onAddDip }: AppSidebarPro
         </SidebarGroup>
 
         <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">
+          <SidebarGroupLabel className="text-xs font-semibold text-green-100 uppercase tracking-wider px-3 mb-2">
             Actions
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <div className="px-3 space-y-2">
               <Button 
                 onClick={onAddDip}
-                className="w-full bg-primary hover:bg-primary/90 text-white"
+                className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium"
                 size="sm"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -121,7 +131,7 @@ export function AppSidebar({ userRole, assignedGroups, onAddDip }: AppSidebarPro
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full" 
+                className="w-full border-green-300 text-green-100 hover:bg-green-600 hover:text-white" 
                 size="sm"
               >
                 <Bell className="w-4 h-4 mr-2" />
@@ -132,13 +142,13 @@ export function AppSidebar({ userRole, assignedGroups, onAddDip }: AppSidebarPro
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-gray-200">
+      <SidebarFooter className="p-4 border-t border-green-600">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <a 
                 href="/settings"
-                className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-green-100 rounded-lg hover:bg-green-600 hover:text-white transition-colors"
               >
                 <Settings className="w-4 h-4" />
                 <span>Settings</span>

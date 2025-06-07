@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Droplets, AlertTriangle, TrendingUp, Clock } from "lucide-react";
+import { Droplets, AlertTriangle, Clock, Gauge, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tank } from '@/types/fuel';
 
@@ -15,78 +15,108 @@ interface KPICardsProps {
 export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsProps) {
   const kpis = useMemo(() => {
     if (!tanks?.length) return {
-      totalStock: 0,
-      criticalTanks: 0,
+      criticalDays: 0,
       lowTanks: 0,
-      averageDaysToEmpty: 0,
-      averagePercent: 0
+      totalStock: 0,
+      totalUllage: 0,
+      avgDaysToMin: 0
     };
 
-    const criticalTanks = tanks.filter(tank => tank.current_level_percent <= 10).length;
+    // 🔴 Tanks with ≤ 2 Days to Run (Critical)
+    const criticalDays = tanks.filter(tank => 
+      tank.days_to_min_level !== null && tank.days_to_min_level <= 2
+    ).length;
+
+    // 🟡 Tanks < 20% Capacity (Low)
     const lowTanks = tanks.filter(tank => tank.current_level_percent <= 20).length;
+
+    // 💧 Total Stock (sum of current_level)
     const totalStock = tanks.reduce((sum, tank) => sum + tank.current_level, 0);
-    const averagePercent = tanks.length > 0 ? Math.round(tanks.reduce((sum, tank) => sum + (tank.current_level_percent || 0), 0) / tanks.length) : 0;
-    const tanksWithDays = tanks.filter(tank => tank.days_to_min_level !== null && tank.days_to_min_level > 0);
-    const averageDaysToEmpty = tanksWithDays.length > 0 
+
+    // ⛽ Total Ullage (safe_fill - current_level)
+    const totalUllage = tanks.reduce((sum, tank) => {
+      return sum + Math.max(0, tank.safe_level - tank.current_level);
+    }, 0);
+
+    // ⏳ Average Days-to-Min
+    const tanksWithDays = tanks.filter(tank => 
+      tank.days_to_min_level !== null && tank.days_to_min_level > 0
+    );
+    const avgDaysToMin = tanksWithDays.length > 0 
       ? Math.round(tanksWithDays.reduce((sum, tank) => sum + (tank.days_to_min_level || 0), 0) / tanksWithDays.length)
       : 0;
 
     return {
-      totalStock,
-      criticalTanks,
+      criticalDays,
       lowTanks,
-      averageDaysToEmpty,
-      averagePercent
+      totalStock,
+      totalUllage,
+      avgDaysToMin
     };
   }, [tanks]);
 
   const cards = [
     {
-      id: 'stock',
-      title: 'Total Stock',
-      value: `${kpis.totalStock.toLocaleString()} L`,
-      subtitle: 'Total litres on hand',
-      icon: Droplets,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200'
-    },
-    {
-      id: 'critical',
+      id: 'critical-days',
       title: 'Critical Tanks',
-      value: kpis.criticalTanks.toString(),
-      subtitle: 'Tanks below 10% capacity',
+      value: kpis.criticalDays.toString(),
+      subtitle: '≤ 2 days to run out',
       icon: AlertTriangle,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
-      alert: kpis.criticalTanks > 0
+      alert: kpis.criticalDays > 0,
+      badge: '🔴'
     },
     {
-      id: 'low',
+      id: 'low-tanks',
       title: 'Low Tanks',
       value: kpis.lowTanks.toString(),
-      subtitle: 'Tanks below 20% capacity',
-      icon: TrendingUp,
+      subtitle: '< 20% capacity',
+      icon: Gauge,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
       borderColor: 'border-orange-200',
-      alert: kpis.lowTanks > 0
+      alert: kpis.lowTanks > 0,
+      badge: '🟡'
     },
     {
-      id: 'days',
-      title: 'Avg Days to Empty',
-      value: kpis.averageDaysToEmpty > 0 ? `${kpis.averageDaysToEmpty} days` : 'N/A',
-      subtitle: 'Based on current consumption',
+      id: 'total-stock',
+      title: 'Total Stock',
+      value: `${kpis.totalStock.toLocaleString()} L`,
+      subtitle: 'Fuel on hand',
+      icon: Droplets,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      badge: '💧'
+    },
+    {
+      id: 'total-ullage',
+      title: 'Total Ullage',
+      value: `${kpis.totalUllage.toLocaleString()} L`,
+      subtitle: 'Capacity available',
+      icon: TrendingUp,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+      badge: '⛽'
+    },
+    {
+      id: 'avg-days',
+      title: 'Avg Days to Min',
+      value: kpis.avgDaysToMin > 0 ? `${kpis.avgDaysToMin} days` : 'N/A',
+      subtitle: 'Based on consumption',
       icon: Clock,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
-      borderColor: 'border-green-200'
+      borderColor: 'border-green-200',
+      badge: '⏳'
     }
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
       {cards.map((card) => {
         const Icon = card.icon;
         const isSelected = selectedFilter === card.id;
@@ -95,18 +125,21 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
           <Card
             key={card.id}
             className={cn(
-              "cursor-pointer transition-all duration-200 hover:shadow-md",
+              "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]",
               "border-2",
               isSelected 
-                ? "ring-2 ring-primary shadow-md" 
+                ? "ring-2 ring-green-500 shadow-lg border-green-300" 
                 : "hover:border-gray-300",
-              card.alert && "ring-1 ring-red-200"
+              card.alert && "ring-1 ring-red-200 shadow-md"
             )}
             onClick={() => onCardClick(card.id)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
-                {card.title}
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{card.badge}</span>
+                  {card.title}
+                </div>
               </CardTitle>
               <div className={cn("p-2 rounded-lg", card.bgColor, card.borderColor, "border")}>
                 <Icon className={cn("h-4 w-4", card.color)} />
@@ -117,7 +150,7 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold">{card.value}</div>
                   {card.alert && (
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge variant="destructive" className="text-xs animate-pulse">
                       Alert
                     </Badge>
                   )}

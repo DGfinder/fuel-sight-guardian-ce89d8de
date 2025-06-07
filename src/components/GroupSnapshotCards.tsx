@@ -25,38 +25,38 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {groups.map((group) => {
         const isSelected = selectedGroup === group.id;
-        const hasAlerts = group.criticalTanks > 0;
-        const lowTanks = Math.max(0, Math.floor(group.totalTanks * 0.3) - group.criticalTanks); // Estimate low tanks
+        const criticalTanks = group.criticalTanks || 0;
+        const lowTanks = Math.max(0, Math.floor(group.totalTanks * 0.2) - criticalTanks);
         
         return (
           <Card
             key={group.id}
             className={cn(
-              "cursor-pointer transition-all duration-200 hover:shadow-md border-2",
+              "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] border-2",
               isSelected 
-                ? "ring-2 ring-primary shadow-md border-primary/20" 
+                ? "ring-2 ring-green-500 shadow-lg border-green-300" 
                 : "hover:border-gray-300",
-              hasAlerts && "ring-1 ring-red-200"
+              criticalTanks > 0 && "ring-1 ring-red-200"
             )}
             onClick={() => onGroupClick(group.id)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
-                  <Building2 className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg border border-green-200">
+                  <Building2 className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-base font-semibold">{group.name}</CardTitle>
+                  <CardTitle className="text-base font-bold text-gray-900">{group.name}</CardTitle>
                   <p className="text-xs text-muted-foreground mt-1">
                     Last updated: {new Date(group.lastUpdated).toLocaleDateString()}
                   </p>
                 </div>
               </div>
-              {hasAlerts && (
-                <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+              {criticalTanks > 0 && (
+                <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200 animate-pulse">
                   <AlertTriangle className="w-3 h-3 mr-1" />
                   Alert
                 </Badge>
@@ -72,7 +72,7 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Average Level</p>
+                  <p className="text-xs text-muted-foreground">Avg Level</p>
                   <div className="flex items-center gap-2">
                     <p className="text-xl font-bold">{group.averageLevel}%</p>
                     <div className="w-8 h-2 bg-gray-200 rounded-full">
@@ -90,19 +90,19 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                 </div>
               </div>
               
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="flex items-center gap-3">
-                  {group.criticalTanks > 0 && (
+              <div className="flex items-center justify-between pt-3 border-t">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {criticalTanks > 0 && (
                     <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200 text-xs">
-                      {group.criticalTanks} Critical
+                      🔴 {criticalTanks} Critical
                     </Badge>
                   )}
                   {lowTanks > 0 && (
                     <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
-                      {lowTanks} Low
+                      🟡 {lowTanks} Low
                     </Badge>
                   )}
-                  {group.criticalTanks === 0 && lowTanks === 0 && (
+                  {criticalTanks === 0 && lowTanks === 0 && (
                     <Badge variant="default" className="bg-green-100 text-green-800 border-green-200 text-xs">
                       <TrendingUp className="w-3 h-3 mr-1" />
                       All Good
@@ -110,7 +110,7 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                   )}
                 </div>
                 {isSelected && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs border-green-300 text-green-700">
                     Selected
                   </Badge>
                 )}
