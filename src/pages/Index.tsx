@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bell, AlertTriangle, Users, Activity, Filter } from "lucide-react";
+import { Bell, AlertTriangle, Filter } from "lucide-react";
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { useTanks } from '@/hooks/useTanks';
 import { useAuth } from '@/hooks/useAuth';
 import { KPICards } from '@/components/KPICards';
 import { GroupSnapshotCards } from '@/components/GroupSnapshotCards';
-import { FuelTable } from '@/components/FuelTable';
+import { EnhancedFuelTable } from '@/components/EnhancedFuelTable';
+import { FuelInsightsPanel } from '@/components/FuelInsightsPanel';
 import { useAlerts } from "@/hooks/useAlerts";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { Tank } from '@/types/fuel';
-import { NeedsActionPanel } from '@/components/NeedsActionPanel';
-import { FavouritesPanel } from '@/components/FavouritesPanel';
 import { StickyMobileNav } from '@/components/StickyMobileNav';
 
 interface IndexProps {
@@ -27,6 +27,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
+  const tankTableRef = useRef<HTMLDivElement>(null);
 
   const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
   const { alerts, isLoading: alertsLoading } = useAlerts();
@@ -87,6 +88,12 @@ export default function Index({ selectedGroup }: IndexProps) {
     console.log('Group clicked:', groupId);
   };
 
+  const handleNeedsActionClick = () => {
+    if (tankTableRef.current) {
+      tankTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   if (tanksLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -111,11 +118,13 @@ export default function Index({ selectedGroup }: IndexProps) {
   const displayTanks = selectedGroup ? filteredTanks : tanks || [];
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Favourites Panel */}
-      <FavouritesPanel />
-      {/* Needs Action Panel */}
-      <NeedsActionPanel tanks={displayTanks} />
+    <div className="space-y-8 p-6 max-w-full">
+      {/* Unified Fuel Insights Panel */}
+      <FuelInsightsPanel 
+        tanks={displayTanks} 
+        onNeedsActionClick={handleNeedsActionClick}
+      />
+
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -136,7 +145,7 @@ export default function Index({ selectedGroup }: IndexProps) {
           <Button
             variant="outline"
             onClick={() => setIsAlertsOpen(true)}
-            className="relative border-gray-300"
+            className="relative border-gray-300 hover:border-[#008457] hover:text-[#008457]"
           >
             <Bell className="h-4 w-4 mr-2" />
             Alerts
@@ -151,23 +160,6 @@ export default function Index({ selectedGroup }: IndexProps) {
           </Button>
         </div>
       </div>
-
-      {/* Welcome Card - Only show on global dashboard */}
-      {!selectedGroup && user && (
-        <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
-          <CardContent className="flex items-center gap-3 py-4">
-            <div className="p-2 bg-green-500 rounded-full">
-              <Users className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <p className="font-medium text-green-900">Welcome back, {user.email}</p>
-              <p className="text-sm text-green-700">
-                Monitoring {tanks?.length || 0} tanks across multiple depot groups
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* KPI Strip */}
       <div>
@@ -192,7 +184,7 @@ export default function Index({ selectedGroup }: IndexProps) {
       )}
 
       {/* Tank Status Table */}
-      <div>
+      <div ref={tankTableRef}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
             {selectedGroup ? 'Tank Status' : 'All Tank Status'}
@@ -202,14 +194,14 @@ export default function Index({ selectedGroup }: IndexProps) {
               variant="outline" 
               size="sm"
               onClick={() => setSelectedFilter(null)}
-              className="border-gray-300"
+              className="border-gray-300 hover:border-[#008457] hover:text-[#008457]"
             >
               <Filter className="w-4 h-4 mr-2" />
               Clear Filter
             </Button>
           )}
         </div>
-        <FuelTable
+        <EnhancedFuelTable
           tanks={displayTanks}
           onTankClick={handleTankClick}
           defaultOpenGroup={null}
@@ -228,6 +220,7 @@ export default function Index({ selectedGroup }: IndexProps) {
         onOpenChange={setIsAlertsOpen}
         tanks={tanks ?? []}
       />
+      
       <StickyMobileNav />
     </div>
   );

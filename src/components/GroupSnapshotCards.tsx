@@ -1,10 +1,12 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Droplets, AlertTriangle, TrendingUp, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Droplets, AlertTriangle, TrendingUp, Building2, ArrowUpRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GroupSnapshot } from '@/types/fuel';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 
 interface GroupSnapshotCardsProps {
   groups: GroupSnapshot[];
@@ -14,6 +16,7 @@ interface GroupSnapshotCardsProps {
 
 export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: GroupSnapshotCardsProps) {
   const navigate = useNavigate();
+  
   if (!groups?.length) {
     return (
       <Card>
@@ -39,68 +42,73 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {groups.map((group) => {
         const isSelected = selectedGroup === group.id;
         const criticalTanks = group.criticalTanks || 0;
         const lowTanks = Math.max(0, Math.floor(group.totalTanks * 0.2) - criticalTanks);
+        const totalVolume = group.totalTanks * 25000; // Mock calculation
         
         return (
           <Card
             key={group.id}
             className={cn(
-              "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] border-2",
+              "cursor-pointer transition-all duration-200 border-2",
+              "hover:shadow-md hover:-translate-y-0.5 hover:border-[#008457]/30",
               isSelected 
-                ? "ring-2 ring-green-500 shadow-lg border-green-300" 
-                : "hover:border-gray-300",
-              criticalTanks > 0 && "ring-1 ring-red-200"
+                ? "ring-2 ring-[#008457] shadow-lg border-[#008457]/50" 
+                : "border-gray-200",
+              criticalTanks > 0 && "ring-1 ring-red-200 border-red-200"
             )}
             onClick={() => navigate(groupRoute(group.name))}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg border border-green-200">
-                  <Building2 className="h-5 w-5 text-green-600" />
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#008457]/10 rounded-lg border border-[#008457]/20">
+                    <Building2 className="h-5 w-5 text-[#008457]" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      {group.name}
+                      <ArrowUpRight className="w-4 h-4 text-[#008457]" />
+                    </CardTitle>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Clock className="w-3 h-3 text-gray-400" />
+                      <p className="text-xs text-gray-500">
+                        {format(new Date(group.lastUpdated), 'MMM d, HH:mm')}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
-                    {group.name}
-                    <span title="Fuel stock increased 8% over 7 days">
-                      <ArrowUpRight className="w-4 h-4 text-green-500" />
-                    </span>
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Last updated: {new Date(group.lastUpdated).toLocaleDateString()}
-                  </p>
-                </div>
+                {criticalTanks > 0 && (
+                  <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200 animate-pulse">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Alert
+                  </Badge>
+                )}
               </div>
-              {criticalTanks > 0 && (
-                <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200 animate-pulse">
-                  <AlertTriangle className="w-3 h-3 mr-1" />
-                  Alert
-                </Badge>
-              )}
             </CardHeader>
+            
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Total Tanks</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tanks</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-xl font-bold">{group.totalTanks}</p>
+                    <p className="text-xl font-bold text-gray-900">{group.totalTanks}</p>
                     <Droplets className="h-4 w-4 text-blue-500" />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Avg Level</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Level</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-xl font-bold">{group.averageLevel}%</p>
-                    <div className="w-8 h-2 bg-gray-200 rounded-full">
+                    <p className="text-xl font-bold text-gray-900">{group.averageLevel}%</p>
+                    <div className="w-8 h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div 
                         className={cn(
-                          "h-full rounded-full transition-all",
-                          group.averageLevel <= 20 ? "bg-red-500" :
-                          group.averageLevel <= 40 ? "bg-orange-500" :
-                          group.averageLevel <= 60 ? "bg-yellow-500" : "bg-green-500"
+                          "h-full rounded-full transition-all duration-300",
+                          group.averageLevel <= 29 ? "bg-red-500" :
+                          group.averageLevel <= 49 ? "bg-[#FEDF19]" : "bg-[#008457]"
                         )}
                         style={{ width: `${Math.max(group.averageLevel, 5)}%` }}
                       />
@@ -108,8 +116,15 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                   </div>
                 </div>
               </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Volume</p>
+                <p className="text-sm font-bold text-gray-700">
+                  {(totalVolume / 1000).toFixed(0)}K L
+                </p>
+              </div>
               
-              <div className="flex items-center justify-between pt-3 border-t">
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-2 flex-wrap">
                   {criticalTanks > 0 && (
                     <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200 text-xs">
@@ -122,15 +137,15 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                     </Badge>
                   )}
                   {criticalTanks === 0 && lowTanks === 0 && (
-                    <Badge variant="default" className="bg-green-100 text-green-800 border-green-200 text-xs">
+                    <Badge variant="default" className="bg-[#008457]/10 text-[#008457] border-[#008457]/20 text-xs">
                       <TrendingUp className="w-3 h-3 mr-1" />
                       All Good
                     </Badge>
                   )}
                 </div>
                 {isSelected && (
-                  <Badge variant="outline" className="text-xs border-green-300 text-green-700">
-                    Selected
+                  <Badge variant="outline" className="text-xs border-[#008457]/30 text-[#008457]">
+                    Active
                   </Badge>
                 )}
               </div>

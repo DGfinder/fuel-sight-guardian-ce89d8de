@@ -68,6 +68,7 @@ export type Database = {
           product_type: Database["public"]["Enums"]["product_type"]
           rolling_avg: number | null
           safe_level: number
+          subgroup: string | null
           updated_at: string | null
         }
         Insert: {
@@ -83,6 +84,7 @@ export type Database = {
           product_type: Database["public"]["Enums"]["product_type"]
           rolling_avg?: number | null
           safe_level: number
+          subgroup?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -98,6 +100,7 @@ export type Database = {
           product_type?: Database["public"]["Enums"]["product_type"]
           rolling_avg?: number | null
           safe_level?: number
+          subgroup?: string | null
           updated_at?: string | null
         }
         Relationships: [

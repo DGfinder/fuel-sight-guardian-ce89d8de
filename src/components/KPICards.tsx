@@ -62,9 +62,9 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       value: kpis.lowTanks.toString(),
       subtitle: 'Low fuel level',
       icon: AlertTriangle,
-      color: kpis.lowTanks === 0 ? 'text-green-600' : 'text-red-600',
-      bgColor: kpis.lowTanks === 0 ? 'bg-green-50' : 'bg-red-50',
-      borderColor: kpis.lowTanks === 0 ? 'border-green-200' : 'border-red-200',
+      color: kpis.lowTanks === 0 ? 'text-[#008457]' : 'text-red-600',
+      bgColor: kpis.lowTanks === 0 ? 'bg-[#008457]/10' : 'bg-red-50',
+      borderColor: kpis.lowTanks === 0 ? 'border-[#008457]/20' : 'border-red-200',
       alert: kpis.lowTanks > 0,
       emoji: '🔴'
     },
@@ -74,16 +74,16 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       value: kpis.criticalDays.toString(),
       subtitle: 'Critical timeline',
       icon: Clock,
-      color: kpis.criticalDays === 0 ? 'text-green-600' : 'text-yellow-600',
-      bgColor: kpis.criticalDays === 0 ? 'bg-green-50' : 'bg-yellow-50',
-      borderColor: kpis.criticalDays === 0 ? 'border-green-200' : 'border-yellow-200',
+      color: kpis.criticalDays === 0 ? 'text-[#008457]' : 'text-[#FEDF19]',
+      bgColor: kpis.criticalDays === 0 ? 'bg-[#008457]/10' : 'bg-yellow-50',
+      borderColor: kpis.criticalDays === 0 ? 'border-[#008457]/20' : 'border-yellow-200',
       alert: kpis.criticalDays > 0,
       emoji: '🟡'
     },
     {
       id: 'total-stock',
       title: 'Total Fuel on Hand',
-      value: `${kpis.totalStock.toLocaleString()} L`,
+      value: `${(kpis.totalStock / 1000).toFixed(0)}K L`,
       subtitle: 'Current inventory',
       icon: Droplets,
       color: 'text-blue-600',
@@ -94,7 +94,7 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
     {
       id: 'total-ullage',
       title: 'Total Ullage',
-      value: `${kpis.totalUllage.toLocaleString()} L`,
+      value: `${(kpis.totalUllage / 1000).toFixed(0)}K L`,
       subtitle: 'Available capacity',
       icon: TrendingUp,
       color: 'text-purple-600',
@@ -108,9 +108,9 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       value: kpis.avgDaysToMin > 0 ? `${kpis.avgDaysToMin}` : 'N/A',
       subtitle: 'Fleet average',
       icon: Gauge,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
+      color: 'text-[#008457]',
+      bgColor: 'bg-[#008457]/10',
+      borderColor: 'border-[#008457]/20',
       emoji: '⏳'
     }
   ];
@@ -125,11 +125,11 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
           <Card
             key={card.id}
             className={cn(
-              "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]",
-              "border-2",
+              "cursor-pointer transition-all duration-200 border-2",
+              "hover:shadow-md hover:-translate-y-1",
               isSelected 
-                ? "ring-2 ring-green-500 shadow-lg border-green-300" 
-                : "hover:border-gray-300",
+                ? "ring-2 ring-[#008457] shadow-lg border-[#008457]/50 bg-[#008457]/5" 
+                : "hover:border-[#008457]/30 border-gray-200",
               card.alert && "ring-1 ring-red-200 shadow-md"
             )}
             onClick={() => onCardClick(card.id)}
@@ -138,24 +138,24 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
               <CardTitle className="text-sm font-medium text-gray-600">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{card.emoji}</span>
-                  {card.title}
+                  <span className="font-semibold">{card.title}</span>
                 </div>
               </CardTitle>
-              <div className={cn("p-2 rounded-lg", card.bgColor, card.borderColor, "border")}>
+              <div className={cn("p-2 rounded-lg border", card.bgColor, card.borderColor)}>
                 <Icon className={cn("h-4 w-4", card.color)} />
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold">{card.value}</div>
+                  <div className="text-2xl font-bold text-gray-900">{card.value}</div>
                   {card.alert && (
-                    <Badge variant="destructive" className="text-xs animate-pulse">
+                    <Badge variant="destructive" className="text-xs animate-pulse bg-red-100 text-red-800 border-red-200">
                       Alert
                     </Badge>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-600 font-medium">
                   {card.subtitle}
                 </p>
               </div>
