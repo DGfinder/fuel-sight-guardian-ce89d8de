@@ -1,28 +1,39 @@
-export interface Tank {
+export type Tank = {
   id: string;
   location: string;
-  depot: string;
-  group: string;
-  productType: 'ADF' | 'ULP' | 'Premium' | 'Diesel';
-  currentLevel: number; // in litres
-  capacity: number; // in litres
-  minLevel: number; // in litres
-  safeLevel: number; // in litres
-  lastDipDate: string;
-  lastDipBy: string;
-  rollingAvg: number; // litres per day
-  daysToMinLevel: number;
-  alerts: Alert[];
-}
+  product_type: 'ADF' | 'ULP' | 'ULP98' | 'Diesel';
+  current_level: number;
+  safe_level: number;
+  min_level: number | null;
+  group_id: string;
+  last_dip_date: string | null;
+  last_dip_by: string | null;
+  rolling_avg: number | null;
+  days_to_min_level: number | null;
+  created_at: string;
+  updated_at: string;
+  alerts?: TankAlert[];
+  tank_groups?: {
+    name: string;
+  } | null;
+};
 
-export interface Alert {
+export type AlertType = 'critical' | 'low_level' | 'low_days';
+
+export interface TankAlert {
   id: string;
-  tankId: string;
-  type: 'critical' | 'warning' | 'info';
+  tank_id: string;
+  type: AlertType;
   message: string;
-  timestamp: string;
-  acknowledged: boolean;
-  snoozeUntil?: string;
+  created_at: string;
+  updated_at: string;
+  acknowledged_at: string | null;
+  snoozed_until: string | null;
+  fuel_tanks: {
+    id: string;
+    group_id: string;
+    product_type: 'ADF' | 'ULP' | 'ULP98' | 'Diesel';
+  };
 }
 
 export interface User {
@@ -42,19 +53,17 @@ export interface DipReading {
   notes?: string;
 }
 
-export interface KPIData {
-  tanksBelow10: number;
-  tanksBelow20: number;
-  totalStock: number;
-  avgDaysToEmpty: number;
-}
-
-export interface GroupSnapshot {
-  groupName: string;
+export type GroupSnapshot = {
+  id: string;
+  name: string;
   totalTanks: number;
-  avgPercentFull: number;
-  tanksBelow10: number;
-  tanksBelow20: number;
-  totalStock: number;
-  status: 'critical' | 'warning' | 'good';
-}
+  criticalTanks: number;
+  averageLevel: number;
+  lastUpdated: string;
+};
+
+export type KPICardsProps = {
+  tanks: Tank[];
+  onCardClick: (filter: string) => void;
+  selectedFilter: string | null;
+};

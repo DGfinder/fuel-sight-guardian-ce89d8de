@@ -68,27 +68,56 @@ export type Database = {
       }
       fuel_tanks: {
         Row: {
-          depot_id: string | null
           id: string
-          min_level: number | null
-          name: string
-          safe_fill: number | null
+          created_at: string
+          updated_at: string
+          location: string
+          depot_id: string
+          group_id: string
+          product_type: 'ADF' | 'ULP' | 'Premium' | 'Diesel'
+          current_level: number
+          capacity: number
+          min_level: number
+          safe_level: number
+          last_dip_date: string | null
+          last_dip_by: string | null
+          rolling_avg: number | null
+          days_to_min_level: number | null
         }
-        Insert: {
-          depot_id?: string | null
+        Insert: Omit<Database['public']['Tables']['fuel_tanks']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Database['public']['Tables']['fuel_tanks']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "fuel_tanks_depot_id_fkey"
+            columns: ["depot_id"]
+            isOneToOne: false
+            referencedRelation: "depots"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tank_alerts: {
+        Row: {
           id: string
-          min_level?: number | null
-          name: string
-          safe_fill?: number | null
+          tank_id: string
+          message: string
+          type: 'critical' | 'warning' | 'info'
+          acknowledged: boolean
+          snooze_until: string | null
+          created_at: string
+          updated_at: string
         }
-        Update: {
-          depot_id?: string | null
-          id?: string
-          min_level?: number | null
-          name?: string
-          safe_fill?: number | null
-        }
-        Relationships: []
+        Insert: Omit<Database['public']['Tables']['tank_alerts']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Database['public']['Tables']['tank_alerts']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "tank_alerts_tank_id_fkey"
+            columns: ["tank_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_tanks"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       swan_burn_rates: {
         Row: {

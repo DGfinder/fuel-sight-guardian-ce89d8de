@@ -1,327 +1,144 @@
-
 import React, { useState } from 'react';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { KPICards } from "@/components/KPICards";
-import { GroupSnapshotCards } from "@/components/GroupSnapshotCards";
-import { FuelTable } from "@/components/FuelTable";
-import { AddDipModal } from "@/components/AddDipModal";
-import { AlertsDrawer } from "@/components/AlertsDrawer";
-import { RecentActivity } from "@/components/RecentActivity";
 import { Button } from "@/components/ui/button";
-import { Bell, Plus, Filter, ChevronDown, ArrowLeft } from "lucide-react";
-import { Tank, KPIData, User, GroupSnapshot } from "@/types/fuel";
+import { Bell, Plus } from "lucide-react";
+import { AddDipModal } from '@/components/AddDipModal';
+import { AlertsDrawer } from '@/components/AlertsDrawer';
+import { TankDetailsModal } from '@/components/TankDetailsModal';
+import { useTanks } from '@/hooks/useTanks';
+import { useAuth } from '@/hooks/useAuth';
+import { KPICards } from '@/components/KPICards';
+import { GroupSnapshotCards } from '@/components/GroupSnapshotCards';
+import { FuelTable } from '@/components/FuelTable';
+import { useAlerts } from "@/hooks/useAlerts";
+import type { Tank } from '@/types/fuel';
 
-// Mock data - in production this would come from Supabase
-const mockUser: User = {
-  id: '1',
-  name: 'Steve Admin',
-  email: 'steve@gsf.com.au',
-  role: 'admin',
-  assignedGroups: ['Swan Transit', 'Kalgoorlie', 'Geraldton']
-};
-
-const mockTanks: Tank[] = [
-  {
-    id: '1',
-    location: 'Canningvale 1',
-    depot: 'Canningvale',
-    group: 'Swan Transit',
-    productType: 'ADF',
-    currentLevel: 2500,
-    capacity: 25000,
-    minLevel: 2000,
-    safeLevel: 5000,
-    lastDipDate: '2024-06-05T14:30:00Z',
-    lastDipBy: 'Adam Smith',
-    rollingAvg: 850,
-    daysToMinLevel: 2,
-    alerts: [
-      {
-        id: 'a1',
-        tankId: '1',
-        type: 'critical',
-        message: 'Tank below 10% capacity',
-        timestamp: '2024-06-05T14:30:00Z',
-        acknowledged: false
-      }
-    ]
-  },
-  {
-    id: '2',
-    location: 'Canningvale 2',
-    depot: 'Canningvale',
-    group: 'Swan Transit',
-    productType: 'ULP',
-    currentLevel: 12000,
-    capacity: 30000,
-    minLevel: 3000,
-    safeLevel: 6000,
-    lastDipDate: '2024-06-05T16:15:00Z',
-    lastDipBy: 'Sarah Jones',
-    rollingAvg: 1200,
-    daysToMinLevel: 8,
-    alerts: []
-  },
-  {
-    id: '3',
-    location: 'Kalgoorlie Main',
-    depot: 'Kalgoorlie',
-    group: 'Kalgoorlie',
-    productType: 'Diesel',
-    currentLevel: 18000,
-    capacity: 20000,
-    minLevel: 2000,
-    safeLevel: 4000,
-    lastDipDate: '2024-06-05T10:00:00Z',
-    lastDipBy: 'Mike Wilson',
-    rollingAvg: 950,
-    daysToMinLevel: 17,
-    alerts: []
-  },
-  {
-    id: '4',
-    location: 'Geraldton Depot',
-    depot: 'Geraldton',
-    group: 'Geraldton',
-    productType: 'ADF',
-    currentLevel: 4500,
-    capacity: 22000,
-    minLevel: 2200,
-    safeLevel: 4400,
-    lastDipDate: '2024-06-05T12:45:00Z',
-    lastDipBy: 'Lisa Brown',
-    rollingAvg: 750,
-    daysToMinLevel: 3,
-    alerts: [
-      {
-        id: 'a2',
-        tankId: '4',
-        type: 'warning',
-        message: 'Tank below 20% capacity',
-        timestamp: '2024-06-05T12:45:00Z',
-        acknowledged: false
-      }
-    ]
-  }
-];
-
-const mockKPIData: KPIData = {
-  tanksBelow10: 1,
-  tanksBelow20: 2,
-  totalStock: 37000,
-  avgDaysToEmpty: 7.5
-};
-
-const mockGroupSnapshots: GroupSnapshot[] = [
-  {
-    groupName: 'Swan Transit',
-    totalTanks: 8,
-    avgPercentFull: 42,
-    tanksBelow10: 1,
-    tanksBelow20: 3,
-    totalStock: 180000,
-    status: 'warning'
-  },
-  {
-    groupName: 'Kalgoorlie',
-    totalTanks: 4,
-    avgPercentFull: 78,
-    tanksBelow10: 0,
-    tanksBelow20: 0,
-    totalStock: 95000,
-    status: 'good'
-  },
-  {
-    groupName: 'Geraldton',
-    totalTanks: 6,
-    avgPercentFull: 35,
-    tanksBelow10: 0,
-    tanksBelow20: 2,
-    totalStock: 120000,
-    status: 'warning'
-  }
-];
-
-const Index = () => {
-  const [addDipModalOpen, setAddDipModalOpen] = useState(false);
-  const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+export default function Index() {
+  const { user } = useAuth();
+  const [isAddDipOpen, setIsAddDipOpen] = useState(false);
+  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
 
-  const filteredTanks = selectedFilter 
-    ? mockTanks.filter(tank => {
-        const percentage = (tank.currentLevel / tank.capacity) * 100;
-        switch (selectedFilter) {
-          case 'below20':
-            return percentage <= 20;
-          case 'criticalDays':
-            return tank.daysToMinLevel <= 2;
-          default:
-            return true;
-        }
-      })
-    : selectedGroup 
-    ? mockTanks.filter(tank => tank.group === selectedGroup)
-    : mockTanks;
+  const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
+  const { alerts, isLoading: alertsLoading } = useAlerts();
 
-  const handleKPICardClick = (filter: string) => {
-    setSelectedFilter(selectedFilter === filter ? null : filter);
-    setSelectedGroup(null);
+  const selectedTank = tanks?.find(t => t.id === selectedTankId) ?? null;
+
+  const filteredTanks = tanks?.filter(tank => {
+    if (!selectedGroup) return true;
+    return tank.group_id === selectedGroup;
+  }) ?? [];
+
+  const groupSnapshots = tanks ? [
+    {
+      id: "all",
+      name: "All Groups",
+      totalTanks: tanks.length,
+      criticalTanks: tanks.filter(t => t.current_level_percent <= 10).length,
+      averageLevel: Math.round(tanks.reduce((acc, t) => acc + (t.current_level_percent || 0), 0) / tanks.length),
+      lastUpdated: new Date().toISOString()
+    },
+    ...Array.from(new Set(tanks.map(t => t.group_id))).map(groupId => {
+      const groupTanks = tanks.filter(t => t.group_id === groupId);
+      const groupName = groupTanks[0]?.tank_groups?.name || `Group ${groupId}`;
+      return {
+        id: groupId,
+        name: groupName,
+        totalTanks: groupTanks.length,
+        criticalTanks: groupTanks.filter(t => t.current_level_percent <= 10).length,
+        averageLevel: Math.round(groupTanks.reduce((acc, t) => acc + (t.current_level_percent || 0), 0) / groupTanks.length),
+        lastUpdated: new Date().toISOString()
+      };
+    })
+  ] : [];
+
+  const handleTankClick = (tank: Tank) => {
+    setSelectedTankId(tank.id);
+    setIsAddDipOpen(true);
   };
 
-  const handleGroupClick = (groupName: string) => {
-    setSelectedGroup(groupName);
-    setSelectedFilter(null);
+  const handleCardClick = (filter: string) => {
+    setSelectedFilter(filter === selectedFilter ? null : filter);
   };
 
-  const handleTankRowClick = (tank: Tank) => {
-    console.log('Tank clicked:', tank);
+  const handleGroupClick = (groupId: string) => {
+    setSelectedGroup(groupId === selectedGroup ? null : groupId);
   };
 
-  const handleBackToDashboard = () => {
-    setSelectedGroup(null);
-    setSelectedFilter(null);
-  };
-
-  const isGlobalView = mockUser.role === 'admin' && !selectedGroup;
-  const alertCount = mockTanks.filter(tank => tank.alerts.length > 0).length;
-
-  const getViewTitle = () => {
-    if (selectedGroup) return `${selectedGroup} Tank Overview`;
-    if (selectedFilter) {
-      switch (selectedFilter) {
-        case 'below20': return 'Tanks Below 20%';
-        case 'criticalDays': return 'Critical Tanks (≤ 2 Days)';
-        default: return 'Filtered View';
-      }
-    }
-    return isGlobalView ? 'Global fuel monitoring across all depots' : 'Real-time fuel monitoring';
-  };
+  if (tanksError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Error Loading Data</h2>
+          <p className="text-gray-600">{tanksError.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-gray-50">
-        <AppSidebar 
-          userRole={mockUser.role}
-          assignedGroups={mockUser.assignedGroups}
-          onAddDip={() => setAddDipModalOpen(true)}
-        />
-        
-        <main className="flex-1 flex flex-col">
-          {/* Greeting Header */}
-          <header className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <SidebarTrigger />
-                {(selectedGroup || selectedFilter) && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={handleBackToDashboard}
-                    className="flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Dashboard
-                  </Button>
-                )}
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    Welcome back, {mockUser.name.split(' ')[0]} 👋
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {getViewTitle()}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                {(selectedFilter || selectedGroup) && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedFilter(null);
-                      setSelectedGroup(null);
-                    }}
-                  >
-                    <Filter className="w-4 h-4 mr-2" />
-                    Clear Filter
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="relative"
-                  onClick={() => setAlertsDrawerOpen(true)}
-                  aria-label={`View alerts (${alertCount} active)`}
-                >
-                  <Bell className="w-4 h-4" />
-                  {alertCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-fuel-critical text-white text-xs rounded-full flex items-center justify-center">
-                      {alertCount}
-                    </span>
-                  )}
-                </Button>
-                <Button 
-                  onClick={() => setAddDipModalOpen(true)}
-                  className="bg-primary hover:bg-primary/90"
-                  size="sm"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Dip
-                </Button>
-                <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">
-                    {mockUser.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </header>
-
-          {/* Main Content */}
-          <div className="flex-1 p-6">
-            <div className="animate-fade-in space-y-6">
-              {/* KPI Cards - Always Visible */}
-              <KPICards data={mockKPIData} onCardClick={handleKPICardClick} />
-              
-              {/* Conditional Content Based on View */}
-              {isGlobalView ? (
-                /* Global Admin View - Group Snapshots */
-                <GroupSnapshotCards 
-                  groups={mockGroupSnapshots}
-                  onGroupClick={handleGroupClick}
-                />
-              ) : (
-                /* Group/Filtered View - Tank Table */
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                  <div className="lg:col-span-3">
-                    <FuelTable tanks={filteredTanks} onRowClick={handleTankRowClick} />
-                  </div>
-                  <div className="lg:col-span-1">
-                    <RecentActivity />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </main>
-
-        <AddDipModal 
-          open={addDipModalOpen}
-          onOpenChange={setAddDipModalOpen}
-        />
-
-        <AlertsDrawer 
-          open={alertsDrawerOpen}
-          onOpenChange={setAlertsDrawerOpen}
-          tanks={mockTanks}
-        />
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Fuel Management</h1>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsAlertsOpen(true)}
+            className="relative"
+          >
+            <Bell className="h-4 w-4" />
+            {alerts && alerts.length > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+                {alerts.length}
+              </span>
+            )}
+          </Button>
+          <Button onClick={() => setIsAddDipOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Dip Reading
+          </Button>
+        </div>
       </div>
-    </SidebarProvider>
-  );
-};
 
-export default Index;
+      <KPICards
+        tanks={tanks ?? []}
+        onCardClick={handleCardClick}
+        selectedFilter={selectedFilter}
+      />
+
+      <GroupSnapshotCards
+        groups={groupSnapshots}
+        selectedGroup={selectedGroup}
+        onGroupClick={handleGroupClick}
+      />
+
+      <FuelTable
+        tanks={filteredTanks}
+        onTankClick={handleTankClick}
+      />
+
+      <AddDipModal
+        open={isAddDipOpen}
+        onOpenChange={setIsAddDipOpen}
+        preSelectedTank={selectedTankId ?? undefined}
+      />
+
+      <TankDetailsModal
+        tank={selectedTank}
+        open={tankDetailsOpen}
+        onOpenChange={setTankDetailsOpen}
+      />
+
+      <AlertsDrawer
+        open={isAlertsOpen}
+        onOpenChange={setIsAlertsOpen}
+        tanks={tanks ?? []}
+      />
+    </div>
+  );
+}

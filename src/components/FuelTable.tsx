@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
@@ -8,176 +8,80 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertTriangle, Clock, Droplets, Filter, TrendingDown,
-  TrendingUp, CheckCircle
+  TrendingUp, CheckCircle, Loader2
 } from "lucide-react";
 import { Tank } from "@/types/fuel";
+import { cn } from "@/lib/utils";
 
 interface FuelTableProps {
-  tanks: Tank[];
-  onRowClick: (tank: Tank) => void;
+  tanks?: Tank[];
+  onTankClick?: (tank: Tank) => void;
 }
 
-export function FuelTable({ tanks, onRowClick }: FuelTableProps) {
-  const [showCriticalOnly, setShowCriticalOnly] = useState(false);
+function TankStatusBadge({ level, daysToEmpty }: { level: number; daysToEmpty: number }) {
+  if (level <= 10) return <Badge variant="destructive">Critical</Badge>;
+  if (level <= 20) return <Badge variant="secondary">Low</Badge>;
+  if (daysToEmpty <= 7) return <Badge variant="secondary">Low Days</Badge>;
+  return <Badge variant="default">Normal</Badge>;
+}
 
-  const getPercentageFull = (tank: Tank) => (tank.currentLevel / tank.capacity) * 100;
-
-  const getStatusColor = (percentage: number) => {
-    if (percentage <= 30) return 'fuel-critical';
-    if (percentage < 50) return 'fuel-warning';
-    return 'fuel-safe';
-  };
-
-  const getStatusBadge = (percentage: number) => {
-    if (percentage <= 30) return <Badge className="bg-fuel-critical text-white">Critical</Badge>;
-    if (percentage < 50) return <Badge className="bg-fuel-warning text-white">Low</Badge>;
-    return <Badge className="bg-gray-500 text-white">Good</Badge>;
-  };
-
-  const getDaysToMinStyle = (days: number) => {
-    if (days <= 2) return 'text-fuel-critical font-bold';
-    if (days <= 5) return 'text-fuel-warning font-semibold';
-    return 'text-gray-900';
-  };
-
-  const getTrendIcon = (tank: Tank) => {
-    const mockTrendUp = tank.id === '3'; // Replace with real trend logic
-    return mockTrendUp ?
-      <TrendingUp className="w-3 h-3 text-green-600 ml-1" /> :
-      <TrendingDown className="w-3 h-3 text-red-500 ml-1" />;
-  };
-
-  const formatNumber = (num: number) => new Intl.NumberFormat().format(Math.round(num));
-
-  const sortedTanks = [...tanks]
-    .filter(tank => {
-      if (!showCriticalOnly) return true;
-      const percentage = getPercentageFull(tank);
-      return percentage <= 30 || tank.daysToMinLevel <= 2;
-    })
-    .sort((a, b) => getPercentageFull(a) - getPercentageFull(b));
+export function FuelTable({ tanks = [], onTankClick }: FuelTableProps) {
+  if (!tanks?.length) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No tanks found
+      </div>
+    );
+  }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Droplets className="w-5 h-5 text-primary" />
-            Fuel Tank Status
-          </CardTitle>
-          <Button
-            variant={showCriticalOnly ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowCriticalOnly(!showCriticalOnly)}
-            className="flex items-center gap-2"
-          >
-            <Filter className="w-4 h-4" />
-            {showCriticalOnly ? "Show All" : "Show Critical Only"}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Depot</TableHead>
-                <TableHead>Tank</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>Current Level</TableHead>
-                <TableHead>% Full</TableHead>
-                <TableHead>Ullage (L)</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Days-to-Min</TableHead>
-                <TableHead>Last Dip</TableHead>
-                <TableHead>Burn Rate</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedTanks.map((tank) => {
-                const percentage = getPercentageFull(tank);
-                const statusColor = getStatusColor(percentage);
-
-                return (
-                  <TableRow
-                    key={tank.id}
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => onRowClick(tank)}
-                  >
-                    <TableCell>{tank.depot || 'N/A'}</TableCell>
-                    <TableCell>{tank.location || 'N/A'}</TableCell>
-                    <TableCell><Badge variant="outline">{tank.productType}</Badge></TableCell>
-                    <TableCell>
-                      <div className="text-sm font-medium">
-                        {formatNumber(tank.currentLevel)} L
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        of {formatNumber(tank.capacity)} L
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-2 min-w-[100px]">
-                        <div className="flex items-center justify-between">
-                          <span className={`text-sm font-bold text-${statusColor}`}>
-                            {percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                        <Progress
-                          value={percentage}
-                          className="h-3"
-                          style={{ background: '#f3f4f6' }}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{formatNumber(tank.capacity - tank.currentLevel)} L</span>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(percentage)}
-                      {tank.alerts?.length > 0 && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <AlertTriangle className="w-3 h-3 text-fuel-critical" />
-                          <span className="text-xs text-fuel-critical">
-                            {tank.alerts.length} alert{tank.alerts.length > 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Clock className="w-3 h-3 text-gray-400 mr-1" />
-                        <span className={`text-sm ${getDaysToMinStyle(tank.daysToMinLevel)}`}>
-                          {tank.daysToMinLevel} days
-                        </span>
-                        {getTrendIcon(tank)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div className="text-gray-900">{new Date(tank.lastDipDate).toLocaleDateString()}</div>
-                        <div className="text-xs text-gray-500">by {tank.lastDipBy}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm font-medium">{formatNumber(tank.rollingAvg)} L/day</span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-
-        {sortedTanks.length === 0 && showCriticalOnly && (
-          <div className="text-center py-8 text-gray-500">
-            <CheckCircle className="w-12 h-12 mx-auto mb-3 text-fuel-safe" />
-            <p className="text-lg font-medium">No critical tanks found</p>
-            <p className="text-sm">All tanks are operating within safe levels</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Group</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Current Level</TableHead>
+            <TableHead className="text-right">% Full</TableHead>
+            <TableHead className="text-right">Days to Empty</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tanks.map((tank) => (
+            <TableRow
+              key={tank.id}
+              className={cn(
+                "cursor-pointer hover:bg-muted/50",
+                onTankClick && "cursor-pointer"
+              )}
+              onClick={() => onTankClick?.(tank)}
+            >
+              <TableCell>{tank.tank_groups?.name || tank.group_id}</TableCell>
+              <TableCell>{tank.location}</TableCell>
+              <TableCell>{tank.product_type}</TableCell>
+              <TableCell>
+                <TankStatusBadge
+                  level={tank.current_level_percent}
+                  daysToEmpty={tank.days_to_min_level ?? 0}
+                />
+              </TableCell>
+              <TableCell className="text-right">
+                <strong>{tank.current_level.toLocaleString()} L</strong>
+                <span className="text-xs text-muted-foreground"> of {tank.safe_level.toLocaleString()} L</span>
+              </TableCell>
+              <TableCell className="text-right">
+                {tank.current_level_percent}%
+              </TableCell>
+              <TableCell className="text-right">{tank.days_to_min_level ?? 'N/A'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

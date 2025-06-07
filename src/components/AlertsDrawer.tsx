@@ -1,158 +1,214 @@
-import React from 'react';
-import { 
-  Drawer, 
-  DrawerContent, 
-  DrawerHeader, 
-  DrawerTitle, 
-  DrawerDescription,
-  DrawerClose 
-} from "@/components/ui/drawer";
+import React, { useState } from 'react';
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useTanks } from "@/hooks/useTanks";
+import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/types/supabase";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock, X, CheckCircle } from "lucide-react";
-import { Tank } from "@/types/fuel";
+import { Bell, BellOff, CheckCircle, AlertCircle, AlertTriangle, Info, Filter, Check, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { ErrorFallback } from "@/components/ui/error-fallback";
+import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
+import { useAlerts } from '@/hooks/useAlerts';
+import type { Tank } from '@/types/fuel';
 
-interface AlertsDrawerProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  tanks: Tank[];
+type Alert = Database["public"]["Tables"]["tank_alerts"]["Row"];
+type AlertType = Alert["type"];
+type AlertAction = 'acknowledge' | 'snooze';
+
+interface AlertWithTank extends Alert {
+  tank: Pick<Tank, "location" | "depot_id" | "product_type">;
 }
 
-export function AlertsDrawer({ open, onOpenChange, tanks }: AlertsDrawerProps) {
-  // Get all tanks with alerts
-  const tanksWithAlerts = tanks.filter(tank => tank.alerts.length > 0);
-  
-  // Get additional system alerts
-  const systemAlerts = [
-    {
-      id: 'sys1',
-      type: 'warning' as const,
-      message: 'No dip recorded for Geraldton Tank 2 in 24 hours',
-      timestamp: '2024-06-05T10:00:00Z',
-      tankLocation: 'Geraldton Tank 2'
-    },
-    {
-      id: 'sys2',
-      type: 'info' as const,
-      message: 'Scheduled delivery for Swan Transit in 2 days',
-      timestamp: '2024-06-05T08:00:00Z',
-      tankLocation: 'Swan Transit'
-    }
-  ];
+const ALERT_TYPE_CONFIG = {
+  critical: {
+    icon: AlertCircle,
+    color: "text-fuel-critical",
+    bgColor: "bg-fuel-critical/10",
+    borderColor: "border-fuel-critical/20",
+    label: "Critical"
+  },
+  low_level: {
+    icon: AlertTriangle,
+    color: "text-fuel-warning",
+    bgColor: "bg-fuel-warning/10",
+    borderColor: "border-fuel-warning/20",
+    label: "Low Level"
+  },
+  low_days: {
+    icon: Clock,
+    color: "text-fuel-warning",
+    bgColor: "bg-fuel-warning/10",
+    borderColor: "border-fuel-warning/20",
+    label: "Low Days"
+  }
+} as const;
 
-  const getAlertIcon = (type: string) => {
-    switch (type) {
-      case 'critical': return <AlertTriangle className="w-4 h-4 text-fuel-critical" />;
-      case 'warning': return <AlertTriangle className="w-4 h-4 text-fuel-warning" />;
-      default: return <Clock className="w-4 h-4 text-blue-500" />;
+interface AlertsDrawerProps {
+  tanks: Tank[] | undefined;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function AlertsDrawer({ tanks = [], open, onOpenChange }: AlertsDrawerProps) {
+  const { user } = useAuthContext();
+  const { loading: tanksLoading, error: tanksError } = useTanks();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { alerts, isLoading, acknowledgeAlert, snoozeAlert } = useAlerts();
+  const [selectedAlertType, setSelectedAlertType] = useState<string | null>(null);
+
+  const handleAlertAction = async (alertId: string, action: 'acknowledge' | 'snooze') => {
+    try {
+      if (action === 'acknowledge') {
+        await acknowledgeAlert(alertId);
+        toast({
+          title: "Alert acknowledged",
+          description: "The alert has been marked as acknowledged.",
+        });
+      } else {
+        const snoozeUntil = new Date();
+        snoozeUntil.setHours(snoozeUntil.getHours() + 24);
+        await snoozeAlert(alertId, snoozeUntil);
+        toast({
+          title: "Alert snoozed",
+          description: "The alert has been snoozed for 24 hours.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update alert status. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const getAlertBadgeColor = (type: string) => {
-    switch (type) {
-      case 'critical': return 'bg-fuel-critical';
-      case 'warning': return 'bg-fuel-warning';
-      default: return 'bg-blue-500';
-    }
-  };
+  const filteredAlerts = alerts?.filter(alert => {
+    if (!selectedAlertType) return true;
+    return alert.alert_type === selectedAlertType;
+  }) || [];
 
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const alertTime = new Date(timestamp);
-    const diffHours = Math.floor((now.getTime() - alertTime.getTime()) / (1000 * 60 * 60));
-    
-    if (diffHours < 1) return 'Just now';
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
-  };
+  if (tanksError) {
+    return <ErrorFallback error={tanksError} />;
+  }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[80vh]">
-        <DrawerHeader className="border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <DrawerTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-fuel-critical" />
-                Active Alerts
-              </DrawerTitle>
-              <DrawerDescription>
-                {tanksWithAlerts.length + systemAlerts.length} active alerts requiring attention
-              </DrawerDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetTrigger asChild>
+        <Button variant="outline" className="relative">
+          <Bell className="w-4 h-4 mr-2" />
+          Alerts
+          {filteredAlerts.length > 0 && (
+            <Badge
+              variant="destructive"
+              className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0"
+            >
+              {filteredAlerts.length}
+            </Badge>
+          )}
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetHeader className="space-y-4">
+          <SheetTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              Alerts
             </div>
-            <DrawerClose asChild>
-              <Button variant="ghost" size="sm">
-                <X className="w-4 h-4" />
-              </Button>
-            </DrawerClose>
+          </SheetTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={selectedAlertType === null ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedAlertType(null)}
+            >
+              All
+            </Button>
+            <Button
+              variant={selectedAlertType === 'critical' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedAlertType('critical')}
+            >
+              Critical
+            </Button>
+            <Button
+              variant={selectedAlertType === 'warning' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedAlertType('warning')}
+            >
+              Warning
+            </Button>
           </div>
-        </DrawerHeader>
-        
-        <div className="p-4 space-y-4 overflow-y-auto">
-          {/* Tank Alerts */}
-          {tanksWithAlerts.map((tank) => (
-            tank.alerts.map((alert) => (
-              <div key={alert.id} className="bg-white border rounded-lg p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    {getAlertIcon(alert.type)}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-gray-900">{tank.location}</h4>
-                        <Badge className={`${getAlertBadgeColor(alert.type)} text-white text-xs`}>
-                          {alert.type}
-                        </Badge>
+        </SheetHeader>
+        <ScrollArea className="h-[calc(100vh-8rem)] mt-4">
+          <div className="space-y-4 pr-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : filteredAlerts.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center h-[200px] text-gray-500">
+                  <Bell className="w-8 h-8 mb-2" />
+                  <p>No alerts found</p>
+                  {selectedAlertType !== null && (
+                    <p className="text-sm mt-1">Try changing the filter</p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              filteredAlerts.map((alert) => (
+                <Card key={alert.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className={cn(
+                            "h-4 w-4",
+                            alert.alert_type === 'critical' ? "text-fuel-critical" : "text-fuel-warning"
+                          )} />
+                          <Badge variant={alert.alert_type === 'critical' ? "destructive" : "secondary"}>
+                            {alert.alert_type}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-medium">{alert.message}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(alert.created_at).toLocaleString()}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-600">{alert.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {tank.depot} • {formatTimeAgo(alert.timestamp)}
-                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAlertAction(alert.id, 'snooze')}
+                        >
+                          <Clock className="h-4 w-4 mr-1" />
+                          Snooze
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAlertAction(alert.id, 'acknowledge')}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Acknowledge
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="text-xs">
-                      <Clock className="w-3 h-3 mr-1" />
-                      Snooze
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-xs">
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Ack
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))
-          ))}
-
-          {/* System Alerts */}
-          {systemAlerts.map((alert) => (
-            <div key={alert.id} className="bg-white border rounded-lg p-4 space-y-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  {getAlertIcon(alert.type)}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium text-gray-900">{alert.tankLocation}</h4>
-                      <Badge className={`${getAlertBadgeColor(alert.type)} text-white text-xs`}>
-                        {alert.type}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600">{alert.message}</p>
-                    <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(alert.timestamp)}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="text-xs">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Dismiss
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </DrawerContent>
-    </Drawer>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }
