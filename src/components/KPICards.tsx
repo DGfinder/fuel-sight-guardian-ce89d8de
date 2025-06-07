@@ -1,6 +1,8 @@
+
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Droplets, AlertTriangle, TrendingUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Droplets, AlertTriangle, TrendingUp, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tank } from '@/types/fuel';
 
@@ -12,103 +14,122 @@ interface KPICardsProps {
 
 export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsProps) {
   const kpis = useMemo(() => {
-    if (!tanks) return {
-      criticalTanks: 0,
+    if (!tanks?.length) return {
       totalStock: 0,
-      averagePercent: 0,
-      averageDaysToEmpty: 0
+      criticalTanks: 0,
+      lowTanks: 0,
+      averageDaysToEmpty: 0,
+      averagePercent: 0
     };
 
-    const criticalTanks = tanks.filter(tank => tank.current_level_percent <= 20).length;
+    const criticalTanks = tanks.filter(tank => tank.current_level_percent <= 10).length;
+    const lowTanks = tanks.filter(tank => tank.current_level_percent <= 20).length;
     const totalStock = tanks.reduce((sum, tank) => sum + tank.current_level, 0);
     const averagePercent = tanks.length > 0 ? Math.round(tanks.reduce((sum, tank) => sum + (tank.current_level_percent || 0), 0) / tanks.length) : 0;
-    const averageDaysToEmpty = tanks.reduce((sum, tank) => sum + (tank.days_to_min_level || 0), 0) / (tanks.length || 1);
+    const tanksWithDays = tanks.filter(tank => tank.days_to_min_level !== null && tank.days_to_min_level > 0);
+    const averageDaysToEmpty = tanksWithDays.length > 0 
+      ? Math.round(tanksWithDays.reduce((sum, tank) => sum + (tank.days_to_min_level || 0), 0) / tanksWithDays.length)
+      : 0;
 
     return {
-      criticalTanks,
       totalStock,
-      averagePercent,
-      averageDaysToEmpty
+      criticalTanks,
+      lowTanks,
+      averageDaysToEmpty,
+      averagePercent
     };
   }, [tanks]);
 
+  const cards = [
+    {
+      id: 'stock',
+      title: 'Total Stock',
+      value: `${kpis.totalStock.toLocaleString()} L`,
+      subtitle: 'Total litres on hand',
+      icon: Droplets,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200'
+    },
+    {
+      id: 'critical',
+      title: 'Critical Tanks',
+      value: kpis.criticalTanks.toString(),
+      subtitle: 'Tanks below 10% capacity',
+      icon: AlertTriangle,
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      alert: kpis.criticalTanks > 0
+    },
+    {
+      id: 'low',
+      title: 'Low Tanks',
+      value: kpis.lowTanks.toString(),
+      subtitle: 'Tanks below 20% capacity',
+      icon: TrendingUp,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+      alert: kpis.lowTanks > 0
+    },
+    {
+      id: 'days',
+      title: 'Avg Days to Empty',
+      value: kpis.averageDaysToEmpty > 0 ? `${kpis.averageDaysToEmpty} days` : 'N/A',
+      subtitle: 'Based on current consumption',
+      icon: Clock,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200'
+    }
+  ];
+
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <Card
-        className={cn(
-          "cursor-pointer transition-colors hover:bg-gray-50",
-          selectedFilter === 'critical' && "ring-2 ring-primary"
-        )}
-        onClick={() => onCardClick('critical')}
-      >
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Critical Tanks</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-fuel-critical" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{kpis.criticalTanks}</div>
-          <p className="text-xs text-muted-foreground">
-            Tanks below 20% capacity
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card
-        className={cn(
-          "cursor-pointer transition-colors hover:bg-gray-50",
-          selectedFilter === 'stock' && "ring-2 ring-primary"
-        )}
-        onClick={() => onCardClick('stock')}
-      >
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Stock</CardTitle>
-          <Droplets className="h-4 w-4 text-primary" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{kpis.totalStock.toLocaleString()} L</div>
-          <p className="text-xs text-muted-foreground">
-            Total litres across all tanks
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card
-        className={cn(
-          "cursor-pointer transition-colors hover:bg-gray-50",
-          selectedFilter === 'avg' && "ring-2 ring-primary"
-        )}
-        onClick={() => onCardClick('avg')}
-      >
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Average Level</CardTitle>
-          <TrendingUp className="h-4 w-4 text-fuel-safe" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{kpis.averagePercent}%</div>
-          <p className="text-xs text-muted-foreground">
-            Average % full across all tanks
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card
-        className={cn(
-          "cursor-pointer transition-colors hover:bg-gray-50",
-          selectedFilter === 'days' && "ring-2 ring-primary"
-        )}
-        onClick={() => onCardClick('days')}
-      >
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Days to Empty</CardTitle>
-          <TrendingUp className="h-4 w-4 text-fuel-safe" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{kpis.averageDaysToEmpty.toFixed(1)}</div>
-          <p className="text-xs text-muted-foreground">
-            Average days until empty
-          </p>
-        </CardContent>
-      </Card>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {cards.map((card) => {
+        const Icon = card.icon;
+        const isSelected = selectedFilter === card.id;
+        
+        return (
+          <Card
+            key={card.id}
+            className={cn(
+              "cursor-pointer transition-all duration-200 hover:shadow-md",
+              "border-2",
+              isSelected 
+                ? "ring-2 ring-primary shadow-md" 
+                : "hover:border-gray-300",
+              card.alert && "ring-1 ring-red-200"
+            )}
+            onClick={() => onCardClick(card.id)}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                {card.title}
+              </CardTitle>
+              <div className={cn("p-2 rounded-lg", card.bgColor, card.borderColor, "border")}>
+                <Icon className={cn("h-4 w-4", card.color)} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold">{card.value}</div>
+                  {card.alert && (
+                    <Badge variant="destructive" className="text-xs">
+                      Alert
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {card.subtitle}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

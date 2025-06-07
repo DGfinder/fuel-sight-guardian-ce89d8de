@@ -9,106 +9,162 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      depots: {
-        Row: {
-          id: string
-          location: string | null
-          name: string | null
-        }
-        Insert: {
-          id?: string
-          location?: string | null
-          name?: string | null
-        }
-        Update: {
-          id?: string
-          location?: string | null
-          name?: string | null
-        }
-        Relationships: []
-      }
-      dips: {
+      dip_readings: {
         Row: {
           created_at: string | null
-          dip_amount: number | null
           id: string
+          notes: string | null
+          recorded_by: string
           tank_id: string
-          user_id: string | null
+          updated_at: string | null
+          value: number
         }
         Insert: {
           created_at?: string | null
-          dip_amount?: number | null
           id?: string
+          notes?: string | null
+          recorded_by: string
           tank_id: string
-          user_id?: string | null
+          updated_at?: string | null
+          value: number
         }
         Update: {
           created_at?: string | null
-          dip_amount?: number | null
           id?: string
+          notes?: string | null
+          recorded_by?: string
           tank_id?: string
-          user_id?: string | null
+          updated_at?: string | null
+          value?: number
         }
         Relationships: [
           {
-            foreignKeyName: "dips_tank_id_fkey"
+            foreignKeyName: "dip_readings_tank_id_fkey"
             columns: ["tank_id"]
             isOneToOne: false
             referencedRelation: "fuel_tanks"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "dips_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "dip_readings_tank_id_fkey"
+            columns: ["tank_id"]
             isOneToOne: false
-            referencedRelation: "user_roles"
-            referencedColumns: ["user_id"]
+            referencedRelation: "tanks_with_latest_dip"
+            referencedColumns: ["id"]
           },
         ]
       }
       fuel_tanks: {
         Row: {
-          id: string
-          created_at: string
-          updated_at: string
-          location: string
-          depot_id: string
-          group_id: string
-          product_type: 'ADF' | 'ULP' | 'Premium' | 'Diesel'
+          created_at: string | null
           current_level: number
-          capacity: number
-          min_level: number
-          safe_level: number
-          last_dip_date: string | null
-          last_dip_by: string | null
-          rolling_avg: number | null
           days_to_min_level: number | null
+          group_id: string
+          id: string
+          last_dip_by: string | null
+          last_dip_date: string | null
+          location: string
+          min_level: number | null
+          product_type: Database["public"]["Enums"]["product_type"]
+          rolling_avg: number | null
+          safe_level: number
+          updated_at: string | null
         }
-        Insert: Omit<Database['public']['Tables']['fuel_tanks']['Row'], 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Database['public']['Tables']['fuel_tanks']['Insert']>
+        Insert: {
+          created_at?: string | null
+          current_level?: number
+          days_to_min_level?: number | null
+          group_id: string
+          id?: string
+          last_dip_by?: string | null
+          last_dip_date?: string | null
+          location: string
+          min_level?: number | null
+          product_type: Database["public"]["Enums"]["product_type"]
+          rolling_avg?: number | null
+          safe_level: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_level?: number
+          days_to_min_level?: number | null
+          group_id?: string
+          id?: string
+          last_dip_by?: string | null
+          last_dip_date?: string | null
+          location?: string
+          min_level?: number | null
+          product_type?: Database["public"]["Enums"]["product_type"]
+          rolling_avg?: number | null
+          safe_level?: number
+          updated_at?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "fuel_tanks_depot_id_fkey"
-            columns: ["depot_id"]
+            foreignKeyName: "fuel_tanks_group_id_fkey"
+            columns: ["group_id"]
             isOneToOne: false
-            referencedRelation: "depots"
+            referencedRelation: "tank_groups"
             referencedColumns: ["id"]
-          }
+          },
         ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       tank_alerts: {
         Row: {
+          acknowledged_at: string | null
+          created_at: string | null
           id: string
-          tank_id: string
           message: string
-          type: 'critical' | 'warning' | 'info'
-          acknowledged: boolean
-          snooze_until: string | null
-          created_at: string
-          updated_at: string
+          snoozed_until: string | null
+          tank_id: string
+          type: Database["public"]["Enums"]["alert_type"]
+          updated_at: string | null
         }
-        Insert: Omit<Database['public']['Tables']['tank_alerts']['Row'], 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Database['public']['Tables']['tank_alerts']['Insert']>
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string | null
+          id?: string
+          message: string
+          snoozed_until?: string | null
+          tank_id: string
+          type: Database["public"]["Enums"]["alert_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string
+          snoozed_until?: string | null
+          tank_id?: string
+          type?: Database["public"]["Enums"]["alert_type"]
+          updated_at?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: "tank_alerts_tank_id_fkey"
@@ -116,232 +172,96 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fuel_tanks"
             referencedColumns: ["id"]
-          }
-        ]
-      }
-      swan_burn_rates: {
-        Row: {
-          rolling_avg: number | null
-          tank_id: string
-        }
-        Insert: {
-          rolling_avg?: number | null
-          tank_id: string
-        }
-        Update: {
-          rolling_avg?: number | null
-          tank_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "swan_burn_rates_tank_id_fkey"
-            columns: ["tank_id"]
-            isOneToOne: true
-            referencedRelation: "swan_dips_latest"
-            referencedColumns: ["tank_id"]
           },
           {
-            foreignKeyName: "swan_burn_rates_tank_id_fkey"
+            foreignKeyName: "tank_alerts_tank_id_fkey"
             columns: ["tank_id"]
-            isOneToOne: true
-            referencedRelation: "swan_tanks"
+            isOneToOne: false
+            referencedRelation: "tanks_with_latest_dip"
             referencedColumns: ["id"]
           },
         ]
       }
-      swan_dips: {
+      tank_groups: {
         Row: {
-          created_at: string | null
-          dip_litres: number | null
+          description: string | null
           id: string
-          refill_detected: boolean | null
-          tank_id: string
-          user_id: string | null
+          name: string
         }
         Insert: {
-          created_at?: string | null
-          dip_litres?: number | null
-          id?: string
-          refill_detected?: boolean | null
-          tank_id: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          dip_litres?: number | null
-          id?: string
-          refill_detected?: boolean | null
-          tank_id?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "swan_dips_tank_id_fkey"
-            columns: ["tank_id"]
-            isOneToOne: false
-            referencedRelation: "swan_dips_latest"
-            referencedColumns: ["tank_id"]
-          },
-          {
-            foreignKeyName: "swan_dips_tank_id_fkey"
-            columns: ["tank_id"]
-            isOneToOne: false
-            referencedRelation: "swan_tanks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      swan_refills: {
-        Row: {
+          description?: string | null
           id: string
-          recorded_by: string | null
-          refill_litres: number | null
-          refill_time: string | null
-          tank_id: string | null
-        }
-        Insert: {
-          id?: string
-          recorded_by?: string | null
-          refill_litres?: number | null
-          refill_time?: string | null
-          tank_id?: string | null
+          name: string
         }
         Update: {
+          description?: string | null
           id?: string
-          recorded_by?: string | null
-          refill_litres?: number | null
-          refill_time?: string | null
-          tank_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "swan_refills_tank_id_fkey"
-            columns: ["tank_id"]
-            isOneToOne: false
-            referencedRelation: "swan_dips_latest"
-            referencedColumns: ["tank_id"]
-          },
-          {
-            foreignKeyName: "swan_refills_tank_id_fkey"
-            columns: ["tank_id"]
-            isOneToOne: false
-            referencedRelation: "swan_tanks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      swan_tanks: {
-        Row: {
-          depot_name: string | null
-          id: string
-          location: string
-          min_level: number | null
-          safe_fill: number | null
-        }
-        Insert: {
-          depot_name?: string | null
-          id?: string
-          location: string
-          min_level?: number | null
-          safe_fill?: number | null
-        }
-        Update: {
-          depot_name?: string | null
-          id?: string
-          location?: string
-          min_level?: number | null
-          safe_fill?: number | null
+          name?: string
         }
         Relationships: []
       }
       user_roles: {
         Row: {
-          depot_id: string | null
-          role: string
+          created_at: string | null
+          group_id: string | null
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
           user_id: string
         }
         Insert: {
-          depot_id?: string | null
-          role: string
-          user_id?: string
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
-          depot_id?: string | null
-          role?: string
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_depot_id_fkey"
-            columns: ["depot_id"]
+            foreignKeyName: "user_roles_group_id_fkey"
+            columns: ["group_id"]
             isOneToOne: false
-            referencedRelation: "depots"
+            referencedRelation: "tank_groups"
             referencedColumns: ["id"]
           },
         ]
       }
     }
     Views: {
-      swan_dips_latest: {
+      tanks_with_latest_dip: {
         Row: {
-          days_to_min: number | null
-          last_dip_time: string | null
-          last_refill_time: string | null
-          latest_dip: number | null
+          created_at: string | null
+          current_level: number | null
+          days_to_min_level: number | null
+          group_id: string | null
+          group_name: string | null
+          id: string | null
+          last_dip_by: string | null
+          last_dip_date: string | null
+          latest_dip_date: string | null
+          latest_dip_value: number | null
           location: string | null
           min_level: number | null
-          percent_full: number | null
-          safe_fill: number | null
-          tank_id: string | null
-        }
-        Relationships: []
-      }
-      swan_recent_refills: {
-        Row: {
-          last_refill_time: string | null
-          refill_litres: number | null
-          tank_id: string | null
+          product_type: Database["public"]["Enums"]["product_type"] | null
+          rolling_avg: number | null
+          safe_level: number | null
+          updated_at: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "swan_dips_tank_id_fkey"
-            columns: ["tank_id"]
+            foreignKeyName: "fuel_tanks_group_id_fkey"
+            columns: ["group_id"]
             isOneToOne: false
-            referencedRelation: "swan_dips_latest"
-            referencedColumns: ["tank_id"]
-          },
-          {
-            foreignKeyName: "swan_dips_tank_id_fkey"
-            columns: ["tank_id"]
-            isOneToOne: false
-            referencedRelation: "swan_tanks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      swan_rising_after_refill: {
-        Row: {
-          dip_litres: number | null
-          dip_time: string | null
-          id: string | null
-          last_refill_time: string | null
-          location: string | null
-          previous_dip: number | null
-          tank_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "swan_dips_tank_id_fkey"
-            columns: ["tank_id"]
-            isOneToOne: false
-            referencedRelation: "swan_dips_latest"
-            referencedColumns: ["tank_id"]
-          },
-          {
-            foreignKeyName: "swan_dips_tank_id_fkey"
-            columns: ["tank_id"]
-            isOneToOne: false
-            referencedRelation: "swan_tanks"
+            referencedRelation: "tank_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -354,7 +274,9 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      alert_type: "low" | "critical" | "offline"
+      product_type: "ADF" | "ULP" | "ULP98" | "Diesel"
+      user_role: "admin" | "swan_transit" | "gsfs_depots" | "kalgoorlie"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -469,6 +391,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      alert_type: ["low", "critical", "offline"],
+      product_type: ["ADF", "ULP", "ULP98", "Diesel"],
+      user_role: ["admin", "swan_transit", "gsfs_depots", "kalgoorlie"],
+    },
   },
 } as const

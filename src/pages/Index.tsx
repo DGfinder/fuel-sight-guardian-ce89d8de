@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
-import { Bell, Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Bell, Plus, Droplets, Users, AlertTriangle } from "lucide-react";
 import { AddDipModal } from '@/components/AddDipModal';
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
@@ -12,6 +13,7 @@ import { KPICards } from '@/components/KPICards';
 import { GroupSnapshotCards } from '@/components/GroupSnapshotCards';
 import { FuelTable } from '@/components/FuelTable';
 import { useAlerts } from "@/hooks/useAlerts";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { Tank } from '@/types/fuel';
 
 export default function Index() {
@@ -58,7 +60,7 @@ export default function Index() {
 
   const handleTankClick = (tank: Tank) => {
     setSelectedTankId(tank.id);
-    setIsAddDipOpen(true);
+    setTankDetailsOpen(true);
   };
 
   const handleCardClick = (filter: string) => {
@@ -69,33 +71,57 @@ export default function Index() {
     setSelectedGroup(groupId === selectedGroup ? null : groupId);
   };
 
-  if (tanksError) {
+  if (tanksLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-2">Error Loading Data</h2>
-          <p className="text-gray-600">{tanksError.message}</p>
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <LoadingSpinner size={32} text="Loading fuel data..." />
         </div>
       </div>
     );
   }
 
+  if (tanksError) {
+    return (
+      <div className="container mx-auto py-6">
+        <Card className="border-red-200">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
+            <h2 className="text-xl font-bold text-red-600 mb-2">Error Loading Data</h2>
+            <p className="text-gray-600 text-center">{tanksError.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const criticalAlerts = alerts?.filter(alert => !alert.acknowledged_at && !alert.snoozed_until) || [];
+
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Fuel Management</h1>
-        <div className="flex gap-2">
+    <div className="container mx-auto py-6 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Fuel Management</h1>
+          <p className="text-gray-600 mt-1">
+            Monitor and manage fuel levels across your depot network
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            size="icon"
             onClick={() => setIsAlertsOpen(true)}
             className="relative"
           >
-            <Bell className="h-4 w-4" />
-            {alerts && alerts.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
-                {alerts.length}
-              </span>
+            <Bell className="h-4 w-4 mr-2" />
+            Alerts
+            {criticalAlerts.length > 0 && (
+              <Badge 
+                variant="destructive" 
+                className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
+              >
+                {criticalAlerts.length}
+              </Badge>
             )}
           </Button>
           <Button onClick={() => setIsAddDipOpen(true)}>
@@ -105,23 +131,64 @@ export default function Index() {
         </div>
       </div>
 
-      <KPICards
-        tanks={tanks ?? []}
-        onCardClick={handleCardClick}
-        selectedFilter={selectedFilter}
-      />
+      {/* Welcome Message */}
+      {user && (
+        <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+          <CardContent className="flex items-center gap-3 py-4">
+            <div className="p-2 bg-primary/10 rounded-full">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium">Welcome back, {user.email}</p>
+              <p className="text-sm text-muted-foreground">
+                {tanks?.length || 0} tanks under monitoring
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      <GroupSnapshotCards
-        groups={groupSnapshots}
-        selectedGroup={selectedGroup}
-        onGroupClick={handleGroupClick}
-      />
+      {/* KPI Cards */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Overview</h2>
+        <KPICards
+          tanks={tanks ?? []}
+          onCardClick={handleCardClick}
+          selectedFilter={selectedFilter}
+        />
+      </div>
 
-      <FuelTable
-        tanks={filteredTanks}
-        onTankClick={handleTankClick}
-      />
+      {/* Group Snapshots */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Depot Groups</h2>
+        <GroupSnapshotCards
+          groups={groupSnapshots}
+          selectedGroup={selectedGroup}
+          onGroupClick={handleGroupClick}
+        />
+      </div>
 
+      {/* Fuel Table */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Tank Status</h2>
+          {selectedGroup && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setSelectedGroup(null)}
+            >
+              Show All Groups
+            </Button>
+          )}
+        </div>
+        <FuelTable
+          tanks={filteredTanks}
+          onTankClick={handleTankClick}
+        />
+      </div>
+
+      {/* Modals */}
       <AddDipModal
         open={isAddDipOpen}
         onOpenChange={setIsAddDipOpen}
