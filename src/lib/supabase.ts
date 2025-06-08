@@ -18,7 +18,12 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 5
+    }
+  },
+  global: {
+    headers: {
+      'x-application-name': 'fuel-sight-guardian'
     }
   }
 });

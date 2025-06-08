@@ -1,12 +1,11 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, TrendingUp, Clock, Star, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tank } from '@/types/fuel';
-import { useAuth } from '@/hooks/useAuth';
 import { useFavourites } from '@/hooks/useFavourites';
+import { supabase } from '@/lib/supabase';
 
 interface FuelInsightsPanelProps {
   tanks: Tank[];
@@ -14,9 +13,23 @@ interface FuelInsightsPanelProps {
 }
 
 export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPanelProps) {
-  const { user } = useAuth();
+  const [user, setUser] = useState(null);
   const { getFavourites } = useFavourites(user?.id || '');
   const favourites = getFavourites();
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   const needsActionCount = tanks.filter(
     t => (t.days_to_min_level !== null && t.days_to_min_level <= 2) || t.current_level_percent <= 20

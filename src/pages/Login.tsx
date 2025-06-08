@@ -1,147 +1,105 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { supabase } from '@/lib/supabase';
+import logo from '@/assets/logo.png';
 
-export function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [resetting, setResetting] = useState(false);
+// Custom theme matching the design spec
+const customTheme = {
+  default: {
+    colors: {
+      brand: '#008457',
+      brandAccent: '#006f45',
+      brandButtonText: '#ffffff',
+      inputBorder: '#E9E9E9',
+      inputText: '#161616',
+    },
+  },
+};
+
+export default function Login() {
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
-      });
-
-      navigate("/", { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to login");
-      toast({
-        variant: "destructive",
-        title: "Login failed",
-        description: "Please check your credentials and try again.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePasswordReset = async () => {
-    if (!email) {
-      toast({
-        variant: "destructive",
-        title: "Enter your email",
-        description: "Please enter your email address to reset your password.",
-      });
-      return;
-    }
-    setResetting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Reset failed",
-        description: error.message,
-      });
-    } else {
-      toast({
-        title: "Password reset sent",
-        description: "Check your email for a reset link.",
-      });
-    }
-    setResetting(false);
-  };
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        navigate('/', { replace: true });
+      }
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Fuel Sight Guardian</CardTitle>
-          <CardDescription>
-            Enter your credentials to access the dashboard
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleLogin}>
-          <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
+    <div className="relative flex min-h-screen items-center justify-center bg-[#fdfdfd] overflow-hidden">
+      {/* Main Content */}
+      <div className="w-full flex items-center justify-center px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="relative w-[450px] h-[482px] flex flex-col items-center justify-center mx-auto" style={{maxWidth:'100%'}}>
+          {/* Top Left Shapes (visible and overlapping card) */}
+          <div className="hidden md:block" style={{position:'absolute', width:'150px', height:'150px', left:'-60px', top:'-40px', border:'1px solid rgba(0,132,87,0.16)', borderRadius:'20px', boxSizing:'border-box', zIndex:1}}></div>
+          <div className="hidden md:block" style={{position:'absolute', width:'200px', height:'200px', left:'-90px', top:'20px', background:'rgba(0,132,87,0.08)', borderRadius:'10px', zIndex:0}}></div>
+          {/* Bottom Right Shapes (visible and overlapping card) */}
+          <div className="hidden md:block" style={{position:'absolute', width:'180px', height:'180px', right:'-60px', bottom:'-40px', border:'2px dashed rgba(0,132,87,0.16)', borderRadius:'20px', boxSizing:'border-box', zIndex:1}}></div>
+          <div className="hidden md:block" style={{position:'absolute', width:'135px', height:'135px', right:'-30px', bottom:'-20px', background:'rgba(0,132,87,0.08)', borderRadius:'10px', zIndex:0}}></div>
+
+          {/* Card Content */}
+          <div className="w-full h-full bg-white shadow-md rounded-[6px] flex flex-col items-center p-8 gap-6 z-10">
+            {/* Logo and Title Section */}
+            <div className="text-center space-y-3 w-full">
+              <img 
+                src={logo} 
+                alt="Great Southern Fuels Logo" 
+                className="w-[186px] h-16 mx-auto"
               />
+              <h1 className="text-[22px] font-bold text-gray-900 font-raleway leading-[30px]" style={{fontFamily: 'Raleway, sans-serif', textShadow: '0px 4px 4px rgba(0,0,0,0.25)'}}>Fuel Sight Guardian</h1>
+              <p className="text-[15px] text-gray-600 font-montserrat leading-[22px]" style={{fontFamily: 'Montserrat, sans-serif'}}>Real-time Fuel Monitoring by Great Southern Fuels</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-              />
+
+            {/* Auth UI Component */}
+            <Auth
+              supabaseClient={supabase}
+              appearance={{
+                theme: customTheme,
+                className: {
+                  container: 'w-full',
+                  button: 'w-full bg-[#008457] text-white font-bold tracking-wide rounded-md hover:bg-[#006f45] transition-colors duration-200 font-raleway',
+                  input: 'w-full border border-[#E9E9E9] rounded-md px-4 py-2 text-sm text-[#161616] focus:border-[#008457] focus:ring-1 focus:ring-[#008457] font-montserrat',
+                  label: 'text-sm font-medium text-[#161616] font-montserrat',
+                  anchor: 'text-sm text-[#008457] hover:underline font-raleway',
+                  loader: 'text-sm font-montserrat',
+                  message: 'text-sm text-red-500 font-montserrat',
+                },
+              }}
+              localization={{
+                variables: {
+                  sign_in: {
+                    email_label: 'Email address',
+                    password_label: 'Your password',
+                    button_label: 'Sign in',
+                    link_text: "New on our platform? Create an account",
+                    email_input_placeholder: 'john.doe@greatsouthernfuels.com.au',
+                  },
+                  forgotten_password: {
+                    link_text: 'Forgot your password?',
+                  },
+                },
+              }}
+              providers={[]}
+              redirectTo={window.location.origin}
+              view="sign_in"
+              showLinks={true}
+            />
+
+            {/* Footer */}
+            <div className="text-center text-xs text-gray-500 mt-4 font-raleway w-full" style={{fontFamily: 'Raleway, sans-serif'}}>
+              <p>© {new Date().getFullYear()} Great Southern Fuels</p>
+              <p className="mt-1">Enterprise-grade fuel monitoring solution</p>
             </div>
-          </CardContent>
-          <CardFooter>
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={loading}
-            >
-              {loading ? (
-                <LoadingSpinner size={20} text="Signing in..." />
-              ) : (
-                "Sign in"
-              )}
-            </Button>
-          </CardFooter>
-        </form>
-        <div className="px-6 pb-4 text-center">
-          <button
-            type="button"
-            className="text-sm text-blue-600 hover:underline disabled:opacity-50"
-            onClick={handlePasswordReset}
-            disabled={loading || resetting}
-          >
-            {resetting ? "Sending reset..." : "Forgot password?"}
-          </button>
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 } 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,6 @@ import { Bell, AlertTriangle, Filter, PlusCircle } from "lucide-react";
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { useTanks } from '@/hooks/useTanks';
-import { useAuth } from '@/hooks/useAuth';
 import { KPICards } from '@/components/KPICards';
 import { GroupSnapshotCards } from '@/components/GroupSnapshotCards';
 import { EnhancedFuelTable } from '@/components/EnhancedFuelTable';
@@ -17,13 +16,28 @@ import type { Tank } from '@/types/fuel';
 import { StickyMobileNav } from '@/components/StickyMobileNav';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { FuelDipForm } from '@/components/fuel-dip/FuelDipForm';
+import { supabase } from '@/lib/supabase';
 
 interface IndexProps {
   selectedGroup?: string | null;
 }
 
 export default function Index({ selectedGroup }: IndexProps) {
-  const { user } = useAuth();
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
+
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
@@ -39,7 +53,6 @@ export default function Index({ selectedGroup }: IndexProps) {
   // Filter tanks based on selected group
   const filteredTanks = tanks?.filter(tank => {
     if (!selectedGroup) return true;
-    
     // Map group IDs to group names for filtering
     const groupMapping: Record<string, string> = {
       'swan-transit': 'Swan Transit',
@@ -48,7 +61,6 @@ export default function Index({ selectedGroup }: IndexProps) {
       'gsf-depots': 'GSF Depots',
       'bgc': 'BGC'
     };
-    
     const groupName = groupMapping[selectedGroup];
     return tank.tank_groups?.name === groupName || tank.group_id === selectedGroup;
   }) ?? [];

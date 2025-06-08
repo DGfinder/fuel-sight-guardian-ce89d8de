@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import {
   Command,
@@ -45,7 +44,14 @@ type DipReading = { value: number; created_at: string };
 
 const LOCALSTORAGE_KEY = 'fuel-dip-form-last-used';
 
-export function FuelDipForm() {
+interface FuelDipFormProps {
+  initialDepot?: string;
+  initialSubgroup?: string;
+  initialTank?: string;
+  readOnly?: boolean;
+}
+
+export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOnly = false }: FuelDipFormProps) {
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<TankGroup[]>([]);
   const [tanks, setTanks] = useState<Tank[]>([]);
@@ -54,7 +60,6 @@ export function FuelDipForm() {
   const [groupLoading, setGroupLoading] = useState(false);
   const [recentDips, setRecentDips] = useState<DipReading[]>([]);
   const [submitAndAddAnother, setSubmitAndAddAnother] = useState(false);
-  const { user } = useAuth();
   const { toast } = useToast();
   const {
     register,
@@ -72,156 +77,242 @@ export function FuelDipForm() {
   });
   const [tankDropdownOpen, setTankDropdownOpen] = useState(false);
   const [tankSearch, setTankSearch] = useState('');
+  const [user, setUser] = useState(null);
 
-  // Persist last-used values
+  // Persist last-used values (unless initial values are provided)
   useEffect(() => {
-    const last = localStorage.getItem(LOCALSTORAGE_KEY);
-    if (last) {
-      const { group, subgroup, tank } = JSON.parse(last);
-      if (group) setValue('group', group);
-      if (subgroup) setValue('subgroup', subgroup);
-      if (tank) setValue('tank', tank);
-    }
-  }, [setValue]);
-  useEffect(() => {
-    const group = watch('group');
-    const subgroup = watch('subgroup');
-    const tank = watch('tank');
-    localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({ group, subgroup, tank }));
-  }, [watch('group'), watch('subgroup'), watch('tank')]);
-
-  // Fetch groups
-  useEffect(() => {
-    setGroupLoading(true);
-    supabase.from('tank_groups').select('id, name').then(({ data }) => {
-      if (data) setGroups(data);
-      setGroupLoading(false);
-    });
-  }, []);
-
-  // Fetch tanks
-  useEffect(() => {
-    setTankLoading(true);
-    supabase.from('fuel_tanks').select('id, location, group_id, safe_level, current_level, subgroup').then(({ data, error }) => {
-      if (!error && Array.isArray(data) && data.length > 0 && 'safe_level' in data[0] && 'current_level' in data[0]) {
-        const tanksWithComputed = data.map(t => ({
-          ...t,
-          current_level_percent: t.safe_level ? Math.round((t.current_level / t.safe_level) * 100) : 0,
-        }));
-        setTanks(tanksWithComputed);
-      } else {
-        setTanks([]);
+    if (initialDepot && initialSubgroup && initialTank) {
+      setValue('group', initialDepot);
+      setValue('subgroup', initialSubgroup);
+      setValue('tank', initialTank);
+    } else {
+      const last = localStorage.getItem(LOCALSTORAGE_KEY);
+      if (last) {
+         const { group, subgroup, tank } = JSON.parse(last);
+         if (group) setValue('group', group);
+         if (subgroup) setValue('subgroup', subgroup);
+         if (tank) setValue('tank', tank);
       }
-      setTankLoading(false);
-    });
-  }, []);
+    }
+  }, [setValue, initialDepot, initialSubgroup, initialTank]);
 
-  // Filter tanks by group
+  // Persist (if not in readOnly mode) on change
+  useEffect(() => {
+    if (!readOnly) {
+      const group = watch('group');
+      const subgroup = watch('subgroup');
+      const tank = watch('tank');
+      localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({ group, subgroup, tank }));
+    }
+  }, [watch('group'), watch('subgroup'), watch('tank'), readOnly]);
+
+  // Fetch groups (if not provided, fetch from supabase)
+  useEffect(() => {
+    if (initialDepot) {
+      setGroups([{ id: initialDepot, name: initialDepot }]);
+    } else {
+      setGroupLoading(true);
+      supabase.from('tank_groups').select('id, name').then(({ data }) => {
+         if (data) setGroups(data);
+         setGroupLoading(false);
+      });
+    }
+  }, [initialDepot]);
+
+  // Fetch tanks (if not provided, fetch from supabase)
+  useEffect(() => {
+    if (initialTank) {
+      const tank = tanks.find(t => t.id === initialTank);
+      if (tank) {
+         setTanks([tank]);
+         setFilteredTanks([tank]);
+      } else {
+         setTankLoading(true);
+         supabase.from('fuel_tanks').select('id, location, group_id, safe_level, current_level').then(({ data, error }) => {
+            if (!error && Array.isArray(data)) {
+               const validTanks = data
+                 .filter((t): t is { id: string; location: string; group_id: string; safe_level: number; current_level: number } => 
+                   t != null && 
+                   typeof t === 'object' &&
+                   typeof (t as any).id === 'string' &&
+                   typeof (t as any).location === 'string' &&
+                   typeof (t as any).group_id === 'string' &&
+                   typeof (t as any).safe_level === 'number' &&
+                   typeof (t as any).current_level === 'number'
+                 )
+                 .map(t => ({
+                   id: t.id,
+                   location: t.location,
+                   group_id: t.group_id,
+                   subgroup: null,
+                   safe_level: t.safe_level,
+                   current_level: t.current_level,
+                   current_level_percent: Math.round((t.current_level / t.safe_level) * 100)
+                 }));
+               setTanks(validTanks);
+               if (initialTank) {
+                  const tank = validTanks.find(t => t.id === initialTank);
+                  if (tank) setFilteredTanks([tank]);
+               }
+            } else {
+               setTanks([]);
+            }
+            setTankLoading(false);
+         });
+      }
+    } else {
+      setTankLoading(true);
+      supabase.from('fuel_tanks').select('id, location, group_id, safe_level, current_level').then(({ data, error }) => {
+         if (!error && Array.isArray(data)) {
+            const validTanks = data
+              .filter((t): t is { id: string; location: string; group_id: string; safe_level: number; current_level: number } => 
+                t != null && 
+                typeof t === 'object' &&
+                typeof (t as any).id === 'string' &&
+                typeof (t as any).location === 'string' &&
+                typeof (t as any).group_id === 'string' &&
+                typeof (t as any).safe_level === 'number' &&
+                typeof (t as any).current_level === 'number'
+              )
+              .map(t => ({
+                id: t.id,
+                location: t.location,
+                group_id: t.group_id,
+                subgroup: null,
+                safe_level: t.safe_level,
+                current_level: t.current_level,
+                current_level_percent: Math.round((t.current_level / t.safe_level) * 100)
+              }));
+            setTanks(validTanks);
+         } else {
+            setTanks([]);
+         }
+         setTankLoading(false);
+      });
+    }
+  }, [initialTank, tanks]);
+
+  // Filter tanks by group (unless in readOnly mode)
   const selectedGroup = watch('group');
   const selectedSubgroup = watch('subgroup');
   useEffect(() => {
+    if (readOnly) return;
     if (selectedGroup) {
-      setFilteredTanks(tanks.filter(t => t.group_id === selectedGroup));
-      setValue('subgroup', '');
-      setValue('tank', '');
+       setFilteredTanks(tanks.filter(t => t.group_id === selectedGroup));
+       if (!initialSubgroup) setValue('subgroup', '');
+       if (!initialTank) setValue('tank', '');
     } else {
-      setFilteredTanks([]);
-      setValue('subgroup', '');
-      setValue('tank', '');
+       setFilteredTanks([]);
+       if (!initialSubgroup) setValue('subgroup', '');
+       if (!initialTank) setValue('tank', '');
     }
-  }, [selectedGroup, tanks, setValue]);
+  }, [selectedGroup, tanks, setValue, readOnly, initialSubgroup, initialTank]);
 
-  // Extract unique subgroups from filtered tanks
-  const subgroups = useMemo(() => Array.from(new Set(filteredTanks.map(t => t.subgroup).filter(Boolean))), [filteredTanks]);
+  // Extract unique subgroups from filtered tanks (unless in readOnly mode)
+  const subgroups = useMemo(() => {
+    if (readOnly) {
+      return initialSubgroup ? [initialSubgroup] : [];
+    }
+    return Array.from(new Set(filteredTanks.map(t => t.subgroup).filter(Boolean)));
+  }, [filteredTanks, readOnly, initialSubgroup]);
 
-  // Tanks to show in the Tank dropdown
+  // Tanks to show in dropdown (unless in readOnly mode)
   const tanksForDropdown = useMemo(() => {
-    if (subgroups.length > 0) {
-      // If there are subgroups, only show tanks if a subgroup is selected
-      if (selectedSubgroup) {
-        return filteredTanks.filter(t => t.subgroup === selectedSubgroup);
-      }
-      // No subgroup selected: show no tanks
-      return [];
+    if (readOnly) {
+       if (initialTank) {
+         const tank = tanks.find(t => t.id === initialTank);
+         return tank ? [tank] : [];
+       }
+       return [];
     }
-    // No subgroups: show all tanks for the group
+    if (subgroups.length > 0) {
+       if (selectedSubgroup) {
+         return filteredTanks.filter(t => t.subgroup === selectedSubgroup);
+       }
+       return [];
+    }
     return filteredTanks;
-  }, [filteredTanks, subgroups, selectedSubgroup]);
+  }, [filteredTanks, subgroups, selectedSubgroup, readOnly, initialTank, tanks]);
 
-  // Fetch last 7 dips for selected tank
+  // Fetch last 7 dips for selected tank (if not in readOnly mode)
   const selectedTankId = watch('tank');
   const selectedTank = tanks.find(t => t.id === selectedTankId);
   useEffect(() => {
+    if (readOnly) return;
     if (selectedTankId) {
-      supabase.from('dip_readings')
-        .select('value, created_at')
-        .eq('tank_id', selectedTankId)
-        .order('created_at', { ascending: false })
-        .limit(7)
-        .then(({ data }) => {
-          setRecentDips(data || []);
-        });
+       supabase.from('dip_readings').select('value, created_at').eq('tank_id', selectedTankId).order('created_at', { ascending: false }).limit(7).then(({ data }) => {
+         setRecentDips(data || []);
+       });
     } else {
-      setRecentDips([]);
+       setRecentDips([]);
     }
-  }, [selectedTankId]);
+  }, [selectedTankId, readOnly]);
 
-  // Overfill warning
+  // Overfill warning (if not in readOnly mode)
   const dipValue = watch('dip');
-  const overfill = selectedTank && dipValue && dipValue > selectedTank.safe_level;
+  const overfill = (readOnly ? false : (selectedTank && dipValue && dipValue > selectedTank.safe_level));
 
-  // Live ullage preview
-  const ullage = selectedTank ? Math.max(0, selectedTank.safe_level - (dipValue || 0)) : null;
-  const percentFull = selectedTank && dipValue ? Math.round((dipValue / selectedTank.safe_level) * 100) : null;
+  // Live ullage preview (if not in readOnly mode)
+  const ullage = (readOnly ? null : (selectedTank ? Math.max(0, selectedTank.safe_level - (dipValue || 0)) : null));
+  const percentFull = (readOnly ? null : (selectedTank && dipValue ? Math.round((dipValue / selectedTank.safe_level) * 100) : null));
 
-  // Submission guard
-  const canSubmit = isValid && selectedGroup && (!subgroups.length || selectedSubgroup) && selectedTankId && dipValue > 0;
+  // Submission guard (if not in readOnly mode)
+  const canSubmit = (readOnly ? (!!initialTank && dipValue > 0) : (isValid && selectedGroup && (!subgroups.length || selectedSubgroup) && selectedTankId && dipValue > 0));
 
-  // Handle submit
+  // Handle submit (if not in readOnly mode)
   const onSubmit = async (data: FormData) => {
+    if (readOnly) return;
     setLoading(true);
     const tank = tanks.find(t => t.id === data.tank);
-    const { error } = await supabase.from('dip_readings').insert({
-      tank_id: data.tank,
-      value: data.dip,
-      created_at: data.date,
-      recorded_by: user?.email || 'unknown',
-      notes: data.notes || null,
-    });
+    const { error } = await supabase.from('dip_readings').insert({ tank_id: data.tank, value: data.dip, created_at: data.date, recorded_by: user?.email || 'unknown', notes: data.notes || null });
     setLoading(false);
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Success', description: `Dip for ${tank?.location || 'tank'} submitted!`, variant: 'default' });
-      if (submitAndAddAnother) {
-        reset({ group: data.group, subgroup: data.subgroup, tank: data.tank, date: new Date().toISOString().slice(0, 10), dip: undefined, notes: '' });
-      } else {
-        reset();
-      }
+       toast({ title: 'Success', description: `Dip for ${tank?.location || 'tank'} submitted!`, variant: 'default' });
+       if (submitAndAddAnother) {
+         reset({ group: data.group, subgroup: data.subgroup, tank: data.tank, date: new Date().toISOString().slice(0, 10), dip: undefined, notes: '' });
+       } else {
+         reset();
+       }
     }
   };
 
-  // 1. Depot Group Logic
-  // Remove default selection of Kalgoorlie. Auto-select group if user has access to only one group.
-  const userGroups = groups; // Replace with user-specific group access if available
+  // (Optional) Auto-select group if user has access to only one group (unless in readOnly mode)
+  const userGroups = groups; // (Replace with user-specific group access if available)
   useEffect(() => {
+    if (readOnly) return;
     if (userGroups.length === 1) {
-      setValue('group', userGroups[0].id);
+       setValue('group', userGroups[0].id);
     }
-  }, [userGroups, setValue]);
+  }, [userGroups, setValue, readOnly]);
 
-  // 2. Conditional Subgroup & Tank Selection
-  const showSubgroup = selectedGroup && subgroups.length > 1;
+  // (Optional) Conditional Subgroup & Tank Selection (unless in readOnly mode)
+  const showSubgroup = (readOnly ? (!!initialSubgroup) : (selectedGroup && subgroups.length > 1));
 
-  // 3. Fuel Insights Card (Post-Dip)
-  const showFuelInsight = selectedGroup && selectedTank && dipValue > 0 && !isNaN(dipValue);
-  const minLevel = selectedTank?.min_level ?? null;
+  // (Optional) Fuel Insights Card (Post-Dip) (unless in readOnly mode)
+  const showFuelInsight = (readOnly ? false : (selectedGroup && selectedTank && dipValue > 0 && !isNaN(dipValue)));
+  const minLevel = (readOnly ? null : (selectedTank?.min_level ?? null));
   let badge = null;
   if (minLevel !== null && dipValue > 0) {
     if (dipValue > minLevel) badge = <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-semibold ml-2">✅ Above Min Level</span>;
     else if (dipValue === minLevel) badge = <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-semibold ml-2">⚠️ Near Min Level</span>;
     else badge = <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-semibold ml-2">🔴 Below Min Level</span>;
   }
+
+  // (Optional) Fetch user session (if not in readOnly mode)
+  useEffect(() => {
+    if (readOnly) return;
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => { listener?.subscription.unsubscribe(); };
+  }, [readOnly]);
 
   return (
     <form
@@ -240,6 +331,7 @@ export function FuelDipForm() {
           {...register('group', { required: true })}
           value={selectedGroup || ''}
           onChange={e => setValue('group', e.target.value)}
+          disabled={readOnly}
         >
           <option value="">Select depot group...</option>
           {groups.map(g => (
@@ -255,10 +347,10 @@ export function FuelDipForm() {
           <label htmlFor="subgroup" className="block text-sm font-medium mb-1">Select Subgroup</label>
           {subgroups.length > 10 ? (
             <Command>
-              <CommandInput placeholder="Search subgroups..." />
+              <CommandInput placeholder="Search subgroups..." disabled={readOnly} />
               <CommandList>
                 {subgroups.map(sg => (
-                  <CommandItem key={sg} onSelect={() => setValue('subgroup', sg)}>
+                  <CommandItem key={sg} onSelect={() => setValue('subgroup', sg)} disabled={readOnly}>
                     {sg}
                   </CommandItem>
                 ))}
@@ -273,6 +365,7 @@ export function FuelDipForm() {
               {...register('subgroup')}
               value={selectedSubgroup || ''}
               onChange={e => setValue('subgroup', e.target.value)}
+              disabled={readOnly}
             >
               <option value="">Select subgroup...</option>
               {subgroups.map(sg => (
@@ -293,10 +386,11 @@ export function FuelDipForm() {
               value={selectedTank ? selectedTank.location : tankSearch}
               onValueChange={setTankSearch}
               aria-label="Tank"
+              disabled={readOnly}
             />
             <CommandList>
               {tanksForDropdown.map(t => (
-                <CommandItem key={t.id} onSelect={() => { setValue('tank', t.id); setTankSearch(''); }}>
+                <CommandItem key={t.id} onSelect={() => { setValue('tank', t.id); setTankSearch(''); }} disabled={readOnly}>
                   <span className="flex flex-col">
                     <span>{t.location}</span>
                     <span className="text-xs text-muted-foreground">Safe: {t.safe_level.toLocaleString()} L</span>
@@ -314,6 +408,7 @@ export function FuelDipForm() {
             {...register('tank', { required: true })}
             value={selectedTankId || ''}
             onChange={e => setValue('tank', e.target.value)}
+            disabled={readOnly}
           >
             <option value="">Select tank...</option>
             {tanksForDropdown.map(t => (
@@ -348,7 +443,7 @@ export function FuelDipForm() {
           min={0}
           step={1}
           aria-label="Dip Reading (litres)"
-          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          className="w-full border rounded-md shadow-sm px 3 py-2 focus:ring focus:ring-primary focus:border-primary"
           {...register('dip', { required: true, valueAsNumber: true })}
         />
         {errors.dip && <span className="text-xs text-red-500">{errors.dip.message}</span>}
@@ -363,13 +458,13 @@ export function FuelDipForm() {
         <textarea
           id="notes"
           aria-label="Notes"
-          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          className="w-full border rounded-md shadow-sm px 3 py-2 focus:ring focus: ring-primary focus: border-primary"
           {...register('notes')}
           rows={2}
         />
       </div>
 
-      {/* Fuel Insights Card (Post-Dip) */}
+      {/* Fuel Insights Card (Post-Dip) (if not in readOnly mode) */}
       {showFuelInsight && (
         <div className="border rounded-md p-3 mt-4 bg-white flex flex-wrap gap-6 items-center justify-between shadow-sm transition-all duration-300 ease-in-out animate-fade-in">
           <div className="flex flex-col items-center">
@@ -394,15 +489,17 @@ export function FuelDipForm() {
         </div>
       )}
 
-      {/* Submit Button */}
-      <Button
-        type="submit"
-        className="w-full bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-md shadow-sm py-2 mt-2 transition-all"
-        disabled={!canSubmit || loading}
-        aria-label="Submit Dip Reading"
-      >
-        {loading ? 'Submitting...' : 'Submit Dip Reading'}
-      </Button>
+      {/* Submit Button (if not in readOnly mode) */}
+      {!readOnly && (
+        <Button
+          type="submit"
+          className="w-full bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-md shadow-sm py-2 mt-2 transition-all"
+          disabled={!canSubmit || loading}
+          aria-label="Submit Dip Reading"
+        >
+          {loading ? 'Submitting...' : 'Submit Dip Reading'}
+        </Button>
+      )}
     </form>
   );
 } 

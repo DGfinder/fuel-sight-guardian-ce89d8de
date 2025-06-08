@@ -1,13 +1,26 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFavourites } from '@/hooks/useFavourites';
-import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Droplets, Star, Clock } from 'lucide-react';
 import { useTanks } from '@/hooks/useTanks';
+import { supabase } from '@/lib/supabase';
 
 export function FavouritesPanel() {
-  const { user } = useAuth();
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
   const userId = user?.id;
   const { getFavourites, getRecentViews } = useFavourites(userId || '');
   const { tanks } = useTanks();

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
@@ -17,9 +17,9 @@ import { Tank } from "@/types/fuel";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useFavourites } from '@/hooks/useFavourites';
-import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLocation } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 
 interface FuelTableProps {
   tanks?: Tank[];
@@ -182,12 +182,29 @@ function needsRefillSoon(tank: Tank) {
 }
 
 export function FuelTable({ tanks = [], onTankClick, defaultOpenGroup = null }: FuelTableProps) {
-  const { user } = useAuth();
-  const userId = user?.id;
-  const { getFavourites, toggleFavourite } = useFavourites(userId || '');
-  const favourites = userId ? getFavourites() : [];
+  const { getFavourites, toggleFavourite } = useFavourites('');
+  const favourites = [];
   const isMobile = useIsMobile();
   const location = useLocation();
+  const [user, setUser] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+      setUserInfo(data.session?.userInfo || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      setUserInfo(session?.userInfo || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
+
   // Nested grouping: group -> subgroup -> tanks
   const grouped = useMemo(() => {
     const result: Record<string, Record<string, Tank[]>> = {};
@@ -263,7 +280,7 @@ export function FuelTable({ tanks = [], onTankClick, defaultOpenGroup = null }: 
                 <Droplets className="h-5 w-5 text-primary" />
                 <span className="font-semibold text-gray-900">{tank.location}</span>
                 <Badge className="ml-2">{tank.current_level_percent}%</Badge>
-                {userId && (
+                {user && (
                   <button
                     type="button"
                     aria-label={favourites.includes(tank.id) ? 'Unfavourite' : 'Favourite'}
@@ -342,7 +359,7 @@ export function FuelTable({ tanks = [], onTankClick, defaultOpenGroup = null }: 
                                 <TableHead onClick={() => handleSort('current_level')}>Current Level {sortBy === 'current_level' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</TableHead>
                                 <TableHead onClick={() => handleSort('days_to_min_level')}>Days to Min {sortBy === 'days_to_min_level' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</TableHead>
                                 <TableHead onClick={() => handleSort('last_dip_date')}>Last Updated {sortBy === 'last_dip_date' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</TableHead>
-                                {userId && <TableHead className="text-center">Favourite</TableHead>}
+                                {user && <TableHead className="text-center">Favourite</TableHead>}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -417,7 +434,7 @@ export function FuelTable({ tanks = [], onTankClick, defaultOpenGroup = null }: 
                                   <TableCell className="text-right text-xs text-muted-foreground">
                                     {tank.last_dip_date ? format(new Date(tank.last_dip_date), 'MMM d, HH:mm') : 'No data'}
                                   </TableCell>
-                                  {userId && (
+                                  {user && (
                                     <TableCell className="text-center">
                                       <button
                                         type="button"

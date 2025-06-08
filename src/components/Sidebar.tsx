@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { FuelDipForm } from "@/components/fuel-dip/FuelDipForm";
-import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 const NAV_LINKS = [
   {
@@ -61,7 +61,6 @@ export const Sidebar: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [dipModalOpen, setDipModalOpen] = useState(false);
-  const { signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -77,8 +76,8 @@ export const Sidebar: React.FC = () => {
   const handleToggle = () => setOpen((prev) => !prev);
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/login', { replace: true });
+    await supabase.auth.signOut();
+    window.location.href = '/login';
   };
 
   return (

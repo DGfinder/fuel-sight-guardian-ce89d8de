@@ -1,14 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTanks } from '@/hooks/useTanks';
-import { useAuth } from '@/hooks/useAuth';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
 import { FuelTable } from '@/components/FuelTable';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Bell, PlusCircle } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TankDetailsModal } from '@/components/TankDetailsModal';
+import { supabase } from '@/lib/supabase';
 // NOTE: You must install 'react-chartjs-2' and 'chart.js' for the chart to work.
 // import { Line } from 'react-chartjs-2';
 // import { Chart, LineElement, PointElement, LinearScale, CategoryScale } from 'chart.js';
@@ -18,9 +14,23 @@ const SWAN_TRANSIT_GROUP_NAME = 'Swan Transit';
 
 export default function SwanTransitPage() {
   const { tanks, isLoading } = useTanks();
-  const { user } = useAuth();
   const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   // Filter tanks to only Swan Transit
   const swanTanks = (tanks || []).filter(t => t.group_name === SWAN_TRANSIT_GROUP_NAME);
@@ -66,48 +76,19 @@ export default function SwanTransitPage() {
                 tanks={swanTanks}
                 onTankClick={tank => {
                   setSelectedTankId(tank.id);
-                  setModalOpen(true);
+                  setTankDetailsOpen(true);
                 }}
                 defaultOpenGroup="Swan Transit"
               />
             </div>
           </section>
-          {/* Tank Insights Modal */}
-          <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Tank Insights</DialogTitle>
-              </DialogHeader>
-              {selectedTank && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-lg">{selectedTank.location}</span>
-                    <Badge>{selectedTank.product_type}</Badge>
-                  </div>
-                  <div className="h-40">
-                    {/* If chart lib is not installed, show a placeholder */}
-                    {/* <Line data={chartData} options={{ plugins: { legend: { display: false } } }} /> */}
-                    <div className="flex items-center justify-center h-full text-gray-400">[Install chart.js for trend graph]</div>
-                  </div>
-                  <div className="flex flex-col gap-1 text-sm">
-                    <div>Rolling Avg Usage: <span className="font-bold">{selectedTank.rolling_avg ?? 'N/A'} L/day</span></div>
-                    <div>Safe Fill: <span className="font-bold">{selectedTank.safe_level.toLocaleString()} L</span></div>
-                    <div>Current Dip: <span className="font-bold">{selectedTank.current_level.toLocaleString()} L</span></div>
-                    <div>Ullage: <span className="font-bold">{(selectedTank.safe_level - selectedTank.current_level).toLocaleString()} L</span></div>
-                  </div>
-                  {/* Mock active alerts */}
-                  <div className="flex items-center gap-2">
-                    <Bell className="text-red-500" />
-                    <span className="text-red-700 font-medium">No active alerts</span>
-                  </div>
-                  <Button className="w-full bg-[#008457] text-white hover:bg-green-700"
-                    onClick={() => {/* Link to Add Dip with prefill */}}>
-                    <PlusCircle className="w-4 h-4 mr-2 inline" /> Add Dip Reading
-                  </Button>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
+
+          {/* Tank Details Modal */}
+          <TankDetailsModal
+            tank={selectedTank}
+            open={tankDetailsOpen}
+            onOpenChange={setTankDetailsOpen}
+          />
         </div>
       </div>
     </AppLayout>

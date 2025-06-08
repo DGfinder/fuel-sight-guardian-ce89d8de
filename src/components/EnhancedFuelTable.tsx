@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
@@ -16,8 +15,8 @@ import { Tank } from "@/types/fuel";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useFavourites } from '@/hooks/useFavourites';
-import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/lib/supabase';
 
 interface EnhancedFuelTableProps {
   tanks?: Tank[];
@@ -61,16 +60,29 @@ function SortButton({ field, currentSort, onSort, children }: {
 }
 
 export function EnhancedFuelTable({ tanks = [], onTankClick, defaultOpenGroup = null }: EnhancedFuelTableProps) {
-  const { user } = useAuth();
-  const userId = user?.id;
-  const { getFavourites, toggleFavourite } = useFavourites(userId || '');
-  const favourites = userId ? getFavourites() : [];
+  const { getFavourites, toggleFavourite } = useFavourites('');
+  const favourites = [];
   const isMobile = useIsMobile();
   
   const [sortConfig, setSortConfig] = useState<{ field: SortField | null; direction: SortDirection }>({
     field: null,
     direction: 'asc'
   });
+
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   // Group tanks by group name
   const grouped = useMemo(() => {
@@ -148,7 +160,7 @@ export function EnhancedFuelTable({ tanks = [], onTankClick, defaultOpenGroup = 
                 <div className="flex items-center gap-2">
                   <Droplets className="h-5 w-5 text-[#008457]" />
                   <span className="font-semibold text-gray-900">{tank.location}</span>
-                  {userId && (
+                  {user && (
                     <button
                       type="button"
                       onClick={e => { e.stopPropagation(); toggleFavourite(tank.id); }}
@@ -235,138 +247,97 @@ export function EnhancedFuelTable({ tanks = [], onTankClick, defaultOpenGroup = 
               <CollapsibleContent>
                 <CardContent className="pt-0">
                   <div className="w-full overflow-x-auto">
-                    <Table>
+                    <Table className="w-full table-auto">
                       <TableHeader>
-                        <TableRow className="border-b border-gray-200">
-                          <TableHead className="text-left font-semibold text-gray-700">
-                            <SortButton field="location" currentSort={sortConfig} onSort={handleSort}>
-                              Location
-                            </SortButton>
+                        <TableRow>
+                          <TableHead className="px-4 py-2 font-medium text-gray-700 bg-gray-50">
+                            <SortButton field="location" currentSort={sortConfig} onSort={handleSort}>Location</SortButton>
                           </TableHead>
-                          <TableHead className="text-left font-semibold text-gray-700">
-                            <SortButton field="product_type" currentSort={sortConfig} onSort={handleSort}>
-                              Product
-                            </SortButton>
+                          <TableHead className="px-4 py-2 font-medium text-gray-700 bg-gray-50">
+                            <SortButton field="product_type" currentSort={sortConfig} onSort={handleSort}>Product</SortButton>
                           </TableHead>
-                          <TableHead className="text-center font-semibold text-gray-700">Status</TableHead>
-                          <TableHead className="text-right font-semibold text-gray-700">
-                            <SortButton field="current_level" currentSort={sortConfig} onSort={handleSort}>
-                              Current Level
-                            </SortButton>
+                          <TableHead className="px-4 py-2 font-medium text-gray-700 bg-gray-50">Status</TableHead>
+                          <TableHead className="px-4 py-2 font-medium text-gray-700 bg-gray-50 text-right">
+                            <SortButton field="current_level" currentSort={sortConfig} onSort={handleSort}>Current Level</SortButton>
                           </TableHead>
-                          <TableHead className="text-right font-semibold text-gray-700">
-                            <SortButton field="current_level_percent" currentSort={sortConfig} onSort={handleSort}>
-                              % Full
-                            </SortButton>
+                          <TableHead className="px-4 py-2 font-medium text-gray-700 bg-gray-50 text-right">
+                            <SortButton field="current_level_percent" currentSort={sortConfig} onSort={handleSort}>% Full</SortButton>
                           </TableHead>
-                          <TableHead className="text-right font-semibold text-gray-700">
-                            <SortButton field="days_to_min_level" currentSort={sortConfig} onSort={handleSort}>
-                              Days to Min
-                            </SortButton>
+                          <TableHead className="px-4 py-2 font-medium text-gray-700 bg-gray-50 text-right">
+                            <SortButton field="days_to_min_level" currentSort={sortConfig} onSort={handleSort}>Days to Min</SortButton>
                           </TableHead>
-                          <TableHead className="text-right font-semibold text-gray-700">
-                            <SortButton field="last_dip_date" currentSort={sortConfig} onSort={handleSort}>
-                              Last Updated
-                            </SortButton>
+                          <TableHead className="px-4 py-2 font-medium text-gray-700 bg-gray-50 text-right">
+                            <SortButton field="last_dip_date" currentSort={sortConfig} onSort={handleSort}>Last Updated</SortButton>
                           </TableHead>
-                          {userId && <TableHead className="text-center font-semibold text-gray-700">Favourite</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {groupTanks.map((tank) => (
                           <TableRow
                             key={tank.id}
-                            className={cn(
-                              "cursor-pointer transition-all duration-200 border-b border-gray-100",
-                              "hover:bg-gray-50 hover:shadow-sm",
-                              tank.current_level_percent <= 10 && "bg-red-50 hover:bg-red-100",
-                              tank.current_level_percent <= 20 && tank.current_level_percent > 10 && "bg-orange-50 hover:bg-orange-100",
-                              favourites.includes(tank.id) && "ring-2 ring-yellow-400 ring-inset"
-                            )}
+                            className="hover:bg-gray-50 transition-colors cursor-pointer"
                             onClick={() => onTankClick?.(tank)}
                           >
-                            <TableCell className="py-4">
+                            <TableCell className="px-4 py-2 font-normal">
                               <div className="flex items-center gap-2">
-                                <Droplets className="h-4 w-4 text-[#008457]" />
-                                <span className="font-medium text-gray-900 truncate min-w-0">{tank.location}</span>
+                                <Droplets className="h-4 w-4 text-primary" />
+                                <span className="font-medium">{tank.location}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="py-4">
-                              <Badge variant="outline" className="font-mono text-xs">
+                            <TableCell className="px-4 py-2 font-normal">
+                              <Badge variant="outline" className="font-mono">
                                 {tank.product_type}
                               </Badge>
                             </TableCell>
-                            <TableCell className="py-4 text-center">
+                            <TableCell className="px-4 py-2 font-normal">
                               <TankStatusBadge
                                 level={tank.current_level_percent}
                                 daysToMin={tank.days_to_min_level}
                               />
                             </TableCell>
-                            <TableCell className="py-4 text-right">
+                            <TableCell className="px-4 py-2 font-normal text-right">
                               <div className="flex flex-col items-end">
-                                <span className="font-bold text-lg text-gray-900">
+                                <span className="font-bold text-lg">
                                   {tank.current_level.toLocaleString()} L
                                 </span>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                   of {tank.safe_level.toLocaleString()} L
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="py-4 text-right">
-                              <div className="flex flex-col items-end gap-2">
-                                <span className="font-bold text-lg text-gray-900">
+                            <TableCell className="px-4 py-2 font-normal text-right">
+                              <div className="flex flex-col items-end">
+                                <span className="font-bold text-lg">
                                   {tank.current_level_percent}%
                                 </span>
-                                <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="w-16 h-2 bg-gray-200 rounded-full mt-1">
                                   <div 
                                     className={cn(
-                                      "h-full rounded-full transition-all duration-300",
-                                      tank.current_level_percent <= 29 ? "bg-red-500" :
-                                      tank.current_level_percent <= 49 ? "bg-[#FEDF19]" : "bg-[#008457]"
+                                      "h-full rounded-full transition-all",
+                                      tank.current_level_percent <= 10 ? "bg-red-500" :
+                                      tank.current_level_percent <= 20 ? "bg-orange-500" :
+                                      tank.current_level_percent <= 30 ? "bg-yellow-500" : "bg-green-500"
                                     )}
                                     style={{ width: `${Math.max(tank.current_level_percent, 2)}%` }}
                                   />
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="py-4 text-right">
+                            <TableCell className="px-4 py-2 font-normal text-right">
                               {tank.days_to_min_level !== null ? (
-                                <div className="flex flex-col items-end gap-2">
-                                  <span className="font-bold text-lg text-gray-900">
-                                    {tank.days_to_min_level} days
-                                  </span>
-                                  <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div 
-                                      className="h-full rounded-full bg-blue-500" 
-                                      style={{ width: `${Math.min(100, (tank.days_to_min_level / 30) * 100)}%` }} 
-                                    />
+                                <div className="flex flex-col items-end">
+                                  <span className="font-bold text-lg">{tank.days_to_min_level} days</span>
+                                  <div className="w-16 h-2 bg-gray-200 rounded-full mt-1">
+                                    <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(100, (tank.days_to_min_level / 30) * 100)}%` }} />
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-gray-500 font-medium">N/A</span>
+                                <span className="text-muted-foreground">N/A</span>
                               )}
                             </TableCell>
-                            <TableCell className="py-4 text-right text-sm text-gray-600">
+                            <TableCell className="px-4 py-2 font-normal text-right text-xs text-muted-foreground">
                               {tank.last_dip_date ? format(new Date(tank.last_dip_date), 'MMM d, HH:mm') : 'No data'}
                             </TableCell>
-                            {userId && (
-                              <TableCell className="py-4 text-center">
-                                <button
-                                  type="button"
-                                  onClick={e => { e.stopPropagation(); toggleFavourite(tank.id); }}
-                                  className="focus:outline-none p-1 rounded hover:bg-gray-100 transition-colors"
-                                >
-                                  <Star
-                                    className={cn(
-                                      'w-5 h-5',
-                                      favourites.includes(tank.id)
-                                        ? 'text-yellow-400 fill-yellow-400'
-                                        : 'text-gray-300 hover:text-gray-400'
-                                    )}
-                                  />
-                                </button>
-                              </TableCell>
-                            )}
                           </TableRow>
                         ))}
                       </TableBody>

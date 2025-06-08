@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { useTanks } from "@/hooks/useTanks";
-import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface AddDipModalProps {
@@ -22,10 +20,24 @@ export function AddDipModal({ open, onOpenChange }: AddDipModalProps) {
   const [dipValue, setDipValue] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [user, setUser] = useState(null);
   
   const { tanks, isLoading } = useTanks();
-  const { user } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

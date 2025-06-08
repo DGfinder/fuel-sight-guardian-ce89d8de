@@ -2,11 +2,10 @@
 // Responsive, role-based settings page for Fuel Sight Guardian
 // NOTE: This is a prototype. Replace mockUser with real user/role data from auth context or API.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Tables } from '@/types/supabase';
@@ -19,8 +18,22 @@ interface UserRoleRow {
 }
 
 function SettingsPage() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   // Fetch profile (full name, email)
   const { data: profile, isLoading: profileLoading } = useQuery<Tables<'profiles'> | null>({
@@ -52,7 +65,7 @@ function SettingsPage() {
 
   // Editable full name
   const [fullName, setFullName] = useState('');
-  React.useEffect(() => {
+  useEffect(() => {
     if (profile && typeof profile === 'object' && 'full_name' in profile && typeof profile.full_name === 'string') {
       setFullName(profile.full_name);
     } else {

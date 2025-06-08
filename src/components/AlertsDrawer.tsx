@@ -1,6 +1,4 @@
-
-import React, { useState } from 'react';
-import { useAuthContext } from "@/contexts/AuthContext";
+import React, { useState, useEffect } from 'react';
 import { useTanks } from "@/hooks/useTanks";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/types/supabase";
@@ -58,12 +56,26 @@ interface AlertsDrawerProps {
 }
 
 export function AlertsDrawer({ tanks = [], open, onOpenChange }: AlertsDrawerProps) {
-  const { user } = useAuthContext();
   const { isLoading: tanksLoading, error: tanksError } = useTanks();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { alerts, isLoading, acknowledgeAlert, snoozeAlert } = useAlerts();
   const [selectedAlertType, setSelectedAlertType] = useState<string | null>(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   const handleAlertAction = async (alertId: string, action: 'acknowledge' | 'snooze') => {
     try {

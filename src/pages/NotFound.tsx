@@ -3,7 +3,6 @@ import { useEffect } from "react";
 import React from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const SETTINGS_SECTIONS = [
@@ -18,16 +17,12 @@ const SETTINGS_SECTIONS = [
 
 const NotFound = () => {
   const location = useLocation();
-  const { user } = useAuth();
   const isMobile = useIsMobile();
-  const role = user?.role || "depot_staff";
-  const isAdmin = role === "admin";
-  const isScheduler = false;
 
   // Filter sections based on RBAC
   const visibleSections = SETTINGS_SECTIONS.filter(section => {
-    if (section.adminOnly) return isAdmin;
-    if (section.adminOrScheduler) return isAdmin || isScheduler;
+    if (section.adminOnly) return false;
+    if (section.adminOrScheduler) return false;
     return true;
   });
 
@@ -39,7 +34,7 @@ const NotFound = () => {
         <div className="space-y-2">
           <div>Full Name: <span className="font-mono">[Editable]</span></div>
           <div>Email: <span className="font-mono">[Read-only]</span></div>
-          <div>Role: <span className="font-mono">{role}</span></div>
+          <div>Role: <span className="font-mono">[Role]</span></div>
           <div>Depot Access: <span className="font-mono">[List]</span></div>
           <div>[Request depot change button if allowed]</div>
         </div>
@@ -60,8 +55,8 @@ const NotFound = () => {
         <h2 className="font-semibold text-lg mb-2">Notifications</h2>
         <div className="space-y-2">
           <div>Email Alerts: [Toggles]</div>
-          {(isAdmin || isScheduler) && <div>SMS Alerts: [Toggle]</div>}
-          {isAdmin && <div>Webhook/Slack Alerts: [Optional]</div>}
+          <div>SMS Alerts: [Toggle]</div>
+          <div>Webhook/Slack Alerts: [Optional]</div>
         </div>
       </div>
     ),
