@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Menu,
@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { FuelDipForm } from "@/components/fuel-dip/FuelDipForm";
+import { useAuth } from '@/hooks/useAuth';
 
 const NAV_LINKS = [
   {
@@ -57,6 +60,9 @@ export const Sidebar: React.FC = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [dipModalOpen, setDipModalOpen] = useState(false);
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleResize = () => {
@@ -69,6 +75,11 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   const handleToggle = () => setOpen((prev) => !prev);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <>
@@ -152,16 +163,14 @@ export const Sidebar: React.FC = () => {
             <Button
               className="bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-lg py-2 w-full border-2 border-[#FEDF19] shadow"
               size="lg"
-              asChild
+              onClick={() => setDipModalOpen(true)}
             >
-              <Link to="/add-dip">
-                <Plus className="mr-2" size={20} />
-                Add Dip Reading
-              </Link>
+              <Plus className="mr-2" size={20} />
+              Add Dip Reading
             </Button>
             <Button
               variant="outline"
-              className="border-white text-white font-semibold rounded-lg py-2 w-full hover:bg-[#FEDF19] hover:text-[#111111]"
+              className="border-white text-white font-semibold rounded-lg py-2 w-full bg-transparent hover:bg-white/10 hover:text-white transition-colors"
               asChild
             >
               <Link to="/alerts">
@@ -182,6 +191,13 @@ export const Sidebar: React.FC = () => {
             <Settings size={20} />
             <span className="text-sm font-medium">Settings</span>
           </Link>
+          <button
+            onClick={handleLogout}
+            className="ml-4 text-white hover:text-[#FEDF19] text-sm font-medium transition-colors"
+            aria-label="Logout"
+          >
+            Logout
+          </button>
         </div>
       </aside>
 
@@ -193,6 +209,13 @@ export const Sidebar: React.FC = () => {
           aria-label="Close sidebar overlay"
         />
       )}
+
+      {/* Dip Modal */}
+      <Dialog open={dipModalOpen} onOpenChange={setDipModalOpen}>
+        <DialogContent className="max-w-xl">
+          <FuelDipForm />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

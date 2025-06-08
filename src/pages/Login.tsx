@@ -15,6 +15,7 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -47,6 +48,32 @@ export function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Enter your email",
+        description: "Please enter your email address to reset your password.",
+      });
+      return;
+    }
+    setResetting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Reset failed",
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: "Password reset sent",
+        description: "Check your email for a reset link.",
+      });
+    }
+    setResetting(false);
   };
 
   return (
@@ -104,6 +131,16 @@ export function Login() {
             </Button>
           </CardFooter>
         </form>
+        <div className="px-6 pb-4 text-center">
+          <button
+            type="button"
+            className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+            onClick={handlePasswordReset}
+            disabled={loading || resetting}
+          >
+            {resetting ? "Sending reset..." : "Forgot password?"}
+          </button>
+        </div>
       </Card>
     </div>
   );

@@ -12,9 +12,9 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen w-full">
       <Sidebar />
-      <main className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 p-4 ml-0 md:ml-64">
+      <main className="flex-1 w-full min-h-screen overflow-auto bg-gray-100 dark:bg-gray-900 p-4 ml-0 md:ml-64">
         {children}
       </main>
     </div>

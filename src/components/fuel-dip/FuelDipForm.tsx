@@ -1,0 +1,408 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandItem,
+  CommandEmpty,
+  CommandGroup,
+  CommandSeparator,
+} from '@/components/ui/command';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Info } from 'lucide-react';
+
+const schema = z.object({
+  group: z.string().min(1, 'Select a depot group'),
+  subgroup: z.string().optional(),
+  tank: z.string().min(1, 'Select a tank'),
+  date: z.string().min(1, 'Date required'),
+  dip: z.number().positive('Enter a positive number'),
+  notes: z.string().optional(),
+});
+
+type FormData = z.infer<typeof schema>;
+
+type TankGroup = { id: string; name: string };
+type Tank = {
+  id: string;
+  location: string;
+  group_id: string;
+  subgroup: string | null;
+  safe_level: number;
+  current_level: number;
+  current_level_percent: number;
+  min_level?: number;
+};
+
+type DipReading = { value: number; created_at: string };
+
+const LOCALSTORAGE_KEY = 'fuel-dip-form-last-used';
+
+export function FuelDipForm() {
+  const [loading, setLoading] = useState(false);
+  const [groups, setGroups] = useState<TankGroup[]>([]);
+  const [tanks, setTanks] = useState<Tank[]>([]);
+  const [filteredTanks, setFilteredTanks] = useState<Tank[]>([]);
+  const [tankLoading, setTankLoading] = useState(false);
+  const [groupLoading, setGroupLoading] = useState(false);
+  const [recentDips, setRecentDips] = useState<DipReading[]>([]);
+  const [submitAndAddAnother, setSubmitAndAddAnother] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isValid },
+    reset,
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    mode: 'onChange',
+    defaultValues: {
+      date: new Date().toISOString().slice(0, 10),
+    },
+  });
+  const [tankDropdownOpen, setTankDropdownOpen] = useState(false);
+  const [tankSearch, setTankSearch] = useState('');
+
+  // Persist last-used values
+  useEffect(() => {
+    const last = localStorage.getItem(LOCALSTORAGE_KEY);
+    if (last) {
+      const { group, subgroup, tank } = JSON.parse(last);
+      if (group) setValue('group', group);
+      if (subgroup) setValue('subgroup', subgroup);
+      if (tank) setValue('tank', tank);
+    }
+  }, [setValue]);
+  useEffect(() => {
+    const group = watch('group');
+    const subgroup = watch('subgroup');
+    const tank = watch('tank');
+    localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({ group, subgroup, tank }));
+  }, [watch('group'), watch('subgroup'), watch('tank')]);
+
+  // Fetch groups
+  useEffect(() => {
+    setGroupLoading(true);
+    supabase.from('tank_groups').select('id, name').then(({ data }) => {
+      if (data) setGroups(data);
+      setGroupLoading(false);
+    });
+  }, []);
+
+  // Fetch tanks
+  useEffect(() => {
+    setTankLoading(true);
+    supabase.from('fuel_tanks').select('id, location, group_id, safe_level, current_level, subgroup').then(({ data, error }) => {
+      if (!error && Array.isArray(data) && data.length > 0 && 'safe_level' in data[0] && 'current_level' in data[0]) {
+        const tanksWithComputed = data.map(t => ({
+          ...t,
+          current_level_percent: t.safe_level ? Math.round((t.current_level / t.safe_level) * 100) : 0,
+        }));
+        setTanks(tanksWithComputed);
+      } else {
+        setTanks([]);
+      }
+      setTankLoading(false);
+    });
+  }, []);
+
+  // Filter tanks by group
+  const selectedGroup = watch('group');
+  const selectedSubgroup = watch('subgroup');
+  useEffect(() => {
+    if (selectedGroup) {
+      setFilteredTanks(tanks.filter(t => t.group_id === selectedGroup));
+      setValue('subgroup', '');
+      setValue('tank', '');
+    } else {
+      setFilteredTanks([]);
+      setValue('subgroup', '');
+      setValue('tank', '');
+    }
+  }, [selectedGroup, tanks, setValue]);
+
+  // Extract unique subgroups from filtered tanks
+  const subgroups = useMemo(() => Array.from(new Set(filteredTanks.map(t => t.subgroup).filter(Boolean))), [filteredTanks]);
+
+  // Tanks to show in the Tank dropdown
+  const tanksForDropdown = useMemo(() => {
+    if (subgroups.length > 0) {
+      // If there are subgroups, only show tanks if a subgroup is selected
+      if (selectedSubgroup) {
+        return filteredTanks.filter(t => t.subgroup === selectedSubgroup);
+      }
+      // No subgroup selected: show no tanks
+      return [];
+    }
+    // No subgroups: show all tanks for the group
+    return filteredTanks;
+  }, [filteredTanks, subgroups, selectedSubgroup]);
+
+  // Fetch last 7 dips for selected tank
+  const selectedTankId = watch('tank');
+  const selectedTank = tanks.find(t => t.id === selectedTankId);
+  useEffect(() => {
+    if (selectedTankId) {
+      supabase.from('dip_readings')
+        .select('value, created_at')
+        .eq('tank_id', selectedTankId)
+        .order('created_at', { ascending: false })
+        .limit(7)
+        .then(({ data }) => {
+          setRecentDips(data || []);
+        });
+    } else {
+      setRecentDips([]);
+    }
+  }, [selectedTankId]);
+
+  // Overfill warning
+  const dipValue = watch('dip');
+  const overfill = selectedTank && dipValue && dipValue > selectedTank.safe_level;
+
+  // Live ullage preview
+  const ullage = selectedTank ? Math.max(0, selectedTank.safe_level - (dipValue || 0)) : null;
+  const percentFull = selectedTank && dipValue ? Math.round((dipValue / selectedTank.safe_level) * 100) : null;
+
+  // Submission guard
+  const canSubmit = isValid && selectedGroup && (!subgroups.length || selectedSubgroup) && selectedTankId && dipValue > 0;
+
+  // Handle submit
+  const onSubmit = async (data: FormData) => {
+    setLoading(true);
+    const tank = tanks.find(t => t.id === data.tank);
+    const { error } = await supabase.from('dip_readings').insert({
+      tank_id: data.tank,
+      value: data.dip,
+      created_at: data.date,
+      recorded_by: user?.email || 'unknown',
+      notes: data.notes || null,
+    });
+    setLoading(false);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: `Dip for ${tank?.location || 'tank'} submitted!`, variant: 'default' });
+      if (submitAndAddAnother) {
+        reset({ group: data.group, subgroup: data.subgroup, tank: data.tank, date: new Date().toISOString().slice(0, 10), dip: undefined, notes: '' });
+      } else {
+        reset();
+      }
+    }
+  };
+
+  // 1. Depot Group Logic
+  // Remove default selection of Kalgoorlie. Auto-select group if user has access to only one group.
+  const userGroups = groups; // Replace with user-specific group access if available
+  useEffect(() => {
+    if (userGroups.length === 1) {
+      setValue('group', userGroups[0].id);
+    }
+  }, [userGroups, setValue]);
+
+  // 2. Conditional Subgroup & Tank Selection
+  const showSubgroup = selectedGroup && subgroups.length > 1;
+
+  // 3. Fuel Insights Card (Post-Dip)
+  const showFuelInsight = selectedGroup && selectedTank && dipValue > 0 && !isNaN(dipValue);
+  const minLevel = selectedTank?.min_level ?? null;
+  let badge = null;
+  if (minLevel !== null && dipValue > 0) {
+    if (dipValue > minLevel) badge = <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-semibold ml-2">✅ Above Min Level</span>;
+    else if (dipValue === minLevel) badge = <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-semibold ml-2">⚠️ Near Min Level</span>;
+    else badge = <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-semibold ml-2">🔴 Below Min Level</span>;
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="max-w-lg w-full mx-auto flex flex-col gap-y-4 p-0 overflow-y-auto animate-fade-in"
+      aria-label="Add Fuel Dip Reading Form"
+      tabIndex={0}
+    >
+      {/* Depot Group Dropdown */}
+      <div>
+        <label htmlFor="group" className="block text-sm font-medium mb-1">Depot Group <span className="text-red-500">*</span></label>
+        <select
+          id="group"
+          aria-label="Depot Group"
+          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          {...register('group', { required: true })}
+          value={selectedGroup || ''}
+          onChange={e => setValue('group', e.target.value)}
+        >
+          <option value="">Select depot group...</option>
+          {groups.map(g => (
+            <option key={g.id} value={g.id}>{g.name}</option>
+          ))}
+        </select>
+        {errors.group && <span className="text-xs text-red-500">{errors.group.message}</span>}
+      </div>
+
+      {/* Subgroup Dropdown (only if group selected and more than one subgroup) */}
+      {showSubgroup && (
+        <div>
+          <label htmlFor="subgroup" className="block text-sm font-medium mb-1">Select Subgroup</label>
+          {subgroups.length > 10 ? (
+            <Command>
+              <CommandInput placeholder="Search subgroups..." />
+              <CommandList>
+                {subgroups.map(sg => (
+                  <CommandItem key={sg} onSelect={() => setValue('subgroup', sg)}>
+                    {sg}
+                  </CommandItem>
+                ))}
+                <CommandEmpty>No subgroups found.</CommandEmpty>
+              </CommandList>
+            </Command>
+          ) : (
+            <select
+              id="subgroup"
+              aria-label="Subgroup"
+              className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+              {...register('subgroup')}
+              value={selectedSubgroup || ''}
+              onChange={e => setValue('subgroup', e.target.value)}
+            >
+              <option value="">Select subgroup...</option>
+              {subgroups.map(sg => (
+                <option key={sg} value={sg}>{sg}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {/* Tank Dropdown (filtered by subgroup if present) */}
+      <div>
+        <label htmlFor="tank" className="block text-sm font-medium mb-1">Tank <span className="text-red-500">*</span></label>
+        {tanksForDropdown.length > 10 ? (
+          <Command>
+            <CommandInput
+              placeholder="Search tanks..."
+              value={selectedTank ? selectedTank.location : tankSearch}
+              onValueChange={setTankSearch}
+              aria-label="Tank"
+            />
+            <CommandList>
+              {tanksForDropdown.map(t => (
+                <CommandItem key={t.id} onSelect={() => { setValue('tank', t.id); setTankSearch(''); }}>
+                  <span className="flex flex-col">
+                    <span>{t.location}</span>
+                    <span className="text-xs text-muted-foreground">Safe: {t.safe_level.toLocaleString()} L</span>
+                  </span>
+                </CommandItem>
+              ))}
+              <CommandEmpty>No tanks found.</CommandEmpty>
+            </CommandList>
+          </Command>
+        ) : (
+          <select
+            id="tank"
+            aria-label="Tank"
+            className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+            {...register('tank', { required: true })}
+            value={selectedTankId || ''}
+            onChange={e => setValue('tank', e.target.value)}
+          >
+            <option value="">Select tank...</option>
+            {tanksForDropdown.map(t => (
+              <option key={t.id} value={t.id}>
+                {t.location} (Safe: {t.safe_level.toLocaleString()} L)
+              </option>
+            ))}
+          </select>
+        )}
+        {errors.tank && <span className="text-xs text-red-500">{errors.tank.message}</span>}
+      </div>
+
+      {/* Date of Dip */}
+      <div>
+        <label htmlFor="date" className="block text-sm font-medium mb-1">Date of Dip <span className="text-red-500">*</span></label>
+        <input
+          id="date"
+          type="date"
+          aria-label="Date of Dip"
+          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          {...register('date', { required: true })}
+        />
+        {errors.date && <span className="text-xs text-red-500">{errors.date.message}</span>}
+      </div>
+
+      {/* Dip Reading */}
+      <div>
+        <label htmlFor="dip" className="block text-sm font-medium mb-1">Dip Reading (litres) <span className="text-red-500">*</span></label>
+        <input
+          id="dip"
+          type="number"
+          min={0}
+          step={1}
+          aria-label="Dip Reading (litres)"
+          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          {...register('dip', { required: true, valueAsNumber: true })}
+        />
+        {errors.dip && <span className="text-xs text-red-500">{errors.dip.message}</span>}
+        {overfill && (
+          <span className="text-xs text-orange-600">Warning: this reading exceeds the tank's safe fill level ({selectedTank?.safe_level.toLocaleString()} L).</span>
+        )}
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label htmlFor="notes" className="block text-sm font-medium mb-1">Notes</label>
+        <textarea
+          id="notes"
+          aria-label="Notes"
+          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          {...register('notes')}
+          rows={2}
+        />
+      </div>
+
+      {/* Fuel Insights Card (Post-Dip) */}
+      {showFuelInsight && (
+        <div className="border rounded-md p-3 mt-4 bg-white flex flex-wrap gap-6 items-center justify-between shadow-sm transition-all duration-300 ease-in-out animate-fade-in">
+          <div className="flex flex-col items-center">
+            <span className="text-xs text-gray-500">Safe Fill</span>
+            <span className="font-bold text-green-700 text-lg">{selectedTank.safe_level.toLocaleString()} L</span>
+          </div>
+          {minLevel !== null && (
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-500">Min Level</span>
+              <span className="font-bold text-yellow-700 text-lg">{minLevel.toLocaleString()} L</span>
+            </div>
+          )}
+          <div className="flex flex-col items-center">
+            <span className="text-xs text-gray-500">Dip (L)</span>
+            <span className="font-bold text-blue-700 text-lg">{dipValue.toLocaleString()} L</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-xs text-gray-500">Ullage</span>
+            <span className="font-bold text-yellow-900 text-lg">{ullage !== null ? ullage.toLocaleString() + ' L' : 'N/A'}</span>
+          </div>
+          {badge}
+        </div>
+      )}
+
+      {/* Submit Button */}
+      <Button
+        type="submit"
+        className="w-full bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-md shadow-sm py-2 mt-2 transition-all"
+        disabled={!canSubmit || loading}
+        aria-label="Submit Dip Reading"
+      >
+        {loading ? 'Submitting...' : 'Submit Dip Reading'}
+      </Button>
+    </form>
+  );
+} 

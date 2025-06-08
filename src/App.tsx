@@ -11,6 +11,8 @@ import NotFound from "@/pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import SwanTransit from '@/pages/SwanTransit';
 import Kalgoorlie from '@/pages/Kalgoorlie';
+import SettingsPage from '@/pages/SettingsPage';
+import { Login } from "@/pages/Login";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +65,14 @@ const App = () => {
                   <Route path="/geraldton" element={<ProtectedRoute><Geraldton /></ProtectedRoute>} />
                   <Route path="/gsf-depots" element={<ProtectedRoute><GSFDepots /></ProtectedRoute>} />
                   <Route path="/bgc" element={<ProtectedRoute><BGC /></ProtectedRoute>} />
+                  <Route path="/settings" element={
+                    <ProtectedRoute>
+                      <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                        <SettingsPage />
+                      </AppLayout>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/login" element={<Login />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </div>

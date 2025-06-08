@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { AuthUser } from '@/types/auth';
+import { useEffect } from 'react';
 
 export interface AuthState {
   user: AuthUser | null;
@@ -14,36 +15,49 @@ export interface AuthState {
   refreshSession: () => Promise<void>;
 }
 
-// Mock user for development
-const mockUser: AuthUser = {
-  id: 'mock-user-id',
-  email: 'hayden@stevemacs.com.au',
-  role: 'admin',
-  depot_id: null,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-};
-
 const useAuthStore = create<AuthState>((set) => ({
-  user: mockUser, // Start with mock user
-  session: { user: mockUser }, // Mock session
-  isLoading: false,
+  user: null,
+  session: null,
+  isLoading: true,
   signIn: async (email: string, password: string) => {
-    // Bypass actual auth for now
-    set({ user: mockUser, session: { user: mockUser }, isLoading: false });
+    set({ isLoading: true });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    set({ user: data.user as AuthUser, session: data.session, isLoading: false });
   },
   signOut: async () => {
-    // Just clear the mock user
+    set({ isLoading: true });
+    await supabase.auth.signOut();
     set({ user: null, session: null, isLoading: false });
   },
   refreshSession: async () => {
-    // Always return mock user
-    set({ user: mockUser, session: { user: mockUser }, isLoading: false });
+    set({ isLoading: true });
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      set({ user: null, session: null, isLoading: false });
+      return;
+    }
+    set({ user: data.session?.user as AuthUser || null, session: data.session, isLoading: false });
   }
 }));
 
 export function useAuth() {
   const { user, session, isLoading, signIn, signOut, refreshSession } = useAuthStore();
+
+  // Subscribe to Supabase auth state changes
+  useEffect(() => {
+    useAuthStore.getState().refreshSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      useAuthStore.setState({
+        user: session?.user as AuthUser || null,
+        session,
+        isLoading: false,
+      });
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   return {
     user,

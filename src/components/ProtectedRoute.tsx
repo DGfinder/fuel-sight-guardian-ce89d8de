@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Navigate, useLocation } from 'react-router-dom';
 
 type UserRole = 'admin' | 'depot_manager' | 'operator';
 
@@ -16,6 +17,7 @@ export function ProtectedRoute({
   allowedRoles 
 }: ProtectedRouteProps) {
   const { user, isLoading } = useAuthContext();
+  const location = useLocation();
 
   // Show loading state while auth is being checked
   if (isLoading) {
@@ -24,6 +26,11 @@ export function ProtectedRoute({
         <LoadingSpinner size={32} text="Checking access..." />
       </div>
     );
+  }
+
+  // Redirect to /login if not authenticated
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Since we're using a mock user, we'll always have a user

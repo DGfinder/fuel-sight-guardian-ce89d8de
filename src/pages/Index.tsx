@@ -1,9 +1,8 @@
-
 import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bell, AlertTriangle, Filter } from "lucide-react";
+import { Bell, AlertTriangle, Filter, PlusCircle } from "lucide-react";
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { useTanks } from '@/hooks/useTanks';
@@ -16,6 +15,8 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { Tank } from '@/types/fuel';
 import { StickyMobileNav } from '@/components/StickyMobileNav';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { FuelDipForm } from '@/components/fuel-dip/FuelDipForm';
 
 interface IndexProps {
   selectedGroup?: string | null;
@@ -27,6 +28,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
+  const [dipModalOpen, setDipModalOpen] = useState(false);
   const tankTableRef = useRef<HTMLDivElement>(null);
 
   const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
@@ -118,7 +120,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   const displayTanks = selectedGroup ? filteredTanks : tanks || [];
 
   return (
-    <div className="space-y-8 p-6 max-w-full">
+    <div className="space-y-8 w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
       {/* Unified Fuel Insights Panel */}
       <FuelInsightsPanel 
         tanks={displayTanks} 
@@ -158,7 +160,19 @@ export default function Index({ selectedGroup }: IndexProps) {
               </Badge>
             )}
           </Button>
+          <Button
+            className="bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-lg py-2 px-4 shadow flex items-center"
+            onClick={() => setDipModalOpen(true)}
+          >
+            <PlusCircle className="w-4 h-4 mr-2" />
+            Add Dip Reading
+          </Button>
         </div>
+        <Dialog open={dipModalOpen} onOpenChange={setDipModalOpen}>
+          <DialogContent className="max-w-xl">
+            <FuelDipForm />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* KPI Strip */}
