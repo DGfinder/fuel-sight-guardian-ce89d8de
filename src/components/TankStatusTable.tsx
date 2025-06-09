@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils';
 import { FixedSizeList as List } from 'react-window';
 import PercentBar from './tables/PercentBar';
+import EditDipModal from './modals/EditDipModal';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
@@ -45,10 +46,10 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
   const status = useMemo(() => {
     if (tank.days_to_min_level !== null && tank.days_to_min_level <= 2) return 'critical';
     if (tank.days_to_min_level !== null && tank.days_to_min_level <= 5) return 'low';
-    if (percent < 20) return 'critical';
-    if (percent < 40) return 'low';
+    if (tank.current_level_percent < 0.2) return 'critical';
+    if (tank.current_level_percent < 0.4) return 'low';
     return 'normal';
-  }, [percent, tank.days_to_min_level]);
+  }, [tank.current_level_percent, tank.days_to_min_level]);
   const lastDipTs = tank.last_dip_ts ? new Date(tank.last_dip_ts) : null;
   const isDipOld = lastDipTs ? ((Date.now() - lastDipTs.getTime()) > 4 * 24 * 60 * 60 * 1000) : false;
   const ullage = tank.safe_fill - tank.current_level;
@@ -85,7 +86,7 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => { /* TODO: Create Order */ }}>Create Order</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { setEditDipTank(tank); setEditDipModalOpen(true); }}>Edit Dip</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -138,7 +139,7 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => { /* TODO: Create Order */ }}>Create Order</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { setEditDipTank(tank); setEditDipModalOpen(true); }}>Edit Dip</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </td>
@@ -150,9 +151,11 @@ interface NestedGroupAccordionProps {
   tanks: Tank[];
   onTankClick: (tank: Tank) => void;
   todayBurnRate?: number;
+  sortTanks: (t: Tank[]) => Tank[];
+  SortButton: any;
 }
 
-const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTankClick, todayBurnRate }) => {
+const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTankClick, todayBurnRate, sortTanks, SortButton }) => {
   // Group by group_name, then subgroup
   const grouped = useMemo(() => {
     const result: Record<string, { id: string; name: string; tanks: Tank[]; subGroups: { id: string; name: string; tanks: Tank[] }[] }> = {};
@@ -219,9 +222,15 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                           <table className="w-full border-collapse">
                             <thead>
                               <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                                <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">Location / Tank</th>
-                                <th className="px-3 py-3 text-center">Product</th>
-                                <th className="px-3 py-3 text-right">Current Level</th>
+                                <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
+                                  <SortButton field="location">Location / Tank</SortButton>
+                                </th>
+                                <th className="px-3 py-3 text-center">
+                                  <SortButton field="product">Product</SortButton>
+                                </th>
+                                <th className="px-3 py-3 text-right">
+                                  <SortButton field="current_level">Current Level</SortButton>
+                                </th>
                                 <th className="px-3 py-3 text-center">% Full</th>
                                 <th className="px-3 py-3 text-center">Days-to-Min</th>
                                 <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
@@ -232,7 +241,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                               </tr>
                             </thead>
                             <tbody>
-                              {sub.tanks.map(tank => (
+                              {sortTanks(sub.tanks).map(tank => (
                                 <TankRow key={tank.id} tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} isMobile={isMobile} />
                               ))}
                             </tbody>
@@ -250,9 +259,15 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                      <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">Location / Tank</th>
-                      <th className="px-3 py-3 text-center">Product</th>
-                      <th className="px-3 py-3 text-right">Current Level</th>
+                      <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
+                        <SortButton field="location">Location / Tank</SortButton>
+                      </th>
+                      <th className="px-3 py-3 text-center">
+                        <SortButton field="product">Product</SortButton>
+                      </th>
+                      <th className="px-3 py-3 text-right">
+                        <SortButton field="current_level">Current Level</SortButton>
+                      </th>
                       <th className="px-3 py-3 text-center">% Full</th>
                       <th className="px-3 py-3 text-center">Days-to-Min</th>
                       <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
@@ -263,7 +278,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                     </tr>
                   </thead>
                   <tbody>
-                    {group.tanks.map(tank => (
+                    {sortTanks(group.tanks).map(tank => (
                       <TankRow key={tank.id} tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} isMobile={isMobile} />
                     ))}
                   </tbody>
@@ -287,6 +302,8 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
   const [selectedTank, setSelectedTank] = useState<Tank | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: null, direction: 'asc' });
+  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
+  const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
 
   const handleTankClick = useCallback((tank: Tank) => {
     setSelectedTank(tank);
@@ -294,10 +311,10 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
     onTankClick?.(tank);
   }, [onTankClick]);
 
-  // Sorting logic
-  const sortedTanks = useMemo(() => {
-    if (!sortConfig.field) return tanks;
-    return [...tanks].sort((a, b) => {
+  // Sorting logic for tanks within a group/subgroup
+  const sortTanks = useCallback((tanksToSort: Tank[]) => {
+    if (!sortConfig.field) return tanksToSort;
+    return [...tanksToSort].sort((a, b) => {
       let aValue = a[sortConfig.field!];
       let bValue = b[sortConfig.field!];
       if (typeof aValue === 'string') aValue = aValue.toLowerCase();
@@ -309,7 +326,7 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [tanks, sortConfig]);
+  }, [sortConfig]);
 
   const handleSort = (field: string) => {
     setSortConfig(prev => ({
@@ -335,43 +352,17 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
   return (
     <div className="space-y-4">
       <Input placeholder="Search by location" className="mb-4" />
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-              <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
-                <SortButton field="location">Location / Tank</SortButton>
-              </th>
-              <th className="px-3 py-3 text-center">
-                <SortButton field="product">Product</SortButton>
-              </th>
-              <th className="px-3 py-3 text-right">
-                <SortButton field="current_level">Current Level</SortButton>
-              </th>
-              <th className="px-3 py-3 text-center">
-                <SortButton field="current_level_percent">% Full</SortButton>
-              </th>
-              <th className="px-3 py-3 text-center">
-                <SortButton field="days_to_min_level">Days-to-Min</SortButton>
-              </th>
-              <th className="px-3 py-3 text-center">
-                <SortButton field="rolling_avg_lpd">Rolling Avg (L/day)</SortButton>
-              </th>
-              <th className="px-3 py-3 text-center">Status</th>
-              <th className="px-3 py-3 text-center">Last Dip</th>
-              <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
-              <th className="px-3 py-3 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedTanks.map(tank => (
-              <TankRow key={tank.id} tank={tank} onClick={handleTankClick} todayBurnRate={todayBurnRate} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <NestedGroupAccordion tanks={tanks} onTankClick={handleTankClick} todayBurnRate={todayBurnRate} sortTanks={sortTanks} SortButton={SortButton} />
       {selectedTank && (
         <TankDetailsModal tank={selectedTank} open={drawerOpen} onOpenChange={setDrawerOpen} />
+      )}
+      {editDipTank && (
+        <EditDipModal
+          isOpen={editDipModalOpen}
+          onClose={() => { setEditDipModalOpen(false); setEditDipTank(null); }}
+          initialGroupId={editDipTank.group_id}
+          initialTankId={editDipTank.id}
+        />
       )}
     </div>
   );

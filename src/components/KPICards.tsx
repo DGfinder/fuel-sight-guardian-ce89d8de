@@ -33,22 +33,25 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       avgDaysToMin: 0
     };
 
-    // 🔴 Tanks < 20% Capacity
-    const lowTanks = tanks.filter(tank => tank.current_level_percent <= 20).length;
+    // Only consider tanks with a dip
+    const tanksWithDip = tanks.filter(tank => !!tank.last_dip_ts);
 
-    // 🟡 Tanks ≤ 2 Days to Min
-    const criticalDays = tanks.filter(tank => 
+    // 🔴 Tanks < 20% Capacity (with dip)
+    const lowTanks = tanksWithDip.filter(tank => tank.current_level_percent <= 0.2).length;
+
+    // 🟡 Tanks ≤ 2 Days to Min (with dip)
+    const criticalDays = tanksWithDip.filter(tank => 
       tank.days_to_min_level !== null && tank.days_to_min_level <= 2
     ).length;
 
-    // 💧 Total Fuel on Hand (sum of current_level)
-    const totalStock = tanks.reduce((sum, tank) => sum + tank.current_level, 0);
+    // 💧 Total Fuel on Hand (sum of current_level, with dip)
+    const totalStock = tanksWithDip.reduce((sum, tank) => sum + tank.current_level, 0);
 
-    // ⛽ Total Ullage (safe_level - current_level)
-    const totalUllage = calculateTotalUllage(tanks);
+    // ⛽ Total Ullage (safe_level - current_level, with dip)
+    const totalUllage = calculateTotalUllage(tanksWithDip);
 
-    // ⏳ Average Days-to-Min
-    const tanksWithDays = tanks.filter(tank => 
+    // ⏳ Average Days-to-Min (with dip)
+    const tanksWithDays = tanksWithDip.filter(tank => 
       tank.days_to_min_level !== null && tank.days_to_min_level > 0
     );
     const avgDaysToMin = tanksWithDays.length > 0 

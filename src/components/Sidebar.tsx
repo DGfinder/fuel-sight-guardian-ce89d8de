@@ -74,6 +74,12 @@ export const Sidebar: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Close sidebar on route change if mobile
+  useEffect(() => {
+    if (isMobile) setOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isMobile]);
+
   const handleToggle = () => setOpen((prev) => !prev);
 
   const handleLogout = async () => {

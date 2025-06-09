@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import * as React from "react";
+import { useState } from 'react';
 import { Tank } from '@/types/fuel';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { TankStatusTable } from '@/components/TankStatusTable';

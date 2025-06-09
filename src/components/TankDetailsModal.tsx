@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
+  DialogPortal,
+  DialogOverlay,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -378,11 +381,11 @@ export function TankDetailsModal({
 
           {isDipFormOpen && (
             <AddDipModal
-              isOpen={isDipFormOpen}
-              onClose={() => setIsDipFormOpen(false)}
-              onSubmit={async () => setIsDipFormOpen(false)}
+              open={isDipFormOpen}
+              onOpenChange={setIsDipFormOpen}
               initialGroupId={tank.group_id}
               initialTankId={tank.id}
+              onSubmit={async () => {}}
             />
           )}
         </DialogContent>

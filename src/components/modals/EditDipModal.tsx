@@ -1,16 +1,6 @@
-/* ──────────────────────────────────────────────────────────────
-   AddDipModal.tsx
-   Fully-featured modal for recording manual dip readings
-   – Group → Sub-group → Tank cascade
-   – Live Safe-Fill / Dip / Ullage card
-   – Centred dialog with dark overlay (uses the shared Dialog UI)
-   – Default export (fixes "Element type is invalid" crash)
-──────────────────────────────────────────────────────────────── */
-
 import * as React from "react";
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from '@tanstack/react-query';
-
 import {
   Dialog,
   DialogPortal,
@@ -29,49 +19,42 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-
 import { useTankGroups } from "@/hooks/useTankGroups";
 import { useTanks }      from "@/hooks/useTanks";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
 
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  /** Fire when the user submits a dip (groupId, tankId, dipValue) */
-  onSubmit: (groupId: string, tankId: string, dip: number) => Promise<void>;
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit?: (groupId: string, tankId: string, dip: number, date: string) => Promise<void>;
   initialGroupId?: string;
   initialTankId?: string;
 }
 
-/* -----------------------------------------------------------------------
-   Component
------------------------------------------------------------------------- */
-export default function AddDipModal({
-  open,
-  onOpenChange,
+export default function EditDipModal({
+  isOpen,
+  onClose,
   onSubmit,
   initialGroupId = "",
   initialTankId = "",
 }: Props) {
-  /* ─────────── Data hooks ───────────────────────────────────────── */
   const { data: groups = [], isLoading: groupsLoading } = useTankGroups();
   const { tanks = [], isLoading: tanksLoading, error }  = useTanks();
   const queryClient = useQueryClient();
 
-  /* ─────────── Local state ─────────────────────────────────────── */
   const [groupId,    setGroupId]    = useState(initialGroupId);
   const [subgroup,   setSubgroup]   = useState("");
   const [tankId,     setTankId]     = useState(initialTankId);
   const [dipValue,   setDipValue]   = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
   const [saving,     setSaving]     = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [availableDips, setAvailableDips] = useState<{ value: number, created_at: string, id: string }[]>([]);
 
-  /* ─────────── Derived collections ─────────────────────────────── */
   const tanksForGroup = useMemo(
     () => tanks.filter(t => t.group_id === groupId),
     [tanks, groupId],
@@ -94,19 +77,39 @@ export default function AddDipModal({
     [tanksForGroup, subgroup],
   );
 
-  /* ─────────── Helpers ─────────────────────────────────────────── */
   const selectedTank: Tank | undefined = tanks.find(t => t.id === tankId);
-  const ullage =
-    selectedTank && dipValue
-      ? Math.max(0, selectedTank.safe_fill - Number(dipValue))
-      : null;
 
-  const resetForm = () => {
-    setGroupId("");
-    setSubgroup("");
-    setTankId("");
-    setDipValue("");
-  };
+  // Fetch available dips for selected tank
+  useEffect(() => {
+    if (!tankId) {
+      setAvailableDips([]);
+      setSelectedDate("");
+      setDipValue("");
+      return;
+    }
+    supabase
+      .from('dip_readings')
+      .select('id, value, created_at')
+      .eq('tank_id', tankId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setAvailableDips(data || []);
+        if (data && data.length > 0) {
+          setSelectedDate(data[0].created_at);
+          setDipValue(data[0].value.toString());
+        } else {
+          setSelectedDate("");
+          setDipValue("");
+        }
+      });
+  }, [tankId]);
+
+  // When date changes, update dip value
+  useEffect(() => {
+    if (!selectedDate) return;
+    const dip = availableDips.find(d => d.created_at === selectedDate);
+    setDipValue(dip ? dip.value.toString() : "");
+  }, [selectedDate, availableDips]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -114,38 +117,36 @@ export default function AddDipModal({
     });
   }, []);
 
-  /* ─────────── Submit handler ──────────────────────────────────── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
     setSubmitSuccess(null);
-    if (!groupId || !tankId || !dipValue) return;
+    if (!groupId || !tankId || !dipValue || !selectedDate) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from('dip_readings').insert({
-        tank_id: tankId,
-        value: Number(dipValue),
-        created_at: new Date().toISOString(),
-        recorded_by: userId,
-        notes: null
-      });
+      // Find the dip reading id for the selected date
+      const dip = availableDips.find(d => d.created_at === selectedDate);
+      if (!dip) throw new Error("Dip reading not found for selected date");
+      const { error } = await supabase
+        .from('dip_readings')
+        .update({ value: Number(dipValue), recorded_by: userId })
+        .eq('id', dip.id);
       if (error) {
         setSubmitError(error.message);
       } else {
-        setSubmitSuccess('Dip submitted successfully!');
+        setSubmitSuccess('Dip updated successfully!');
         await queryClient.invalidateQueries({ queryKey: ['tanks'] });
-        resetForm();
-        onOpenChange(false);
+        if (onSubmit) await onSubmit(groupId, tankId, Number(dipValue), selectedDate);
+        onClose();
       }
     } finally {
       setSaving(false);
     }
   };
 
-  /* ─────────── Loading / error guards ──────────────────────────── */
   if (tanksLoading || groupsLoading) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent>
           <div className="flex items-center justify-center p-10">
             <LoadingSpinner />
@@ -157,7 +158,7 @@ export default function AddDipModal({
 
   if (error) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent>
           <p className="p-6 text-center text-red-600 text-sm">
             Failed to load tanks:&nbsp;
@@ -168,22 +169,16 @@ export default function AddDipModal({
     );
   }
 
-  /* ─────────── Render modal ────────────────────────────────────── */
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
-            Add Dip Reading
+            Edit Dip Reading
           </DialogTitle>
-          <p id="add-dip-desc" className="sr-only">
-            Record a manual dip reading for a fuel tank
-          </p>
         </DialogHeader>
-
         <form
           onSubmit={handleSubmit}
-          aria-describedby="add-dip-desc"
           className="space-y-4"
         >
           {submitError && (
@@ -217,7 +212,6 @@ export default function AddDipModal({
               </SelectContent>
             </Select>
           </div>
-
           {/* Sub-group (only if more than one exists) */}
           {subgroups.length > 1 && (
             <div className="space-y-1.5">
@@ -243,7 +237,6 @@ export default function AddDipModal({
               </Select>
             </div>
           )}
-
           {/* Tank */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
@@ -251,15 +244,11 @@ export default function AddDipModal({
             </label>
             <Select
               value={tankId}
-              onValueChange={setTankId}
+              onValueChange={v => setTankId(v)}
               disabled={!groupId}
             >
               <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    groupId ? "Select tank" : "Choose group first"
-                  }
-                />
+                <SelectValue placeholder={groupId ? "Select tank" : "Choose group first"} />
               </SelectTrigger>
               <SelectContent className="max-h-60 overflow-y-auto">
                 {tanksForDropdown.length === 0 && (
@@ -269,20 +258,43 @@ export default function AddDipModal({
                 )}
                 {tanksForDropdown.map(t => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.location}{" "}
-                    <span className="text-xs text-muted-foreground">
-                      Safe&nbsp;{t.safe_fill.toLocaleString()} L
-                    </span>
+                    {t.location} <span className="text-xs text-muted-foreground">Safe&nbsp;{t.safe_fill.toLocaleString()} L</span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-
-          {/* Dip reading */}
+          {/* Date */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              Dip Reading&nbsp;(litres) <span className="text-red-500">*</span>
+              Date <span className="text-red-500">*</span>
+            </label>
+            <Select
+              value={selectedDate}
+              onValueChange={v => setSelectedDate(v)}
+              disabled={!tankId || availableDips.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={tankId ? (availableDips.length ? "Select date" : "No dips found") : "Choose tank first"} />
+              </SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                {availableDips.length === 0 && (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">
+                    No dips for this tank
+                  </p>
+                )}
+                {availableDips.map(dip => (
+                  <SelectItem key={dip.id} value={dip.created_at}>
+                    {new Date(dip.created_at).toLocaleString()} ({dip.value.toLocaleString()} L)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Dip value */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">
+              Dip Reading (litres) <span className="text-red-500">*</span>
             </label>
             <Input
               type="number"
@@ -291,58 +303,27 @@ export default function AddDipModal({
               onChange={e => setDipValue(e.target.value)}
               placeholder="Enter dip reading"
               required
+              disabled={!selectedDate}
             />
           </div>
-
-          {/* Live Safe-fill card */}
-          {selectedTank && (
-            <div className="mt-2 rounded-lg border divide-y divide-gray-200 bg-gray-50 text-sm">
-              <div className="flex justify-between px-4 py-2">
-                <span>Safe Fill</span>
-                <span className="font-semibold">
-                  {selectedTank.safe_fill.toLocaleString()} L
-                </span>
-              </div>
-              <div className="flex justify-between px-4 py-2">
-                <span>Dip</span>
-                <span className="font-semibold">
-                  {dipValue
-                    ? Number(dipValue).toLocaleString() + " L"
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between px-4 py-2">
-                <span>Ullage</span>
-                <span className="font-semibold">
-                  {ullage !== null
-                    ? ullage.toLocaleString() + " L"
-                    : "—"}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Footer */}
           <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={onClose}
               disabled={saving}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={
-                saving || !groupId || !tankId || !dipValue.trim().length
-              }
+              disabled={saving || !groupId || !tankId || !dipValue.trim().length || !selectedDate}
             >
-              {saving ? "Saving…" : "Submit Dip Reading"}
+              {saving ? "Saving…" : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
-}
+} 

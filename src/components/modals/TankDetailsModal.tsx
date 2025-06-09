@@ -1,10 +1,8 @@
-import React from 'react';
-import { DialogDescription } from '@/components/ui/dialog';
+import * as React from "react";
 
 export function TankDetailsModal(props) {
   return (
     <div>
-      <DialogDescription id="tank-desc" className="sr-only">Tank details and dip history</DialogDescription>
       {/* ...rest of modal... */}
     </div>
   );

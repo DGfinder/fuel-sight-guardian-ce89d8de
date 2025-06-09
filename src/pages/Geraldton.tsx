@@ -32,8 +32,13 @@ export default function GeraldtonPage() {
     };
   }, []);
 
-  // Filter tanks to only Geraldton
-  const geraldtonTanks = (tanks || []).filter(t => t.group_name === GERALDTON_GROUP_NAME);
+  // Filter tanks to only Geraldton (robust to case/whitespace and allow group_id fallback)
+  const geraldtonTanks = (tanks || []).filter(
+    t => (
+      (t.group_name && t.group_name.trim().toLowerCase() === 'geraldton') ||
+      (t.group_id && t.group_id === 'f241442c-4b74-49e4-8d4b-ea7a1392d91a')
+    )
+  );
   const selectedTank = geraldtonTanks.find(t => t.id === selectedTankId) || null;
 
   // Mock chart data for 30-day trend

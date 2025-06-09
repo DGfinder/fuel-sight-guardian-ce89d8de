@@ -14,6 +14,9 @@ import SettingsPage from '@/pages/SettingsPage';
 import Login from "@/pages/Login";
 import ResetPassword from '@/pages/ResetPassword';
 import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
+import Geraldton from '@/pages/Geraldton';
+import GSFDepots from '@/pages/GSFDepots';
+import BGC from '@/pages/BGC';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,10 +27,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-const Geraldton = () => <div className="p-8 text-2xl">Geraldton Dashboard (Coming Soon)</div>;
-const GSFDepots = () => <div className="p-8 text-2xl">GSF Depots Dashboard (Coming Soon)</div>;
-const BGC = () => <div className="p-8 text-2xl">BGC Dashboard (Coming Soon)</div>;
 
 function HashRedirector() {
   const navigate = useNavigate();
