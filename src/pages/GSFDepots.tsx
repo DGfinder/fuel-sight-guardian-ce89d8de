@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTanks } from '@/hooks/useTanks';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
-import { FuelTable } from '@/components/FuelTable';
+import { TankStatusTable } from '@/components/TankStatusTable';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { supabase } from '@/lib/supabase';
 // NOTE: You must install 'react-chartjs-2' and 'chart.js' for the chart to work.
@@ -65,13 +65,12 @@ export default function GSFDepotsPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Tank Status</h2>
             </div>
-            <FuelTable
+            <TankStatusTable
               tanks={gsfDepotsTanks}
               onTankClick={tank => {
                 setSelectedTankId(tank.id);
                 setTankDetailsOpen(true);
               }}
-              defaultOpenGroup="GSF Depots"
             />
 
             {/* Tank Details Modal */}

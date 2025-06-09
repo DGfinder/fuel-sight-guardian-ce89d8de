@@ -2,11 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TankAlert } from "@/types/fuel";
 
-export function useTankAlerts(tankId: string) {
+export function useTankAlerts(tankId: string | undefined) {
   const queryClient = useQueryClient();
 
   const { data: alerts = [], isLoading, error } = useQuery({
     queryKey: ["tank-alerts", tankId],
+    enabled: !!tankId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tank_alerts")

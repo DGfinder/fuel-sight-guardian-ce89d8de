@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import * as React from "react";
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -253,7 +254,11 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
   const overfill = (readOnly ? false : (selectedTank && dipValue && dipValue > selectedTank.safe_level));
 
   // Live ullage preview (if not in readOnly mode)
-  const ullage = (readOnly ? null : (selectedTank ? Math.max(0, selectedTank.safe_level - (dipValue || 0)) : null));
+  const ullage = (readOnly
+    ? null
+    : (selectedTank && typeof selectedTank.safe_level === 'number' && typeof dipValue === 'number' && !isNaN(dipValue)
+        ? Math.max(0, selectedTank.safe_level - dipValue)
+        : null));
   const percentFull = (readOnly ? null : (selectedTank && dipValue ? Math.round((dipValue / selectedTank.safe_level) * 100) : null));
 
   // Submission guard (if not in readOnly mode)
@@ -291,7 +296,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
   const showSubgroup = (readOnly ? (!!initialSubgroup) : (selectedGroup && subgroups.length > 1));
 
   // (Optional) Fuel Insights Card (Post-Dip) (unless in readOnly mode)
-  const showFuelInsight = (readOnly ? false : (selectedGroup && selectedTank && dipValue > 0 && !isNaN(dipValue)));
+  const showFuelInsight = !!selectedTank && !!dipValue;
   const minLevel = (readOnly ? null : (selectedTank?.min_level ?? null));
   let badge = null;
   if (minLevel !== null && dipValue > 0) {
@@ -317,7 +322,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="max-w-lg w-full mx-auto flex flex-col gap-y-4 p-0 overflow-y-auto animate-fade-in"
+      className="max-w-lg w-full mx-auto flex flex-col gap-y-4 p-0 overflow-y-auto opacity-100"
       aria-label="Add Fuel Dip Reading Form"
       tabIndex={0}
     >
@@ -327,7 +332,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
         <select
           id="group"
           aria-label="Depot Group"
-          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-blue-500 focus:border-blue-500"
           {...register('group', { required: true })}
           value={selectedGroup || ''}
           onChange={e => setValue('group', e.target.value)}
@@ -361,7 +366,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
             <select
               id="subgroup"
               aria-label="Subgroup"
-              className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+              className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-blue-500 focus:border-blue-500"
               {...register('subgroup')}
               value={selectedSubgroup || ''}
               onChange={e => setValue('subgroup', e.target.value)}
@@ -393,7 +398,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
                 <CommandItem key={t.id} onSelect={() => { setValue('tank', t.id); setTankSearch(''); }} disabled={readOnly}>
                   <span className="flex flex-col">
                     <span>{t.location}</span>
-                    <span className="text-xs text-muted-foreground">Safe: {t.safe_level.toLocaleString()} L</span>
+                    <span className="text-xs text-gray-500">Safe: {t.safe_level.toLocaleString()} L</span>
                   </span>
                 </CommandItem>
               ))}
@@ -404,7 +409,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
           <select
             id="tank"
             aria-label="Tank"
-            className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+            className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-blue-500 focus:border-blue-500"
             {...register('tank', { required: true })}
             value={selectedTankId || ''}
             onChange={e => setValue('tank', e.target.value)}
@@ -428,7 +433,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
           id="date"
           type="date"
           aria-label="Date of Dip"
-          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-blue-500 focus:border-blue-500"
           {...register('date', { required: true })}
         />
         {errors.date && <span className="text-xs text-red-500">{errors.date.message}</span>}
@@ -443,7 +448,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
           min={0}
           step={1}
           aria-label="Dip Reading (litres)"
-          className="w-full border rounded-md shadow-sm px 3 py-2 focus:ring focus:ring-primary focus:border-primary"
+          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-blue-500 focus:border-blue-500"
           {...register('dip', { required: true, valueAsNumber: true })}
         />
         {errors.dip && <span className="text-xs text-red-500">{errors.dip.message}</span>}
@@ -458,7 +463,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
         <textarea
           id="notes"
           aria-label="Notes"
-          className="w-full border rounded-md shadow-sm px 3 py-2 focus:ring focus: ring-primary focus: border-primary"
+          className="w-full border rounded-md shadow-sm px-3 py-2 focus:ring focus:ring-blue-500 focus:border-blue-500"
           {...register('notes')}
           rows={2}
         />
@@ -466,7 +471,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
 
       {/* Fuel Insights Card (Post-Dip) (if not in readOnly mode) */}
       {showFuelInsight && (
-        <div className="border rounded-md p-3 mt-4 bg-white flex flex-wrap gap-6 items-center justify-between shadow-sm transition-all duration-300 ease-in-out animate-fade-in">
+        <div className="border rounded-md p-3 mt-4 bg-white flex flex-wrap gap-6 items-center justify-between shadow-sm transition-all duration-300 ease-in-out opacity-100">
           <div className="flex flex-col items-center">
             <span className="text-xs text-gray-500">Safe Fill</span>
             <span className="font-bold text-green-700 text-lg">{selectedTank.safe_level.toLocaleString()} L</span>
@@ -483,7 +488,7 @@ export function FuelDipForm({ initialDepot, initialSubgroup, initialTank, readOn
           </div>
           <div className="flex flex-col items-center">
             <span className="text-xs text-gray-500">Ullage</span>
-            <span className="font-bold text-yellow-900 text-lg">{ullage !== null ? ullage.toLocaleString() + ' L' : 'N/A'}</span>
+            <span className="font-bold text-yellow-900 text-lg">{dipValue && ullage !== null && !isNaN(ullage) ? ullage.toLocaleString() + ' L' : 'N/A'}</span>
           </div>
           {badge}
         </div>

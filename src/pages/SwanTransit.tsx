@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTanks } from '@/hooks/useTanks';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
-import { FuelTable } from '@/components/FuelTable';
+import { TankStatusTable } from '@/components/TankStatusTable';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { supabase } from '@/lib/supabase';
 // NOTE: You must install 'react-chartjs-2' and 'chart.js' for the chart to work.
@@ -72,13 +72,12 @@ export default function SwanTransitPage() {
               <h2 className="text-xl font-semibold text-gray-900">Tank Status</h2>
             </div>
             <div className="overflow-x-auto">
-              <FuelTable
+              <TankStatusTable
                 tanks={swanTanks}
                 onTankClick={tank => {
                   setSelectedTankId(tank.id);
                   setTankDetailsOpen(true);
                 }}
-                defaultOpenGroup="Swan Transit"
               />
             </div>
           </section>

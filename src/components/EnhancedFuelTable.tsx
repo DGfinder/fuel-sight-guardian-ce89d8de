@@ -1,3 +1,8 @@
+// COMMENTED OUT: Deprecated. Use TankStatusTable instead.
+// export function EnhancedFuelTable({ tanks = [], onTankClick, defaultOpenGroup = null }: EnhancedFuelTableProps) {
+//   ...
+// }
+
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow

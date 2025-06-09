@@ -4,14 +4,16 @@ import { supabase } from '@/lib/supabase';
 import type { TankAlert } from '@/types/fuel';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-export function useAlerts() {
+export function useAlerts(tankId?: string) {
   const queryClient = useQueryClient();
   const channelNameRef = useRef(`tank_alerts_${Math.random().toString(36).slice(2)}`);
   const channelRef = useRef(null);
 
   const { data: alerts = [], isLoading, error } = useQuery({
-    queryKey: ['alerts'],
+    queryKey: ['alerts', tankId],
+    enabled: !!tankId,
     queryFn: async () => {
+      if (!tankId) return [];
       console.log('Fetching alerts...');
       const { data, error } = await supabase
         .from('tank_alerts')
@@ -24,6 +26,7 @@ export function useAlerts() {
             tank_groups ( name )
           )
         `)
+        .eq('tank_id', tankId)
         .is('acknowledged_at', null)
         .order('created_at', { ascending: false });
 
@@ -50,7 +53,7 @@ export function useAlerts() {
     channelRef.current = supabase
       .channel(channelNameRef.current)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tank_alerts' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['alerts'] });
+        queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
       })
       .subscribe();
     return () => {
@@ -59,7 +62,7 @@ export function useAlerts() {
         channelRef.current = null;
       }
     };
-  }, [queryClient]);
+  }, [queryClient, tankId]);
 
   const acknowledgeAlert = async (alertId: string) => {
     console.log(`Acknowledging alert ${alertId}...`);
@@ -74,7 +77,7 @@ export function useAlerts() {
     }
 
     console.log(`Alert ${alertId} acknowledged`);
-    queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
   };
 
   const snoozeAlert = async (alertId: string, until: string) => {
@@ -90,7 +93,7 @@ export function useAlerts() {
     }
 
     console.log(`Alert ${alertId} snoozed until ${until}`);
-    queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
   };
 
   return {

@@ -43,55 +43,57 @@ const App = () => {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AppStateProvider>
-          <BrowserRouter>
-            <HashRedirector />
-            <Toaster />
-            <RealtimeErrorBoundary>
-              <Routes>
-                <Route 
-                  path="/" 
-                  element={
+    <>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AppStateProvider>
+            <BrowserRouter>
+              <HashRedirector />
+              <Toaster />
+              <RealtimeErrorBoundary>
+                <Routes>
+                  <Route 
+                    path="/" 
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout 
+                          selectedGroup={selectedGroup}
+                          onGroupSelect={setSelectedGroup}
+                        >
+                          <Index selectedGroup={selectedGroup} />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/swan-transit" 
+                    element={
+                      <ProtectedRoute>
+                        <SwanTransit />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="/kalgoorlie" element={<ProtectedRoute><Kalgoorlie /></ProtectedRoute>} />
+                  <Route path="/geraldton" element={<ProtectedRoute><Geraldton /></ProtectedRoute>} />
+                  <Route path="/gsf-depots" element={<ProtectedRoute><GSFDepots /></ProtectedRoute>} />
+                  <Route path="/bgc" element={<ProtectedRoute><BGC /></ProtectedRoute>} />
+                  <Route path="/settings" element={
                     <ProtectedRoute>
-                      <AppLayout 
-                        selectedGroup={selectedGroup}
-                        onGroupSelect={setSelectedGroup}
-                      >
-                        <Index selectedGroup={selectedGroup} />
+                      <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                        <SettingsPage />
                       </AppLayout>
                     </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/swan-transit" 
-                  element={
-                    <ProtectedRoute>
-                      <SwanTransit />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route path="/kalgoorlie" element={<ProtectedRoute><Kalgoorlie /></ProtectedRoute>} />
-                <Route path="/geraldton" element={<ProtectedRoute><Geraldton /></ProtectedRoute>} />
-                <Route path="/gsf-depots" element={<ProtectedRoute><GSFDepots /></ProtectedRoute>} />
-                <Route path="/bgc" element={<ProtectedRoute><BGC /></ProtectedRoute>} />
-                <Route path="/settings" element={
-                  <ProtectedRoute>
-                    <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
-                      <SettingsPage />
-                    </AppLayout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/login" element={<Login />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </RealtimeErrorBoundary>
-          </BrowserRouter>
-        </AppStateProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+                  } />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </RealtimeErrorBoundary>
+            </BrowserRouter>
+          </AppStateProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </>
   );
 };
 

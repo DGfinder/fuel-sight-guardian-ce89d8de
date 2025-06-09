@@ -3,7 +3,7 @@ import { useTanks } from '@/hooks/useTanks';
 import { supabase } from '@/lib/supabase';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
-import { FuelTable } from '@/components/FuelTable';
+import { TankStatusTable } from '@/components/TankStatusTable';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 
 const KALGOORLIE_GROUP_NAME = 'Kalgoorlie';
@@ -47,13 +47,12 @@ export default function KalgoorliePage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Tank Status</h2>
             </div>
-            <FuelTable
+            <TankStatusTable
               tanks={kalgoorlieTanks}
               onTankClick={tank => {
                 setSelectedTankId(tank.id);
                 setTankDetailsOpen(true);
               }}
-              defaultOpenGroup="Kalgoorlie"
             />
 
             {/* Tank Details Modal */}

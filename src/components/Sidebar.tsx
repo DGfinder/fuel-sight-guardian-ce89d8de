@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import * as React from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { FuelDipForm } from "@/components/fuel-dip/FuelDipForm";
+import AddDipModal from '@/components/modals/AddDipModal';
 import { supabase } from '@/lib/supabase';
 
 const NAV_LINKS = [
@@ -210,11 +211,11 @@ export const Sidebar: React.FC = () => {
       )}
 
       {/* Dip Modal */}
-      <Dialog open={dipModalOpen} onOpenChange={setDipModalOpen}>
-        <DialogContent className="max-w-xl">
-          <FuelDipForm />
-        </DialogContent>
-      </Dialog>
+      <AddDipModal 
+        isOpen={dipModalOpen}
+        onClose={() => setDipModalOpen(false)}
+        onSubmit={async () => setDipModalOpen(false)}
+      />
     </>
   );
 };

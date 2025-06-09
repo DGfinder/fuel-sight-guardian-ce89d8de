@@ -8,7 +8,7 @@ import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { useTanks } from '@/hooks/useTanks';
 import { KPICards } from '@/components/KPICards';
 import { GroupSnapshotCards } from '@/components/GroupSnapshotCards';
-import { EnhancedFuelTable } from '@/components/EnhancedFuelTable';
+import { TankStatusTable } from '@/components/TankStatusTable';
 import { FuelInsightsPanel } from '@/components/FuelInsightsPanel';
 import { useAlerts } from "@/hooks/useAlerts";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -62,27 +62,27 @@ export default function Index({ selectedGroup }: IndexProps) {
       'bgc': 'BGC'
     };
     const groupName = groupMapping[selectedGroup];
-    return tank.tank_groups?.name === groupName || tank.group_id === selectedGroup;
+    return tank.group_name === groupName;
   }) ?? [];
 
+  const allGroupNames = Array.from(new Set(tanks?.map(t => t.group_name).filter(Boolean)));
   const groupSnapshots = tanks ? [
     {
       id: "all",
       name: "All Groups",
       totalTanks: tanks.length,
       criticalTanks: tanks.filter(t => t.days_to_min_level !== null && t.days_to_min_level <= 2).length,
-      averageLevel: Math.round(tanks.reduce((acc, t) => acc + (t.current_level_percent || 0), 0) / tanks.length),
+      averageLevel: Math.round(tanks.reduce((acc, t) => acc + ((t.current_level_percent ?? 0) * 100), 0) / tanks.length),
       lastUpdated: new Date().toISOString()
     },
-    ...Array.from(new Set(tanks.map(t => t.group_id))).map(groupId => {
-      const groupTanks = tanks.filter(t => t.group_id === groupId);
-      const groupName = groupTanks[0]?.group_name || groupTanks[0]?.tank_groups?.name || `Group ${groupId}`;
+    ...allGroupNames.map(groupName => {
+      const groupTanks = tanks.filter(t => t.group_name === groupName);
       return {
-        id: groupId,
+        id: groupName,
         name: groupName,
         totalTanks: groupTanks.length,
         criticalTanks: groupTanks.filter(t => t.days_to_min_level !== null && t.days_to_min_level <= 2).length,
-        averageLevel: Math.round(groupTanks.reduce((acc, t) => acc + (t.current_level_percent || 0), 0) / groupTanks.length),
+        averageLevel: groupTanks.length > 0 ? Math.round(groupTanks.reduce((acc, t) => acc + ((t.current_level_percent ?? 0) * 100), 0) / groupTanks.length) : 0,
         lastUpdated: new Date().toISOString()
       };
     })
@@ -132,122 +132,123 @@ export default function Index({ selectedGroup }: IndexProps) {
   const displayTanks = selectedGroup ? filteredTanks : tanks || [];
 
   return (
-    <div className="space-y-8 w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
-      {/* Unified Fuel Insights Panel */}
-      <FuelInsightsPanel 
-        tanks={displayTanks} 
-        onNeedsActionClick={handleNeedsActionClick}
-      />
-
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {selectedGroup 
-              ? `${groupSnapshots.find(g => g.id === selectedGroup)?.name} Dashboard` 
-              : 'Fuel Insights Dashboard'
-            }
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {selectedGroup 
-              ? `Monitoring ${filteredTanks.length} tanks in this group`
-              : `Real-time monitoring across ${tanks?.length || 0} fuel tanks`
-            }
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setIsAlertsOpen(true)}
-            className="relative border-gray-300 hover:border-[#008457] hover:text-[#008457]"
-          >
-            <Bell className="h-4 w-4 mr-2" />
-            Alerts
-            {criticalAlerts.length > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs animate-pulse"
-              >
-                {criticalAlerts.length}
-              </Badge>
-            )}
-          </Button>
-          <Button
-            className="bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-lg py-2 px-4 shadow flex items-center"
-            onClick={() => setDipModalOpen(true)}
-          >
-            <PlusCircle className="w-4 h-4 mr-2" />
-            Add Dip Reading
-          </Button>
-        </div>
-        <Dialog open={dipModalOpen} onOpenChange={setDipModalOpen}>
-          <DialogContent className="max-w-xl">
-            <FuelDipForm />
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* KPI Strip */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 text-gray-900">Operational Overview</h2>
-        <KPICards
-          tanks={displayTanks}
-          onCardClick={handleCardClick}
-          selectedFilter={selectedFilter}
+    <div className="min-h-screen w-full bg-muted">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
+        {/* Unified Fuel Insights Panel */}
+        <FuelInsightsPanel 
+          tanks={displayTanks} 
+          onNeedsActionClick={handleNeedsActionClick}
         />
-      </div>
 
-      {/* Group Overview - Only show on global dashboard */}
-      {!selectedGroup && (
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {selectedGroup 
+                ? `${groupSnapshots.find(g => g.id === selectedGroup)?.name} Dashboard` 
+                : 'Fuel Insights Dashboard'
+              }
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {selectedGroup 
+                ? `Monitoring ${filteredTanks.length} tanks in this group`
+                : `Real-time monitoring across ${tanks?.length || 0} fuel tanks`
+              }
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsAlertsOpen(true)}
+              className="relative border-gray-300 hover:border-[#008457] hover:text-[#008457]"
+            >
+              <Bell className="h-4 w-4 mr-2" />
+              Alerts
+              {criticalAlerts.length > 0 && (
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs animate-pulse"
+                >
+                  {criticalAlerts.length}
+                </Badge>
+              )}
+            </Button>
+            <Button
+              className="bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-lg py-2 px-4 shadow flex items-center"
+              onClick={() => setDipModalOpen(true)}
+            >
+              <PlusCircle className="w-4 h-4 mr-2" />
+              Add Dip Reading
+            </Button>
+          </div>
+          <Dialog open={dipModalOpen} onOpenChange={setDipModalOpen}>
+            <DialogContent className="max-w-xl">
+              <FuelDipForm />
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* KPI Strip */}
         <div>
-          <h2 className="text-xl font-semibold mb-4 text-gray-900">Fuel Group Overview</h2>
-          <GroupSnapshotCards
-            groups={groupSnapshots}
-            selectedGroup={null}
-            onGroupClick={handleGroupClick}
+          <h2 className="text-xl font-semibold mb-4 text-gray-900">Operational Overview</h2>
+          <KPICards
+            tanks={displayTanks}
+            onCardClick={handleCardClick}
+            selectedFilter={selectedFilter}
           />
         </div>
-      )}
 
-      {/* Tank Status Table */}
-      <div ref={tankTableRef}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {selectedGroup ? 'Tank Status' : 'All Tank Status'}
-          </h2>
-          {selectedFilter && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setSelectedFilter(null)}
-              className="border-gray-300 hover:border-[#008457] hover:text-[#008457]"
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              Clear Filter
-            </Button>
-          )}
+        {/* Group Overview - Only show on global dashboard */}
+        {!selectedGroup && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">Fuel Group Overview</h2>
+            <GroupSnapshotCards
+              groups={groupSnapshots}
+              selectedGroup={null}
+              onGroupClick={handleGroupClick}
+            />
+          </div>
+        )}
+
+        {/* Tank Status Table */}
+        <div ref={tankTableRef}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {selectedGroup ? 'Tank Status' : 'All Tank Status'}
+            </h2>
+            {selectedFilter && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSelectedFilter(null)}
+                className="border-gray-300 hover:border-[#008457] hover:text-[#008457]"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Clear Filter
+              </Button>
+            )}
+          </div>
+          <TankStatusTable
+            tanks={displayTanks}
+            onTankClick={handleTankClick}
+          />
         </div>
-        <EnhancedFuelTable
-          tanks={displayTanks}
-          onTankClick={handleTankClick}
-          defaultOpenGroup={null}
+
+        {/* Modals */}
+        <TankDetailsModal
+          tank={selectedTank}
+          open={tankDetailsOpen}
+          onOpenChange={setTankDetailsOpen}
         />
+
+        <AlertsDrawer
+          open={isAlertsOpen}
+          onOpenChange={setIsAlertsOpen}
+          tanks={tanks ?? []}
+        />
+        
+        <StickyMobileNav />
       </div>
-
-      {/* Modals */}
-      <TankDetailsModal
-        tank={selectedTank}
-        open={tankDetailsOpen}
-        onOpenChange={setTankDetailsOpen}
-      />
-
-      <AlertsDrawer
-        open={isAlertsOpen}
-        onOpenChange={setIsAlertsOpen}
-        tanks={tanks ?? []}
-      />
-      
-      <StickyMobileNav />
     </div>
   );
 }

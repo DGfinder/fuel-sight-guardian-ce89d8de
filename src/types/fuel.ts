@@ -1,27 +1,19 @@
-export type Tank = {
+export interface TankRow {
   id: string;
   location: string;
-  product_type: 'ADF' | 'ULP' | 'ULP98' | 'Diesel';
+  product: string;
+  safe_fill: number;
   current_level: number;
-  current_level_percent: number; // Added missing property
-  safe_level: number;
-  min_level: number | null;
-  group_id: string;
-  group_name?: string; // Added for tanks_with_latest_dip view compatibility
-  subgroup?: string; // Added for nested grouping
-  is_favourite?: boolean; // For user-specific favourites
-  recent_viewed_at?: string; // For recent activity
-  last_dip_date: string | null;
-  last_dip_by: string | null;
-  rolling_avg: number | null;
+  current_level_percent: number;  // 0–1
+  rolling_avg_lpd: number | null; // positive => refill
   days_to_min_level: number | null;
-  created_at: string;
-  updated_at: string;
-  alerts?: TankAlert[];
-  tank_groups?: {
-    name: string;
-  } | null;
-};
+  last_dip_ts: string | null;
+  group_id: string;
+  group_name: string;
+  subgroup?: string;  // Optional subgroup property
+}
+
+export type Tank = TankRow;
 
 export type AlertType = 'critical' | 'low_level' | 'low_days';
 

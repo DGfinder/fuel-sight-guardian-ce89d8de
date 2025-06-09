@@ -4,7 +4,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,7 +42,7 @@ import {
   ChartOptions,
   ChartData,
 } from 'chart.js';
-import { FuelDipForm } from '@/components/fuel-dip/FuelDipForm';
+import AddDipModal from '@/components/modals/AddDipModal';
 
 // Register Chart.js components
 ChartJS.register(
@@ -120,11 +119,11 @@ export function TankDetailsModal({
         tension: 0.3,
       },
       // Overlay burn rate if available
-      ...(tank.rolling_avg
+      ...(tank.rolling_avg_lpd
         ? [
             {
               label: 'Avg Burn Rate (L/day)',
-              data: Array(last30Dips.length).fill(tank.rolling_avg),
+              data: Array(last30Dips.length).fill(tank.rolling_avg_lpd),
               borderColor: '#FEDF19', // GSF Gold
               borderDash: [5, 5],
               pointRadius: 0,
@@ -224,16 +223,12 @@ export function TankDetailsModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl w-full p-0 flex flex-col max-h-[90vh]">
+        <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-lg">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold flex items-center gap-3">
               <Droplets className="w-7 h-7 text-blue-600" />
-              {tank.location} - {tank.product_type}
+              {tank.location} - {tank.product || 'N/A'}
             </DialogTitle>
-            <DialogClose className="absolute top-4 right-4">
-              <X className="w-5 h-5" />
-              <span className="sr-only">Close</span>
-            </DialogClose>
           </DialogHeader>
 
           <Tabs defaultValue="overview" className="flex-grow flex flex-col">
@@ -275,23 +270,21 @@ export function TankDetailsModal({
                         <strong>Depot:</strong> {tank.group_name || 'N/A'}
                       </div>
                       <div>
-                        <strong>Subgroup:</strong> {tank.subgroup || 'N/A'}
+                        <strong>Product:</strong> {tank.product || 'N/A'}
                       </div>
                       <div>
                         <strong>Current Volume:</strong>{' '}
-                        {tank.current_level.toLocaleString()} L (
-                        {tank.current_level_percent}%)
+                        {typeof tank.current_level === 'number' ? tank.current_level.toLocaleString() : 'N/A'} L (
+                        {typeof tank.current_level === 'number' && typeof tank.safe_fill === 'number' && tank.safe_fill !== 0 ? Math.round((tank.current_level / tank.safe_fill) * 100) : 0}%
+                        )
                       </div>
                       <div>
                         <strong>Safe Fill Level:</strong>{' '}
-                        {tank.safe_level.toLocaleString()} L
+                        {typeof tank.safe_fill === 'number' ? tank.safe_fill.toLocaleString() : 'N/A'} L
                       </div>
                       <div>
                         <strong>Ullage:</strong>{' '}
-                        {(
-                          tank.safe_level - tank.current_level
-                        ).toLocaleString()}{' '}
-                        L
+                        {typeof tank.safe_fill === 'number' && typeof tank.current_level === 'number' ? (tank.safe_fill - tank.current_level).toLocaleString() : 'N/A'} L
                       </div>
                       <div>
                         <strong>Days to Min Level:</strong>{' '}
@@ -312,12 +305,11 @@ export function TankDetailsModal({
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div>
-                        <strong>Burn Rate:</strong> {tank.rolling_avg ?? 'N/A'}{' '}
-                        L/day
+                        <strong>Burn Rate:</strong> {tank.rolling_avg_lpd ?? 'N/A'}
                       </div>
                       <div>
                         <strong>Last Dip:</strong>{' '}
-                        {format(new Date(tank.last_dip_date), 'PPpp')}
+                        {tank.last_dip_ts ? format(new Date(tank.last_dip_ts), 'PPpp') : 'N/A'}
                       </div>
                       {/* Add more live metrics as needed */}
                     </CardContent>
@@ -383,24 +375,18 @@ export function TankDetailsModal({
               Add New Dip
             </Button>
           </div>
+
+          {isDipFormOpen && (
+            <AddDipModal
+              isOpen={isDipFormOpen}
+              onClose={() => setIsDipFormOpen(false)}
+              onSubmit={async () => setIsDipFormOpen(false)}
+              initialGroupId={tank.group_id}
+              initialTankId={tank.id}
+            />
+          )}
         </DialogContent>
       </Dialog>
-
-      {/* Fuel Dip Form Modal */}
-      {isDipFormOpen && (
-        <Dialog open={isDipFormOpen} onOpenChange={setIsDipFormOpen}>
-          <DialogContent className="max-w-lg w-full">
-            <Card>
-              <CardHeader>
-                <CardTitle>Add Dip Reading for {tank?.location || 'Tank'}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <FuelDipForm />
-              </CardContent>
-            </Card>
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   );
 }

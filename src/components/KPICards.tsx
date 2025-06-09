@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +9,18 @@ interface KPICardsProps {
   tanks: Tank[] | undefined;
   onCardClick: (filter: string) => void;
   selectedFilter: string | null;
+}
+
+function calculateTotalUllage(tanks: Tank[]): number {
+  return tanks.reduce((sum, tank) => {
+    if (
+      typeof tank.safe_fill === 'number' &&
+      typeof tank.current_level === 'number'
+    ) {
+      return sum + (tank.safe_fill - tank.current_level);
+    }
+    return sum;
+  }, 0);
 }
 
 export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsProps) {
@@ -34,9 +45,7 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
     const totalStock = tanks.reduce((sum, tank) => sum + tank.current_level, 0);
 
     // ⛽ Total Ullage (safe_level - current_level)
-    const totalUllage = tanks.reduce((sum, tank) => {
-      return sum + Math.max(0, tank.safe_level - tank.current_level);
-    }, 0);
+    const totalUllage = calculateTotalUllage(tanks);
 
     // ⏳ Average Days-to-Min
     const tanksWithDays = tanks.filter(tank => 
@@ -94,7 +103,7 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
     {
       id: 'total-ullage',
       title: 'Total Ullage',
-      value: `${(kpis.totalUllage / 1000).toFixed(0)}K L`,
+      value: isNaN(kpis.totalUllage) ? 'N/A' : `${Math.round(kpis.totalUllage / 1000)}K L`,
       subtitle: 'Available capacity',
       icon: TrendingUp,
       color: 'text-purple-600',
