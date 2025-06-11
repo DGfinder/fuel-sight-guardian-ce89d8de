@@ -17,6 +17,8 @@ import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
 import Geraldton from '@/pages/Geraldton';
 import GSFDepots from '@/pages/GSFDepots';
 import BGC from '@/pages/BGC';
+import TanksPage from '@/pages/TanksPage';
+import AlertsPage from '@/pages/AlertsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +67,19 @@ const App = () => {
                     } 
                   />
                   <Route 
+                    path="/tanks" 
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout 
+                          selectedGroup={selectedGroup}
+                          onGroupSelect={setSelectedGroup}
+                        >
+                          <TanksPage />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
                     path="/swan-transit" 
                     element={
                       <ProtectedRoute>
@@ -85,6 +100,19 @@ const App = () => {
                   } />
                   <Route path="/login" element={<Login />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route 
+                    path="/alerts" 
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout 
+                          selectedGroup={selectedGroup}
+                          onGroupSelect={setSelectedGroup}
+                        >
+                          <AlertsPage />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } 
+                  />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </RealtimeErrorBoundary>

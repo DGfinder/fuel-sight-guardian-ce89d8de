@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { TankAlert } from '@/types/fuel';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -64,43 +64,57 @@ export function useAlerts(tankId?: string) {
     };
   }, [queryClient, tankId]);
 
-  const acknowledgeAlert = async (alertId: string) => {
-    console.log(`Acknowledging alert ${alertId}...`);
-    const { error } = await supabase
-      .from('tank_alerts')
-      .update({ acknowledged_at: new Date().toISOString() })
-      .eq('id', alertId);
+  const { mutate: markAllRead } = useMutation({
+    mutationFn: async () => {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('tank_alerts')
+        .update({ acknowledged_at: now })
+        .is('acknowledged_at', null);
 
-    if (error) {
-      console.error('Error acknowledging alert:', error);
-      throw error;
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
     }
+  });
 
-    console.log(`Alert ${alertId} acknowledged`);
-    queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
-  };
+  const { mutate: markAlertRead } = useMutation({
+    mutationFn: async (alertId: string) => {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('tank_alerts')
+        .update({ acknowledged_at: now })
+        .eq('id', alertId);
 
-  const snoozeAlert = async (alertId: string, until: string) => {
-    console.log(`Snoozing alert ${alertId} until ${until}...`);
-    const { error } = await supabase
-      .from('tank_alerts')
-      .update({ snoozed_until: until })
-      .eq('id', alertId);
-
-    if (error) {
-      console.error('Error snoozing alert:', error);
-      throw error;
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
     }
+  });
 
-    console.log(`Alert ${alertId} snoozed until ${until}`);
-    queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
-  };
+  const { mutate: snoozeAlert } = useMutation({
+    mutationFn: async ({ alertId, hours }: { alertId: string; hours: number }) => {
+      const snoozeUntil = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from('tank_alerts')
+        .update({ snoozed_until: snoozeUntil })
+        .eq('id', alertId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
+    }
+  });
 
   return {
     alerts,
     isLoading,
     error,
-    acknowledgeAlert,
+    markAllRead,
+    markAlertRead,
     snoozeAlert
   };
 } 

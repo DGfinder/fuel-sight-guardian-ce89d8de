@@ -37,23 +37,26 @@ interface TankRowProps {
   onClick: (tank: Tank) => void;
   todayBurnRate?: number;
   isMobile?: boolean;
+  setEditDipTank: React.Dispatch<React.SetStateAction<Tank | null>>;
+  setEditDipModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const fmt = (n: number | null | undefined) => typeof n === 'number' && !isNaN(n) ? n.toLocaleString('en-AU') : '—';
 
-const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobile }) => {
-  const percent = typeof tank.current_level_percent === 'number' ? Math.round(tank.current_level_percent * 100) : 0;
+const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobile, setEditDipTank, setEditDipModalOpen }) => {
+  // Use the correctly calculated percent from the SQL view
+  const percent = typeof tank.current_level_percent === 'number' ? Math.round(tank.current_level_percent) : 0;
   const status = useMemo(() => {
-    if (tank.days_to_min_level !== null && tank.days_to_min_level <= 2) return 'critical';
-    if (tank.days_to_min_level !== null && tank.days_to_min_level <= 5) return 'low';
-    if (tank.current_level_percent < 0.2) return 'critical';
-    if (tank.current_level_percent < 0.4) return 'low';
+    if (tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 2) return 'critical';
+    if (tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 5) return 'low';
+    if (percent < 20) return 'critical';
+    if (percent < 40) return 'low';
     return 'normal';
-  }, [tank.current_level_percent, tank.days_to_min_level]);
-  const lastDipTs = tank.last_dip_ts ? new Date(tank.last_dip_ts) : null;
+  }, [percent, tank.days_to_min_level]);
+  const lastDipTs = tank.last_dip?.created_at ? new Date(tank.last_dip.created_at) : null;
   const isDipOld = lastDipTs ? ((Date.now() - lastDipTs.getTime()) > 4 * 24 * 60 * 60 * 1000) : false;
-  const ullage = tank.safe_fill - tank.current_level;
-  const rollingAvg = typeof tank.rolling_avg_lpd === 'number' ? tank.rolling_avg_lpd : null;
+  const ullage = typeof tank.safe_level === 'number' && typeof tank.current_level === 'number' ? tank.safe_level - tank.current_level : null;
+  const rollingAvg = typeof tank.rolling_avg === 'number' ? tank.rolling_avg : null;
 
   if (isMobile) {
     return (
@@ -68,13 +71,17 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
             <span>Current Level:</span>
             <span className="text-right">{fmt(tank.current_level)} L</span>
             <span>Safe Level:</span>
-            <span className="text-right">{fmt(tank.safe_fill)} L</span>
+            <span className="text-right">{fmt(tank.safe_level)} L</span>
             <span>Days to Min:</span>
             <span className={cn('text-right', status === 'critical' ? 'text-red-500' : status === 'low' ? 'text-amber-500' : '')}>{tank.days_to_min_level ?? '—'}</span>
             <span>Rolling Avg (L/day):</span>
-            <span className="text-right">{rollingAvg === null ? '—' : rollingAvg > 0 ? <span className="text-emerald-600">Refill ↑</span> : <>{Math.abs(rollingAvg)} ↓</>}</span>
+            <span className="text-right">
+              {rollingAvg === null ? '—' 
+                : rollingAvg > 0 ? <span className="text-emerald-600">Refill ↑</span>
+                : <span>{rollingAvg}</span>}
+            </span>
             <span>Last Dip:</span>
-            <span className="text-right">{lastDipTs ? (lastDipTs.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + (tank.last_dip_user ? (' by ' + tank.last_dip_user) : '')) : '—'}{isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}</span>
+            <span className="text-right">{lastDipTs ? (lastDipTs.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + (tank.last_dip?.recorded_by ? (' by ' + tank.last_dip.recorded_by) : '')) : '—'}{isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}</span>
             <span>Ullage (L):</span>
             <span className="text-right text-emerald-700">{fmt(ullage)}</span>
           </div>
@@ -104,11 +111,11 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
       }}
     >
       <td className="sticky left-0 z-10 bg-inherit px-3 py-2 font-bold">{tank.location}</td>
-      <td className="px-3 py-2 text-center"><Badge variant="secondary">{tank.product}</Badge></td>
-      <td className="px-3 py-2 text-right">
-        <div className="flex flex-col items-end">
-          <span className="font-semibold">{fmt(tank.current_level)} L</span>
-          <span className="text-xs text-gray-500">/ {fmt(tank.safe_fill)} L</span>
+      <td className="px-3 py-2 text-center"><Badge variant="secondary">{tank.product_type}</Badge></td>
+      <td className="px-3 py-2 text-center">
+        <div className="flex flex-col items-center min-w-[100px]">
+          <span className="font-semibold text-gray-900 tabular-nums">{fmt(tank.current_level)} L</span>
+          <span className="text-xs text-gray-500 tabular-nums">/ {fmt(tank.safe_level)} L</span>
         </div>
       </td>
       <td className="px-3 py-2 text-center w-32">
@@ -124,11 +131,19 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
       <td className="px-3 py-2 text-center">
         {rollingAvg === null ? '—'
           : rollingAvg > 0 ? <span className="text-emerald-600">Refill ↑</span>
-          : <span>-{Math.abs(rollingAvg)}</span>}
+          : <span>{rollingAvg}</span>}
       </td>
       <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>
       <td className="px-3 py-2 text-center">
-        {lastDipTs ? (lastDipTs.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + (tank.last_dip_user ? (' by ' + tank.last_dip_user) : '')) : '—'}
+        {lastDipTs
+          ? lastDipTs.toLocaleDateString('en-AU', {
+              day: '2-digit',
+              month: 'short',
+              year: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : '—'}
         {isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}
       </td>
       <td className="hidden md:table-cell px-3 py-2 text-right text-emerald-700">{fmt(ullage)}</td>
@@ -153,9 +168,11 @@ interface NestedGroupAccordionProps {
   todayBurnRate?: number;
   sortTanks: (t: Tank[]) => Tank[];
   SortButton: any;
+  setEditDipTank: React.Dispatch<React.SetStateAction<Tank | null>>;
+  setEditDipModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTankClick, todayBurnRate, sortTanks, SortButton }) => {
+const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTankClick, todayBurnRate, sortTanks, SortButton, setEditDipTank, setEditDipModalOpen }) => {
   // Group by group_name, then subgroup
   const grouped = useMemo(() => {
     const result: Record<string, { id: string; name: string; tanks: Tank[]; subGroups: { id: string; name: string; tanks: Tank[] }[] }> = {};
@@ -174,120 +191,164 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
         sg.tanks.push(tank);
       }
     });
-    return Object.values(result);
+    
+    // Convert to array and sort with Swan Transit first
+    const groupsArray = Object.values(result);
+    groupsArray.sort((a, b) => {
+      if (a.name === 'Swan Transit') return -1;
+      if (b.name === 'Swan Transit') return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    return groupsArray;
   }, [tanks]);
+
+  // Function to get group status based on tank conditions
+  const getGroupStatus = (groupTanks: Tank[]) => {
+    const allTanks = [...groupTanks];
+    
+    const criticalTanks = allTanks.filter(tank => {
+      const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
+      return percent < 20 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 2);
+    });
+    
+    const warningTanks = allTanks.filter(tank => {
+      const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
+      return (percent >= 20 && percent < 40) || (tank.days_to_min_level !== null && tank.days_to_min_level > 2 && tank.days_to_min_level <= 5);
+    });
+
+    if (criticalTanks.length > 0) return 'critical';
+    if (warningTanks.length > 0) return 'warning';
+    return 'normal';
+  };
 
   // Responsive: detect mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   return (
     <Accordion type="multiple" defaultValue={[]} className="w-full">
-      {grouped.map(group => (
-        <AccordionItem value={group.id} key={group.id} className="border-none">
-          <AccordionTrigger className="bg-gray-50 px-4 py-3 font-semibold text-gray-700 sticky top-0 z-10 shadow-xs flex items-center gap-2">
-            {group.name}
-            <Badge variant="outline" className="bg-gray-50 text-gray-700 ml-2">{group.tanks.length + group.subGroups.reduce((acc, sg) => acc + sg.tanks.length, 0)} tanks</Badge>
-          </AccordionTrigger>
-          <AccordionContent className="bg-white dark:bg-gray-900">
-            {/* Subgroups */}
-            {group.subGroups.length > 0 ? (
-              <Accordion type="multiple" defaultValue={[]} className="w-full">
-                {group.subGroups.map(sub => (
-                  <AccordionItem value={sub.id} key={sub.id} className="border-none">
-                    <AccordionTrigger className="bg-gray-100 px-4 py-2 font-semibold text-gray-700 flex items-center gap-2">
-                      {sub.name}
-                      <Badge variant="outline" className="bg-gray-100 text-gray-700 ml-2">{sub.tanks.length}</Badge>
-                    </AccordionTrigger>
-                    <AccordionContent className="bg-white dark:bg-gray-900">
-                      {/* Use virtualization for large subgroups */}
-                      {sub.tanks.length > 50 ? (
-                        <List
-                          height={400}
-                          itemCount={sub.tanks.length}
-                          itemSize={48}
-                          width={"100%"}
-                        >
-                          {({ index, style }) => (
-                            <div style={style} key={sub.tanks[index].id}>
-                              <table className="w-full">
-                                <tbody>
-                                  <TankRow tank={sub.tanks[index]} onClick={onTankClick} todayBurnRate={todayBurnRate} />
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </List>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full border-collapse">
-                            <thead>
-                              <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                                <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
-                                  <SortButton field="location">Location / Tank</SortButton>
-                                </th>
-                                <th className="px-3 py-3 text-center">
-                                  <SortButton field="product">Product</SortButton>
-                                </th>
-                                <th className="px-3 py-3 text-right">
-                                  <SortButton field="current_level">Current Level</SortButton>
-                                </th>
-                                <th className="px-3 py-3 text-center">% Full</th>
-                                <th className="px-3 py-3 text-center">Days-to-Min</th>
-                                <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
-                                <th className="px-3 py-3 text-center">Status</th>
-                                <th className="px-3 py-3 text-center">Last Dip</th>
-                                <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
-                                <th className="px-3 py-3 text-center">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {sortTanks(sub.tanks).map(tank => (
-                                <TankRow key={tank.id} tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} isMobile={isMobile} />
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            ) : null}
-            {/* Tanks not in subgroups */}
-            {group.tanks.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                      <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
-                        <SortButton field="location">Location / Tank</SortButton>
-                      </th>
-                      <th className="px-3 py-3 text-center">
-                        <SortButton field="product">Product</SortButton>
-                      </th>
-                      <th className="px-3 py-3 text-right">
-                        <SortButton field="current_level">Current Level</SortButton>
-                      </th>
-                      <th className="px-3 py-3 text-center">% Full</th>
-                      <th className="px-3 py-3 text-center">Days-to-Min</th>
-                      <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
-                      <th className="px-3 py-3 text-center">Status</th>
-                      <th className="px-3 py-3 text-center">Last Dip</th>
-                      <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
-                      <th className="px-3 py-3 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortTanks(group.tanks).map(tank => (
-                      <TankRow key={tank.id} tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} isMobile={isMobile} />
-                    ))}
-                  </tbody>
-                </table>
+      {grouped.map(group => {
+        const allGroupTanks = [...group.tanks, ...group.subGroups.flatMap(sg => sg.tanks)];
+        const groupStatus = getGroupStatus(allGroupTanks);
+        const totalTanks = allGroupTanks.length;
+        
+        const statusColors = {
+          critical: 'border-l-red-500 bg-red-50/50 hover:bg-red-50',
+          warning: 'border-l-amber-500 bg-amber-50/50 hover:bg-amber-50',
+          normal: 'border-l-green-500 bg-green-50/50 hover:bg-green-50'
+        };
+
+        return (
+          <AccordionItem value={group.id} key={group.id} className="border-none mb-2">
+            <AccordionTrigger className={`px-6 py-4 font-semibold text-gray-800 sticky top-0 z-10 shadow-sm border border-gray-200 rounded-lg flex items-center justify-between group transition-all duration-200 border-l-4 ${statusColors[groupStatus]}`}>
+              <div className="flex items-center gap-4">
+                <span className="text-lg font-bold">{group.name}</span>
+                <Badge variant="outline" className="bg-white/80 text-gray-600 border-gray-300 px-3 py-1 text-sm font-medium">
+                  {totalTanks} tanks
+                </Badge>
               </div>
-            )}
-          </AccordionContent>
-        </AccordionItem>
-      ))}
+            </AccordionTrigger>
+            <AccordionContent className="bg-white dark:bg-gray-900 border-l-4 border-l-gray-200 ml-2">
+              {/* Subgroups */}
+              {group.subGroups.length > 0 ? (
+                <Accordion type="multiple" defaultValue={[]} className="w-full">
+                  {group.subGroups.map(sub => (
+                    <AccordionItem value={sub.id} key={sub.id} className="border-none">
+                      <AccordionTrigger className="bg-gray-100 px-4 py-2 font-semibold text-gray-700 flex items-center gap-2">
+                        {sub.name}
+                        <Badge variant="outline" className="bg-gray-100 text-gray-700 ml-2">{sub.tanks.length}</Badge>
+                      </AccordionTrigger>
+                      <AccordionContent className="bg-white dark:bg-gray-900">
+                        {/* Use virtualization for large subgroups */}
+                        {sub.tanks.length > 50 ? (
+                          <List
+                            height={400}
+                            itemCount={sub.tanks.length}
+                            itemSize={48}
+                            width={"100%"}
+                          >
+                            {({ index, style }) => (
+                              <div style={style} key={sub.tanks[index].id}>
+                                <table className="w-full">
+                                  <tbody>
+                                    <TankRow tank={sub.tanks[index]} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </List>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                              <thead>
+                                <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
+                                  <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
+                                    <SortButton field="location">Location / Tank</SortButton>
+                                  </th>
+                                  <th className="px-3 py-3 text-center">
+                                    <SortButton field="product_type">Product</SortButton>
+                                  </th>
+                                  <th className="px-3 py-3 text-center">
+                                    <SortButton field="current_level">Current Level</SortButton>
+                                  </th>
+                                  <th className="px-3 py-3 text-center">% Full</th>
+                                  <th className="px-3 py-3 text-center">Days-to-Min</th>
+                                  <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
+                                  <th className="px-3 py-3 text-center">Status</th>
+                                  <th className="px-3 py-3 text-center">Last Dip</th>
+                                  <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
+                                  <th className="px-3 py-3 text-center">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sortTanks(sub.tanks).map(tank => (
+                                  <TankRow key={tank.id} tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : null}
+              {/* Tanks not in subgroups */}
+              {group.tanks.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
+                        <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
+                          <SortButton field="location">Location / Tank</SortButton>
+                        </th>
+                        <th className="px-3 py-3 text-center">
+                          <SortButton field="product_type">Product</SortButton>
+                        </th>
+                        <th className="px-3 py-3 text-center">
+                          <SortButton field="current_level">Current Level</SortButton>
+                        </th>
+                        <th className="px-3 py-3 text-center">% Full</th>
+                        <th className="px-3 py-3 text-center">Days-to-Min</th>
+                        <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
+                        <th className="px-3 py-3 text-center">Status</th>
+                        <th className="px-3 py-3 text-center">Last Dip</th>
+                        <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
+                        <th className="px-3 py-3 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortTanks(group.tanks).map(tank => (
+                        <TankRow key={tank.id} tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
     </Accordion>
   );
 };
@@ -299,6 +360,7 @@ export interface TankStatusTableProps {
 }
 
 export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankClick, todayBurnRate }) => {
+  console.log('TANKS DEBUG:', tanks);
   const [selectedTank, setSelectedTank] = useState<Tank | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: null, direction: 'asc' });
@@ -352,7 +414,7 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
   return (
     <div className="space-y-4">
       <Input placeholder="Search by location" className="mb-4" />
-      <NestedGroupAccordion tanks={tanks} onTankClick={handleTankClick} todayBurnRate={todayBurnRate} sortTanks={sortTanks} SortButton={SortButton} />
+      <NestedGroupAccordion tanks={tanks} onTankClick={handleTankClick} todayBurnRate={todayBurnRate} sortTanks={sortTanks} SortButton={SortButton} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} />
       {selectedTank && (
         <TankDetailsModal tank={selectedTank} open={drawerOpen} onOpenChange={setDrawerOpen} />
       )}

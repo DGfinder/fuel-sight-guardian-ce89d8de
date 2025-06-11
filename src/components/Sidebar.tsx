@@ -11,12 +11,20 @@ import {
   Home,
   Settings,
   Plus,
+  HomeIcon,
+  DatabaseIcon as TankIcon,
+  BellIcon as AlertIcon,
+  ChevronRightIcon,
+  BusIcon,
+  MapPinIcon,
+  Building2Icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import AddDipModal from '@/components/modals/AddDipModal';
 import { supabase } from '@/lib/supabase';
+import { useQuery } from '@tanstack/react-query';
+import AddDipModal from '@/components/modals/AddDipModal';
 
 const NAV_LINKS = [
   {
@@ -57,12 +65,35 @@ const NAV_LINKS = [
   },
 ];
 
+interface TankCount {
+  total: number;
+  critical: number;
+  warning: number;
+}
+
 export const Sidebar: React.FC = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [dipModalOpen, setDipModalOpen] = useState(false);
+  const [addDipModalOpen, setAddDipModalOpen] = useState(false);
   const navigate = useNavigate();
+
+  const { data: tankCounts } = useQuery<TankCount>({
+    queryKey: ['tankCounts'],
+    queryFn: async () => {
+      const { data: tanks, error } = await supabase
+        .from('tanks_with_latest_dip')
+        .select('id');
+        
+      if (error) throw error;
+      
+      return {
+        total: tanks.length,
+        critical: 0,
+        warning: 0
+      };
+    }
+  });
 
   useEffect(() => {
     const handleResize = () => {
@@ -86,6 +117,51 @@ export const Sidebar: React.FC = () => {
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
+
+  const navItems = [
+    {
+      path: '/',
+      label: 'Dashboard',
+      icon: HomeIcon,
+      badge: null
+    },
+    {
+      path: '/tanks',
+      label: 'Tanks',
+      icon: TankIcon,
+      badge: tankCounts?.total
+    },
+    {
+      path: '/swan-transit',
+      label: 'Swan Transit',
+      icon: BusIcon,
+      badge: null
+    },
+    {
+      path: '/kalgoorlie',
+      label: 'Kalgoorlie',
+      icon: MapPinIcon,
+      badge: null
+    },
+    {
+      path: '/gsf-depots',
+      label: 'GSF Depots',
+      icon: Building2Icon,
+      badge: null
+    },
+    {
+      path: '/geraldton',
+      label: 'Geraldton',
+      icon: MapPinIcon,
+      badge: null
+    },
+    {
+      path: '/bgc',
+      label: 'BGC',
+      icon: Building2Icon,
+      badge: null
+    }
+  ];
 
   return (
     <>
@@ -135,55 +211,53 @@ export const Sidebar: React.FC = () => {
 
           {/* Nav Links */}
           <ul className="flex flex-col gap-1">
-            {NAV_LINKS.map((link) => {
-              const isActive = location.pathname === link.to;
-              return (
-                <li key={link.key}>
-                  <Link
-                    to={link.to}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-2 rounded-lg font-medium transition-colors",
-                      isActive
-                        ? "bg-[#FEDF19] text-[#111111] shadow font-bold"
-                        : "hover:bg-white/10 text-white",
-                    )}
-                    aria-current={isActive ? "page" : undefined}
-                  >
-                    <span
-                      className={cn(
-                        "transition-colors",
-                        isActive ? "text-[#111111]" : "text-white"
-                      )}
-                    >
-                      {link.icon}
+            {navItems.map(({ path, label, icon: Icon, badge }) => (
+              <li key={path}>
+                <Link
+                  to={path}
+                  className={cn(
+                    "flex items-center justify-between p-2 rounded-lg transition-colors",
+                    location.pathname === path
+                      ? "bg-blue-600 text-white"
+                      : "hover:bg-gray-800 text-gray-300"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5" />
+                    <span>{label}</span>
+                  </div>
+                  {badge !== null && (
+                    <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
+                      {badge}
                     </span>
-                    {link.label}
-                  </Link>
-                </li>
-              );
-            })}
+                  )}
+                  <ChevronRightIcon className="w-4 h-4" />
+                </Link>
+              </li>
+            ))}
           </ul>
 
           {/* Quick Actions */}
           <div className="flex flex-col gap-2 mt-8">
-            <Button
-              className="bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-lg py-2 w-full border-2 border-[#FEDF19] shadow"
-              size="lg"
-              onClick={() => setDipModalOpen(true)}
+            <button
+              onClick={() => setAddDipModalOpen(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#008457] text-white border-2 border-[#FEDF19] rounded-lg font-bold hover:bg-[#006B49] transition-colors shadow-md"
             >
-              <Plus className="mr-2" size={20} />
+              <Plus className="w-5 h-5" />
               Add Dip Reading
-            </Button>
-            <Button
-              variant="outline"
-              className="border-white text-white font-semibold rounded-lg py-2 w-full bg-transparent hover:bg-white/10 hover:text-white transition-colors"
-              asChild
+            </button>
+            <Link
+              to="/alerts"
+              className="w-full flex items-center justify-center gap-2 py-2 border border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors"
             >
-              <Link to="/alerts">
-                <Bell className="mr-2" size={20} />
-                View Alerts
-              </Link>
-            </Button>
+              <AlertIcon className="w-5 h-5" />
+              Alerts
+              {(tankCounts?.critical || 0) + (tankCounts?.warning || 0) > 0 && (
+                <span className="ml-2 bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
+                  {(tankCounts?.critical || 0) + (tankCounts?.warning || 0)}
+                </span>
+              )}
+            </Link>
           </div>
         </nav>
 
@@ -191,11 +265,10 @@ export const Sidebar: React.FC = () => {
         <div className="p-4 border-t border-white/20 flex items-center justify-between bg-[#008457] sticky bottom-0">
           <Link
             to="/settings"
-            className="flex items-center gap-2 text-white hover:text-[#FEDF19] transition-colors"
-            aria-label="Settings"
+            className="flex items-center gap-1 text-white hover:text-yellow-400 transition-colors"
           >
-            <Settings size={20} />
-            <span className="text-sm font-medium">Settings</span>
+            <Settings className="w-5 h-5" />
+            Settings
           </Link>
           <button
             onClick={handleLogout}
@@ -216,11 +289,14 @@ export const Sidebar: React.FC = () => {
         />
       )}
 
-      {/* Dip Modal */}
-      <AddDipModal 
-        isOpen={dipModalOpen}
-        onClose={() => setDipModalOpen(false)}
-        onSubmit={async () => setDipModalOpen(false)}
+      {/* Add Dip Modal */}
+      <AddDipModal
+        open={addDipModalOpen}
+        onOpenChange={setAddDipModalOpen}
+        onSubmit={async (groupId: string, tankId: string, dip: number) => {
+          // The modal handles its own closing and data refresh
+          console.log('Dip submitted:', { groupId, tankId, dip });
+        }}
       />
     </>
   );

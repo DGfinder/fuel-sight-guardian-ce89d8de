@@ -303,10 +303,10 @@ export function FuelDipForm({
           className="w-full border rounded px-3 py-2"
           disabled={readOnly || !watchedGroup}
         >
-          <option value="">{watchedGroup ? "Select tank…" : "Choose group first"}</option>
+          <option value="">{watchedGroup ? "Select tank..." : "Choose group first"}</option>
           {tanksForDropdown.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.location} (Safe {t.safe_level.toLocaleString()} L)
+              {t.location} (Safe {t.safe_level.toLocaleString()}� L)
             </option>
           ))}
         </select>
@@ -338,7 +338,7 @@ export function FuelDipForm({
         {errors.dip && <p className="text-xs text-red-600">{errors.dip.message}</p>}
         {overfill && (
           <p className="text-xs text-orange-600 mt-1">
-            Warning: above safe fill ({selectedTank?.safe_level.toLocaleString()} L)
+            Warning: above safe fill ({selectedTank?.safe_level.toLocaleString()}� L)
           </p>
         )}
       </div>
@@ -354,7 +354,7 @@ export function FuelDipForm({
         <div className="border rounded p-3 bg-white flex flex-wrap gap-6 shadow-sm text-sm">
           <span>Safe&nbsp;Fill&nbsp;<strong>{selectedTank.safe_level.toLocaleString()} L</strong></span>
           <span>Dip&nbsp;<strong>{dipValue.toLocaleString()} L</strong></span>
-          <span>Ullage&nbsp;<strong>{ullage?.toLocaleString() ?? "–"} L</strong></span>
+          <span>Ullage&nbsp;<strong>{ullage?.toLocaleString() ?? "-"} L</strong></span>
         </div>
       )}
 

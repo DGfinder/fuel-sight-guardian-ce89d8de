@@ -84,7 +84,7 @@ function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
       toast({ title: 'Saved', description: 'Full name updated.' });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
   });

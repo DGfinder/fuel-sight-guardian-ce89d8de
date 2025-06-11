@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 
-type SubscriptionCallback = (payload: RealtimePostgresChangesPayload<any>) => void;
+type SubscriptionCallback<T = Record<string, unknown>> = (payload: RealtimePostgresChangesPayload<T>) => void;
 type UnsubscribeFunction = () => void;
 
 interface ChannelSubscription {
@@ -159,7 +159,7 @@ class RealtimeService {
     await this.cleanupChannel(channelName);
   }
 
-  async subscribe<T = any>(
+  async subscribe<T = Record<string, unknown>>(
     channelName: string,
     table: string,
     callback: (payload: RealtimePostgresChangesPayload<T>) => void,

@@ -72,17 +72,26 @@ export default function Index({ selectedGroup }: IndexProps) {
       name: "All Groups",
       totalTanks: tanks.length,
       criticalTanks: tanks.filter(t => t.days_to_min_level !== null && t.days_to_min_level <= 2).length,
-      averageLevel: Math.round(tanks.reduce((acc, t) => acc + ((t.current_level_percent ?? 0) * 100), 0) / tanks.length),
+      averageLevel: tanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length > 0
+        ? Math.round(
+            tanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null)
+              .reduce((acc, t) => acc + ((t.current_level / t.safe_level) * 100), 0) /
+            tanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length
+          )
+        : 0,
       lastUpdated: new Date().toISOString()
     },
     ...allGroupNames.map(groupName => {
       const groupTanks = tanks.filter(t => t.group_name === groupName);
+      const groupTanksWithDip = groupTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null);
       return {
         id: groupName,
         name: groupName,
         totalTanks: groupTanks.length,
         criticalTanks: groupTanks.filter(t => t.days_to_min_level !== null && t.days_to_min_level <= 2).length,
-        averageLevel: groupTanks.length > 0 ? Math.round(groupTanks.reduce((acc, t) => acc + ((t.current_level_percent ?? 0) * 100), 0) / groupTanks.length) : 0,
+        averageLevel: groupTanksWithDip.length > 0
+          ? Math.round(groupTanksWithDip.reduce((acc, t) => acc + ((t.current_level / t.safe_level) * 100), 0) / groupTanksWithDip.length)
+          : 0,
         lastUpdated: new Date().toISOString()
       };
     })

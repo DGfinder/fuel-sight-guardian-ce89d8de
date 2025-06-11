@@ -1,16 +1,26 @@
 export interface TankRow {
   id: string;
-  location: string;
-  product: string;
-  safe_fill: number;
-  current_level: number;
-  current_level_percent: number;  // 0–1
-  rolling_avg_lpd: number | null; // positive => refill
-  days_to_min_level: number | null;
-  last_dip_ts: string | null;
-  group_id: string;
-  group_name: string;
-  subgroup?: string;  // Optional subgroup property
+  location?: string;
+  product_type?: string;
+  safe_level?: number;
+  min_level?: number;
+  created_at?: string;
+  updated_at?: string;
+  group_id?: string;
+  group_name?: string;
+  current_level?: number;
+  current_level_percent?: number;
+  rolling_avg?: number;
+  days_to_min_level?: number;
+  latest_dip_value?: number;
+  latest_dip_date?: string;
+  latest_dip_by?: string;
+  last_dip?: {
+    value: number;
+    created_at: string;
+    recorded_by: string;
+  } | null;
+  subgroup?: string;
 }
 
 export type Tank = TankRow;

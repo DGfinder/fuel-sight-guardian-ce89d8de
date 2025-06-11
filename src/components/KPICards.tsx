@@ -14,57 +14,108 @@ interface KPICardsProps {
 function calculateTotalUllage(tanks: Tank[]): number {
   return tanks.reduce((sum, tank) => {
     if (
-      typeof tank.safe_fill === 'number' &&
+      typeof tank.safe_level === 'number' &&
       typeof tank.current_level === 'number'
     ) {
-      return sum + (tank.safe_fill - tank.current_level);
+      return sum + (tank.safe_level - tank.current_level);
     }
     return sum;
   }, 0);
 }
 
 export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsProps) {
+  console.log('KPI DEBUG - Raw tanks data:', tanks);
+  console.log('KPI DEBUG - Tanks count:', tanks?.length);
+  
   const kpis = useMemo(() => {
-    if (!tanks?.length) return {
-      lowTanks: 0,
-      criticalDays: 0,
-      totalStock: 0,
-      totalUllage: 0,
-      avgDaysToMin: 0
-    };
+    if (!tanks?.length) {
+      console.log('KPI DEBUG - No tanks data');
+      return {
+        lowTanks: 0,
+        criticalDays: 0,
+        totalStock: 0,
+        totalUllage: 0,
+        avgDaysToMin: 0
+      };
+    }
 
-    // Only consider tanks with a dip
-    const tanksWithDip = tanks.filter(tank => !!tank.last_dip_ts);
+    // Only consider tanks with a dip and valid data
+    const tanksWithDip = tanks.filter(tank => {
+      const hasLastDip = !!tank.last_dip?.created_at;
+      const hasCurrentLevel = tank.current_level != null;
+      const hasSafeLevel = tank.safe_level != null && tank.safe_level > 0;
+      console.log('KPI DEBUG - Tank filter:', {
+        id: tank.id,
+        location: tank.location,
+        hasLastDip,
+        hasCurrentLevel,
+        hasSafeLevel,
+        current_level: tank.current_level,
+        safe_level: tank.safe_level,
+        min_level: tank.min_level
+      });
+      return hasLastDip && hasCurrentLevel && hasSafeLevel;
+    });
+    
+    console.log('KPI DEBUG - Tanks with dip:', tanksWithDip.length);
+    console.log('KPI DEBUG - Tanks with dip details:', tanksWithDip.map(t => ({
+      id: t.id,
+      location: t.location,
+      current_level: t.current_level,
+      safe_level: t.safe_level,
+      min_level: t.min_level,
+      percent_old: t.safe_level ? (t.current_level / t.safe_level) * 100 : null,
+      percent_new: (t.safe_level && t.current_level != null) ? 
+        ((t.current_level - (t.min_level || 0)) / (t.safe_level - (t.min_level || 0))) * 100 : null,
+      days_to_min: t.days_to_min_level
+    })));
 
-    // 🔴 Tanks < 20% Capacity (with dip)
-    const lowTanks = tanksWithDip.filter(tank => tank.current_level_percent <= 0.2).length;
+    // 🔴 Tanks < 20% Capacity (with dip) - Use pre-calculated percentage from SQL
+    const lowTanks = tanksWithDip.filter(tank => {
+      const percentFromSQL = tank.current_level_percent || 0;
+      console.log('KPI DEBUG - Low tank check:', {
+        location: tank.location,
+        percentFromSQL,
+        isLow: percentFromSQL <= 20
+      });
+      return percentFromSQL <= 20;
+    }).length;
 
     // 🟡 Tanks ≤ 2 Days to Min (with dip)
-    const criticalDays = tanksWithDip.filter(tank => 
-      tank.days_to_min_level !== null && tank.days_to_min_level <= 2
-    ).length;
+    const criticalDays = tanksWithDip.filter(tank => {
+      const isLowDays = tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 2;
+      console.log('KPI DEBUG - Critical days check:', {
+        location: tank.location,
+        days_to_min_level: tank.days_to_min_level,
+        isLowDays
+      });
+      return isLowDays;
+    }).length;
 
     // 💧 Total Fuel on Hand (sum of current_level, with dip)
-    const totalStock = tanksWithDip.reduce((sum, tank) => sum + tank.current_level, 0);
+    const totalStock = tanksWithDip.reduce((sum, tank) => sum + (tank.current_level || 0), 0);
 
     // ⛽ Total Ullage (safe_level - current_level, with dip)
     const totalUllage = calculateTotalUllage(tanksWithDip);
 
     // ⏳ Average Days-to-Min (with dip)
     const tanksWithDays = tanksWithDip.filter(tank => 
-      tank.days_to_min_level !== null && tank.days_to_min_level > 0
+      tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level > 0
     );
     const avgDaysToMin = tanksWithDays.length > 0 
       ? Math.round(tanksWithDays.reduce((sum, tank) => sum + (tank.days_to_min_level || 0), 0) / tanksWithDays.length)
       : 0;
 
-    return {
+    const result = {
       lowTanks,
       criticalDays,
       totalStock,
       totalUllage,
       avgDaysToMin
     };
+    
+    console.log('KPI DEBUG - Final calculations:', result);
+    return result;
   }, [tanks]);
 
   const cards = [
