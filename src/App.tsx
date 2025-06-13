@@ -19,7 +19,7 @@ import GSFDepots from '@/pages/GSFDepots';
 import BGC from '@/pages/BGC';
 import TanksPage from '@/pages/TanksPage';
 import AlertsPage from '@/pages/AlertsPage';
-import Health from '@/pages/Health';
+import HealthPage from '@/pages/HealthPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -102,7 +102,7 @@ const App = () => {
                   <Route path="/settings/health" element={
                     <ProtectedRoute>
                       <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
-                        <Health />
+                        <HealthPage />
                       </AppLayout>
                     </ProtectedRoute>
                   } />
