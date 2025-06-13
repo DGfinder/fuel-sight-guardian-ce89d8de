@@ -10,7 +10,7 @@ import NotFound from "@/pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import SwanTransit from '@/pages/SwanTransit';
 import Kalgoorlie from '@/pages/Kalgoorlie';
-import SettingsPage from '@/pages/SettingsPage';
+import Settings from '@/pages/Settings';
 import Login from "@/pages/Login";
 import ResetPassword from '@/pages/ResetPassword';
 import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
@@ -19,6 +19,7 @@ import GSFDepots from '@/pages/GSFDepots';
 import BGC from '@/pages/BGC';
 import TanksPage from '@/pages/TanksPage';
 import AlertsPage from '@/pages/AlertsPage';
+import Health from '@/pages/Health';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -94,7 +95,14 @@ const App = () => {
                   <Route path="/settings" element={
                     <ProtectedRoute>
                       <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
-                        <SettingsPage />
+                        <Settings />
+                      </AppLayout>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/settings/health" element={
+                    <ProtectedRoute>
+                      <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                        <Health />
                       </AppLayout>
                     </ProtectedRoute>
                   } />

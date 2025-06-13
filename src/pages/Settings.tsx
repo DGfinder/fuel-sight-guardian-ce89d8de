@@ -1,4 +1,4 @@
-// SettingsPage.tsx
+// Settings.tsx
 // Responsive, role-based settings page for Fuel Sight Guardian
 // NOTE: This is a prototype. Replace mockUser with real user/role data from auth context or API.
 
@@ -9,6 +9,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Tables } from '@/types/supabase';
+import { Link } from 'react-router-dom';
 
 // Types for roles
 interface UserRoleRow {
@@ -17,7 +18,7 @@ interface UserRoleRow {
   tank_groups: { name: string } | null;
 }
 
-function SettingsPage() {
+function Settings() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
 
@@ -122,6 +123,16 @@ function SettingsPage() {
           {isAdmin && <TabsTrigger value="api">API / Developer Tools</TabsTrigger>}
           <TabsTrigger value="danger">Danger Zone</TabsTrigger>
         </TabsList>
+
+        {/* System Health Link */}
+        <div className="mb-6 flex justify-center">
+          <Link
+            to="/settings/health"
+            className="inline-block px-4 py-2 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 font-semibold shadow transition"
+          >
+            🩺 System Health
+          </Link>
+        </div>
 
         {/* 1. Account Settings */}
         <TabsContent value="account">
@@ -278,4 +289,4 @@ function SettingsPage() {
   );
 }
 
-export default SettingsPage; 
+export default Settings; 
