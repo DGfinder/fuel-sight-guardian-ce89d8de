@@ -54,7 +54,7 @@ export default function Login() {
                   alt="Great Southern Fuels Logo" 
                   className="w-[186px] h-16 mx-auto"
                 />
-                <h1 className="text-[22px] font-bold text-gray-900 font-raleway leading-[30px]" style={{fontFamily: 'Raleway, sans-serif', textShadow: '0px 4px 4px rgba(0,0,0,0.25)'}}>Fuel Sight Guardian</h1>
+                <h1 className="text-[22px] font-bold text-gray-900 font-raleway leading-[30px]" style={{fontFamily: 'Raleway, sans-serif', textShadow: '0px 4px 4px rgba(0,0,0,0.25)'}}>TankAlert</h1>
                 <p className="text-[15px] text-gray-600 font-montserrat leading-[22px]" style={{fontFamily: 'Montserrat, sans-serif'}}>Real-time Fuel Monitoring by Great Southern Fuels</p>
               </div>
 

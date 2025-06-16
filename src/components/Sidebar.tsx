@@ -170,7 +170,7 @@ export const Sidebar: React.FC = () => {
         <header className="flex items-center justify-between p-4 bg-white shadow-md md:hidden sticky top-0 z-50">
           <div className="flex items-center gap-2">
             <img src={logo} alt="GSF Logo" className="h-8 w-auto" />
-            <span className="font-bold text-base text-[#111111]">Fuel Sight Guardian</span>
+            <span className="font-bold text-base text-[#111111]">TankAlert</span>
           </div>
           <Button
             variant="ghost"
@@ -202,7 +202,7 @@ export const Sidebar: React.FC = () => {
               className="h-16 w-auto mb-2 bg-white rounded-lg p-2 shadow"
             />
             <span className="font-bold text-lg text-white text-center leading-tight tracking-wide">
-              Fuel Sight Guardian
+              TankAlert
             </span>
             <span className="text-sm font-medium text-[#FEDF19] tracking-wide text-center">
               Great Southern Fuels
