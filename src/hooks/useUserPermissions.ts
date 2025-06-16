@@ -32,7 +32,6 @@ export function useUserPermissions() {
         .eq('user_id', session.user.id);
 
       if (error) {
-        console.error('Error fetching user permissions:', error);
         throw error;
       }
 

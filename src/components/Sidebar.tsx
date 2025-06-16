@@ -186,7 +186,7 @@ export const Sidebar: React.FC = () => {
       {/* Sidebar panel */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 bg-[#008457] border-r-4 border-[#FEDF19] z-40 flex flex-col justify-between transition-transform duration-200",
+          "fixed top-0 left-0 h-full w-64 bg-primary border-r-4 border-accent z-40 flex flex-col justify-between transition-transform duration-200",
           "rounded-r-xl shadow-lg",
           isMobile ? (open ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
         )}
@@ -204,7 +204,7 @@ export const Sidebar: React.FC = () => {
             <span className="font-bold text-lg text-white text-center leading-tight tracking-wide">
               Fuel Sight Guardian
             </span>
-            <span className="text-sm font-medium text-[#FEDF19] tracking-wide text-center">
+            <span className="text-sm font-medium text-accent tracking-wide text-center">
               Great Southern Fuels
             </span>
           </div>
@@ -241,7 +241,7 @@ export const Sidebar: React.FC = () => {
           <div className="flex flex-col gap-2 mt-8">
             <button
               onClick={() => setAddDipModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-[#008457] text-white border-2 border-[#FEDF19] rounded-lg font-bold hover:bg-[#006B49] transition-colors shadow-md"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-white border-2 border-accent rounded-lg font-bold hover:bg-primary/90 transition-colors shadow-md"
             >
               <Plus className="w-5 h-5" />
               Add Dip Reading
@@ -262,17 +262,17 @@ export const Sidebar: React.FC = () => {
         </nav>
 
         {/* Sticky Footer */}
-        <div className="p-4 border-t border-white/20 flex items-center justify-between bg-[#008457] sticky bottom-0">
+        <div className="p-4 border-t border-white/20 flex items-center justify-between bg-primary sticky bottom-0">
           <Link
             to="/settings"
-            className="flex items-center gap-1 text-white hover:text-yellow-400 transition-colors"
+            className="flex items-center gap-1 text-white hover:text-accent transition-colors"
           >
             <Settings className="w-5 h-5" />
             Settings
           </Link>
           <button
             onClick={handleLogout}
-            className="ml-4 text-white hover:text-[#FEDF19] text-sm font-medium transition-colors"
+            className="ml-4 text-white hover:text-accent text-sm font-medium transition-colors"
             aria-label="Logout"
           >
             Logout
@@ -295,7 +295,6 @@ export const Sidebar: React.FC = () => {
         onOpenChange={setAddDipModalOpen}
         onSubmit={async (groupId: string, tankId: string, dip: number) => {
           // The modal handles its own closing and data refresh
-          console.log('Dip submitted:', { groupId, tankId, dip });
         }}
       />
     </>

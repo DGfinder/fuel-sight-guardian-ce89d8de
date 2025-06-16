@@ -365,6 +365,7 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
   const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: 'location', direction: 'asc' });
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleTankClick = useCallback((tank: Tank) => {
     setSelectedTank(tank);
@@ -410,10 +411,24 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
     );
   };
 
+  // Filter tanks based on search term
+  const filteredTanks = useMemo(() => {
+    if (!searchTerm) return tanks;
+    return tanks.filter(tank => 
+      tank.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tank.group_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tanks, searchTerm]);
+
   return (
     <div className="space-y-4">
-      <Input placeholder="Search by location" className="mb-4" />
-      <NestedGroupAccordion tanks={tanks} onTankClick={handleTankClick} todayBurnRate={todayBurnRate} sortTanks={sortTanks} SortButton={SortButton} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} />
+      <Input 
+        placeholder="Search by location or group" 
+        className="mb-4" 
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+      <NestedGroupAccordion tanks={filteredTanks} onTankClick={handleTankClick} todayBurnRate={todayBurnRate} sortTanks={sortTanks} SortButton={SortButton} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} />
       {selectedTank && (
         <TankDetailsModal tank={selectedTank} open={drawerOpen} onOpenChange={setDrawerOpen} />
       )}
