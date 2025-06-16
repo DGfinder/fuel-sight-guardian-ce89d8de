@@ -202,11 +202,13 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
       // 1. Group has more than 20 tanks total AND has multiple subgroups
       // 2. OR group has subgroups with more than 10 tanks each
       // 3. OR specific groups like Kalgoorlie that benefit from organization
+      // 4. OR any group that has actual subgroups (not just "No Subgroup")
       group.shouldShowSubgroups = (
         (totalTanks > 20 && hasMultipleSubgroups) ||
         hasLargeSubgroups ||
         group.name.toLowerCase().includes('kalgoorlie') ||
-        group.name.toLowerCase().includes('gsf')
+        group.name.toLowerCase().includes('gsf') ||
+        (group.subGroups.length > 0 && group.subGroups.some(sg => sg.name !== 'No Subgroup'))
       );
       
       // If we're not showing subgroups, flatten all tanks into the main group
@@ -347,46 +349,56 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
               {/* Tanks not in subgroups OR all tanks when subgroups are flattened */}
               {group.tanks.length > 0 && (
                 <>
-                  {!group.shouldShowSubgroups && group.tanks.length > 50 && (
-                    <div className="mb-2 px-4 py-2 bg-blue-50 text-blue-700 text-sm rounded">
-                      💡 Showing {group.tanks.length} tanks in a flat view. Large dataset optimized for performance.
-                    </div>
-                  )}
-                  {group.tanks.length > 100 ? (
-                    // Use virtualization for very large flat lists
+                  {group.tanks.length > 200 ? (
+                    // Use virtualization only for extremely large flat lists (>200 tanks)
                     <div className="overflow-x-auto">
-                      <div className="min-w-full">
-                        <div className="bg-white dark:bg-gray-900 font-semibold text-gray-700 border-b grid grid-cols-10 gap-2 px-3 py-3 text-sm">
-                          <div className="col-span-2">Location / Tank</div>
-                          <div className="text-center">Product</div>
-                          <div className="text-center">Current Level</div>
-                          <div className="text-center">% Full</div>
-                          <div className="text-center">Days-to-Min</div>
-                          <div className="text-center">Rolling Avg</div>
-                          <div className="text-center">Status</div>
-                          <div className="text-center">Last Dip</div>
-                          <div className="text-center">Actions</div>
-                        </div>
-                        <List
-                          height={600}
-                          itemCount={sortTanks(group.tanks).length}
-                          itemSize={48}
-                          width={"100%"}
-                        >
-                          {({ index, style }) => {
-                            const tank = sortTanks(group.tanks)[index];
-                            return (
-                              <div style={style} key={tank.id}>
-                                <table className="w-full">
-                                  <tbody>
-                                    <TankRow tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
-                                  </tbody>
-                                </table>
-                              </div>
-                            );
-                          }}
-                        </List>
-                      </div>
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
+                            <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
+                              <SortButton field="location">Location / Tank</SortButton>
+                            </th>
+                            <th className="px-3 py-3 text-center">
+                              <SortButton field="product_type">Product</SortButton>
+                            </th>
+                            <th className="px-3 py-3 text-center">
+                              <SortButton field="current_level">Current Level</SortButton>
+                            </th>
+                            <th className="px-3 py-3 text-center">% Full</th>
+                            <th className="px-3 py-3 text-center">Days-to-Min</th>
+                            <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
+                            <th className="px-3 py-3 text-center">Status</th>
+                            <th className="px-3 py-3 text-center">Last Dip</th>
+                            <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
+                            <th className="px-3 py-3 text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td colSpan={10} className="p-0">
+                              <List
+                                height={600}
+                                itemCount={sortTanks(group.tanks).length}
+                                itemSize={48}
+                                width={"100%"}
+                              >
+                                {({ index, style }) => {
+                                  const tank = sortTanks(group.tanks)[index];
+                                  return (
+                                    <div style={style} key={tank.id}>
+                                      <table className="w-full">
+                                        <tbody>
+                                          <TankRow tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  );
+                                }}
+                              </List>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   ) : (
                     // Regular table for smaller lists
