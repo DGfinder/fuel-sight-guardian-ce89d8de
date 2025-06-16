@@ -487,6 +487,10 @@ export function TankDetailsModal({
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Trends
               </TabsTrigger>
+              <TabsTrigger value="dips">
+                <History className="w-4 h-4 mr-2" />
+                Previous Dips
+              </TabsTrigger>
               <TabsTrigger value="notes">
                 <FileText className="w-4 h-4 mr-2" />
                 Notes
@@ -722,6 +726,124 @@ export function TankDetailsModal({
                     Add Reading to Improve Trends
                   </Button>
                 </div>
+              </TabsContent>
+
+              {/* Previous Dips Tab */}
+              <TabsContent value="dips" className="p-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <History className="w-5 h-5 text-blue-600" />
+                      Previous Dip Readings
+                      {dipHistory.length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {dipHistory.length} readings
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {dipHistoryQuery.isLoading ? (
+                      <div className="space-y-3">
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="animate-pulse p-3 bg-gray-100 rounded-lg">
+                            <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : dipHistory.length > 0 ? (
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        <div className="grid grid-cols-4 gap-4 py-2 px-3 bg-gray-50 rounded text-sm font-medium text-gray-700">
+                          <div>Date</div>
+                          <div>Reading (L)</div>
+                          <div>Recorded By</div>
+                          <div>Actions</div>
+                        </div>
+                        {dipHistory
+                          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                          .map((dip, index) => (
+                          <div key={dip.id || index} className="grid grid-cols-4 gap-4 py-3 px-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                            <div className="text-sm">
+                              <div className="font-medium">
+                                {format(new Date(dip.created_at), 'MMM d, yyyy')}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {format(new Date(dip.created_at), 'h:mm a')}
+                              </div>
+                            </div>
+                            <div className="text-sm">
+                              <div className="font-medium">
+                                {dip.value?.toLocaleString() || 'N/A'} L
+                              </div>
+                              {tank.safe_level && (
+                                <div className="text-xs text-gray-500">
+                                  {Math.round((dip.value / tank.safe_level) * 100)}% of capacity
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm">
+                              <div className="font-medium">
+                                {dip.recorded_by || 'Unknown'}
+                              </div>
+                              {dip.notes && (
+                                <div className="text-xs text-gray-500 truncate">
+                                  {dip.notes}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm">
+                              <div className="flex items-center gap-1">
+                                {index === 0 && (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0.5">
+                                    Latest
+                                  </Badge>
+                                )}
+                                {dip.value < (tank.min_level || 0) && (
+                                  <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
+                                    Below Min
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                        <Droplets className="w-12 h-12 text-gray-300 mb-3" />
+                        <h3 className="font-medium text-gray-600 mb-2">No Dip Readings</h3>
+                        <p className="text-sm text-center">
+                          No historical dip readings available for this tank.
+                        </p>
+                        <Button
+                          onClick={() => setIsDipFormOpen(true)}
+                          className="mt-4"
+                          size="sm"
+                        >
+                          <Droplets className="w-4 h-4 mr-2" />
+                          Add First Reading
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {dipHistory.length > 0 && (
+                      <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                        <div className="text-sm text-gray-600">
+                          Showing {dipHistory.length} readings from the last 30 days
+                        </div>
+                        <Button
+                          onClick={() => setIsDipFormOpen(true)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Droplets className="w-4 h-4 mr-2" />
+                          Add New Reading
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               {/* Simplified Notes Tab */}

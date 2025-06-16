@@ -31,11 +31,16 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 
 import { useTankGroups } from "@/hooks/useTankGroups";
 import { useTanks }      from "@/hooks/useTanks";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
+import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -66,6 +71,7 @@ export default function AddDipModal({
   const [subgroup,   setSubgroup]   = useState("");
   const [tankId,     setTankId]     = useState(initialTankId);
   const [dipValue,   setDipValue]   = useState("");
+  const [dipDate,    setDipDate]    = useState<Date>(new Date());
   const [saving,     setSaving]     = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
@@ -106,6 +112,7 @@ export default function AddDipModal({
     setSubgroup("");
     setTankId("");
     setDipValue("");
+    setDipDate(new Date());
   };
 
   useEffect(() => {
@@ -125,7 +132,7 @@ export default function AddDipModal({
       const { error } = await supabase.from('dip_readings').insert({
         tank_id: tankId,
         value: Number(dipValue),
-        created_at: new Date().toISOString(),
+        created_at: dipDate.toISOString(),
         recorded_by: userId,
         notes: null
       });
@@ -277,6 +284,38 @@ export default function AddDipModal({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Date picker */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">
+              Date <span className="text-red-500">*</span>
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !dipDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dipDate ? format(dipDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dipDate}
+                  onSelect={(date) => date && setDipDate(date)}
+                  disabled={(date) =>
+                    date > new Date() || date < new Date("1900-01-01")
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Dip reading */}

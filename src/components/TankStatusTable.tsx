@@ -360,10 +360,9 @@ export interface TankStatusTableProps {
 }
 
 export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankClick, todayBurnRate }) => {
-  console.log('TANKS DEBUG:', tanks);
   const [selectedTank, setSelectedTank] = useState<Tank | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: 'location', direction: 'asc' });
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
 
@@ -375,10 +374,10 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
 
   // Sorting logic for tanks within a group/subgroup
   const sortTanks = useCallback((tanksToSort: Tank[]) => {
-    if (!sortConfig.field) return tanksToSort;
+    const field = sortConfig.field || 'location'; // Default to location if no field specified
     return [...tanksToSort].sort((a, b) => {
-      let aValue = a[sortConfig.field!];
-      let bValue = b[sortConfig.field!];
+      let aValue = a[field];
+      let bValue = b[field];
       if (typeof aValue === 'string') aValue = aValue.toLowerCase();
       if (typeof bValue === 'string') bValue = bValue.toLowerCase();
       if (typeof aValue === 'number' && typeof bValue === 'number') {

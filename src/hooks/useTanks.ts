@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useUserPermissions } from './useUserPermissions';
 
 export interface Tank {
   id: string;
@@ -27,14 +28,22 @@ export interface Tank {
 
 export function useTanks() {
   const queryClient = useQueryClient();
+  const { data: permissions } = useUserPermissions();
 
   const { data: tanks, isLoading, error } = useQuery<Tank[]>({
-    queryKey: ['tanks'],
+    queryKey: ['tanks', permissions?.accessibleGroups],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tanks_with_rolling_avg')
-        .select('*')
-        .order('last_dip_ts', { ascending: false });
+        .select('*');
+
+      // RLS will handle security, but we can optimize the query for non-admin users
+      if (permissions && !permissions.isAdmin && permissions.accessibleGroups.length > 0) {
+        const groupIds = permissions.accessibleGroups.map(g => g.id);
+        query = query.in('group_id', groupIds);
+      }
+
+      const { data, error } = await query.order('last_dip_ts', { ascending: false });
       if (error) throw error;
       return data?.map(tank => ({
         ...tank,
@@ -51,7 +60,8 @@ export function useTanks() {
             } 
           : null,
       }));
-    }
+    },
+    enabled: !!permissions // Only run query when permissions are loaded
   });
 
   const { mutate: refreshTanks } = useMutation({

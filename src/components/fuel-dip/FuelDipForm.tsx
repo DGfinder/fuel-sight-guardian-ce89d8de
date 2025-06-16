@@ -22,6 +22,13 @@ import {
   CommandEmpty,
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { format } from "date-fns";
+import { isAfter } from "date-fns/isAfter";
+import { isValid } from "date-fns/isValid";
+import { parseISO } from "date-fns/parseISO";
 
 //--------------------------------------------------
 // Schema & types
@@ -105,6 +112,12 @@ export function FuelDipForm({
   const [groups, setGroups] = useState<TankGroup[]>([]);
   const [tanks, setTanks] = useState<Tank[]>([]);
   const [tanksLoading, setTanksLoading] = useState(false);
+
+  // Add to FuelDipForm component state:
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const today = new Date();
+  const dateValue = watch("date");
+  const parsedDate = dateValue ? parseISO(dateValue) : null;
 
   //------------------------------------------------
   // Fetch groups once
@@ -263,7 +276,7 @@ export function FuelDipForm({
         <label className="block text-sm font-medium mb-1">Depot Group *</label>
         <select
           {...register("group", { required: true })}
-          className="w-full border rounded px-3 py-2"
+          className="w-full border rounded px-3 py-2 bg-white text-gray-900"
           disabled={readOnly}
         >
           <option value="">Select depot groupâ€¦</option>
@@ -282,7 +295,7 @@ export function FuelDipForm({
           <label className="block text-sm font-medium mb-1">Subgroup</label>
           <select
             {...register("subgroup")}
-            className="w-full border rounded px-3 py-2"
+            className="w-full border rounded px-3 py-2 bg-white text-gray-900"
             disabled={readOnly || subgroupOptions.length === 0}
           >
             <option value="">All</option>
@@ -300,28 +313,51 @@ export function FuelDipForm({
         <label className="block text-sm font-medium mb-1">Tank *</label>
         <select
           {...register("tank", { required: true })}
-          className="w-full border rounded px-3 py-2"
+          className="w-full border rounded px-3 py-2 bg-white text-gray-900"
           disabled={readOnly || !watchedGroup}
         >
           <option value="">{watchedGroup ? "Select tank..." : "Choose group first"}</option>
           {tanksForDropdown.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.location} (Safe {t.safe_level.toLocaleString()}Â L)
+              {t.location} (Safe {t.safe_level.toLocaleString()} L)
             </option>
           ))}
         </select>
         {errors.tank && <p className="text-xs text-red-600">{errors.tank.message}</p>}
       </div>
 
-      {/* DATE */}
+      {/* DATE (Advanced Picker) */}
       <div>
         <label className="block text-sm font-medium mb-1">Date *</label>
-        <input
-          type="date"
-          {...register("date", { required: true })}
-          className="w-full border rounded px-3 py-2"
-          disabled={readOnly}
-        />
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className={"w-full justify-start text-left font-normal" + (errors.date ? " border-red-500" : "")}
+              onClick={() => setCalendarOpen(true)}
+            >
+              {parsedDate && isValid(parsedDate)
+                ? format(parsedDate, "yyyy-MM-dd")
+                : <span className="text-muted-foreground">Pick a date</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="p-0">
+            <Calendar
+              mode="single"
+              selected={parsedDate || undefined}
+              onSelect={date => {
+                if (date && !isAfter(date, today)) {
+                  setValue("date", format(date, "yyyy-MM-dd"), { shouldValidate: true });
+                  setCalendarOpen(false);
+                }
+              }}
+              disabled={{ after: today }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+        {errors.date && <p className="text-xs text-red-600">{errors.date.message}</p>}
       </div>
 
       {/* DIP */}
@@ -338,7 +374,7 @@ export function FuelDipForm({
         {errors.dip && <p className="text-xs text-red-600">{errors.dip.message}</p>}
         {overfill && (
           <p className="text-xs text-orange-600 mt-1">
-            Warning: above safe fill ({selectedTank?.safe_level.toLocaleString()}Â L)
+            Warning: above safe fill ({selectedTank?.safe_level.toLocaleString()}ï¿½ L)
           </p>
         )}
       </div>

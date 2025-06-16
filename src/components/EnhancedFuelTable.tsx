@@ -70,7 +70,7 @@ export function EnhancedFuelTable({ tanks = [], onTankClick, defaultOpenGroup = 
   const isMobile = useIsMobile();
   
   const [sortConfig, setSortConfig] = useState<{ field: SortField | null; direction: SortDirection }>({
-    field: null,
+    field: 'location',
     direction: 'asc'
   });
 
@@ -102,22 +102,22 @@ export function EnhancedFuelTable({ tanks = [], onTankClick, defaultOpenGroup = 
 
   // Sort tanks within each group
   const sortedGrouped = useMemo(() => {
-    if (!sortConfig.field) return grouped;
+    const field = sortConfig.field || 'location'; // Default to location if no field specified
     
     const sorted: Record<string, Tank[]> = {};
     Object.entries(grouped).forEach(([groupName, tanks]) => {
       sorted[groupName] = [...tanks].sort((a, b) => {
-        let aValue = a[sortConfig.field!];
-        let bValue = b[sortConfig.field!];
+        let aValue = a[field];
+        let bValue = b[field];
         
         // Handle different data types
-        if (sortConfig.field === 'current_level' || sortConfig.field === 'current_level_percent' || sortConfig.field === 'days_to_min_level') {
+        if (field === 'current_level' || field === 'current_level_percent' || field === 'days_to_min_level') {
           aValue = Number(aValue) || 0;
           bValue = Number(bValue) || 0;
-        } else if (sortConfig.field === 'location' || sortConfig.field === 'product_type') {
+        } else if (field === 'location' || field === 'product_type') {
           aValue = String(aValue || '').toLowerCase();
           bValue = String(bValue || '').toLowerCase();
-        } else if (sortConfig.field === 'last_dip_date') {
+        } else if (field === 'last_dip_date') {
           aValue = aValue ? new Date(aValue).getTime() : 0;
           bValue = bValue ? new Date(bValue).getTime() : 0;
         }
