@@ -169,7 +169,7 @@ export default function Index({ selectedGroup }: IndexProps) {
             <Button
               variant="outline"
               onClick={() => setIsAlertsOpen(true)}
-              className="relative border-gray-300 hover:border-primary hover:text-primary"
+              className="relative border-gray-300 hover:border-[#008457] hover:text-[#008457]"
             >
               <Bell className="h-4 w-4 mr-2" />
               Alerts
@@ -183,7 +183,7 @@ export default function Index({ selectedGroup }: IndexProps) {
               )}
             </Button>
             <Button
-              className="bg-primary hover:bg-primary/90 text-white font-bold text-base rounded-lg py-2 px-4 shadow flex items-center"
+              className="bg-[#008457] hover:bg-[#006b47] text-white font-bold text-base rounded-lg py-2 px-4 shadow flex items-center"
               onClick={() => setDipModalOpen(true)}
             >
               <PlusCircle className="w-4 h-4 mr-2" />
