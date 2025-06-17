@@ -61,6 +61,8 @@ import {
   ChartData,
 } from 'chart.js';
 import AddDipModal from '@/components/modals/AddDipModal';
+import { Z_INDEX } from '@/lib/z-index';
+import { ModalErrorBoundary } from '@/components/ModalErrorBoundary';
 
 // Register Chart.js components
 ChartJS.register(
@@ -81,17 +83,18 @@ interface TankDetailsModalProps {
 
 // Main Component - No React.memo
 export function TankDetailsModal({
-  tank: initialTank,
+  tank,
   open,
   onOpenChange,
 }: TankDetailsModalProps) {
-  const [tank, setTank] = useState<Tank | null>(initialTank);
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
 
-  // Use useEffect to always use the latest tank prop
+  // Reset AddDipModal state when main modal closes
   useEffect(() => {
-    setTank(initialTank);
-  }, [initialTank]);
+    if (!open) {
+      setIsDipFormOpen(false);
+    }
+  }, [open]);
 
   const {
     alerts,
@@ -447,8 +450,9 @@ export function TankDetailsModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onOpenChange(false)}>
-        <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border z-50">
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border" style={{ zIndex: Z_INDEX.MODAL_CONTENT }}>
+          <ModalErrorBoundary onReset={() => onOpenChange(false)}>
           {/* Simplified Header */}
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <div className="flex items-center justify-between">
@@ -946,7 +950,7 @@ export function TankDetailsModal({
               </Button>
             </div>
           </div>
-
+          </ModalErrorBoundary>
         </DialogContent>
       </Dialog>
 

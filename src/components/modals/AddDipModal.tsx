@@ -41,6 +41,7 @@ import { useTanks }      from "@/hooks/useTanks";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
 import { cn } from "@/lib/utils";
+import { Z_INDEX } from '@/lib/z-index';
 
 interface Props {
   open: boolean;
@@ -121,6 +122,19 @@ export default function AddDipModal({
     });
   }, []);
 
+  // Handle auto-close after success with proper cleanup
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (submitSuccess) {
+      timeoutId = setTimeout(() => {
+        onOpenChange(false);
+      }, 1500);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [submitSuccess, onOpenChange]);
+
   /* ─────────── Submit handler ──────────────────────────────────── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,14 +154,14 @@ export default function AddDipModal({
         setSubmitError(error.message);
       } else {
         setSubmitSuccess('Dip submitted successfully!');
-        await queryClient.invalidateQueries({ queryKey: ['tanks'] });
-        await queryClient.invalidateQueries({ queryKey: ['tankHistory'] });
-        await queryClient.invalidateQueries({ queryKey: ['tankAlerts'] });
+        // Coordinate all query invalidations
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['tanks'] }),
+          queryClient.invalidateQueries({ queryKey: ['tankHistory'] }),
+          queryClient.invalidateQueries({ queryKey: ['tankAlerts'] })
+        ]);
         resetForm();
-        // Close the modal after a brief delay to show success message
-        setTimeout(() => {
-          onOpenChange(false);
-        }, 1500);
+        // Don't auto-close here, let useEffect handle it
       }
     } finally {
       setSaving(false);
@@ -183,7 +197,7 @@ export default function AddDipModal({
   /* ─────────── Render modal ────────────────────────────────────── */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="z-[60] max-w-md">
+      <DialogContent className="max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT }}>
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Add Dip Reading
@@ -309,7 +323,7 @@ export default function AddDipModal({
                   {dipDate ? format(dipDate, "PPP") : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[70]" align="start">
+              <PopoverContent className="w-auto p-0" style={{ zIndex: Z_INDEX.MODAL_DROPDOWN }} align="start">
                 <Calendar
                   mode="single"
                   selected={dipDate}

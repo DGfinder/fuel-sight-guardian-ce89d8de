@@ -97,8 +97,10 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
                   e.preventDefault(); 
                   e.stopPropagation(); 
                   // Close tank details modal if open
-                  setDrawerOpen(false);
-                  setSelectedTank(null);
+                  if (drawerOpen) {
+                    setDrawerOpen(false);
+                    setSelectedTank(null);
+                  }
                   // Open edit dip modal
                   setEditDipTank(tank); 
                   setEditDipModalOpen(true); 
@@ -167,8 +169,10 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
               e.preventDefault(); 
               e.stopPropagation(); 
               // Close tank details modal if open
-              setDrawerOpen(false);
-              setSelectedTank(null);
+              if (drawerOpen) {
+                setDrawerOpen(false);
+                setSelectedTank(null);
+              }
               // Open edit dip modal
               setEditDipTank(tank); 
               setEditDipModalOpen(true); 

@@ -24,6 +24,7 @@ import { useTankGroups } from "@/hooks/useTankGroups";
 import { useTanks }      from "@/hooks/useTanks";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
+import { Z_INDEX } from '@/lib/z-index';
 
 interface Props {
   isOpen: boolean;
@@ -104,6 +105,19 @@ export default function EditDipModal({
       });
   }, [tankId]);
 
+  // Handle auto-close after success with proper cleanup
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (submitSuccess) {
+      timeoutId = setTimeout(() => {
+        onClose();
+      }, 1000);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [submitSuccess, onClose]);
+
   // When date changes, update dip value
   useEffect(() => {
     if (!selectedDate) return;
@@ -137,9 +151,7 @@ export default function EditDipModal({
         setSubmitSuccess('Dip updated successfully!');
         await queryClient.invalidateQueries({ queryKey: ['tanks'] });
         if (onSubmit) await onSubmit(groupId, tankId, Number(dipValue), selectedDate);
-        setTimeout(() => {
-          onClose();
-        }, 1000);
+        // Don't auto-close here, let useEffect handle it
       }
     } finally {
       setSaving(false);
@@ -179,7 +191,7 @@ export default function EditDipModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="z-[65] bg-white border shadow-lg max-w-md">
+      <DialogContent className="bg-white border shadow-lg max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT + 5 }}>
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Edit Dip Reading
