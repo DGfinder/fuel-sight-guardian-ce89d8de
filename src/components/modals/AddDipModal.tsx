@@ -141,8 +141,13 @@ export default function AddDipModal({
       } else {
         setSubmitSuccess('Dip submitted successfully!');
         await queryClient.invalidateQueries({ queryKey: ['tanks'] });
+        await queryClient.invalidateQueries({ queryKey: ['tankHistory'] });
+        await queryClient.invalidateQueries({ queryKey: ['tankAlerts'] });
         resetForm();
-        onOpenChange(false);
+        // Close the modal after a brief delay to show success message
+        setTimeout(() => {
+          onOpenChange(false);
+        }, 1500);
       }
     } finally {
       setSaving(false);
@@ -178,7 +183,7 @@ export default function AddDipModal({
   /* ─────────── Render modal ────────────────────────────────────── */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="z-[65] max-w-md">
+      <DialogContent className="z-[60] max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Add Dip Reading
@@ -304,7 +309,7 @@ export default function AddDipModal({
                   {dipDate ? format(dipDate, "PPP") : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[75]" align="start">
+              <PopoverContent className="w-auto p-0 z-[70]" align="start">
                 <Calendar
                   mode="single"
                   selected={dipDate}

@@ -139,8 +139,6 @@ export default function EditDipModal({
         if (onSubmit) await onSubmit(groupId, tankId, Number(dipValue), selectedDate);
         setTimeout(() => {
           onClose();
-          // Refresh to ensure table responsiveness is restored
-          window.location.reload();
         }, 1000);
       }
     } finally {
@@ -181,7 +179,7 @@ export default function EditDipModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="z-[70] bg-white border shadow-lg max-w-md">
+      <DialogContent className="z-[65] bg-white border shadow-lg max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Edit Dip Reading
@@ -293,7 +291,7 @@ export default function EditDipModal({
               <SelectTrigger>
                 <SelectValue placeholder={tankId ? (availableDips.length ? "Select date" : "No dips found") : "Choose tank first"} />
               </SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto z-[80]">
+              <SelectContent className="max-h-60 overflow-y-auto z-[75]">
                 {availableDips.length === 0 && (
                   <p className="px-3 py-2 text-sm text-muted-foreground">
                     No dips for this tank

@@ -448,7 +448,7 @@ export function TankDetailsModal({
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onOpenChange(false)}>
-        <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border z-[55]">
+        <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border z-50">
           {/* Simplified Header */}
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <div className="flex items-center justify-between">
@@ -947,21 +947,25 @@ export function TankDetailsModal({
             </div>
           </div>
 
-          <AddDipModal
-            open={isDipFormOpen}
-            onOpenChange={(open) => {
-              setIsDipFormOpen(open);
-              if (!open) {
-                // Refresh data when closing
-                setTimeout(() => window.location.reload(), 100);
-              }
-            }}
-            initialGroupId={tank.group_id}
-            initialTankId={tank.id}
-            onSubmit={async () => {}}
-          />
         </DialogContent>
       </Dialog>
+
+      {/* AddDipModal rendered separately to avoid overlay conflicts */}
+      {isDipFormOpen && (
+        <AddDipModal
+          open={isDipFormOpen}
+          onOpenChange={(open) => {
+            setIsDipFormOpen(open);
+            // Don't close the TankDetailsModal when AddDipModal closes
+          }}
+          initialGroupId={tank.group_id}
+          initialTankId={tank.id}
+          onSubmit={async () => {
+            // AddDipModal will handle its own closing
+            // Tank data will be refreshed automatically via React Query
+          }}
+        />
+      )}
     </>
   );
 }

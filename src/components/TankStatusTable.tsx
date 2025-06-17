@@ -96,6 +96,10 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
                 <DropdownMenuItem onSelect={(e) => { 
                   e.preventDefault(); 
                   e.stopPropagation(); 
+                  // Close tank details modal if open
+                  setDrawerOpen(false);
+                  setSelectedTank(null);
+                  // Open edit dip modal
                   setEditDipTank(tank); 
                   setEditDipModalOpen(true); 
                 }}>Edit Dip</DropdownMenuItem>
@@ -162,6 +166,10 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
             <DropdownMenuItem onSelect={(e) => { 
               e.preventDefault(); 
               e.stopPropagation(); 
+              // Close tank details modal if open
+              setDrawerOpen(false);
+              setSelectedTank(null);
+              // Open edit dip modal
               setEditDipTank(tank); 
               setEditDipModalOpen(true); 
             }}>Edit Dip</DropdownMenuItem>
@@ -467,6 +475,10 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleTankClick = useCallback((tank: Tank) => {
+    // Close any open modals first
+    setEditDipModalOpen(false);
+    setEditDipTank(null);
+    
     setSelectedTank(tank);
     setDrawerOpen(true);
     onTankClick?.(tank);
@@ -529,7 +541,16 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
       />
       <NestedGroupAccordion tanks={filteredTanks} onTankClick={handleTankClick} todayBurnRate={todayBurnRate} sortTanks={sortTanks} SortButton={SortButton} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} />
       {selectedTank && (
-        <TankDetailsModal tank={selectedTank} open={drawerOpen} onOpenChange={setDrawerOpen} />
+        <TankDetailsModal 
+          tank={selectedTank} 
+          open={drawerOpen} 
+          onOpenChange={(open) => {
+            setDrawerOpen(open);
+            if (!open) {
+              setSelectedTank(null);
+            }
+          }} 
+        />
       )}
       <EditDipModal
         isOpen={editDipModalOpen && !!editDipTank}
