@@ -96,12 +96,6 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
                 <DropdownMenuItem onSelect={(e) => { 
                   e.preventDefault(); 
                   e.stopPropagation(); 
-                  // Close tank details modal if open
-                  if (drawerOpen) {
-                    setDrawerOpen(false);
-                    setSelectedTank(null);
-                  }
-                  // Open edit dip modal
                   setEditDipTank(tank); 
                   setEditDipModalOpen(true); 
                 }}>Edit Dip</DropdownMenuItem>
@@ -168,12 +162,6 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
             <DropdownMenuItem onSelect={(e) => { 
               e.preventDefault(); 
               e.stopPropagation(); 
-              // Close tank details modal if open
-              if (drawerOpen) {
-                setDrawerOpen(false);
-                setSelectedTank(null);
-              }
-              // Open edit dip modal
               setEditDipTank(tank); 
               setEditDipModalOpen(true); 
             }}>Edit Dip</DropdownMenuItem>
@@ -476,8 +464,6 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
   const [selectedTank, setSelectedTank] = useState<Tank | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: 'location', direction: 'asc' });
-  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
-  const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleTankClick = useCallback((tank: Tank) => {
@@ -558,15 +544,6 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
           }} 
         />
       )}
-      <EditDipModal
-        isOpen={editDipModalOpen && !!editDipTank}
-        onClose={() => { 
-          setEditDipModalOpen(false); 
-          setEditDipTank(null); 
-        }}
-        initialGroupId={editDipTank?.group_id || ''}
-        initialTankId={editDipTank?.id || ''}
-      />
     </div>
   );
 }; 
