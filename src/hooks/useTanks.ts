@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useUserPermissions } from './useUserPermissions';
+import { useUserPermissions, UserPermissions } from './useUserPermissions';
 
 export interface Tank {
   id: string;
@@ -29,17 +29,18 @@ export interface Tank {
 export function useTanks() {
   const queryClient = useQueryClient();
   const { data: permissions } = useUserPermissions();
+  const userPermissions = permissions as UserPermissions | null;
 
   const { data: tanks, isLoading, error } = useQuery<Tank[]>({
-    queryKey: ['tanks', permissions?.accessibleGroups],
+    queryKey: ['tanks', userPermissions?.accessibleGroups],
     queryFn: async () => {
       let query = supabase
         .from('tanks_with_rolling_avg')
         .select('*');
 
       // RLS will handle security, but we can optimize the query for non-admin users
-      if (permissions && !permissions.isAdmin && permissions.accessibleGroups.length > 0) {
-        const groupIds = permissions.accessibleGroups.map(g => g.id);
+      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups.length > 0) {
+        const groupIds = userPermissions.accessibleGroups.map(g => g.id);
         query = query.in('group_id', groupIds);
       }
 
@@ -47,11 +48,19 @@ export function useTanks() {
       if (error) throw error;
       return data?.map(tank => ({
         ...tank,
-        safe_level: tank.safe_fill,
-        product_type: tank.product,
+        id: tank.id,
+        location: tank.location,
+        product_type: tank.product_type,
+        safe_level: tank.safe_level,
+        min_level: tank.min_level,
+        group_id: tank.group_id,
+        group_name: tank.group_name,
+        subgroup: tank.subgroup,
         current_level: tank.current_level,
-        current_level_percent: tank.current_level_percent_display,
+        current_level_percent: tank.current_level_percent,
         rolling_avg: tank.rolling_avg_lpd,
+        days_to_min_level: tank.days_to_min_level,
+        prev_day_used: tank.prev_day_used,
         last_dip: (tank.last_dip_ts && tank.current_level != null) 
           ? { 
               value: tank.current_level, 
@@ -61,7 +70,7 @@ export function useTanks() {
           : null,
       }));
     },
-    enabled: !!permissions // Only run query when permissions are loaded
+    enabled: !!userPermissions // Only run query when permissions are loaded
   });
 
   const { mutate: refreshTanks } = useMutation({
@@ -73,10 +82,10 @@ export function useTanks() {
       if (error) throw error;
       return data?.map(tank => ({
         ...tank,
-        safe_level: tank.safe_fill,
-        product_type: tank.product,
+        safe_level: tank.safe_level,
+        product_type: tank.product_type,
         current_level: tank.current_level,
-        current_level_percent: tank.current_level_percent_display,
+        current_level_percent: tank.current_level_percent,
         rolling_avg: tank.rolling_avg_lpd,
         last_dip: (tank.last_dip_ts && tank.current_level != null) 
           ? { 
