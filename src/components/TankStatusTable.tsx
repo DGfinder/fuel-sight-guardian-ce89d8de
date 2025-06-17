@@ -76,12 +76,22 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
             <span className={cn('text-right', status === 'critical' ? 'text-red-500' : status === 'low' ? 'text-amber-500' : '')}>{tank.days_to_min_level ?? '—'}</span>
             <span>Rolling Avg (L/day):</span>
             <span className="text-right">
-              {rollingAvg === null ? '—' 
-                : rollingAvg > 0 ? <span className="text-emerald-600">Refill ↑</span>
-                : <span>{rollingAvg}</span>}
+              {typeof rollingAvg === 'number'
+                ? rollingAvg > 0
+                  ? <span className="text-emerald-600">Refill ↑</span>
+                  : rollingAvg < 0
+                    ? <span>{Math.abs(rollingAvg).toLocaleString()}</span>
+                    : '0'
+                : '—'}
             </span>
             <span>Prev Day Used (L):</span>
-            <span className="text-right">{tank.prev_day_used !== null && tank.prev_day_used !== undefined ? tank.prev_day_used.toLocaleString() : '—'}</span>
+            <span className="text-right">{typeof tank.prev_day_used === 'number'
+              ? tank.prev_day_used > 0
+                ? <span className="text-emerald-600">Refill ↑</span>
+                : tank.prev_day_used < 0
+                  ? <span>{Math.abs(tank.prev_day_used).toLocaleString()}</span>
+                  : '0'
+              : '—'}</span>
             <span>Last Dip:</span>
             <span className="text-right">{lastDipTs ? (lastDipTs.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + (tank.last_dip?.recorded_by ? (' by ' + tank.last_dip.recorded_by) : '')) : '—'}{isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}</span>
             <span>Ullage (L):</span>
@@ -136,13 +146,21 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
         {tank.days_to_min_level ?? '—'}
       </td>
       <td className="px-3 py-2 text-center">
-        {rollingAvg === null ? '—'
-          : rollingAvg > 0 ? <span className="text-emerald-600">Refill ↑</span>
-          : <span>{rollingAvg}</span>}
+        {typeof rollingAvg === 'number'
+          ? rollingAvg > 0
+            ? <span className="text-emerald-600">Refill ↑</span>
+            : rollingAvg < 0
+              ? <span>{Math.abs(rollingAvg).toLocaleString()}</span>
+              : '0'
+          : '—'}
       </td>
       <td className="px-3 py-2 text-center">
-        {tank.prev_day_used !== null && tank.prev_day_used !== undefined
-          ? tank.prev_day_used.toLocaleString()
+        {typeof tank.prev_day_used === 'number'
+          ? tank.prev_day_used > 0
+            ? <span className="text-emerald-600">Refill ↑</span>
+            : tank.prev_day_used < 0
+              ? <span>{Math.abs(tank.prev_day_used).toLocaleString()}</span>
+              : '0'
           : '—'}
       </td>
       <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>
