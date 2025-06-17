@@ -470,13 +470,6 @@ export function TankDetailsModal({
                   </div>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
             </div>
           </DialogHeader>
 

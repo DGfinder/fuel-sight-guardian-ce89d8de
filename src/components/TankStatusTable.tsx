@@ -468,9 +468,11 @@ export interface TankStatusTableProps {
   tanks: Tank[];
   onTankClick?: (tank: Tank) => void;
   todayBurnRate?: number;
+  setEditDipTank: React.Dispatch<React.SetStateAction<Tank | null>>;
+  setEditDipModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankClick, todayBurnRate }) => {
+export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankClick, todayBurnRate, setEditDipTank, setEditDipModalOpen }) => {
   const [selectedTank, setSelectedTank] = useState<Tank | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: 'location', direction: 'asc' });

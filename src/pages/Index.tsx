@@ -17,6 +17,7 @@ import { StickyMobileNav } from '@/components/StickyMobileNav';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { FuelDipForm } from '@/components/fuel-dip/FuelDipForm';
 import { supabase } from '@/lib/supabase';
+import EditDipModal from '@/components/modals/EditDipModal';
 
 interface IndexProps {
   selectedGroup?: string | null;
@@ -43,6 +44,8 @@ export default function Index({ selectedGroup }: IndexProps) {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
   const [dipModalOpen, setDipModalOpen] = useState(false);
+  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
+  const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
   const tankTableRef = useRef<HTMLDivElement>(null);
 
   const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
@@ -240,6 +243,8 @@ export default function Index({ selectedGroup }: IndexProps) {
           <TankStatusTable
             tanks={displayTanks}
             onTankClick={handleTankClick}
+            setEditDipTank={setEditDipTank}
+            setEditDipModalOpen={setEditDipModalOpen}
           />
         </div>
 
@@ -257,6 +262,16 @@ export default function Index({ selectedGroup }: IndexProps) {
         />
         
         <StickyMobileNav />
+
+        <EditDipModal
+          isOpen={editDipModalOpen && !!editDipTank}
+          onClose={() => {
+            setEditDipModalOpen(false);
+            setEditDipTank(null);
+          }}
+          initialGroupId={editDipTank?.group_id || ''}
+          initialTankId={editDipTank?.id || ''}
+        />
       </div>
     </div>
   );

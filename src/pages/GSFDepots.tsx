@@ -4,6 +4,7 @@ import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
 import { TankStatusTable } from '@/components/TankStatusTable';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
+import EditDipModal from '@/components/modals/EditDipModal';
 import { supabase } from '@/lib/supabase';
 // NOTE: You must install 'react-chartjs-2' and 'chart.js' for the chart to work.
 // import { Line } from 'react-chartjs-2';
@@ -17,6 +18,8 @@ export default function GSFDepotsPage() {
   const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
   const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
+  const [editDipTank, setEditDipTank] = useState(null);
 
   useEffect(() => {
     const getSession = async () => {
@@ -71,6 +74,8 @@ export default function GSFDepotsPage() {
                 setSelectedTankId(tank.id);
                 setTankDetailsOpen(true);
               }}
+              setEditDipTank={setEditDipTank}
+              setEditDipModalOpen={setEditDipModalOpen}
             />
 
             {/* Tank Details Modal */}
@@ -78,6 +83,15 @@ export default function GSFDepotsPage() {
               tank={selectedTank}
               open={tankDetailsOpen}
               onOpenChange={setTankDetailsOpen}
+            />
+            <EditDipModal
+              isOpen={editDipModalOpen && !!editDipTank}
+              onClose={() => {
+                setEditDipModalOpen(false);
+                setEditDipTank(null);
+              }}
+              initialGroupId={editDipTank?.group_id || ''}
+              initialTankId={editDipTank?.id || ''}
             />
           </div>
         </div>

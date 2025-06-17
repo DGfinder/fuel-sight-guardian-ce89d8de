@@ -117,7 +117,13 @@ export function FuelDipForm({
   const [calendarOpen, setCalendarOpen] = useState(false);
   const today = new Date();
   const dateValue = watch("date");
-  const parsedDate = dateValue ? parseISO(dateValue) : null;
+  const [selectedDate, setSelectedDate] = useState(() => dateValue ? parseISO(dateValue) : new Date());
+  useEffect(() => {
+    // Keep local state in sync with form value
+    if (dateValue && (!selectedDate || format(selectedDate, "yyyy-MM-dd") !== dateValue)) {
+      setSelectedDate(parseISO(dateValue));
+    }
+  }, [dateValue]);
 
   //------------------------------------------------
   // Fetch groups once
@@ -337,18 +343,19 @@ export function FuelDipForm({
               className={"w-full justify-start text-left font-normal" + (errors.date ? " border-red-500" : "")}
               onClick={() => setCalendarOpen(true)}
             >
-              {parsedDate && isValid(parsedDate)
-                ? format(parsedDate, "yyyy-MM-dd")
+              {selectedDate && isValid(selectedDate)
+                ? format(selectedDate, "yyyy-MM-dd")
                 : <span className="text-muted-foreground">Pick a date</span>}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="p-0">
             <Calendar
               mode="single"
-              selected={parsedDate || undefined}
+              selected={selectedDate}
               onSelect={date => {
                 if (date && !isAfter(date, today)) {
-                  setValue("date", format(date, "yyyy-MM-dd"), { shouldValidate: true });
+                  setSelectedDate(date);
+                  setValue("date", format(date, "yyyy-MM-dd"), { shouldValidate: true, shouldDirty: true, shouldTouch: true });
                   setCalendarOpen(false);
                 }
               }}

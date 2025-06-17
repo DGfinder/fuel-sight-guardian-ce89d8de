@@ -29,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import EditDipModal from '@/components/modals/EditDipModal';
 
 export default function TanksPage() {
   const { tanks, isLoading, error, refreshTanks } = useTanks();
@@ -36,6 +37,8 @@ export default function TanksPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [groupFilter, setGroupFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name');
+  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
+  const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
 
   // Enhanced filtering and sorting logic
   const { filteredTanks, stats } = useMemo(() => {
@@ -426,6 +429,23 @@ export default function TanksPage() {
           </Button>
         </div>
       )}
+
+      <TankStatusTable
+        tanks={filteredTanks}
+        onTankClick={handleTankClick}
+        setEditDipTank={setEditDipTank}
+        setEditDipModalOpen={setEditDipModalOpen}
+      />
+
+      <EditDipModal
+        isOpen={editDipModalOpen && !!editDipTank}
+        onClose={() => {
+          setEditDipModalOpen(false);
+          setEditDipTank(null);
+        }}
+        initialGroupId={editDipTank?.group_id || ''}
+        initialTankId={editDipTank?.id || ''}
+      />
     </div>
   );
 } 
