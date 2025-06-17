@@ -21,6 +21,7 @@ export interface TankRow {
     recorded_by: string;
   } | null;
   subgroup?: string;
+  prev_day_used?: number;
 }
 
 export type Tank = TankRow;

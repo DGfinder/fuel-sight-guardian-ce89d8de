@@ -80,6 +80,8 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
                 : rollingAvg > 0 ? <span className="text-emerald-600">Refill ↑</span>
                 : <span>{rollingAvg}</span>}
             </span>
+            <span>Prev Day Used (L):</span>
+            <span className="text-right">{tank.prev_day_used !== null && tank.prev_day_used !== undefined ? tank.prev_day_used.toLocaleString() : '—'}</span>
             <span>Last Dip:</span>
             <span className="text-right">{lastDipTs ? (lastDipTs.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + (tank.last_dip?.recorded_by ? (' by ' + tank.last_dip.recorded_by) : '')) : '—'}{isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}</span>
             <span>Ullage (L):</span>
@@ -137,6 +139,11 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
         {rollingAvg === null ? '—'
           : rollingAvg > 0 ? <span className="text-emerald-600">Refill ↑</span>
           : <span>{rollingAvg}</span>}
+      </td>
+      <td className="px-3 py-2 text-center">
+        {tank.prev_day_used !== null && tank.prev_day_used !== undefined
+          ? tank.prev_day_used.toLocaleString()
+          : '—'}
       </td>
       <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>
       <td className="px-3 py-2 text-center">
@@ -338,6 +345,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                                   <th className="px-3 py-3 text-center">% Full</th>
                                   <th className="px-3 py-3 text-center">Days-to-Min</th>
                                   <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
+                                  <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
                                   <th className="px-3 py-3 text-center">Status</th>
                                   <th className="px-3 py-3 text-center">Last Dip</th>
                                   <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
@@ -378,6 +386,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                             <th className="px-3 py-3 text-center">% Full</th>
                             <th className="px-3 py-3 text-center">Days-to-Min</th>
                             <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
+                            <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
                             <th className="px-3 py-3 text-center">Status</th>
                             <th className="px-3 py-3 text-center">Last Dip</th>
                             <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
@@ -429,6 +438,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                             <th className="px-3 py-3 text-center">% Full</th>
                             <th className="px-3 py-3 text-center">Days-to-Min</th>
                             <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
+                            <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
                             <th className="px-3 py-3 text-center">Status</th>
                             <th className="px-3 py-3 text-center">Last Dip</th>
                             <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
