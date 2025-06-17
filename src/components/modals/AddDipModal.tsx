@@ -178,7 +178,7 @@ export default function AddDipModal({
   /* ─────────── Render modal ────────────────────────────────────── */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="z-[65] max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Add Dip Reading
@@ -304,7 +304,7 @@ export default function AddDipModal({
                   {dipDate ? format(dipDate, "PPP") : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-[75]" align="start">
                 <Calendar
                   mode="single"
                   selected={dipDate}

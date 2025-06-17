@@ -137,7 +137,11 @@ export default function EditDipModal({
         setSubmitSuccess('Dip updated successfully!');
         await queryClient.invalidateQueries({ queryKey: ['tanks'] });
         if (onSubmit) await onSubmit(groupId, tankId, Number(dipValue), selectedDate);
-        onClose();
+        setTimeout(() => {
+          onClose();
+          // Refresh to ensure table responsiveness is restored
+          window.location.reload();
+        }, 1000);
       }
     } finally {
       setSaving(false);
@@ -169,9 +173,15 @@ export default function EditDipModal({
     );
   }
 
+  const handleClose = () => {
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="z-[70] bg-white border shadow-lg max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Edit Dip Reading
@@ -271,13 +281,19 @@ export default function EditDipModal({
             </label>
             <Select
               value={selectedDate}
-              onValueChange={v => setSelectedDate(v)}
+              onValueChange={(value) => {
+                setSelectedDate(value);
+                const selectedDip = availableDips.find(d => d.created_at === value);
+                if (selectedDip) {
+                  setDipValue(selectedDip.value.toString());
+                }
+              }}
               disabled={!tankId || availableDips.length === 0}
             >
               <SelectTrigger>
                 <SelectValue placeholder={tankId ? (availableDips.length ? "Select date" : "No dips found") : "Choose tank first"} />
               </SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto">
+              <SelectContent className="max-h-60 overflow-y-auto z-[80]">
                 {availableDips.length === 0 && (
                   <p className="px-3 py-2 text-sm text-muted-foreground">
                     No dips for this tank

@@ -447,8 +447,8 @@ export function TankDetailsModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border">
+      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onOpenChange(false)}>
+        <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border z-[55]">
           {/* Simplified Header */}
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <div className="flex items-center justify-between">
@@ -947,15 +947,19 @@ export function TankDetailsModal({
             </div>
           </div>
 
-          {isDipFormOpen && (
-            <AddDipModal
-              open={isDipFormOpen}
-              onOpenChange={setIsDipFormOpen}
-              initialGroupId={tank.group_id}
-              initialTankId={tank.id}
-              onSubmit={async () => {}}
-            />
-          )}
+          <AddDipModal
+            open={isDipFormOpen}
+            onOpenChange={(open) => {
+              setIsDipFormOpen(open);
+              if (!open) {
+                // Refresh data when closing
+                setTimeout(() => window.location.reload(), 100);
+              }
+            }}
+            initialGroupId={tank.group_id}
+            initialTankId={tank.id}
+            onSubmit={async () => {}}
+          />
         </DialogContent>
       </Dialog>
     </>

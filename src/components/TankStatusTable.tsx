@@ -93,7 +93,12 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => { setEditDipTank(tank); setEditDipModalOpen(true); }}>Edit Dip</DropdownMenuItem>
+                <DropdownMenuItem onSelect={(e) => { 
+                  e.preventDefault(); 
+                  e.stopPropagation(); 
+                  setEditDipTank(tank); 
+                  setEditDipModalOpen(true); 
+                }}>Edit Dip</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -154,7 +159,12 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => { setEditDipTank(tank); setEditDipModalOpen(true); }}>Edit Dip</DropdownMenuItem>
+            <DropdownMenuItem onSelect={(e) => { 
+              e.preventDefault(); 
+              e.stopPropagation(); 
+              setEditDipTank(tank); 
+              setEditDipModalOpen(true); 
+            }}>Edit Dip</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </td>
@@ -521,14 +531,15 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
       {selectedTank && (
         <TankDetailsModal tank={selectedTank} open={drawerOpen} onOpenChange={setDrawerOpen} />
       )}
-      {editDipTank && (
-        <EditDipModal
-          isOpen={editDipModalOpen}
-          onClose={() => { setEditDipModalOpen(false); setEditDipTank(null); }}
-          initialGroupId={editDipTank.group_id}
-          initialTankId={editDipTank.id}
-        />
-      )}
+      <EditDipModal
+        isOpen={editDipModalOpen && !!editDipTank}
+        onClose={() => { 
+          setEditDipModalOpen(false); 
+          setEditDipTank(null); 
+        }}
+        initialGroupId={editDipTank?.group_id || ''}
+        initialTankId={editDipTank?.id || ''}
+      />
     </div>
   );
 }; 
