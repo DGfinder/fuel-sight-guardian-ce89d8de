@@ -298,7 +298,9 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                     <AccordionItem value={sub.id} key={sub.id} className="border-none">
                       <AccordionTrigger className="bg-gray-100 px-4 py-2 font-semibold text-gray-700 flex items-center gap-2">
                         {sub.name}
-                        <Badge variant="outline" className="bg-gray-100 text-gray-700 ml-2">{sub.tanks.length}</Badge>
+                        <Badge variant="outline" className="bg-gray-100 text-gray-700 ml-2">
+                          {sub.tanks.length} tank{sub.tanks.length !== 1 ? 's' : ''}
+                        </Badge>
                       </AccordionTrigger>
                       <AccordionContent className="bg-white dark:bg-gray-900">
                         {/* Use virtualization for large subgroups */}
