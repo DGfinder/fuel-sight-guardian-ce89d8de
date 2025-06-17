@@ -30,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import EditDipModal from '@/components/modals/EditDipModal';
+import { TankStatusTable } from "@/components/TankStatusTable";
+import type { Tank } from "@/types/fuel";
 
 export default function TanksPage() {
   const { tanks, isLoading, error, refreshTanks } = useTanks();
@@ -107,6 +109,13 @@ export default function TanksPage() {
     if (percentage <= 20) return <AlertTriangle className="w-4 h-4 text-red-600" />;
     if (percentage <= 40) return <Clock className="w-4 h-4 text-yellow-600" />;
     return <CheckCircle className="w-4 h-4 text-green-600" />;
+  };
+
+  // Handler for clicking a tank row in the table
+  const handleTankClick = (tank: Tank) => {
+    // Example: open the edit dip modal for the selected tank
+    setEditDipTank(tank);
+    setEditDipModalOpen(true);
   };
 
   if (isLoading) {

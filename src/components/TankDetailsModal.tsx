@@ -591,7 +591,7 @@ export function TankDetailsModal({
                       
                       <Button
                         onClick={() => setIsDipFormOpen(true)}
-                        className="w-full"
+                        className="w-full border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-blue-400"
                       >
                         <Droplets className="w-4 h-4 mr-2" />
                         Add New Dip Reading
@@ -815,27 +815,10 @@ export function TankDetailsModal({
                         </p>
                         <Button
                           onClick={() => setIsDipFormOpen(true)}
-                          className="mt-4"
-                          size="sm"
+                          className="mt-4 border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-blue-400"
                         >
                           <Droplets className="w-4 h-4 mr-2" />
-                          Add First Reading
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {dipHistory.length > 0 && (
-                      <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                        <div className="text-sm text-gray-600">
-                          Showing {dipHistory.length} readings from the last 30 days
-                        </div>
-                        <Button
-                          onClick={() => setIsDipFormOpen(true)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Droplets className="w-4 h-4 mr-2" />
-                          Add New Reading
+                          Add New Dip Reading
                         </Button>
                       </div>
                     )}
@@ -924,23 +907,14 @@ export function TankDetailsModal({
 
           {/* Simplified Bottom Bar */}
           <div className="px-6 py-4 border-t bg-gray-50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <div className={`w-2 h-2 rounded-full ${
-                  tankStatus.color === 'green' ? 'bg-green-500' :
-                  tankStatus.color === 'blue' ? 'bg-blue-500' :
-                  tankStatus.color === 'orange' ? 'bg-orange-500' :
-                  'bg-red-500'
-                }`}></div>
-                <span>Status: {tankStatus.status}</span>
-              </div>
-              <Button 
-                onClick={() => setIsDipFormOpen(true)}
-                size="sm"
-              >
-                <Droplets className="w-4 h-4 mr-2" />
-                Add Dip
-              </Button>
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <div className={`w-2 h-2 rounded-full ${
+                tankStatus.color === 'green' ? 'bg-green-500' :
+                tankStatus.color === 'blue' ? 'bg-blue-500' :
+                tankStatus.color === 'orange' ? 'bg-orange-500' :
+                'bg-red-500'
+              }`}></div>
+              <span>Status: {tankStatus.status}</span>
             </div>
           </div>
           </ModalErrorBoundary>

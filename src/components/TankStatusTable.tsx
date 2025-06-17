@@ -208,18 +208,17 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
       const hasMultipleSubgroups = group.subGroups.length > 1;
       const hasLargeSubgroups = group.subGroups.some(sg => sg.tanks.length > 10);
       
-      // Show subgroups if:
-      // 1. Group has more than 20 tanks total AND has multiple subgroups
-      // 2. OR group has subgroups with more than 10 tanks each
-      // 3. OR specific groups like Kalgoorlie that benefit from organization
-      // 4. OR any group that has actual subgroups (not just "No Subgroup")
-      group.shouldShowSubgroups = (
-        (totalTanks > 20 && hasMultipleSubgroups) ||
-        hasLargeSubgroups ||
-        group.name.toLowerCase().includes('kalgoorlie') ||
-        group.name.toLowerCase().includes('gsf') ||
-        (group.subGroups.length > 0 && group.subGroups.some(sg => sg.name !== 'No Subgroup'))
-      );
+      // Force Kalgoorlie to always show subgroups as accordions
+      if (group.name.toLowerCase().includes('kalgoorlie')) {
+        group.shouldShowSubgroups = true;
+      } else {
+        group.shouldShowSubgroups = (
+          (totalTanks > 20 && hasMultipleSubgroups) ||
+          hasLargeSubgroups ||
+          group.name.toLowerCase().includes('gsf') ||
+          (group.subGroups.length > 0 && group.subGroups.some(sg => sg.name !== 'No Subgroup'))
+        );
+      }
       
       // If we're not showing subgroups, flatten all tanks into the main group
       if (!group.shouldShowSubgroups && group.subGroups.length > 0) {
