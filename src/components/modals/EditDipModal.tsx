@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -162,6 +163,9 @@ export default function EditDipModal({
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent>
+          <DialogDescription className="sr-only">
+            Loading tank data for edit dip reading form
+          </DialogDescription>
           <div className="flex items-center justify-center p-10">
             <LoadingSpinner />
           </div>
@@ -174,6 +178,9 @@ export default function EditDipModal({
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent>
+          <DialogDescription className="sr-only">
+            Error loading tank data for edit dip reading form
+          </DialogDescription>
           <p className="p-6 text-center text-red-600 text-sm">
             Failed to load tanks:&nbsp;
             {error instanceof Error ? error.message : "Unknown error"}
@@ -192,6 +199,9 @@ export default function EditDipModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="bg-white border shadow-lg max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT + 5 }}>
+        <DialogDescription className="sr-only">
+          Edit an existing dip reading for a fuel tank
+        </DialogDescription>
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Edit Dip Reading
@@ -278,7 +288,7 @@ export default function EditDipModal({
                 )}
                 {tanksForDropdown.map(t => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.location} <span className="text-xs text-muted-foreground">Safe&nbsp;{t.safe_fill.toLocaleString()} L</span>
+                    {t.location} <span className="text-xs text-muted-foreground">Safe&nbsp;{typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L</span>
                   </SelectItem>
                 ))}
               </SelectContent>

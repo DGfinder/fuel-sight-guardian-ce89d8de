@@ -16,7 +16,7 @@ function getUrgency(tank: Tank) {
 
 export function NeedsActionPanel({ tanks }: { tanks: Tank[] }) {
   const needsAction = tanks.filter(
-    t => !!t.last_dip_ts && ((t.days_to_min_level !== null && t.days_to_min_level <= 2) || t.current_level_percent <= 0.2)
+    t => !!t.last_dip?.created_at && ((t.days_to_min_level !== null && t.days_to_min_level <= 2) || t.current_level_percent <= 20)
   );
   const [open, setOpen] = useState(needsAction.length <= 8);
   if (!needsAction.length) return null;

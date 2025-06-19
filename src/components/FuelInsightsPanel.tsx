@@ -46,7 +46,7 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
   }, []);
 
   const needsActionCount = tanks.filter(
-    t => !!t.last_dip?.created_at && ((t.days_to_min_level !== null && t.days_to_min_level <= 2) || t.current_level_percent <= 0.2)
+    t => !!t.last_dip?.created_at && ((t.days_to_min_level !== null && t.days_to_min_level <= 2) || t.current_level_percent <= 20)
   ).length;
 
   const fleetHealthPercentage = Math.round((tanks.filter(t => t.current_level_percent && t.current_level_percent > 50).length / tanks.length) * 100);

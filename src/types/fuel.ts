@@ -12,6 +12,7 @@ export interface TankRow {
   current_level_percent?: number;
   rolling_avg?: number;
   days_to_min_level?: number;
+  usable_capacity?: number;
   latest_dip_value?: number;
   latest_dip_date?: string;
   latest_dip_by?: string;

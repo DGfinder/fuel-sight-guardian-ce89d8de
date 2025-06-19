@@ -640,7 +640,6 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   // Check if a tank is serviced today
   const isServiced = useCallback((tankId: string) => {
     const tank = tanks.find(t => t.id === tankId);
-    console.log('isServiced check:', { tankId, tank: tank ? { serviced_on: tank.serviced_on, serviced_by: tank.serviced_by } : null, today });
     return tank?.serviced_on === today;
   }, [tanks, today]);
 
@@ -750,14 +749,6 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Debug info - remove this after testing */}
-      <div className="bg-yellow-100 p-2 rounded text-xs">
-        <p>Debug: Today = {today}</p>
-        <p>Debug: First tank serviced_on = {tanks[0]?.serviced_on || 'undefined'}</p>
-        <p>Debug: First tank serviced_by = {tanks[0]?.serviced_by || 'undefined'}</p>
-        <p>Debug: Total tanks = {tanks.length}</p>
-      </div>
-      
       <div className="flex items-center gap-4 mb-4">
         <Input 
           placeholder="Search by location or group" 

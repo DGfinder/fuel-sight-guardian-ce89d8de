@@ -28,6 +28,7 @@ export interface Tank {
     created_at: string;
     recorded_by: string;
   } | null;
+  usable_capacity?: number;
 }
 
 export function useTanks() {
@@ -54,16 +55,17 @@ export function useTanks() {
         ...tank,
         id: tank.id,
         location: tank.location,
-        product_type: tank.product_type,
-        safe_level: tank.safe_level,
+        product_type: tank.product,
+        safe_level: tank.safe_fill,
         min_level: tank.min_level,
         group_id: tank.group_id,
         group_name: tank.group_name,
         subgroup: tank.subgroup,
         current_level: tank.current_level,
-        current_level_percent: tank.current_level_percent,
+        current_level_percent: tank.current_level_percent_display,
         rolling_avg: tank.rolling_avg_lpd,
         days_to_min_level: tank.days_to_min_level,
+        usable_capacity: tank.usable_capacity,
         prev_day_used: tank.prev_day_used,
         serviced_on: tank.serviced_on,
         serviced_by: tank.serviced_by,
@@ -71,7 +73,7 @@ export function useTanks() {
           ? { 
               value: tank.current_level, 
               created_at: tank.last_dip_ts, 
-              recorded_by: tank.last_dip_by || 'Unknown' 
+              recorded_by: 'Unknown' 
             } 
           : null,
       }));
@@ -88,16 +90,17 @@ export function useTanks() {
       if (error) throw error;
       return data?.map(tank => ({
         ...tank,
-        safe_level: tank.safe_level,
-        product_type: tank.product_type,
+        product_type: tank.product,
+        safe_level: tank.safe_fill,
         current_level: tank.current_level,
-        current_level_percent: tank.current_level_percent,
+        current_level_percent: tank.current_level_percent_display,
         rolling_avg: tank.rolling_avg_lpd,
+        usable_capacity: tank.usable_capacity,
         last_dip: (tank.last_dip_ts && tank.current_level != null) 
           ? { 
               value: tank.current_level, 
               created_at: tank.last_dip_ts, 
-              recorded_by: tank.last_dip_by || 'Unknown' 
+              recorded_by: 'Unknown' 
             } 
           : null,
       }));

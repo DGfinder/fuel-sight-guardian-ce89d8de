@@ -25,6 +25,7 @@ import { TankDetailsModal } from './components/TankDetailsModal';
 import { useGlobalModals } from './contexts/GlobalModalsContext';
 import EditDipModal from './components/modals/EditDipModal';
 import { AlertsDrawer } from './components/AlertsDrawer';
+import { Calendar } from './components/ui/calendar';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +51,8 @@ const App = () => {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const { selectedTank, open, closeModal } = useTankModal();
   const { editDipOpen, editDipTank, closeEditDip, alertsOpen, closeAlerts } = useGlobalModals();
+  const today = new Date();
+  const [demoDate, setDemoDate] = useState<Date | undefined>(today);
 
   return (
     <>
@@ -144,6 +147,19 @@ const App = () => {
               onOpenChange={closeAlerts}
               tanks={[]} // You may want to pass tanks from context or props
             />
+            <div style={{ margin: 40, background: '#fff', border: '1px solid #ccc', display: 'inline-block', zIndex: 99999 }}>
+              <div className="mb-4">
+                <button className="bg-primary text-primary-foreground px-4 py-2 rounded">
+                  Test Primary Color
+                </button>
+              </div>
+              <Calendar 
+                selected={demoDate} 
+                mode="single" 
+                onSelect={date => date && setDemoDate(date)} 
+                initialFocus 
+              />
+            </div>
           </AppStateProvider>
         </TooltipProvider>
       </QueryClientProvider>

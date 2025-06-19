@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -473,6 +474,9 @@ export function TankDetailsModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border" style={{ zIndex: Z_INDEX.MODAL_CONTENT }}>
+          <DialogDescription className="sr-only">
+            Tank details and management for {freshTank?.location}
+          </DialogDescription>
           <ModalErrorBoundary onReset={() => onOpenChange(false)}>
           {/* Simplified Header */}
           <DialogHeader className="px-6 pt-6 pb-4 border-b">

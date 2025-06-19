@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export default function AddDipModal({
   const [tankId,     setTankId]     = useState(initialTankId);
   const [dipValue,   setDipValue]   = useState("");
   const [dipDate,    setDipDate]    = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export default function AddDipModal({
     setTankId("");
     setDipValue("");
     setDipDate(new Date());
+    setCalendarOpen(false);
   };
 
   useEffect(() => {
@@ -180,6 +183,9 @@ export default function AddDipModal({
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
+          <DialogDescription className="sr-only">
+            Loading tank data for dip reading form
+          </DialogDescription>
           <div className="flex items-center justify-center p-10">
             <LoadingSpinner />
           </div>
@@ -192,6 +198,9 @@ export default function AddDipModal({
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
+          <DialogDescription className="sr-only">
+            Error loading tank data
+          </DialogDescription>
           <p className="p-6 text-center text-red-600 text-sm">
             Failed to load tanks:&nbsp;
             {error instanceof Error ? error.message : "Unknown error"}
@@ -205,6 +214,9 @@ export default function AddDipModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT }}>
+        <DialogDescription className="sr-only">
+          Record a manual dip reading for a fuel tank
+        </DialogDescription>
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Add Dip Reading
@@ -317,7 +329,7 @@ export default function AddDipModal({
             <label className="text-sm font-medium">
               Date <span className="text-red-500">*</span>
             </label>
-            <Popover>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -330,14 +342,23 @@ export default function AddDipModal({
                   {dipDate ? format(dipDate, "PPP") : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" style={{ zIndex: Z_INDEX.MODAL_DROPDOWN }} align="start">
+              <PopoverContent className="w-auto p-0" style={{ zIndex: 9999 }} align="start">
                 <Calendar
                   mode="single"
                   selected={dipDate}
-                  onSelect={(date) => date && setDipDate(date)}
-                  disabled={(date) =>
-                    date > new Date() || date < new Date("1900-01-01")
-                  }
+                  onSelect={(date) => {
+                    console.log('Calendar date selected:', date);
+                    if (date) {
+                      setDipDate(date);
+                      setCalendarOpen(false); // Close popover after selection
+                    }
+                  }}
+                  disabled={(date) => {
+                    const today = new Date();
+                    const minDate = new Date();
+                    minDate.setFullYear(today.getFullYear() - 1); // Allow up to 1 year back
+                    return date > today || date < minDate;
+                  }}
                   initialFocus
                 />
               </PopoverContent>
