@@ -590,9 +590,8 @@ export function TankDetailsModal({
                             </p>
                           </div>
                         </div>
-                      </div>
-                      
-                      <Button
+                        
+                        <Button
                         onClick={() => setIsDipFormOpen(true)}
                         className="w-full border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-blue-400"
                       >
