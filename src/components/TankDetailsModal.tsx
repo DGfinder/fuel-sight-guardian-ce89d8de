@@ -547,12 +547,38 @@ export function TankDetailsModal({
                           <span className="text-sm text-gray-500">Depot</span>
                           <p className="font-medium">{tank.group_name || 'N/A'}</p>
                         </div>
-                        
+                        <div>
+                          <span className="text-sm text-gray-500">Address</span>
+                          <p className="font-medium">{tank.address || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">Vehicle</span>
+                          <p className="font-medium">{tank.vehicle || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">Discharge</span>
+                          <p className="font-medium">{tank.discharge || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">BP Portal</span>
+                          <p className="font-medium">{tank.bp_portal || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">Min Level</span>
+                          <p className="font-medium">{typeof tank.min_level === 'number' ? tank.min_level.toLocaleString() : 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">Delivery Window</span>
+                          <p className="font-medium">{tank.delivery_window || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">Afterhours Contact</span>
+                          <p className="font-medium">{tank.afterhours_contact || 'N/A'}</p>
+                        </div>
                         <div>
                           <span className="text-sm text-gray-500">Product</span>
                           <p className="font-medium">{tank.product_type || 'N/A'}</p>
                         </div>
-                        
                         <div className="p-3 bg-blue-50 rounded-lg">
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-blue-700">Current Volume</span>
@@ -833,10 +859,7 @@ export function TankDetailsModal({
                     <CardTitle className="text-lg">Depot Notes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-                      <FileText className="w-12 h-12 text-gray-300 mb-3" />
-                      <p className="text-sm text-center">No notes available</p>
-                    </div>
+                    <EditableNotesSection tank={tank} />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -938,5 +961,72 @@ export function TankDetailsModal({
         />
       )}
     </>
+  );
+}
+
+function EditableNotesSection({ tank }: { tank: Tank }) {
+  const [notes, setNotes] = React.useState(tank.notes || "");
+  const [editing, setEditing] = React.useState(false);
+  const [tempNotes, setTempNotes] = React.useState(notes);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setNotes(tank.notes || "");
+    setTempNotes(tank.notes || "");
+  }, [tank.notes]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    const { error } = await supabase
+      .from('fuel_tanks')
+      .update({ notes: tempNotes })
+      .eq('id', tank.id);
+    setSaving(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setNotes(tempNotes);
+      setEditing(false);
+    }
+  };
+
+  return (
+    <div className="w-full">
+      {editing ? (
+        <div className="flex flex-col gap-2">
+          <textarea
+            className="w-full border rounded px-3 py-2 min-h-[100px]"
+            value={tempNotes}
+            onChange={e => setTempNotes(e.target.value)}
+            placeholder="Enter depot notes here..."
+            autoFocus
+            disabled={saving}
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+          <FileText className="w-12 h-12 text-gray-300 mb-3" />
+          {notes ? (
+            <p className="text-sm text-center whitespace-pre-line text-gray-700 mb-4">{notes}</p>
+          ) : (
+            <p className="text-sm text-center">No notes available</p>
+          )}
+          <Button size="sm" onClick={() => setEditing(true)}>
+            {notes ? "Edit Notes" : "Add Notes"}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -24,6 +24,13 @@ export interface TankRow {
   prev_day_used?: number;
   serviced_on?: string;
   serviced_by?: string;
+  address?: string;
+  vehicle?: string;
+  discharge?: string;
+  bp_portal?: string;
+  delivery_window?: string;
+  afterhours_contact?: string;
+  notes?: string;
 }
 
 export type Tank = TankRow;

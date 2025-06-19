@@ -135,6 +135,13 @@ export default function AddDipModal({
     };
   }, [submitSuccess, onOpenChange]);
 
+  // Add this useEffect to reset the form only when the modal closes
+  useEffect(() => {
+    if (!open) {
+      resetForm();
+    }
+  }, [open]);
+
   /* ─────────── Submit handler ──────────────────────────────────── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
