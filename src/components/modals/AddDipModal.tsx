@@ -138,22 +138,32 @@ export default function AddDipModal({
     };
   }, [submitSuccess, onOpenChange]);
 
-  // Add this useEffect to reset all local state when the modal closes or when switching between add/edit modes
+  // Handle modal state based on whether it's opened with a specific tank
   useEffect(() => {
     if (!open) {
-      setGroupId(initialGroupId || "");
-      setSubgroup("");
-      setTankId(initialTankId || "");
+      // Reset form when modal closes
+      resetForm();
+    } else if (open) {
+      // When modal opens, set initial values
+      if (initialTankId && tanks.length > 0) {
+        // Pre-selected tank mode - find the tank and populate all fields
+        const tank = tanks.find(t => t.id === initialTankId);
+        if (tank) {
+          console.log('AddDipModal: Pre-selecting tank:', tank);
+          setGroupId(tank.group_id);
+          setSubgroup(tank.subgroup || "");
+          setTankId(tank.id);
+        }
+      } else {
+        // Manual selection mode - use provided initial values or empty
+        setGroupId(initialGroupId || "");
+        setSubgroup("");
+        setTankId(initialTankId || "");
+      }
+      // Always reset these when opening
       setDipValue("");
       setDipDate(new Date());
       setCalendarOpen(false);
-    } else if (open && initialTankId && tanks.length > 0) {
-      const tank = tanks.find(t => t.id === initialTankId);
-      if (tank) {
-        setGroupId(tank.group_id);
-        setSubgroup(tank.subgroup || "");
-        setTankId(tank.id);
-      }
     }
   }, [open, initialTankId, initialGroupId, tanks]);
 
@@ -250,21 +260,25 @@ export default function AddDipModal({
             <div className="text-green-600 text-sm">{submitSuccess}</div>
           )}
           {/* Depot group */}
-          {initialTankId && selectedTank ? (
+          {initialTankId && tankId === initialTankId ? (
             <>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Depot Group</label>
-                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank.group_name || groupId}</div>
+                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">
+                  {selectedTank ? selectedTank.group_name : groups.find(g => g.id === groupId)?.name || groupId}
+                </div>
               </div>
-              {selectedTank.subgroup && (
+              {subgroup && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Sub-group</label>
-                  <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank.subgroup}</div>
+                  <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{subgroup}</div>
                 </div>
               )}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Tank</label>
-                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank.location || tankId}</div>
+                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">
+                  {selectedTank ? selectedTank.location : tanks.find(t => t.id === tankId)?.location || tankId}
+                </div>
               </div>
             </>
           ) : (
@@ -279,6 +293,7 @@ export default function AddDipModal({
                     setSubgroup("");
                     setTankId("");
                   }}
+                  disabled={!!initialTankId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select depot group" />
@@ -302,6 +317,7 @@ export default function AddDipModal({
                       setSubgroup(v);
                       setTankId("");
                     }}
+                    disabled={!!initialTankId}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select sub-group" />
@@ -322,7 +338,7 @@ export default function AddDipModal({
                 <Select
                   value={tankId}
                   onValueChange={setTankId}
-                  disabled={!groupId}
+                  disabled={!groupId || (!!initialTankId && !!selectedTank)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={groupId ? "Select tank" : "Choose group first"} />
