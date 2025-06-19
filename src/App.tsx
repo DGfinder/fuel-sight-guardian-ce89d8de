@@ -147,19 +147,6 @@ const App = () => {
               onOpenChange={closeAlerts}
               tanks={[]} // You may want to pass tanks from context or props
             />
-            <div style={{ margin: 40, background: '#fff', border: '1px solid #ccc', display: 'inline-block', zIndex: 99999 }}>
-              <div className="mb-4">
-                <button className="bg-primary text-primary-foreground px-4 py-2 rounded">
-                  Test Primary Color
-                </button>
-              </div>
-              <Calendar 
-                selected={demoDate} 
-                mode="single" 
-                onSelect={date => date && setDemoDate(date)} 
-                initialFocus 
-              />
-            </div>
           </AppStateProvider>
         </TooltipProvider>
       </QueryClientProvider>
