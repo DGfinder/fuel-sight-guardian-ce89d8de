@@ -145,6 +145,18 @@ export default function AddDipModal({
     }
   }, [open]);
 
+  // Add this useEffect after the other useEffects:
+  useEffect(() => {
+    if (open && initialTankId && tanks.length > 0) {
+      const tank = tanks.find(t => t.id === initialTankId);
+      if (tank) {
+        setGroupId(tank.group_id);
+        setSubgroup(tank.subgroup || "");
+        setTankId(tank.id);
+      }
+    }
+  }, [open, initialTankId, tanks]);
+
   /* ─────────── Submit handler ──────────────────────────────────── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,6 +261,7 @@ export default function AddDipModal({
                 setSubgroup("");
                 setTankId("");
               }}
+              disabled={!!initialTankId}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select depot group" />
@@ -273,6 +286,7 @@ export default function AddDipModal({
                   setSubgroup(v);
                   setTankId("");
                 }}
+                disabled={!!initialTankId}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select sub-group" />
@@ -296,7 +310,7 @@ export default function AddDipModal({
             <Select
               value={tankId}
               onValueChange={setTankId}
-              disabled={!groupId}
+              disabled={!groupId || !!initialTankId}
             >
               <SelectTrigger>
                 <SelectValue
