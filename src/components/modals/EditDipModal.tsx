@@ -26,6 +26,7 @@ import { useTanks }      from "@/hooks/useTanks";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
 import { Z_INDEX } from '@/lib/z-index';
+import { Label } from "@/components/ui/label";
 
 interface Props {
   isOpen: boolean;
@@ -35,6 +36,10 @@ interface Props {
   initialTankId?: string;
 }
 
+function formatDate(dateString: string) {
+  return dateString.split('T')[0];
+}
+
 export default function EditDipModal({
   isOpen,
   onClose,
@@ -42,6 +47,7 @@ export default function EditDipModal({
   initialGroupId = "",
   initialTankId = "",
 }: Props) {
+  console.log('EditDipModal rendered', { isOpen, initialGroupId, initialTankId });
   const { data: groups = [], isLoading: groupsLoading } = useTankGroups();
   const { tanks = [], isLoading: tanksLoading, error }  = useTanks();
   const queryClient = useQueryClient();
@@ -79,7 +85,9 @@ export default function EditDipModal({
     [tanksForGroup, subgroup],
   );
 
-  const selectedTank: Tank | undefined = tanks.find(t => t.id === tankId);
+  const isEditMode = !!initialTankId;
+  const selectedTank = tanks.find(t => t.id === tankId);
+  const selectedGroup = groups.find(g => g.id === groupId);
 
   // Fetch available dips for selected tank
   useEffect(() => {
@@ -131,6 +139,28 @@ export default function EditDipModal({
       setUserId(data?.user?.id || null);
     });
   }, []);
+
+  // Update state when initial props change (when modal opens with new tank)
+  useEffect(() => {
+    if (isOpen) {
+      console.log('EditDipModal opening with:', { initialGroupId, initialTankId });
+      setGroupId(initialGroupId);
+      setTankId(initialTankId);
+      
+      // Set subgroup if the tank has one
+      const tank = tanks.find(t => t.id === initialTankId);
+      if (tank?.subgroup) {
+        setSubgroup(tank.subgroup);
+      } else {
+        setSubgroup("");
+      }
+      
+      setDipValue("");
+      setSelectedDate("");
+      setSubmitError(null);
+      setSubmitSuccess(null);
+    }
+  }, [isOpen, initialGroupId, initialTankId, tanks]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,150 +226,80 @@ export default function EditDipModal({
     onClose();
   };
 
+  // Handle cleanup when modal closes
+  const handleModalOpenChange = (open: boolean) => {
+    if (!open) {
+      // Force remove any pointer-events styling that might be stuck
+      setTimeout(() => {
+        document.body.style.removeProperty('pointer-events');
+      }, 100);
+      handleClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open={isOpen} onOpenChange={handleModalOpenChange}>
       <DialogContent className="bg-white border shadow-lg max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT + 5 }}>
         <DialogDescription className="sr-only">
-          Edit an existing dip reading for a fuel tank
+          {isEditMode ? 'Edit an existing dip reading.' : 'Add a new dip reading.'}
         </DialogDescription>
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">
-            Edit Dip Reading
-          </DialogTitle>
-        </DialogHeader>
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4"
-        >
-          {submitError && (
-            <div className="text-red-600 text-sm">{submitError}</div>
-          )}
-          {submitSuccess && (
-            <div className="text-green-600 text-sm">{submitSuccess}</div>
-          )}
-          {/* Depot group */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Depot Group <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={groupId}
-              onValueChange={v => {
-                setGroupId(v);
-                setSubgroup("");
-                setTankId("");
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select depot group" />
-              </SelectTrigger>
-              <SelectContent>
-                {groups.map(g => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {/* Sub-group (only if more than one exists) */}
-          {subgroups.length > 1 && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Sub-group</label>
-              <Select
-                value={subgroup}
-                onValueChange={v => {
-                  setSubgroup(v);
-                  setTankId("");
-                }}
-              >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label>Depot Group *</Label>
+            {isEditMode ? (
+              <div className="px-3 py-2 bg-gray-100 rounded text-gray-700">{selectedGroup?.name || groupId}</div>
+            ) : (
+              <Select value={groupId} onValueChange={setGroupId} required>
                 <SelectTrigger>
-                  <SelectValue placeholder="All sub-groups" />
+                  <SelectValue placeholder="Select depot group" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
-                  {subgroups.map(sg => (
-                    <SelectItem key={sg!} value={sg!}>
-                      {sg}
-                    </SelectItem>
+                  {groups.map(group => (
+                    <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
-          {/* Tank */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Tank <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={tankId}
-              onValueChange={v => setTankId(v)}
-              disabled={!groupId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={groupId ? "Select tank" : "Choose group first"} />
-              </SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto">
-                {tanksForDropdown.length === 0 && (
-                  <p className="px-3 py-2 text-sm text-muted-foreground">
-                    No tanks in selection
-                  </p>
-                )}
-                {tanksForDropdown.map(t => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.location} <span className="text-xs text-muted-foreground">Safe&nbsp;{typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            )}
           </div>
-          {/* Date */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Date <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={selectedDate}
-              onValueChange={(value) => {
-                setSelectedDate(value);
-                const selectedDip = availableDips.find(d => d.created_at === value);
-                if (selectedDip) {
-                  setDipValue(selectedDip.value.toString());
-                }
-              }}
-              disabled={!tankId || availableDips.length === 0}
-            >
+          <div className="space-y-2">
+            <Label>Tank *</Label>
+            {isEditMode ? (
+              <div className="px-3 py-2 bg-gray-100 rounded text-gray-700">{selectedTank?.location || tankId}</div>
+            ) : (
+              <Select value={tankId} onValueChange={setTankId} required disabled={!groupId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select tank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tanks.filter(t => t.group_id === groupId).map(tank => (
+                    <SelectItem key={tank.id} value={tank.id}>{tank.location}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Date *</Label>
+            <Select value={selectedDate} onValueChange={setSelectedDate} required disabled={!tankId}>
               <SelectTrigger>
-                <SelectValue placeholder={tankId ? (availableDips.length ? "Select date" : "No dips found") : "Choose tank first"} />
+                <SelectValue placeholder="Select date" />
               </SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto z-[75]">
-                {availableDips.length === 0 && (
-                  <p className="px-3 py-2 text-sm text-muted-foreground">
-                    No dips for this tank
-                  </p>
-                )}
+              <SelectContent className="z-[1100]">
                 {availableDips.map(dip => (
-                  <SelectItem key={dip.id} value={dip.created_at}>
-                    {new Date(dip.created_at).toLocaleString()} ({dip.value.toLocaleString()} L)
-                  </SelectItem>
+                  <SelectItem key={dip.created_at} value={dip.created_at}>{formatDate(dip.created_at)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          {/* Dip value */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Dip Reading (litres) <span className="text-red-500">*</span>
-            </label>
+          <div className="space-y-2">
+            <Label>Dip Reading (litres) *</Label>
             <Input
               type="number"
-              min={0}
               value={dipValue}
               onChange={e => setDipValue(e.target.value)}
               placeholder="Enter dip reading"
               required
-              disabled={!selectedDate}
+              disabled={!tankId}
             />
           </div>
           <DialogFooter className="pt-2">

@@ -324,45 +324,30 @@ export default function AddDipModal({
             </Select>
           </div>
 
-          {/* Date picker */}
+          {/* Date picker - Fallback to native HTML5 date input */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
               Date <span className="text-red-500">*</span>
             </label>
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !dipDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dipDate ? format(dipDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" style={{ zIndex: 9999 }} align="start">
-                <Calendar
-                  mode="single"
-                  selected={dipDate}
-                  onSelect={(date) => {
-                    console.log('Calendar date selected:', date);
-                    if (date) {
-                      setDipDate(date);
-                      setCalendarOpen(false); // Close popover after selection
-                    }
-                  }}
-                  disabled={(date) => {
-                    const today = new Date();
-                    const minDate = new Date();
-                    minDate.setFullYear(today.getFullYear() - 1); // Allow up to 1 year back
-                    return date > today || date < minDate;
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="relative">
+              <Input
+                type="date"
+                value={dipDate ? dipDate.toISOString().slice(0, 10) : ''}
+                onChange={(e) => {
+                  console.log('Date input changed:', e.target.value);
+                  if (e.target.value) {
+                    setDipDate(new Date(e.target.value));
+                  }
+                }}
+                max={new Date().toISOString().slice(0, 10)} // Today
+                min={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)} // 1 year ago
+                className="w-full"
+              />
+            </div>
+            {/* Alternative: Popover Calendar (currently disabled for debugging) */}
+            <div className="text-xs text-gray-500">
+              Fallback to HTML5 date picker due to calendar component issues
+            </div>
           </div>
 
           {/* Dip reading */}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,7 @@ interface TankRowProps {
 
 const fmt = (n: number | null | undefined) => typeof n === 'number' && !isNaN(n) ? n.toLocaleString('en-AU') : '—';
 
-const TankRow: React.FC<TankRowProps> = ({ 
+const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefObject<boolean> }> = ({ 
   tank, 
   onClick, 
   todayBurnRate, 
@@ -59,7 +59,8 @@ const TankRow: React.FC<TankRowProps> = ({
   setEditDipModalOpen,
   onServicedToggle,
   isServiced,
-  today
+  today,
+  suppressNextRowClick
 }) => {
   // Use the correctly calculated percent from the SQL view
   const percent = typeof tank.current_level_percent === 'number' ? Math.round(tank.current_level_percent) : 0;
@@ -86,7 +87,13 @@ const TankRow: React.FC<TankRowProps> = ({
               onServicedToggle(tank.id, checked as boolean);
             }}
             className="h-4 w-4 text-green-700"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              if (suppressNextRowClick.current) {
+                suppressNextRowClick.current = false;
+                return;
+              }
+              e.stopPropagation();
+            }}
           />
           <span className="font-bold flex-1 text-left">{tank.location}</span>
           <PercentBar percent={percent} />
@@ -148,6 +155,10 @@ const TankRow: React.FC<TankRowProps> = ({
               isServiced && 'bg-gray-50 text-gray-400 hover:bg-gray-100/60 dark:bg-gray-800/60'
             )}
             onClick={e => {
+              if (suppressNextRowClick.current) {
+                suppressNextRowClick.current = false;
+                return;
+              }
               if ((e.target as HTMLElement).closest('.kebab-menu') || (e.target as HTMLElement).closest('input[type="checkbox"]')) return;
               onClick(tank);
             }}
@@ -160,7 +171,13 @@ const TankRow: React.FC<TankRowProps> = ({
                   onServicedToggle(tank.id, checked as boolean);
                 }}
                 className="h-4 w-4 text-green-700"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  if (suppressNextRowClick.current) {
+                    suppressNextRowClick.current = false;
+                    return;
+                  }
+                  e.stopPropagation();
+                }}
               />
             </td>
             <td className="sticky left-[42px] z-10 bg-inherit px-3 py-2 font-bold">{tank.location}</td>
@@ -220,11 +237,11 @@ const TankRow: React.FC<TankRowProps> = ({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={(e) => { 
-                    e.preventDefault(); 
-                    e.stopPropagation(); 
-                    setEditDipTank(tank); 
-                    setEditDipModalOpen(true); 
+                  <DropdownMenuItem onSelect={() => {
+                    console.log('Edit Dip selected', tank);
+                    suppressNextRowClick.current = true;
+                    setEditDipTank(tank);
+                    setEditDipModalOpen(true);
                   }}>Edit Dip</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -252,6 +269,7 @@ interface NestedGroupAccordionProps {
   onServicedToggle: (tankId: string, serviced: boolean) => void;
   isServiced: (tankId: string) => boolean;
   today: string;
+  suppressNextRowClick: React.MutableRefObject<boolean>;
 }
 
 const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ 
@@ -264,7 +282,8 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   setEditDipModalOpen,
   onServicedToggle,
   isServiced,
-  today
+  today,
+  suppressNextRowClick
 }) => {
   // Group by group_name, then subgroup
   const grouped = useMemo(() => {
@@ -408,6 +427,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                       isServiced={isServiced(sub.tanks[index].id)}
                                       today={today}
                                       isMobile={isMobile} 
+                                      suppressNextRowClick={suppressNextRowClick}
                                     />
                                   </tbody>
                                 </table>
@@ -462,6 +482,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                     isServiced={isServiced(tank.id)}
                                     today={today}
                                     isMobile={isMobile} 
+                                    suppressNextRowClick={suppressNextRowClick}
                                   />
                                 ))}
                               </tbody>
@@ -537,6 +558,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                             isServiced={isServiced(tank.id)}
                                             today={today}
                                             isMobile={isMobile} 
+                                            suppressNextRowClick={suppressNextRowClick}
                                           />
                                         </tbody>
                                       </table>
@@ -598,6 +620,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                               isServiced={isServiced(tank.id)}
                               today={today}
                               isMobile={isMobile} 
+                              suppressNextRowClick={suppressNextRowClick}
                             />
                           ))}
                         </tbody>
@@ -620,6 +643,7 @@ export interface TankStatusTableProps {
   todayBurnRate?: number;
   setEditDipTank: React.Dispatch<React.SetStateAction<Tank | null>>;
   setEditDipModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  suppressNextRowClick?: React.MutableRefObject<boolean>;
 }
 
 export const TankStatusTable: React.FC<TankStatusTableProps> = ({ 
@@ -627,7 +651,8 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   onTankClick, 
   todayBurnRate, 
   setEditDipTank, 
-  setEditDipModalOpen 
+  setEditDipModalOpen,
+  suppressNextRowClick: externalSuppressNextRowClick
 }) => {
   const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: 'location', direction: 'asc' });
   const [searchTerm, setSearchTerm] = useState('');
@@ -747,6 +772,9 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
     return filtered;
   }, [tanks, searchTerm, hideServiced, today]);
 
+  const localSuppressNextRowClick = useRef(false);
+  const suppressNextRowClick = externalSuppressNextRowClick || localSuppressNextRowClick;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4 mb-4">
@@ -778,6 +806,7 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
         onServicedToggle={handleServicedToggle}
         isServiced={isServiced}
         today={today}
+        suppressNextRowClick={suppressNextRowClick}
       />
     </div>
   );

@@ -18,6 +18,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { FuelDipForm } from '@/components/fuel-dip/FuelDipForm';
 import { supabase } from '@/lib/supabase';
 import { useGlobalModals } from '@/contexts/GlobalModalsContext';
+import EditDipModal from '@/components/modals/EditDipModal';
 
 interface IndexProps {
   selectedGroup?: string | null;
@@ -41,8 +42,11 @@ export default function Index({ selectedGroup }: IndexProps) {
 
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [dipModalOpen, setDipModalOpen] = useState(false);
+  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
+  const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
   const { openEditDip, openAlerts } = useGlobalModals();
   const tankTableRef = useRef<HTMLDivElement>(null);
+  const suppressNextRowClick = useRef(false);
 
   const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
   const { alerts, isLoading: alertsLoading } = useAlerts();
@@ -237,12 +241,28 @@ export default function Index({ selectedGroup }: IndexProps) {
           <TankStatusTable
             tanks={displayTanks}
             onTankClick={handleTankClick}
-            setEditDipTank={() => {}}
-            setEditDipModalOpen={() => {}}
+            setEditDipTank={setEditDipTank}
+            setEditDipModalOpen={setEditDipModalOpen}
+            suppressNextRowClick={suppressNextRowClick}
           />
         </div>
 
         <StickyMobileNav />
+
+        <EditDipModal
+          isOpen={editDipModalOpen && !!editDipTank}
+          onClose={() => {
+            setEditDipModalOpen(false);
+            setEditDipTank(null);
+            suppressNextRowClick.current = false; // Reset the flag when modal closes
+            // Force cleanup of any stuck body styles
+            setTimeout(() => {
+              document.body.style.removeProperty('pointer-events');
+            }, 100);
+          }}
+          initialGroupId={editDipTank?.group_id || ''}
+          initialTankId={editDipTank?.id || ''}
+        />
       </div>
     </div>
   );
