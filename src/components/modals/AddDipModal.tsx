@@ -250,92 +250,102 @@ export default function AddDipModal({
             <div className="text-green-600 text-sm">{submitSuccess}</div>
           )}
           {/* Depot group */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Depot Group <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={groupId}
-              onValueChange={v => {
-                setGroupId(v);
-                setSubgroup("");
-                setTankId("");
-              }}
-              disabled={!!initialTankId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select depot group" />
-              </SelectTrigger>
-              <SelectContent>
-                {groups.map(g => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Sub-group (only if more than one exists) */}
-          {subgroups.length > 1 && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Sub-group</label>
-              <Select
-                value={subgroup}
-                onValueChange={v => {
-                  setSubgroup(v);
-                  setTankId("");
-                }}
-                disabled={!!initialTankId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sub-group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subgroups.map(sg => (
-                    <SelectItem key={sg!} value={sg!}>
-                      {sg}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {initialTankId ? (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Depot Group</label>
+                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank?.group_name || groupId}</div>
+              </div>
+              {selectedTank?.subgroup && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Sub-group</label>
+                  <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank.subgroup}</div>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Tank</label>
+                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank?.location || tankId}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Depot group dropdown */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Depot Group <span className="text-red-500">*</span></label>
+                <Select
+                  value={groupId}
+                  onValueChange={v => {
+                    setGroupId(v);
+                    setSubgroup("");
+                    setTankId("");
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select depot group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map(g => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Sub-group dropdown */}
+              {subgroups.length > 1 && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Sub-group</label>
+                  <Select
+                    value={subgroup}
+                    onValueChange={v => {
+                      setSubgroup(v);
+                      setTankId("");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sub-group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subgroups.map(sg => (
+                        <SelectItem key={sg!} value={sg!}>
+                          {sg}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {/* Tank dropdown */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Tank <span className="text-red-500">*</span></label>
+                <Select
+                  value={tankId}
+                  onValueChange={setTankId}
+                  disabled={!groupId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={groupId ? "Select tank" : "Choose group first"} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {tanksForDropdown.length === 0 && (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        No tanks in selection
+                      </p>
+                    )}
+                    {tanksForDropdown.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.location}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          Safe&nbsp;{typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
-
-          {/* Tank */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Tank <span className="text-red-500">*</span>
-            </label>
-            <Select
-              value={tankId}
-              onValueChange={setTankId}
-              disabled={!groupId || !!initialTankId}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    groupId ? "Select tank" : "Choose group first"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto">
-                {tanksForDropdown.length === 0 && (
-                  <p className="px-3 py-2 text-sm text-muted-foreground">
-                    No tanks in selection
-                  </p>
-                )}
-                {tanksForDropdown.map(t => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.location}{" "}
-                    <span className="text-xs text-muted-foreground">
-                      Safe&nbsp;{typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* Date picker - Fallback to native HTML5 date input */}
           <div className="space-y-1.5">
