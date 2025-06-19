@@ -548,32 +548,12 @@ export function TankDetailsModal({
                           <p className="font-medium">{tank.group_name || 'N/A'}</p>
                         </div>
                         <div>
-                          <span className="text-sm text-gray-500">Address</span>
-                          <p className="font-medium">{tank.address || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Vehicle</span>
-                          <p className="font-medium">{tank.vehicle || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Discharge</span>
-                          <p className="font-medium">{tank.discharge || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">BP Portal</span>
-                          <p className="font-medium">{tank.bp_portal || 'N/A'}</p>
+                          <span className="text-sm text-gray-500">Product</span>
+                          <p className="font-medium">{tank.product_type || 'N/A'}</p>
                         </div>
                         <div>
                           <span className="text-sm text-gray-500">Min Level</span>
                           <p className="font-medium">{typeof tank.min_level === 'number' ? tank.min_level.toLocaleString() : 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Delivery Window</span>
-                          <p className="font-medium">{tank.delivery_window || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Afterhours Contact</span>
-                          <p className="font-medium">{tank.afterhours_contact || 'N/A'}</p>
                         </div>
                         <div>
                           <span className="text-sm text-gray-500">Product</span>
