@@ -12,6 +12,7 @@ export interface Tank {
   updated_at?: string;
   group_id?: string;
   group_name?: string;
+  subgroup?: string;
   current_level?: number;
   current_level_percent?: number;
   rolling_avg?: number;
@@ -19,6 +20,9 @@ export interface Tank {
   latest_dip_value?: number;
   latest_dip_date?: string;
   latest_dip_by?: string;
+  prev_day_used?: number;
+  serviced_on?: string;
+  serviced_by?: string;
   last_dip?: {
     value: number;
     created_at: string;
@@ -61,6 +65,8 @@ export function useTanks() {
         rolling_avg: tank.rolling_avg_lpd,
         days_to_min_level: tank.days_to_min_level,
         prev_day_used: tank.prev_day_used,
+        serviced_on: tank.serviced_on,
+        serviced_by: tank.serviced_by,
         last_dip: (tank.last_dip_ts && tank.current_level != null) 
           ? { 
               value: tank.current_level, 

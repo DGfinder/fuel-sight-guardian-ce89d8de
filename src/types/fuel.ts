@@ -22,6 +22,8 @@ export interface TankRow {
   } | null;
   subgroup?: string;
   prev_day_used?: number;
+  serviced_on?: string;
+  serviced_by?: string;
 }
 
 export type Tank = TankRow;

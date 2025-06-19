@@ -1,9 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AlertTriangle, Eye, MoreVertical, ChevronDown, ChevronRight, ChevronUp, ArrowUpDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertTriangle, Eye, MoreVertical, ChevronDown, ChevronRight, ChevronUp, ArrowUpDown, EyeOff } from 'lucide-react';
 import { Tank } from '@/types/fuel';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -11,6 +13,8 @@ import { cn } from '@/lib/utils';
 import { FixedSizeList as List } from 'react-window';
 import PercentBar from './tables/PercentBar';
 import EditDipModal from './modals/EditDipModal';
+import { markTankServiced, unmarkTankServiced, supabase } from '@/lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
@@ -39,11 +43,24 @@ interface TankRowProps {
   isMobile?: boolean;
   setEditDipTank: React.Dispatch<React.SetStateAction<Tank | null>>;
   setEditDipModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onServicedToggle: (tankId: string, serviced: boolean) => void;
+  isServiced: boolean;
+  today: string;
 }
 
 const fmt = (n: number | null | undefined) => typeof n === 'number' && !isNaN(n) ? n.toLocaleString('en-AU') : '—';
 
-const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobile, setEditDipTank, setEditDipModalOpen }) => {
+const TankRow: React.FC<TankRowProps> = ({ 
+  tank, 
+  onClick, 
+  todayBurnRate, 
+  isMobile, 
+  setEditDipTank, 
+  setEditDipModalOpen,
+  onServicedToggle,
+  isServiced,
+  today
+}) => {
   // Use the correctly calculated percent from the SQL view
   const percent = typeof tank.current_level_percent === 'number' ? Math.round(tank.current_level_percent) : 0;
   const status = useMemo(() => {
@@ -62,6 +79,12 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
     return (
       <AccordionItem value={tank.id}>
         <AccordionTrigger className="flex items-center gap-2 px-3 py-2">
+          <Checkbox
+            checked={isServiced}
+            onCheckedChange={(checked) => onServicedToggle(tank.id, checked as boolean)}
+            className="h-4 w-4 text-green-700"
+            onClick={(e) => e.stopPropagation()}
+          />
           <span className="font-bold flex-1 text-left">{tank.location}</span>
           <PercentBar percent={percent} />
           <StatusBadge status={status as 'critical' | 'low' | 'normal'} />
@@ -80,7 +103,7 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
                 ? rollingAvg > 0
                   ? <span className="text-emerald-600">Refill ↑</span>
                   : rollingAvg < 0
-                    ? <span>{Math.abs(rollingAvg).toLocaleString()}</span>
+                    ? <span>{Math.abs(Math.round(rollingAvg)).toLocaleString()}</span>
                     : '0'
                 : '—'}
             </span>
@@ -93,26 +116,18 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
                   : '0'
               : '—'}</span>
             <span>Last Dip:</span>
-            <span className="text-right">{lastDipTs ? (lastDipTs.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + (tank.last_dip?.recorded_by ? (' by ' + tank.last_dip.recorded_by) : '')) : '—'}{isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}</span>
-            <span>Ullage (L):</span>
-            <span className="text-right text-emerald-700">{fmt(ullage)}</span>
-          </div>
-          <div className="flex justify-end gap-2 px-3 pb-2">
-            <Button variant="ghost" size="icon" onClick={() => onClick(tank)}><Eye size={16} /></Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon"><MoreVertical size={16} /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
-                <DropdownMenuItem onSelect={(e) => { 
-                  e.preventDefault(); 
-                  e.stopPropagation(); 
-                  setEditDipTank(tank); 
-                  setEditDipModalOpen(true); 
-                }}>Edit Dip</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <span className="text-right">
+              {lastDipTs
+                ? lastDipTs.toLocaleDateString('en-AU', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : '—'}
+              {isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}
+            </span>
           </div>
         </AccordionContent>
       </AccordionItem>
@@ -120,80 +135,103 @@ const TankRow: React.FC<TankRowProps> = ({ tank, onClick, todayBurnRate, isMobil
   }
 
   return (
-    <tr
-      className={cn('hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors', 'even:bg-gray-50/50 dark:even:bg-gray-800/50 cursor-pointer')}
-      onClick={e => {
-        if ((e.target as HTMLElement).closest('.kebab-menu')) return;
-        onClick(tank);
-      }}
-    >
-      <td className="sticky left-0 z-10 bg-inherit px-3 py-2 font-bold">{tank.location}</td>
-      <td className="px-3 py-2 text-center"><Badge variant="secondary">{tank.product_type}</Badge></td>
-      <td className="px-3 py-2 text-center">
-        <div className="flex flex-col items-center min-w-[100px]">
-          <span className="font-semibold text-gray-900 tabular-nums">{fmt(tank.current_level)} L</span>
-          <span className="text-xs text-gray-500 tabular-nums">/ {fmt(tank.safe_level)} L</span>
-        </div>
-      </td>
-      <td className="px-3 py-2 text-center w-32">
-        <PercentBar percent={percent} />
-        <span className="text-xs text-gray-700">{percent}%</span>
-      </td>
-      <td className={cn('px-3 py-2 text-center',
-        tank.days_to_min_level !== null && tank.days_to_min_level <= 2 ? 'text-red-500' :
-        tank.days_to_min_level !== null && tank.days_to_min_level <= 5 ? 'text-amber-500' : 'text-gray-500')
-      }>
-        {tank.days_to_min_level ?? '—'}
-      </td>
-      <td className="px-3 py-2 text-center">
-        {typeof rollingAvg === 'number'
-          ? rollingAvg > 0
-            ? <span className="text-emerald-600">Refill ↑</span>
-            : rollingAvg < 0
-              ? <span>{Math.abs(rollingAvg).toLocaleString()}</span>
-              : '0'
-          : '—'}
-      </td>
-      <td className="px-3 py-2 text-center">
-        {typeof tank.prev_day_used === 'number'
-          ? tank.prev_day_used > 0
-            ? <span className="text-emerald-600">Refill ↑</span>
-            : tank.prev_day_used < 0
-              ? <span>{Math.abs(tank.prev_day_used).toLocaleString()}</span>
-              : '0'
-          : '—'}
-      </td>
-      <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>
-      <td className="px-3 py-2 text-center">
-        {lastDipTs
-          ? lastDipTs.toLocaleDateString('en-AU', {
-              day: '2-digit',
-              month: 'short',
-              year: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
-          : '—'}
-        {isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}
-      </td>
-      <td className="hidden md:table-cell px-3 py-2 text-right text-emerald-700">{fmt(ullage)}</td>
-      <td className="px-3 py-2 text-center">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="kebab-menu"><MoreVertical size={16} /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => { 
-              e.preventDefault(); 
-              e.stopPropagation(); 
-              setEditDipTank(tank); 
-              setEditDipModalOpen(true); 
-            }}>Edit Dip</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </td>
-    </tr>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <tr
+            className={cn(
+              'hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer',
+              'even:bg-gray-50/50 dark:even:bg-gray-800/50',
+              isServiced && 'bg-gray-50 text-gray-400 hover:bg-gray-100/60 dark:bg-gray-800/60'
+            )}
+            onClick={e => {
+              if ((e.target as HTMLElement).closest('.kebab-menu') || (e.target as HTMLElement).closest('input[type="checkbox"]')) return;
+              onClick(tank);
+            }}
+          >
+            <td className="sticky left-0 z-10 bg-inherit px-3 py-2 text-center">
+              <Checkbox
+                checked={isServiced}
+                onCheckedChange={(checked) => onServicedToggle(tank.id, checked as boolean)}
+                className="h-4 w-4 text-green-700"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </td>
+            <td className="sticky left-[42px] z-10 bg-inherit px-3 py-2 font-bold">{tank.location}</td>
+            <td className="px-3 py-2 text-center"><Badge variant="secondary">{tank.product_type}</Badge></td>
+            <td className="px-3 py-2 text-center">
+              <div className="flex flex-col items-center min-w-[100px]">
+                <span className="font-semibold text-gray-900 tabular-nums">{fmt(tank.current_level)} L</span>
+                <span className="text-xs text-gray-500 tabular-nums">/ {fmt(tank.safe_level)} L</span>
+              </div>
+            </td>
+            <td className="px-3 py-2 text-center w-32">
+              <PercentBar percent={percent} />
+              <span className="text-xs text-gray-700">{percent}%</span>
+            </td>
+            <td className={cn('px-3 py-2 text-center',
+              tank.days_to_min_level !== null && tank.days_to_min_level <= 2 ? 'text-red-500' :
+              tank.days_to_min_level !== null && tank.days_to_min_level <= 5 ? 'text-amber-500' : 'text-gray-500')
+            }>
+              {tank.days_to_min_level ?? '—'}
+            </td>
+            <td className="px-3 py-2 text-center">
+              {typeof rollingAvg === 'number'
+                ? rollingAvg > 0
+                  ? <span className="text-emerald-600">Refill ↑</span>
+                  : rollingAvg < 0
+                    ? <span>{Math.abs(Math.round(rollingAvg)).toLocaleString()}</span>
+                    : '0'
+                : '—'}
+            </td>
+            <td className="px-3 py-2 text-center">
+              {typeof tank.prev_day_used === 'number'
+                ? tank.prev_day_used > 0
+                  ? <span className="text-emerald-600">Refill ↑</span>
+                  : tank.prev_day_used < 0
+                    ? <span>{Math.abs(tank.prev_day_used).toLocaleString()}</span>
+                    : '0'
+                : '—'}
+            </td>
+            <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>
+            <td className="px-3 py-2 text-center">
+              {lastDipTs
+                ? lastDipTs.toLocaleDateString('en-AU', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : '—'}
+              {isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}
+            </td>
+            <td className="hidden md:table-cell px-3 py-2 text-right text-emerald-700">{fmt(ullage)}</td>
+            <td className="px-3 py-2 text-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="kebab-menu"><MoreVertical size={16} /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    setEditDipTank(tank); 
+                    setEditDipModalOpen(true); 
+                  }}>Edit Dip</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </td>
+          </tr>
+        </TooltipTrigger>
+        {isServiced && tank.serviced_by && (
+          <TooltipContent>
+            <p>Serviced by {tank.serviced_by} at {lastDipTs?.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</p>
+          </TooltipContent>
+        )}
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
@@ -205,9 +243,23 @@ interface NestedGroupAccordionProps {
   SortButton: any;
   setEditDipTank: React.Dispatch<React.SetStateAction<Tank | null>>;
   setEditDipModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onServicedToggle: (tankId: string, serviced: boolean) => void;
+  isServiced: (tankId: string) => boolean;
+  today: string;
 }
 
-const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTankClick, todayBurnRate, sortTanks, SortButton, setEditDipTank, setEditDipModalOpen }) => {
+const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ 
+  tanks, 
+  onTankClick, 
+  todayBurnRate, 
+  sortTanks, 
+  SortButton, 
+  setEditDipTank, 
+  setEditDipModalOpen,
+  onServicedToggle,
+  isServiced,
+  today
+}) => {
   // Group by group_name, then subgroup
   const grouped = useMemo(() => {
     const result: Record<string, { id: string; name: string; tanks: Tank[]; subGroups: { id: string; name: string; tanks: Tank[] }[]; shouldShowSubgroups: boolean }> = {};
@@ -340,7 +392,17 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                               <div style={style} key={sub.tanks[index].id}>
                                 <table className="w-full">
                                   <tbody>
-                                    <TankRow tank={sub.tanks[index]} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
+                                    <TankRow 
+                                      tank={sub.tanks[index]} 
+                                      onClick={onTankClick} 
+                                      todayBurnRate={todayBurnRate} 
+                                      setEditDipTank={setEditDipTank} 
+                                      setEditDipModalOpen={setEditDipModalOpen} 
+                                      onServicedToggle={onServicedToggle}
+                                      isServiced={isServiced(sub.tanks[index].id)}
+                                      today={today}
+                                      isMobile={isMobile} 
+                                    />
                                   </tbody>
                                 </table>
                               </div>
@@ -351,7 +413,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                             <table className="w-full border-collapse">
                               <thead>
                                 <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                                  <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
+                                  <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-center">
+                                    <Checkbox
+                                      checked={sub.tanks.every(tank => isServiced(tank.id))}
+                                      onCheckedChange={(checked) => {
+                                        sub.tanks.forEach(tank => {
+                                          onServicedToggle(tank.id, checked as boolean);
+                                        });
+                                      }}
+                                      className="h-4 w-4 text-green-700"
+                                    />
+                                  </th>
+                                  <th className="sticky left-[42px] z-10 bg-inherit px-3 py-3 text-left">
                                     <SortButton field="location">Location / Tank</SortButton>
                                   </th>
                                   <th className="px-3 py-3 text-center">
@@ -372,7 +445,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                               </thead>
                               <tbody>
                                 {sortTanks(sub.tanks).map(tank => (
-                                  <TankRow key={tank.id} tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
+                                  <TankRow 
+                                    key={tank.id} 
+                                    tank={tank} 
+                                    onClick={onTankClick} 
+                                    todayBurnRate={todayBurnRate} 
+                                    setEditDipTank={setEditDipTank} 
+                                    setEditDipModalOpen={setEditDipModalOpen} 
+                                    onServicedToggle={onServicedToggle}
+                                    isServiced={isServiced(tank.id)}
+                                    today={today}
+                                    isMobile={isMobile} 
+                                  />
                                 ))}
                               </tbody>
                             </table>
@@ -392,7 +476,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                       <table className="w-full border-collapse">
                         <thead>
                           <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                            <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
+                            <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-center">
+                              <Checkbox
+                                checked={group.tanks.every(tank => isServiced(tank.id))}
+                                onCheckedChange={(checked) => {
+                                  group.tanks.forEach(tank => {
+                                    onServicedToggle(tank.id, checked as boolean);
+                                  });
+                                }}
+                                className="h-4 w-4 text-green-700"
+                              />
+                            </th>
+                            <th className="sticky left-[42px] z-10 bg-inherit px-3 py-3 text-left">
                               <SortButton field="location">Location / Tank</SortButton>
                             </th>
                             <th className="px-3 py-3 text-center">
@@ -413,7 +508,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                         </thead>
                         <tbody>
                           <tr>
-                            <td colSpan={10} className="p-0">
+                            <td colSpan={12} className="p-0">
                               <List
                                 height={600}
                                 itemCount={sortTanks(group.tanks).length}
@@ -426,7 +521,17 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                                     <div style={style} key={tank.id}>
                                       <table className="w-full">
                                         <tbody>
-                                          <TankRow tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
+                                          <TankRow 
+                                            tank={tank} 
+                                            onClick={onTankClick} 
+                                            todayBurnRate={todayBurnRate} 
+                                            setEditDipTank={setEditDipTank} 
+                                            setEditDipModalOpen={setEditDipModalOpen} 
+                                            onServicedToggle={onServicedToggle}
+                                            isServiced={isServiced(tank.id)}
+                                            today={today}
+                                            isMobile={isMobile} 
+                                          />
                                         </tbody>
                                       </table>
                                     </div>
@@ -444,7 +549,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                       <table className="w-full border-collapse">
                         <thead>
                           <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                            <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-left">
+                            <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-center">
+                              <Checkbox
+                                checked={group.tanks.every(tank => isServiced(tank.id))}
+                                onCheckedChange={(checked) => {
+                                  group.tanks.forEach(tank => {
+                                    onServicedToggle(tank.id, checked as boolean);
+                                  });
+                                }}
+                                className="h-4 w-4 text-green-700"
+                              />
+                            </th>
+                            <th className="sticky left-[42px] z-10 bg-inherit px-3 py-3 text-left">
                               <SortButton field="location">Location / Tank</SortButton>
                             </th>
                             <th className="px-3 py-3 text-center">
@@ -465,7 +581,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ tanks, onTa
                         </thead>
                         <tbody>
                           {sortTanks(group.tanks).map(tank => (
-                            <TankRow key={tank.id} tank={tank} onClick={onTankClick} todayBurnRate={todayBurnRate} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} isMobile={isMobile} />
+                            <TankRow 
+                              key={tank.id} 
+                              tank={tank} 
+                              onClick={onTankClick} 
+                              todayBurnRate={todayBurnRate} 
+                              setEditDipTank={setEditDipTank} 
+                              setEditDipModalOpen={setEditDipModalOpen} 
+                              onServicedToggle={onServicedToggle}
+                              isServiced={isServiced(tank.id)}
+                              today={today}
+                              isMobile={isMobile} 
+                            />
                           ))}
                         </tbody>
                       </table>
@@ -489,11 +616,95 @@ export interface TankStatusTableProps {
   setEditDipModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankClick, todayBurnRate, setEditDipTank, setEditDipModalOpen }) => {
+export const TankStatusTable: React.FC<TankStatusTableProps> = ({ 
+  tanks, 
+  onTankClick, 
+  todayBurnRate, 
+  setEditDipTank, 
+  setEditDipModalOpen 
+}) => {
   const [selectedTank, setSelectedTank] = useState<Tank | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: 'location', direction: 'asc' });
   const [searchTerm, setSearchTerm] = useState('');
+  const [hideServiced, setHideServiced] = useState(false);
+  const [selectedTanks, setSelectedTanks] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
+  
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Check if a tank is serviced today
+  const isServiced = useCallback((tankId: string) => {
+    const tank = tanks.find(t => t.id === tankId);
+    return tank?.serviced_on === today;
+  }, [tanks, today]);
+
+  // Handle serviced toggle
+  const handleServicedToggle = useCallback(async (tankId: string, serviced: boolean) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      if (serviced) {
+        await markTankServiced(tankId, user.id);
+      } else {
+        await unmarkTankServiced(tankId);
+      }
+      
+      // Invalidate and refetch tanks data
+      queryClient.invalidateQueries({ queryKey: ['tanks'] });
+    } catch (error) {
+      console.error('Error toggling tank serviced status:', error);
+    }
+  }, [queryClient]);
+
+  // Bulk operations
+  const bulkMarkServiced = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await Promise.all(
+        Array.from(selectedTanks).map(tankId => markTankServiced(tankId, user.id))
+      );
+      
+      setSelectedTanks(new Set());
+      queryClient.invalidateQueries({ queryKey: ['tanks'] });
+    } catch (error) {
+      console.error('Error bulk marking tanks as serviced:', error);
+    }
+  }, [selectedTanks, queryClient]);
+
+  const bulkUnmarkServiced = useCallback(async () => {
+    try {
+      await Promise.all(
+        Array.from(selectedTanks).map(tankId => unmarkTankServiced(tankId))
+      );
+      
+      setSelectedTanks(new Set());
+      queryClient.invalidateQueries({ queryKey: ['tanks'] });
+    } catch (error) {
+      console.error('Error bulk unmarking tanks as serviced:', error);
+    }
+  }, [selectedTanks, queryClient]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'h' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setHideServiced(prev => !prev);
+      }
+      if (e.key === '/' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+        searchInput?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleTankClick = useCallback((tank: Tank) => {
     // Close any open modals first
@@ -543,24 +754,68 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({ tanks, onTankC
     );
   };
 
-  // Filter tanks based on search term
+  // Filter tanks based on search term and hide serviced
   const filteredTanks = useMemo(() => {
-    if (!searchTerm) return tanks;
-    return tanks.filter(tank => 
-      tank.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tank.group_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [tanks, searchTerm]);
+    let filtered = tanks;
+    
+    if (searchTerm) {
+      filtered = filtered.filter(tank => 
+        tank.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tank.group_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    if (hideServiced) {
+      filtered = filtered.filter(tank => tank.serviced_on !== today);
+    }
+    
+    return filtered;
+  }, [tanks, searchTerm, hideServiced, today]);
 
   return (
     <div className="space-y-4">
-      <Input 
-        placeholder="Search by location or group" 
-        className="mb-4" 
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
+      <div className="flex items-center gap-4 mb-4">
+        <Input 
+          placeholder="Search by location or group" 
+          className="flex-1" 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setHideServiced(p => !p)}
+          className="flex items-center gap-2"
+        >
+          {hideServiced ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          {hideServiced ? 'Show all' : 'Hide serviced'}
+        </Button>
+      </div>
+      
+      {selectedTanks.size > 0 && (
+        <div className="flex gap-2 mb-2">
+          <Button size="sm" onClick={bulkMarkServiced}>
+            Mark {selectedTanks.size} as serviced
+          </Button>
+          <Button size="sm" variant="secondary" onClick={bulkUnmarkServiced}>
+            Unmark {selectedTanks.size}
+          </Button>
+        </div>
+      )}
+      
+      <NestedGroupAccordion 
+        tanks={filteredTanks} 
+        onTankClick={handleTankClick} 
+        todayBurnRate={todayBurnRate} 
+        sortTanks={sortTanks} 
+        SortButton={SortButton} 
+        setEditDipTank={setEditDipTank} 
+        setEditDipModalOpen={setEditDipModalOpen}
+        onServicedToggle={handleServicedToggle}
+        isServiced={isServiced}
+        today={today}
       />
-      <NestedGroupAccordion tanks={filteredTanks} onTankClick={handleTankClick} todayBurnRate={todayBurnRate} sortTanks={sortTanks} SortButton={SortButton} setEditDipTank={setEditDipTank} setEditDipModalOpen={setEditDipModalOpen} />
+      
       {selectedTank && (
         <TankDetailsModal 
           tank={selectedTank} 

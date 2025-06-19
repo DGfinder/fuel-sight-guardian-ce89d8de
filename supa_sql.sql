@@ -23,7 +23,7 @@ recent_readings AS (
 daily_changes AS (
   SELECT 
     tank_id,
-    (prev_value - value) as fuel_change, -- Positive = fuel used, Negative = fuel added
+    (value - prev_value) as fuel_change, -- Negative = fuel used, Positive = fuel added
     EXTRACT(EPOCH FROM (created_at - prev_date)) / 86400.0 as days_diff
   FROM recent_readings
   WHERE prev_value IS NOT NULL 
@@ -40,6 +40,16 @@ rolling_average AS (
     END as rolling_avg_lpd
   FROM daily_changes
   GROUP BY tank_id
+),
+prev_day_usage AS (
+  SELECT DISTINCT ON (tank_id)
+    tank_id,
+    (value - prev_value) as prev_day_used
+  FROM recent_readings
+  WHERE prev_value IS NOT NULL 
+    AND prev_date IS NOT NULL
+    AND EXTRACT(EPOCH FROM (created_at - prev_date)) / 86400.0 BETWEEN 0.5 AND 2.0  -- Within 0.5 to 2 days
+  ORDER BY tank_id, created_at DESC
 )
 SELECT
   t.id,
@@ -49,6 +59,7 @@ SELECT
   COALESCE(t.min_level, 0) as min_level,
   t.group_id,
   tg.name AS group_name,
+  t.subgroup,
   ld.current_level,
   ld.last_dip_ts,
   ld.last_dip_by,
@@ -63,15 +74,18 @@ SELECT
     ))
     ELSE 0
   END AS current_level_percent,
-  -- Rolling average (negative = burn rate, positive = net addition)
+  -- Rolling average (negative = fuel consumption, positive = refill)
   COALESCE(ra.rolling_avg_lpd, 0) AS rolling_avg_lpd,
+  -- Previous day usage
+  COALESCE(pdu.prev_day_used, 0) AS prev_day_used,
   -- Days to minimum level (only when burning fuel)
   CASE
-    WHEN ra.rolling_avg_lpd > 0 AND ld.current_level IS NOT NULL
-    THEN ROUND((ld.current_level - COALESCE(t.min_level, 0)) / ra.rolling_avg_lpd, 1)
+    WHEN ra.rolling_avg_lpd < 0 AND ld.current_level IS NOT NULL
+    THEN ROUND((ld.current_level - COALESCE(t.min_level, 0)) / ABS(ra.rolling_avg_lpd), 1)
     ELSE NULL
   END AS days_to_min_level
 FROM fuel_tanks t
 JOIN tank_groups tg ON tg.id = t.group_id
 LEFT JOIN latest_dip ld ON ld.tank_id = t.id
-LEFT JOIN rolling_average ra ON ra.tank_id = t.id; 
+LEFT JOIN rolling_average ra ON ra.tank_id = t.id
+LEFT JOIN prev_day_usage pdu ON pdu.tank_id = t.id; 
