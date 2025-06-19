@@ -275,10 +275,9 @@ export default function AddDipModal({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All sub-groups" />
+                  <SelectValue placeholder="Select sub-group" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
                   {subgroups.map(sg => (
                     <SelectItem key={sg!} value={sg!}>
                       {sg}

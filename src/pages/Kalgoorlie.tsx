@@ -5,6 +5,8 @@ import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
 import { TankStatusTable } from '@/components/TankStatusTable';
 import { useTankModal } from '@/contexts/TankModalContext';
+import EditDipModal from '@/components/modals/EditDipModal';
+import type { Tank } from '@/types/fuel';
 
 const KALGOORLIE_GROUP_NAME = 'Kalgoorlie';
 
@@ -12,6 +14,8 @@ export default function KalgoorliePage() {
   const { tanks, isLoading } = useTanks();
   const { openModal } = useTankModal();
   const [user, setUser] = useState(null);
+  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
+  const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
 
   useEffect(() => {
     const getSession = async () => {
@@ -50,8 +54,18 @@ export default function KalgoorliePage() {
               onTankClick={tank => {
                 openModal(tank);
               }}
-              setEditDipTank={() => {}}
-              setEditDipModalOpen={() => {}}
+              setEditDipTank={setEditDipTank}
+              setEditDipModalOpen={setEditDipModalOpen}
+            />
+
+            <EditDipModal
+              isOpen={editDipModalOpen && !!editDipTank}
+              onClose={() => {
+                setEditDipModalOpen(false);
+                setEditDipTank(null);
+              }}
+              initialGroupId={editDipTank?.group_id || ''}
+              initialTankId={editDipTank?.id || ''}
             />
           </div>
         </div>
