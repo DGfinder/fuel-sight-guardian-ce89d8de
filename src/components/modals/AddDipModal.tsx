@@ -105,7 +105,7 @@ export default function AddDipModal({
   const selectedTank: Tank | undefined = tanks.find(t => t.id === tankId);
   const ullage =
     selectedTank && dipValue
-      ? Math.max(0, selectedTank.safe_fill - Number(dipValue))
+      ? Math.max(0, selectedTank.safe_level - Number(dipValue))
       : null;
 
   const resetForm = () => {
@@ -297,7 +297,7 @@ export default function AddDipModal({
                   <SelectItem key={t.id} value={t.id}>
                     {t.location}{" "}
                     <span className="text-xs text-muted-foreground">
-                      Safe&nbsp;{t.safe_fill.toLocaleString()} L
+                      Safe&nbsp;{typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L
                     </span>
                   </SelectItem>
                 ))}
@@ -358,23 +358,19 @@ export default function AddDipModal({
               <div className="flex justify-between px-4 py-2">
                 <span>Safe Fill</span>
                 <span className="font-semibold">
-                  {selectedTank.safe_fill.toLocaleString()} L
+                  {typeof selectedTank.safe_level === 'number' ? selectedTank.safe_level.toLocaleString() : 'N/A'} L
                 </span>
               </div>
               <div className="flex justify-between px-4 py-2">
                 <span>Dip</span>
                 <span className="font-semibold">
-                  {dipValue
-                    ? Number(dipValue).toLocaleString() + " L"
-                    : "—"}
+                  {dipValue !== undefined && dipValue !== null && !isNaN(Number(dipValue)) ? Number(dipValue).toLocaleString() + " L" : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between px-4 py-2">
                 <span>Ullage</span>
                 <span className="font-semibold">
-                  {ullage !== null
-                    ? ullage.toLocaleString() + " L"
-                    : "—"}
+                  {ullage !== undefined && ullage !== null && !isNaN(Number(ullage)) ? ullage.toLocaleString() + " L" : 'N/A'}
                 </span>
               </div>
             </div>

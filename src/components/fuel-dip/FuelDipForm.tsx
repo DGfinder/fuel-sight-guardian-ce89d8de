@@ -325,7 +325,7 @@ export function FuelDipForm({
           <option value="">{watchedGroup ? "Select tank..." : "Choose group first"}</option>
           {tanksForDropdown.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.location} (Safe {t.safe_level.toLocaleString()} L)
+              {t.location} (Safe {typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L)
             </option>
           ))}
         </select>
@@ -381,7 +381,7 @@ export function FuelDipForm({
         {errors.dip && <p className="text-xs text-red-600">{errors.dip.message}</p>}
         {overfill && (
           <p className="text-xs text-orange-600 mt-1">
-            Warning: above safe fill ({selectedTank?.safe_level.toLocaleString()}� L)
+            Warning: above safe fill ({selectedTank?.safe_level !== undefined && selectedTank?.safe_level !== null ? selectedTank.safe_level.toLocaleString() : 'N/A'} L)
           </p>
         )}
       </div>
@@ -395,9 +395,9 @@ export function FuelDipForm({
       {/* LIVE CARD */}
       {selectedTank && typeof dipValue === "number" && (
         <div className="border rounded p-3 bg-white flex flex-wrap gap-6 shadow-sm text-sm">
-          <span>Safe&nbsp;Fill&nbsp;<strong>{selectedTank.safe_level.toLocaleString()} L</strong></span>
-          <span>Dip&nbsp;<strong>{dipValue.toLocaleString()} L</strong></span>
-          <span>Ullage&nbsp;<strong>{ullage?.toLocaleString() ?? "-"} L</strong></span>
+          <span>Safe&nbsp;Fill&nbsp;<strong>{selectedTank.safe_level !== undefined && selectedTank.safe_level !== null ? selectedTank.safe_level.toLocaleString() : 'N/A'} L</strong></span>
+          <span>Dip&nbsp;<strong>{dipValue !== undefined && dipValue !== null && !isNaN(Number(dipValue)) ? Number(dipValue).toLocaleString() : 'N/A'} L</strong></span>
+          <span>Ullage&nbsp;<strong>{ullage !== undefined && ullage !== null && !isNaN(Number(ullage)) ? Number(ullage).toLocaleString() : '-'} L</strong></span>
         </div>
       )}
 
