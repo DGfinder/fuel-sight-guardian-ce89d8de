@@ -617,8 +617,11 @@ export function TankDetailsModal({
                         </div>
                         
                         <Button
-                        onClick={() => setIsDipFormOpen(true)}
-                        className="w-full border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-blue-400"
+                        onClick={() => {
+                          console.log('Add Dip button clicked, freshTank:', freshTank);
+                          setIsDipFormOpen(true);
+                        }}
+                        className="w-full border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-2-blue-400"
                       >
                         <Droplets className="w-4 h-4 mr-2" />
                         Add New Dip Reading
@@ -992,12 +995,14 @@ export function TankDetailsModal({
         <AddDipModal
           open={isDipFormOpen}
           onOpenChange={(open) => {
+            console.log('AddDipModal onOpenChange:', open);
             setIsDipFormOpen(open);
             // Don't close the TankDetailsModal when AddDipModal closes
           }}
-          initialGroupId={freshTank.group_id}
-          initialTankId={freshTank.id}
+          initialGroupId={freshTank?.group_id || ""}
+          initialTankId={freshTank?.id || ""}
           onSubmit={async () => {
+            console.log('AddDipModal submitted');
             // AddDipModal will handle its own closing
             // Tank data will be refreshed automatically via React Query
           }}

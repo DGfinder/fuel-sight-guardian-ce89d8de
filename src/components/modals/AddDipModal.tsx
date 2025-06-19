@@ -63,6 +63,7 @@ export default function AddDipModal({
   initialGroupId = "",
   initialTankId = "",
 }: Props) {
+  console.log('AddDipModal render:', { open, initialGroupId, initialTankId });
   /* ─────────── Data hooks ───────────────────────────────────────── */
   const { data: groups = [], isLoading: groupsLoading } = useTankGroups();
   const { tanks = [], isLoading: tanksLoading, error }  = useTanks();
@@ -105,15 +106,18 @@ export default function AddDipModal({
 
   /* ─────────── Helpers ─────────────────────────────────────────── */
   const selectedTank: Tank | undefined = tanks.find(t => t.id === tankId);
+  
+  console.log('AddDipModal state:', { groupId, subgroup, tankId, selectedTank?.location });
   const ullage =
     selectedTank && dipValue
       ? Math.max(0, selectedTank.safe_level - Number(dipValue))
       : null;
 
   const resetForm = () => {
-    setGroupId("");
+    // Only reset to initial values, don't clear everything
+    setGroupId(initialGroupId || "");
     setSubgroup("");
-    setTankId("");
+    setTankId(initialTankId || "");
     setDipValue("");
     setDipDate(new Date());
     setCalendarOpen(false);
@@ -298,7 +302,7 @@ export default function AddDipModal({
                   <SelectTrigger>
                     <SelectValue placeholder="Select depot group" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[1200]">
                     {groups.map(g => (
                       <SelectItem key={g.id} value={g.id}>
                         {g.name}
@@ -322,7 +326,7 @@ export default function AddDipModal({
                     <SelectTrigger>
                       <SelectValue placeholder="Select sub-group" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[1200]">
                       {subgroups.map(sg => (
                         <SelectItem key={sg!} value={sg!}>
                           {sg}
@@ -338,12 +342,12 @@ export default function AddDipModal({
                 <Select
                   value={tankId}
                   onValueChange={setTankId}
-                  disabled={!groupId || (!!initialTankId && !!selectedTank)}
+                  disabled={!groupId || !!initialTankId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={groupId ? "Select tank" : "Choose group first"} />
                   </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-y-auto">
+                  <SelectContent className="z-[1200] max-h-60 overflow-y-auto">
                     {tanksForDropdown.length === 0 && (
                       <p className="px-3 py-2 text-sm text-muted-foreground">
                         No tanks in selection
