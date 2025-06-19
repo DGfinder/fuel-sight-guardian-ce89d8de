@@ -8,7 +8,8 @@
       "Bash(fuser:*)",
       "Bash(true)",
       "Bash(ss:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

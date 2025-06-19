@@ -555,10 +555,7 @@ export function TankDetailsModal({
                           <span className="text-sm text-gray-500">Min Level</span>
                           <p className="font-medium">{typeof tank.min_level === 'number' ? tank.min_level.toLocaleString() : 'N/A'}</p>
                         </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Product</span>
-                          <p className="font-medium">{tank.product_type || 'N/A'}</p>
-                        </div>
+                      </div>
                         <div className="p-3 bg-blue-50 rounded-lg">
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-blue-700">Current Volume</span>
@@ -832,8 +829,50 @@ export function TankDetailsModal({
                 </Card>
               </TabsContent>
 
-              {/* Simplified Notes Tab */}
-              <TabsContent value="notes" className="p-6">
+              {/* Enhanced Notes Tab with Tank Details */}
+              <TabsContent value="notes" className="p-6 space-y-6">
+                {/* Tank Details Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Tank Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-sm text-gray-500">Address</span>
+                        <p className="font-medium">{tank.address || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">Vehicle</span>
+                        <p className="font-medium">{tank.vehicle || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">Discharge</span>
+                        <p className="font-medium">{tank.discharge || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">BP Portal</span>
+                        <p className="font-medium">{tank.bp_portal || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">Min Level</span>
+                        <p className="font-medium">
+                          {typeof tank.min_level === 'number' ? `${tank.min_level.toLocaleString()} L` : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">Delivery Window</span>
+                        <p className="font-medium">{tank.delivery_window || 'N/A'}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="text-sm text-gray-500">Afterhours Contact</span>
+                        <p className="font-medium">{tank.afterhours_contact || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Notes Card */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Depot Notes</CardTitle>
