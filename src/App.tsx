@@ -20,6 +20,8 @@ import BGC from '@/pages/BGC';
 import TanksPage from '@/pages/TanksPage';
 import AlertsPage from '@/pages/AlertsPage';
 import HealthPage from '@/pages/HealthPage';
+import { useTankModal } from './contexts/TankModalContext';
+import { TankDetailsModal } from './components/TankDetailsModal';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +45,7 @@ function HashRedirector() {
 
 const App = () => {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const { selectedTank, open, closeModal } = useTankModal();
 
   return (
     <>
@@ -125,6 +128,7 @@ const App = () => {
                 </Routes>
               </RealtimeErrorBoundary>
             </BrowserRouter>
+            <TankDetailsModal tank={selectedTank} open={open} onOpenChange={closeModal} />
           </AppStateProvider>
         </TooltipProvider>
       </QueryClientProvider>

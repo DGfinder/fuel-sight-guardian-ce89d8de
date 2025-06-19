@@ -18,6 +18,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { FuelDipForm } from '@/components/fuel-dip/FuelDipForm';
 import { supabase } from '@/lib/supabase';
 import EditDipModal from '@/components/modals/EditDipModal';
+import { useTankModal } from '@/contexts/TankModalContext';
 
 interface IndexProps {
   selectedGroup?: string | null;
@@ -40,9 +41,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   }, []);
 
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
-  const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
-  const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
   const [dipModalOpen, setDipModalOpen] = useState(false);
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
@@ -51,7 +50,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
   const { alerts, isLoading: alertsLoading } = useAlerts();
 
-  const selectedTank = tanks?.find(t => t.id === selectedTankId) ?? null;
+  const { openModal } = useTankModal();
 
   // Filter tanks based on selected group
   const filteredTanks = tanks?.filter(tank => {
@@ -101,8 +100,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   ] : [];
 
   const handleTankClick = (tank: Tank) => {
-    setSelectedTankId(tank.id);
-    setTankDetailsOpen(true);
+    openModal(tank);
   };
 
   const handleCardClick = (filter: string) => {
@@ -247,13 +245,6 @@ export default function Index({ selectedGroup }: IndexProps) {
             setEditDipModalOpen={setEditDipModalOpen}
           />
         </div>
-
-        {/* Modals */}
-        <TankDetailsModal
-          tank={selectedTank}
-          open={tankDetailsOpen}
-          onOpenChange={setTankDetailsOpen}
-        />
 
         <AlertsDrawer
           open={isAlertsOpen}

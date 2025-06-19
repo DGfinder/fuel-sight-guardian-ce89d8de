@@ -4,14 +4,13 @@ import { supabase } from '@/lib/supabase';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
 import { TankStatusTable } from '@/components/TankStatusTable';
-import { TankDetailsModal } from '@/components/TankDetailsModal';
+import { useTankModal } from '@/contexts/TankModalContext';
 
 const KALGOORLIE_GROUP_NAME = 'Kalgoorlie';
 
 export default function KalgoorliePage() {
   const { tanks, isLoading } = useTanks();
-  const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
-  const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
+  const { openModal } = useTankModal();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -30,7 +29,6 @@ export default function KalgoorliePage() {
 
   // Filter tanks to only Kalgoorlie
   const kalgoorlieTanks = (tanks || []).filter(t => t.group_name === KALGOORLIE_GROUP_NAME);
-  const selectedTank = kalgoorlieTanks.find(t => t.id === selectedTankId) || null;
 
   return (
     <AppLayout selectedGroup={KALGOORLIE_GROUP_NAME} onGroupSelect={() => {}}>
@@ -50,16 +48,10 @@ export default function KalgoorliePage() {
             <TankStatusTable
               tanks={kalgoorlieTanks}
               onTankClick={tank => {
-                setSelectedTankId(tank.id);
-                setTankDetailsOpen(true);
+                openModal(tank);
               }}
-            />
-
-            {/* Tank Details Modal */}
-            <TankDetailsModal
-              tank={selectedTank}
-              open={tankDetailsOpen}
-              onOpenChange={setTankDetailsOpen}
+              setEditDipTank={() => {}}
+              setEditDipModalOpen={() => {}}
             />
           </div>
         </div>

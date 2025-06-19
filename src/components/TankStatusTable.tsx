@@ -7,7 +7,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertTriangle, Eye, MoreVertical, ChevronDown, ChevronRight, ChevronUp, ArrowUpDown, EyeOff } from 'lucide-react';
 import { Tank } from '@/types/fuel';
-import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { FixedSizeList as List } from 'react-window';
@@ -15,6 +14,7 @@ import PercentBar from './tables/PercentBar';
 import EditDipModal from './modals/EditDipModal';
 import { markTankServiced, unmarkTankServiced, supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTankModal } from '@/contexts/TankModalContext';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
@@ -629,13 +629,11 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   setEditDipTank, 
   setEditDipModalOpen 
 }) => {
-  const [selectedTank, setSelectedTank] = useState<Tank | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ field: string | null; direction: 'asc' | 'desc' }>({ field: 'location', direction: 'asc' });
   const [searchTerm, setSearchTerm] = useState('');
   const [hideServiced, setHideServiced] = useState(false);
-  const [selectedTanks, setSelectedTanks] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
+  const { openModal } = useTankModal();
   
   const today = new Date().toISOString().slice(0, 10);
 
@@ -669,36 +667,6 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
     }
   }, [queryClient]);
 
-  // Bulk operations
-  const bulkMarkServiced = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await Promise.all(
-        Array.from(selectedTanks).map(tankId => markTankServiced(tankId, user.id))
-      );
-      
-      setSelectedTanks(new Set());
-      queryClient.invalidateQueries({ queryKey: ['tanks'] });
-    } catch (error) {
-      console.error('Error bulk marking tanks as serviced:', error);
-    }
-  }, [selectedTanks, queryClient]);
-
-  const bulkUnmarkServiced = useCallback(async () => {
-    try {
-      await Promise.all(
-        Array.from(selectedTanks).map(tankId => unmarkTankServiced(tankId))
-      );
-      
-      setSelectedTanks(new Set());
-      queryClient.invalidateQueries({ queryKey: ['tanks'] });
-    } catch (error) {
-      console.error('Error bulk unmarking tanks as serviced:', error);
-    }
-  }, [selectedTanks, queryClient]);
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -718,14 +686,11 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   }, []);
 
   const handleTankClick = useCallback((tank: Tank) => {
-    // Close any open modals first
     setEditDipModalOpen(false);
     setEditDipTank(null);
-    
-    setSelectedTank(tank);
-    setDrawerOpen(true);
+    openModal(tank);
     onTankClick?.(tank);
-  }, [onTankClick]);
+  }, [onTankClick, openModal, setEditDipModalOpen, setEditDipTank]);
 
   // Sorting logic for tanks within a group/subgroup
   const sortTanks = useCallback((tanksToSort: Tank[]) => {
@@ -811,17 +776,6 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
         </Button>
       </div>
       
-      {selectedTanks.size > 0 && (
-        <div className="flex gap-2 mb-2">
-          <Button size="sm" onClick={bulkMarkServiced}>
-            Mark {selectedTanks.size} as serviced
-          </Button>
-          <Button size="sm" variant="secondary" onClick={bulkUnmarkServiced}>
-            Unmark {selectedTanks.size}
-          </Button>
-        </div>
-      )}
-      
       <NestedGroupAccordion 
         tanks={filteredTanks} 
         onTankClick={handleTankClick} 
@@ -834,19 +788,6 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
         isServiced={isServiced}
         today={today}
       />
-      
-      {selectedTank && (
-        <TankDetailsModal 
-          tank={selectedTank} 
-          open={drawerOpen} 
-          onOpenChange={(open) => {
-            setDrawerOpen(open);
-            if (!open) {
-              setSelectedTank(null);
-            }
-          }} 
-        />
-      )}
     </div>
   );
 }; 
