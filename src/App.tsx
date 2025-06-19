@@ -22,6 +22,9 @@ import AlertsPage from '@/pages/AlertsPage';
 import HealthPage from '@/pages/HealthPage';
 import { useTankModal } from './contexts/TankModalContext';
 import { TankDetailsModal } from './components/TankDetailsModal';
+import { useGlobalModals } from './contexts/GlobalModalsContext';
+import EditDipModal from './components/modals/EditDipModal';
+import { AlertsDrawer } from './components/AlertsDrawer';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +49,7 @@ function HashRedirector() {
 const App = () => {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const { selectedTank, open, closeModal } = useTankModal();
+  const { editDipOpen, editDipTank, closeEditDip, alertsOpen, closeAlerts } = useGlobalModals();
 
   return (
     <>
@@ -129,6 +133,17 @@ const App = () => {
               </RealtimeErrorBoundary>
             </BrowserRouter>
             <TankDetailsModal tank={selectedTank} open={open} onOpenChange={closeModal} />
+            <EditDipModal
+              isOpen={editDipOpen && !!editDipTank}
+              onClose={closeEditDip}
+              initialGroupId={editDipTank?.group_id || ''}
+              initialTankId={editDipTank?.id || ''}
+            />
+            <AlertsDrawer
+              open={alertsOpen}
+              onOpenChange={closeAlerts}
+              tanks={[]} // You may want to pass tanks from context or props
+            />
           </AppStateProvider>
         </TooltipProvider>
       </QueryClientProvider>

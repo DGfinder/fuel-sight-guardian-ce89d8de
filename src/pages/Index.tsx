@@ -17,8 +17,7 @@ import { StickyMobileNav } from '@/components/StickyMobileNav';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { FuelDipForm } from '@/components/fuel-dip/FuelDipForm';
 import { supabase } from '@/lib/supabase';
-import EditDipModal from '@/components/modals/EditDipModal';
-import { useTankModal } from '@/contexts/TankModalContext';
+import { useGlobalModals } from '@/contexts/GlobalModalsContext';
 
 interface IndexProps {
   selectedGroup?: string | null;
@@ -40,17 +39,13 @@ export default function Index({ selectedGroup }: IndexProps) {
     };
   }, []);
 
-  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [dipModalOpen, setDipModalOpen] = useState(false);
-  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
-  const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
+  const { openEditDip, openAlerts } = useGlobalModals();
   const tankTableRef = useRef<HTMLDivElement>(null);
 
   const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
   const { alerts, isLoading: alertsLoading } = useAlerts();
-
-  const { openModal } = useTankModal();
 
   // Filter tanks based on selected group
   const filteredTanks = tanks?.filter(tank => {
@@ -100,7 +95,8 @@ export default function Index({ selectedGroup }: IndexProps) {
   ] : [];
 
   const handleTankClick = (tank: Tank) => {
-    openModal(tank);
+    // This would typically update the route/state
+    // TODO: Implement group navigation
   };
 
   const handleCardClick = (filter: string) => {
@@ -169,7 +165,7 @@ export default function Index({ selectedGroup }: IndexProps) {
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
-              onClick={() => setIsAlertsOpen(true)}
+              onClick={() => openAlerts()}
               className="relative border-gray-300 hover:border-[#008457] hover:text-[#008457]"
             >
               <Bell className="h-4 w-4 mr-2" />
@@ -241,28 +237,12 @@ export default function Index({ selectedGroup }: IndexProps) {
           <TankStatusTable
             tanks={displayTanks}
             onTankClick={handleTankClick}
-            setEditDipTank={setEditDipTank}
-            setEditDipModalOpen={setEditDipModalOpen}
+            setEditDipTank={() => {}}
+            setEditDipModalOpen={() => {}}
           />
         </div>
 
-        <AlertsDrawer
-          open={isAlertsOpen}
-          onOpenChange={setIsAlertsOpen}
-          tanks={tanks ?? []}
-        />
-        
         <StickyMobileNav />
-
-        <EditDipModal
-          isOpen={editDipModalOpen && !!editDipTank}
-          onClose={() => {
-            setEditDipModalOpen(false);
-            setEditDipTank(null);
-          }}
-          initialGroupId={editDipTank?.group_id || ''}
-          initialTankId={editDipTank?.id || ''}
-        />
       </div>
     </div>
   );
