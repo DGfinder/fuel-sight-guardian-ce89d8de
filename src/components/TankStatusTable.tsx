@@ -81,7 +81,10 @@ const TankRow: React.FC<TankRowProps> = ({
         <AccordionTrigger className="flex items-center gap-2 px-3 py-2">
           <Checkbox
             checked={isServiced}
-            onCheckedChange={(checked) => onServicedToggle(tank.id, checked as boolean)}
+            onCheckedChange={(checked) => {
+              console.log('Checkbox clicked:', { tankId: tank.id, checked, isServiced });
+              onServicedToggle(tank.id, checked as boolean);
+            }}
             className="h-4 w-4 text-green-700"
             onClick={(e) => e.stopPropagation()}
           />
@@ -152,7 +155,10 @@ const TankRow: React.FC<TankRowProps> = ({
             <td className="sticky left-0 z-10 bg-inherit px-3 py-2 text-center">
               <Checkbox
                 checked={isServiced}
-                onCheckedChange={(checked) => onServicedToggle(tank.id, checked as boolean)}
+                onCheckedChange={(checked) => {
+                  console.log('Checkbox clicked:', { tankId: tank.id, checked, isServiced });
+                  onServicedToggle(tank.id, checked as boolean);
+                }}
                 className="h-4 w-4 text-green-700"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -636,18 +642,23 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   // Check if a tank is serviced today
   const isServiced = useCallback((tankId: string) => {
     const tank = tanks.find(t => t.id === tankId);
+    console.log('isServiced check:', { tankId, tank: tank ? { serviced_on: tank.serviced_on, serviced_by: tank.serviced_by } : null, today });
     return tank?.serviced_on === today;
   }, [tanks, today]);
 
   // Handle serviced toggle
   const handleServicedToggle = useCallback(async (tankId: string, serviced: boolean) => {
+    console.log('handleServicedToggle called:', { tankId, serviced });
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('User:', user);
       if (!user) return;
 
       if (serviced) {
+        console.log('Marking tank as serviced');
         await markTankServiced(tankId, user.id);
       } else {
+        console.log('Unmarking tank as serviced');
         await unmarkTankServiced(tankId);
       }
       
@@ -774,6 +785,14 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Debug info - remove this after testing */}
+      <div className="bg-yellow-100 p-2 rounded text-xs">
+        <p>Debug: Today = {today}</p>
+        <p>Debug: First tank serviced_on = {tanks[0]?.serviced_on || 'undefined'}</p>
+        <p>Debug: First tank serviced_by = {tanks[0]?.serviced_by || 'undefined'}</p>
+        <p>Debug: Total tanks = {tanks.length}</p>
+      </div>
+      
       <div className="flex items-center gap-4 mb-4">
         <Input 
           placeholder="Search by location or group" 
