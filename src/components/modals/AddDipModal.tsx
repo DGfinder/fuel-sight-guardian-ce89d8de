@@ -138,16 +138,16 @@ export default function AddDipModal({
     };
   }, [submitSuccess, onOpenChange]);
 
-  // Add this useEffect to reset the form only when the modal closes
+  // Add this useEffect to reset all local state when the modal closes or when switching between add/edit modes
   useEffect(() => {
     if (!open) {
-      resetForm();
-    }
-  }, [open]);
-
-  // Add this useEffect after the other useEffects:
-  useEffect(() => {
-    if (open && initialTankId && tanks.length > 0) {
+      setGroupId(initialGroupId || "");
+      setSubgroup("");
+      setTankId(initialTankId || "");
+      setDipValue("");
+      setDipDate(new Date());
+      setCalendarOpen(false);
+    } else if (open && initialTankId && tanks.length > 0) {
       const tank = tanks.find(t => t.id === initialTankId);
       if (tank) {
         setGroupId(tank.group_id);
@@ -155,7 +155,7 @@ export default function AddDipModal({
         setTankId(tank.id);
       }
     }
-  }, [open, initialTankId, tanks]);
+  }, [open, initialTankId, initialGroupId, tanks]);
 
   /* ─────────── Submit handler ──────────────────────────────────── */
   const handleSubmit = async (e: React.FormEvent) => {
@@ -250,13 +250,13 @@ export default function AddDipModal({
             <div className="text-green-600 text-sm">{submitSuccess}</div>
           )}
           {/* Depot group */}
-          {initialTankId ? (
+          {initialTankId && selectedTank ? (
             <>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Depot Group</label>
-                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank?.group_name || groupId}</div>
+                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank.group_name || groupId}</div>
               </div>
-              {selectedTank?.subgroup && (
+              {selectedTank.subgroup && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Sub-group</label>
                   <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank.subgroup}</div>
@@ -264,7 +264,7 @@ export default function AddDipModal({
               )}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Tank</label>
-                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank?.location || tankId}</div>
+                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{selectedTank.location || tankId}</div>
               </div>
             </>
           ) : (
@@ -292,7 +292,7 @@ export default function AddDipModal({
                   </SelectContent>
                 </Select>
               </div>
-              {/* Sub-group dropdown */}
+              {/* Sub-group dropdown, only if more than one exists */}
               {subgroups.length > 1 && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Sub-group</label>
