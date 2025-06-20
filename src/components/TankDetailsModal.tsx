@@ -65,6 +65,7 @@ import AddDipModal from '@/components/modals/AddDipModal';
 import { Z_INDEX } from '@/lib/z-index';
 import { ModalErrorBoundary } from '@/components/ModalErrorBoundary';
 import EditDipModal from '@/components/modals/EditDipModal';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Register Chart.js components
 ChartJS.register(
@@ -91,6 +92,7 @@ export function TankDetailsModal({
 }: TankDetailsModalProps) {
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
   const [isEditDipOpen, setIsEditDipOpen] = useState(false);
+  const [tankDetails, setTankDetails] = useState<any>(null);
 
   // Reset AddDipModal state when main modal closes
   useEffect(() => {
@@ -98,6 +100,32 @@ export function TankDetailsModal({
       setIsDipFormOpen(false);
     }
   }, [open]);
+
+  // Fetch tank details from fuel_tanks table
+  useEffect(() => {
+    const fetchTankDetails = async () => {
+      if (!tank?.id || !open) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('fuel_tanks')
+          .select('address, vehicle, discharge, bp_portal, delivery_window, afterhours_contact, notes')
+          .eq('id', tank.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching tank details:', error);
+          return;
+        }
+        
+        setTankDetails(data);
+      } catch (err) {
+        console.error('Error fetching tank details:', err);
+      }
+    };
+
+    fetchTankDetails();
+  }, [tank?.id, open]);
 
   const {
     alerts,
@@ -835,7 +863,7 @@ export function TankDetailsModal({
               </TabsContent>
 
               {/* Enhanced Notes Tab with Tank Details */}
-              <TabsContent value="notes" className="p-6 space-y-6">
+              <TabsContent value="notes" className="space-y-4">
                 {/* Tank Details Card */}
                 <Card>
                   <CardHeader>
@@ -845,33 +873,31 @@ export function TankDetailsModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <span className="text-sm text-gray-500">Address</span>
-                        <p className="font-medium">{tank.address || 'N/A'}</p>
+                        <p className="font-medium">{tankDetails?.address || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Vehicle</span>
-                        <p className="font-medium">{tank.vehicle || 'N/A'}</p>
+                        <p className="font-medium">{tankDetails?.vehicle || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Discharge</span>
-                        <p className="font-medium">{tank.discharge || 'N/A'}</p>
+                        <p className="font-medium">{tankDetails?.discharge || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">BP Portal</span>
-                        <p className="font-medium">{tank.bp_portal || 'N/A'}</p>
+                        <p className="font-medium">{tankDetails?.bp_portal || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Min Level</span>
-                        <p className="font-medium">
-                          {typeof tank.min_level === 'number' ? `${tank.min_level.toLocaleString()} L` : 'N/A'}
-                        </p>
+                        <p className="font-medium">{tank.min_level ? `${tank.min_level.toLocaleString()} L` : 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Delivery Window</span>
-                        <p className="font-medium">{tank.delivery_window || 'N/A'}</p>
+                        <p className="font-medium">{tankDetails?.delivery_window || 'N/A'}</p>
                       </div>
                       <div className="md:col-span-2">
                         <span className="text-sm text-gray-500">Afterhours Contact</span>
-                        <p className="font-medium">{tank.afterhours_contact || 'N/A'}</p>
+                        <p className="font-medium">{tankDetails?.afterhours_contact || 'N/A'}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -883,7 +909,14 @@ export function TankDetailsModal({
                     <CardTitle className="text-lg">Depot Notes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <EditableNotesSection tank={tank} />
+                    <EditableNotesSection
+                      notes={tankDetails?.notes || ''}
+                      onSave={async (newNotes) => {
+                        await supabase.from('fuel_tanks').update({ notes: newNotes }).eq('id', tank.id);
+                        // Update local state to reflect the change
+                        setTankDetails(prev => ({ ...prev, notes: newNotes }));
+                      }}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -991,31 +1024,33 @@ export function TankDetailsModal({
   );
 }
 
-function EditableNotesSection({ tank }: { tank: Tank }) {
-  const [notes, setNotes] = React.useState(tank.notes || "");
+function EditableNotesSection({ notes: initialNotes, onSave }: { notes: string; onSave: (newNotes: string) => Promise<void> }) {
+  const [notes, setNotes] = React.useState(initialNotes);
   const [editing, setEditing] = React.useState(false);
   const [tempNotes, setTempNotes] = React.useState(notes);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    setNotes(tank.notes || "");
-    setTempNotes(tank.notes || "");
-  }, [tank.notes]);
+    setNotes(initialNotes);
+    setTempNotes(initialNotes);
+  }, [initialNotes]);
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const { error } = await supabase
-      .from('fuel_tanks')
-      .update({ notes: tempNotes })
-      .eq('id', tank.id);
-    setSaving(false);
-    if (error) {
-      setError(error.message);
-    } else {
+    try {
+      await onSave(tempNotes);
       setNotes(tempNotes);
       setEditing(false);
+      // Invalidate queries to refetch tank data
+      await queryClient.invalidateQueries({ queryKey: ['tanks'] });
+      await queryClient.invalidateQueries({ queryKey: ['tank', tempNotes] });
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 

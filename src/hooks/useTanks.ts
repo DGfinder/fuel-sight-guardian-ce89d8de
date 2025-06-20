@@ -23,6 +23,13 @@ export interface Tank {
   prev_day_used?: number;
   serviced_on?: string;
   serviced_by?: string;
+  address?: string;
+  vehicle?: string;
+  discharge?: string;
+  bp_portal?: string;
+  delivery_window?: string;
+  afterhours_contact?: string;
+  notes?: string;
   last_dip?: {
     value: number;
     created_at: string;
@@ -69,6 +76,13 @@ export function useTanks() {
         prev_day_used: tank.prev_day_used,
         serviced_on: tank.serviced_on,
         serviced_by: tank.serviced_by,
+        address: tank.address,
+        vehicle: tank.vehicle,
+        discharge: tank.discharge,
+        bp_portal: tank.bp_portal,
+        delivery_window: tank.delivery_window,
+        afterhours_contact: tank.afterhours_contact,
+        notes: tank.notes,
         last_dip: (tank.last_dip_ts && tank.current_level != null) 
           ? { 
               value: tank.current_level, 
@@ -96,6 +110,13 @@ export function useTanks() {
         current_level_percent: tank.current_level_percent_display,
         rolling_avg: tank.rolling_avg_lpd,
         usable_capacity: tank.usable_capacity,
+        address: tank.address,
+        vehicle: tank.vehicle,
+        discharge: tank.discharge,
+        bp_portal: tank.bp_portal,
+        delivery_window: tank.delivery_window,
+        afterhours_contact: tank.afterhours_contact,
+        notes: tank.notes,
         last_dip: (tank.last_dip_ts && tank.current_level != null) 
           ? { 
               value: tank.current_level, 
