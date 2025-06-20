@@ -37,7 +37,7 @@ export function useTanks() {
   const userPermissions = permissions as UserPermissions | null;
 
   const { data: tanks, isLoading, error } = useQuery<Tank[]>({
-    queryKey: ['tanks', userPermissions?.accessibleGroups],
+    queryKey: ['tanks', userPermissions?.userId],
     queryFn: async () => {
       let query = supabase
         .from('tanks_with_rolling_avg')

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,45 +25,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import AddDipModal from '@/components/modals/AddDipModal';
-
-const NAV_LINKS = [
-  {
-    label: "Global Dashboard",
-    icon: <Gauge size={20} />,
-    to: "/",
-    key: "dashboard",
-  },
-  {
-    label: "Swan Transit",
-    icon: <Building size={20} />,
-    to: "/swan-transit",
-    key: "swan",
-  },
-  {
-    label: "Kalgoorlie",
-    icon: <MapPin size={20} />,
-    to: "/kalgoorlie",
-    key: "kalgoorlie",
-  },
-  {
-    label: "Geraldton",
-    icon: <MapPin size={20} />,
-    to: "/geraldton",
-    key: "geraldton",
-  },
-  {
-    label: "GSF Depots",
-    icon: <Home size={20} />,
-    to: "/gsf-depots",
-    key: "gsf",
-  },
-  {
-    label: "BGC",
-    icon: <Building size={20} />,
-    to: "/bgc",
-    key: "bgc",
-  },
-];
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface TankCount {
   total: number;
@@ -71,29 +34,88 @@ interface TankCount {
   warning: number;
 }
 
+const ALL_NAV_ITEMS = [
+  { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
+  { path: '/tanks', label: 'Tanks', icon: TankIcon, badge: 'totalTanks', group: null },
+  { path: '/swan-transit', label: 'Swan Transit', icon: BusIcon, badge: null, group: 'Swan Transit' },
+  { path: '/kalgoorlie', label: 'Kalgoorlie', icon: MapPinIcon, badge: null, group: 'Kalgoorlie' },
+  { path: '/gsf-depots', label: 'GSF Depots', icon: Building2Icon, badge: null, group: 'GSF Depots' },
+  { path: '/geraldton', label: 'Geraldton', icon: MapPinIcon, badge: null, group: 'Geraldton' },
+  { path: '/bgc', label: 'BGC', icon: Building2Icon, badge: null, group: 'BGC' }
+];
+
+const SidebarSkeleton = () => (
+  <aside
+    className={cn(
+      "fixed top-0 left-0 h-full w-64 bg-[#008457] border-r-4 border-[#FEDF19] z-40 flex flex-col justify-between",
+      "rounded-r-xl shadow-lg"
+    )}
+    style={{ minHeight: '100vh' }}
+  >
+    <div className="flex flex-col flex-1 gap-2 p-4 overflow-y-auto">
+      {/* Branding */}
+      <div className="flex flex-col items-center mb-8 select-none pt-2 pb-4 border-b border-white/20">
+        <Skeleton className="h-16 w-16 mb-2 bg-white/20 rounded-lg" />
+        <Skeleton className="h-5 w-24 mt-1 bg-white/20" />
+        <Skeleton className="h-4 w-32 mt-1 bg-white/20" />
+      </div>
+
+      {/* Nav Links */}
+      <ul className="flex flex-col gap-1">
+        {[...Array(5)].map((_, i) => (
+          <li key={i} className="flex items-center gap-3 p-2">
+            <Skeleton className="w-5 h-5 rounded-full bg-white/20" />
+            <Skeleton className="w-32 h-5 bg-white/20" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  </aside>
+);
+
+
 export const Sidebar: React.FC = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [addDipModalOpen, setAddDipModalOpen] = useState(false);
   const navigate = useNavigate();
+  const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
 
   const { data: tankCounts } = useQuery<TankCount>({
-    queryKey: ['tankCounts'],
+    queryKey: ['tankCounts', permissions?.userId],
     queryFn: async () => {
-      const { data: tanks, error } = await supabase
-        .from('tanks_with_latest_dip')
-        .select('id');
+      const { count } = await supabase
+        .from('fuel_tanks')
+        .select('id', { count: 'exact', head: true });
         
-      if (error) throw error;
-      
       return {
-        total: tanks.length,
+        total: count || 0,
         critical: 0,
         warning: 0
       };
-    }
+    },
+    enabled: !!permissions?.userId
   });
+
+  const navItems = useMemo(() => {
+    if (!permissions) return [];
+
+    const accessibleGroups = new Set(permissions.accessibleGroups.map(g => g.name));
+
+    return ALL_NAV_ITEMS.filter(item => {
+      // Admins see everything
+      if (permissions.isAdmin) return true;
+      // Non-group items are visible to everyone
+      if (!item.group) return true;
+      // Group-specific items require permission
+      return accessibleGroups.has(item.group);
+    }).map(item => ({
+      ...item,
+      badge: item.badge === 'totalTanks' ? tankCounts?.total : null
+    }));
+  }, [permissions, tankCounts]);
+
 
   useEffect(() => {
     const handleResize = () => {
@@ -118,51 +140,10 @@ export const Sidebar: React.FC = () => {
     window.location.href = '/login';
   };
 
-  const navItems = [
-    {
-      path: '/',
-      label: 'Dashboard',
-      icon: HomeIcon,
-      badge: null
-    },
-    {
-      path: '/tanks',
-      label: 'Tanks',
-      icon: TankIcon,
-      badge: tankCounts?.total
-    },
-    {
-      path: '/swan-transit',
-      label: 'Swan Transit',
-      icon: BusIcon,
-      badge: null
-    },
-    {
-      path: '/kalgoorlie',
-      label: 'Kalgoorlie',
-      icon: MapPinIcon,
-      badge: null
-    },
-    {
-      path: '/gsf-depots',
-      label: 'GSF Depots',
-      icon: Building2Icon,
-      badge: null
-    },
-    {
-      path: '/geraldton',
-      label: 'Geraldton',
-      icon: MapPinIcon,
-      badge: null
-    },
-    {
-      path: '/bgc',
-      label: 'BGC',
-      icon: Building2Icon,
-      badge: null
-    }
-  ];
-
+  if (permissionsLoading) {
+    return <SidebarSkeleton />;
+  }
+  
   return (
     <>
       {/* Hamburger for mobile */}
@@ -293,8 +274,9 @@ export const Sidebar: React.FC = () => {
       <AddDipModal
         open={addDipModalOpen}
         onOpenChange={setAddDipModalOpen}
-        onSubmit={async (groupId: string, tankId: string, dip: number) => {
-          // The modal handles its own closing and data refresh
+        onSubmit={() => {
+          // The modal handles its own logic, just need to close it
+          setAddDipModalOpen(false);
         }}
       />
     </>

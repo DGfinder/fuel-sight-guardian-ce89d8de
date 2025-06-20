@@ -90,8 +90,6 @@ export function TankDetailsModal({
   onOpenChange,
 }: TankDetailsModalProps) {
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
-  const [freshTank, setFreshTank] = useState<Tank | null>(tank);
-  const [loadingFreshTank, setLoadingFreshTank] = useState(false);
   const [isEditDipOpen, setIsEditDipOpen] = useState(false);
 
   // Reset AddDipModal state when main modal closes
@@ -122,25 +120,7 @@ export function TankDetailsModal({
     }
   }, [open, tank?.id, dipHistoryQuery.refetch]);
 
-  useEffect(() => {
-    async function fetchTank() {
-      if (open && tank?.id) {
-        setLoadingFreshTank(true);
-        const { data, error } = await supabase
-          .from('fuel_tanks')
-          .select('*')
-          .eq('id', tank.id)
-          .single();
-        setLoadingFreshTank(false);
-        if (data) setFreshTank({ ...tank, ...data });
-      } else {
-        setFreshTank(tank);
-      }
-    }
-    fetchTank();
-  }, [open, tank?.id]);
-
-  if (!freshTank) return null;
+  if (!tank) return null;
 
   const sortedDipHistory = [...dipHistory].sort((a, b) => 
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -166,11 +146,11 @@ export function TankDetailsModal({
         pointBorderWidth: 2,
         pointHoverRadius: 6,
       },
-      ...(freshTank.min_level
+      ...(tank.min_level
         ? [
             {
               label: 'Minimum Level',
-              data: Array(last30Dips.length || 1).fill(freshTank.min_level),
+              data: Array(last30Dips.length || 1).fill(tank.min_level),
               borderColor: '#ef4444',
               borderDash: [5, 5],
               pointRadius: 0,
@@ -215,11 +195,11 @@ export function TankDetailsModal({
         pointHoverRadius: 6,
       },
       // Add average burn rate reference line
-      ...(freshTank.rolling_avg
+      ...(tank.rolling_avg
         ? [
             {
               label: 'Average Burn Rate',
-              data: Array(burnRateLabels.length || 1).fill(freshTank.rolling_avg),
+              data: Array(burnRateLabels.length || 1).fill(tank.rolling_avg),
               borderColor: '#6b7280', // gray-500
               borderDash: [5, 5],
               pointRadius: 0,
@@ -343,9 +323,9 @@ export function TankDetailsModal({
 
   // Get tank status based on current level
   const getTankStatus = () => {
-    if (!freshTank.current_level || !freshTank.safe_level) return { status: 'unknown', color: 'gray', percentage: 0 };
+    if (!tank.current_level || !tank.safe_level) return { status: 'unknown', color: 'gray', percentage: 0 };
     
-    const percentage = (freshTank.current_level / freshTank.safe_level) * 100;
+    const percentage = (tank.current_level / tank.safe_level) * 100;
     
     if (percentage <= 20) return { status: 'critical', color: 'red', percentage };
     if (percentage <= 40) return { status: 'low', color: 'orange', percentage };
@@ -470,7 +450,7 @@ export function TankDetailsModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border" style={{ zIndex: Z_INDEX.MODAL_CONTENT }}>
           <DialogDescription className="sr-only">
-            Tank details and management for {freshTank?.location}
+            Tank details and management for {tank?.location}
           </DialogDescription>
           <ModalErrorBoundary onReset={() => onOpenChange(false)}>
           {/* Simplified Header */}
@@ -482,10 +462,10 @@ export function TankDetailsModal({
                 </div>
                 <div>
                   <DialogTitle className="text-xl font-semibold text-gray-900">
-                    {freshTank.location}
+                    {tank.location}
                   </DialogTitle>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm text-gray-600">{freshTank.product_type || 'N/A'}</span>
+                    <span className="text-sm text-gray-600">{tank.product_type || 'N/A'}</span>
                     <StatusBadge status={tankStatus.status} color={tankStatus.color} />
                   </div>
                 </div>
@@ -536,21 +516,21 @@ export function TankDetailsModal({
                   <div className="p-3 bg-gray-50 rounded-lg border">
                     <div className="text-xs text-gray-500 mb-1">Burn Rate</div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {freshTank.rolling_avg ? `${freshTank.rolling_avg}L/d` : 'N/A'}
+                      {tank.rolling_avg ? `${tank.rolling_avg}L/d` : 'N/A'}
                     </div>
                   </div>
                   
                   <div className="p-3 bg-gray-50 rounded-lg border">
                     <div className="text-xs text-gray-500 mb-1">Days to Min</div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {freshTank.days_to_min_level ?? 'N/A'}
+                      {tank.days_to_min_level ?? 'N/A'}
                     </div>
                   </div>
                   
                   <div className="p-3 bg-gray-50 rounded-lg border">
                     <div className="text-xs text-gray-500 mb-1">Last Dip</div>
                     <div className="text-sm font-semibold text-gray-900">
-                      {freshTank.latest_dip_date ? format(new Date(freshTank.latest_dip_date), 'MMM d') : 'N/A'}
+                      {tank.latest_dip_date ? format(new Date(tank.latest_dip_date), 'MMM d') : 'N/A'}
                     </div>
                   </div>
                 </div>
@@ -565,22 +545,22 @@ export function TankDetailsModal({
                       <div className="space-y-3">
                         <div>
                           <span className="text-sm text-gray-500">Depot</span>
-                          <p className="font-medium">{freshTank.group_name || 'N/A'}</p>
+                          <p className="font-medium">{tank.group_name || 'N/A'}</p>
                         </div>
                         <div>
                           <span className="text-sm text-gray-500">Product</span>
-                          <p className="font-medium">{freshTank.product_type || 'N/A'}</p>
+                          <p className="font-medium">{tank.product_type || 'N/A'}</p>
                         </div>
                         <div>
                           <span className="text-sm text-gray-500">Min Level</span>
-                          <p className="font-medium">{typeof freshTank.min_level === 'number' ? freshTank.min_level.toLocaleString() : 'N/A'}</p>
+                          <p className="font-medium">{typeof tank.min_level === 'number' ? tank.min_level.toLocaleString() : 'N/A'}</p>
                         </div>
                       </div>
                         <div className="p-3 bg-blue-50 rounded-lg">
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-blue-700">Current Volume</span>
                             <span className="font-semibold text-blue-900">
-                              {typeof freshTank.current_level === 'number' ? freshTank.current_level.toLocaleString() : 'N/A'} L
+                              {typeof tank.current_level === 'number' ? tank.current_level.toLocaleString() : 'N/A'} L
                             </span>
                           </div>
                           <Progress 
@@ -590,7 +570,7 @@ export function TankDetailsModal({
                           <div className="flex justify-between text-xs text-blue-600">
                             <span>0 L</span>
                             <span>{Math.round(tankStatus.percentage)}%</span>
-                            <span>{typeof freshTank.safe_level === 'number' ? freshTank.safe_level.toLocaleString() : 'N/A'} L</span>
+                            <span>{typeof tank.safe_level === 'number' ? tank.safe_level.toLocaleString() : 'N/A'} L</span>
                           </div>
                         </div>
                         
@@ -598,14 +578,14 @@ export function TankDetailsModal({
                           <div className="p-2 bg-gray-50 rounded">
                             <span className="text-xs text-gray-500">Safe Fill</span>
                             <p className="font-medium text-sm">
-                              {typeof freshTank.safe_level === 'number' ? freshTank.safe_level.toLocaleString() : 'N/A'} L
+                              {typeof tank.safe_level === 'number' ? tank.safe_level.toLocaleString() : 'N/A'} L
                             </p>
                           </div>
                           <div className="p-2 bg-gray-50 rounded">
                             <span className="text-xs text-gray-500">Ullage</span>
                             <p className="font-medium text-sm">
-                              {typeof freshTank.safe_level === 'number' && typeof freshTank.current_level === 'number' 
-                                ? (freshTank.safe_level - freshTank.current_level).toLocaleString() 
+                              {typeof tank.safe_level === 'number' && typeof tank.current_level === 'number' 
+                                ? (tank.safe_level - tank.current_level).toLocaleString() 
                                 : 'N/A'} L
                             </p>
                           </div>
@@ -617,9 +597,6 @@ export function TankDetailsModal({
                           console.log('tank prop:', tank);
                           console.log('tank?.id:', tank?.id);
                           console.log('tank?.group_id:', tank?.group_id);
-                          console.log('freshTank:', freshTank);
-                          console.log('freshTank?.id:', freshTank?.id);
-                          console.log('freshTank?.group_id:', freshTank?.group_id);
                           setIsDipFormOpen(true);
                         }}
                         className="w-full border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-blue-400"
@@ -643,7 +620,7 @@ export function TankDetailsModal({
                             <div>
                               <span className="text-sm text-gray-500">Burn Rate</span>
                               <p className="font-medium">
-                                {freshTank.rolling_avg ? `${freshTank.rolling_avg} L/day` : 'Calculating...'}
+                                {tank.rolling_avg ? `${tank.rolling_avg} L/day` : 'Calculating...'}
                               </p>
                             </div>
                           </div>
@@ -670,7 +647,7 @@ export function TankDetailsModal({
                             <div>
                               <span className="text-sm text-gray-500">Days to Min Level</span>
                               <p className="font-medium">
-                                {freshTank.days_to_min_level ? `${freshTank.days_to_min_level} days` : 'Calculating...'}
+                                {tank.days_to_min_level ? `${tank.days_to_min_level} days` : 'Calculating...'}
                               </p>
                             </div>
                           </div>
@@ -689,9 +666,9 @@ export function TankDetailsModal({
                     <CardTitle className="text-lg flex items-center gap-2">
                       <TrendingUp className="w-5 h-5 text-blue-600" />
                       Volume Trends
-                      {freshTank.min_level && (
+                      {tank.min_level && (
                         <Badge variant="outline" className="text-xs">
-                          Min Level: {freshTank.min_level.toLocaleString()}L
+                          Min Level: {tank.min_level.toLocaleString()}L
                         </Badge>
                       )}
                     </CardTitle>
@@ -719,9 +696,9 @@ export function TankDetailsModal({
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Activity className="w-5 h-5 text-orange-600" />
                       Daily Consumption Rate
-                      {freshTank.rolling_avg && (
+                      {tank.rolling_avg && (
                         <Badge variant="outline" className="text-xs">
-                          Avg: {freshTank.rolling_avg}L/day
+                          Avg: {tank.rolling_avg}L/day
                         </Badge>
                       )}
                     </CardTitle>
@@ -804,9 +781,9 @@ export function TankDetailsModal({
                               <div className="font-medium">
                                 {dip.value?.toLocaleString() || 'N/A'} L
                               </div>
-                              {freshTank.safe_level && (
+                              {tank.safe_level && (
                                 <div className="text-xs text-gray-500">
-                                  {Math.round((dip.value / freshTank.safe_level) * 100)}% of capacity
+                                  {Math.round((dip.value / tank.safe_level) * 100)}% of capacity
                                 </div>
                               )}
                             </div>
@@ -827,7 +804,7 @@ export function TankDetailsModal({
                                     Latest
                                   </Badge>
                                 )}
-                                {dip.value < (freshTank.min_level || 0) && (
+                                {dip.value < (tank.min_level || 0) && (
                                   <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
                                     Below Min
                                   </Badge>
@@ -868,33 +845,33 @@ export function TankDetailsModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <span className="text-sm text-gray-500">Address</span>
-                        <p className="font-medium">{freshTank.address || 'N/A'}</p>
+                        <p className="font-medium">{tank.address || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Vehicle</span>
-                        <p className="font-medium">{freshTank.vehicle || 'N/A'}</p>
+                        <p className="font-medium">{tank.vehicle || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Discharge</span>
-                        <p className="font-medium">{freshTank.discharge || 'N/A'}</p>
+                        <p className="font-medium">{tank.discharge || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">BP Portal</span>
-                        <p className="font-medium">{freshTank.bp_portal || 'N/A'}</p>
+                        <p className="font-medium">{tank.bp_portal || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Min Level</span>
                         <p className="font-medium">
-                          {typeof freshTank.min_level === 'number' ? `${freshTank.min_level.toLocaleString()} L` : 'N/A'}
+                          {typeof tank.min_level === 'number' ? `${tank.min_level.toLocaleString()} L` : 'N/A'}
                         </p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Delivery Window</span>
-                        <p className="font-medium">{freshTank.delivery_window || 'N/A'}</p>
+                        <p className="font-medium">{tank.delivery_window || 'N/A'}</p>
                       </div>
                       <div className="md:col-span-2">
                         <span className="text-sm text-gray-500">Afterhours Contact</span>
-                        <p className="font-medium">{freshTank.afterhours_contact || 'N/A'}</p>
+                        <p className="font-medium">{tank.afterhours_contact || 'N/A'}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -906,7 +883,7 @@ export function TankDetailsModal({
                     <CardTitle className="text-lg">Depot Notes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <EditableNotesSection tank={freshTank} />
+                    <EditableNotesSection tank={tank} />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -996,8 +973,8 @@ export function TankDetailsModal({
         <AddDipModal
           open={isDipFormOpen}
           onOpenChange={setIsDipFormOpen}
-          initialTankId={freshTank?.id}
-          initialGroupId={freshTank?.group_id}
+          initialTankId={tank?.id}
+          initialGroupId={tank?.group_id}
           onSubmit={async () => {
             // This is a dummy function to satisfy the prop type.
             // The modal handles its own submission.
@@ -1007,8 +984,8 @@ export function TankDetailsModal({
       <EditDipModal
         isOpen={isEditDipOpen}
         onClose={() => setIsEditDipOpen(false)}
-        initialTankId={freshTank?.id}
-        initialGroupId={freshTank?.group_id}
+        initialTankId={tank?.id}
+        initialGroupId={tank?.group_id}
       />
     </>
   );

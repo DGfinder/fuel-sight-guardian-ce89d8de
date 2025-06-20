@@ -42,7 +42,7 @@ rolling_average AS (
 prev_day_usage AS (
   SELECT DISTINCT ON (id)
     id,
-    (value - prev_value) as prev_day_used
+    ABS(value - prev_value) as prev_day_used
   FROM recent_readings
   WHERE prev_value IS NOT NULL 
     AND prev_date IS NOT NULL

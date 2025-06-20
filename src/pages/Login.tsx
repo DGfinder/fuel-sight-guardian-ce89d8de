@@ -4,6 +4,7 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/lib/supabase';
 import logo from '@/assets/logo.png';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Custom theme matching the design spec
 const customTheme = {
@@ -20,17 +21,19 @@ const customTheme = {
 
 export default function Login() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        queryClient.invalidateQueries();
         navigate('/', { replace: true });
       }
     });
     return () => {
       listener?.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#fdfdfd]">
