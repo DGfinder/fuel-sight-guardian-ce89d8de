@@ -31,7 +31,6 @@ export default function KalgoorliePage() {
     };
   }, []);
 
-  // Filter tanks to only Kalgoorlie
   const kalgoorlieTanks = (tanks || []).filter(t => t.group_name === KALGOORLIE_GROUP_NAME);
 
   return (
@@ -57,19 +56,14 @@ export default function KalgoorliePage() {
               setEditDipTank={setEditDipTank}
               setEditDipModalOpen={setEditDipModalOpen}
             />
-
-            <EditDipModal
-              isOpen={editDipModalOpen && !!editDipTank}
-              onClose={() => {
-                setEditDipModalOpen(false);
-                setEditDipTank(null);
-              }}
-              initialGroupId={editDipTank?.group_id || ''}
-              initialTankId={editDipTank?.id || ''}
-            />
           </div>
         </div>
       </div>
+      <EditDipModal
+        isOpen={editDipModalOpen}
+        onClose={() => setEditDipModalOpen(false)}
+        initialTankId={editDipTank?.id}
+      />
     </AppLayout>
   );
 } 

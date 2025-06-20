@@ -63,7 +63,7 @@ export default function AddDipModal({
   initialGroupId = "",
   initialTankId = "",
 }: Props) {
-  console.log('AddDipModal render:', { open, initialGroupId, initialTankId });
+  console.log('AddDipModal props:', { open, initialGroupId, initialTankId });
   /* ─────────── Data hooks ───────────────────────────────────────── */
   const { data: groups = [], isLoading: groupsLoading } = useTankGroups();
   const { tanks = [], isLoading: tanksLoading, error }  = useTanks();
@@ -92,32 +92,36 @@ export default function AddDipModal({
       new Set(
         tanksForGroup
           .map(t => t.subgroup)
-          .filter(Boolean)
+          .filter((sg): sg is string => Boolean(sg))
       )),
     [tanksForGroup],
   );
 
   const tanksForDropdown = useMemo(
-    () => subgroup
-      ? tanksForGroup.filter(t => t.subgroup === subgroup)
-      : tanksForGroup,
+    () => {
+      const effectiveSubgroup = subgroup === "all" ? "" : subgroup;
+      return effectiveSubgroup
+        ? tanksForGroup.filter(t => t.subgroup === effectiveSubgroup)
+        : tanksForGroup;
+    },
     [tanksForGroup, subgroup],
   );
 
   /* ─────────── Helpers ─────────────────────────────────────────── */
-  const selectedTank: Tank | undefined = tanks.find(t => t.id === tankId);
-  
-  console.log('AddDipModal state:', { groupId, subgroup, tankId, selectedTank?.location });
+  const selectedTank: Tank | undefined = tanks.find(
+    t => ((t as any).tank_id ?? t.id) === tankId
+  );
+
+  console.log('AddDipModal state:', { groupId, subgroup, tankId, selectedTankLocation: selectedTank?.location });
   const ullage =
     selectedTank && dipValue
       ? Math.max(0, selectedTank.safe_level - Number(dipValue))
       : null;
 
   const resetForm = () => {
-    // Only reset to initial values, don't clear everything
-    setGroupId(initialGroupId || "");
+    setGroupId("");
     setSubgroup("");
-    setTankId(initialTankId || "");
+    setTankId("");
     setDipValue("");
     setDipDate(new Date());
     setCalendarOpen(false);
@@ -142,32 +146,32 @@ export default function AddDipModal({
     };
   }, [submitSuccess, onOpenChange]);
 
-  // Handle modal state based on whether it's opened with a specific tank
+  // Handle form initialization and reset
   useEffect(() => {
-    if (!open) {
-      // Reset form when modal closes
-      resetForm();
-    } else if (open) {
-      // When modal opens, set initial values
+    if (open) {
+      // When modal opens, set the form values
       if (initialTankId && tanks.length > 0) {
-        // Pre-selected tank mode - find the tank and populate all fields
-        const tank = tanks.find(t => t.id === initialTankId);
+        // Find the specific tank
+        const tank = tanks.find(t => ((t as any).tank_id ?? t.id) === initialTankId);
         if (tank) {
-          console.log('AddDipModal: Pre-selecting tank:', tank);
+          console.log('Setting tank data:', tank);
           setGroupId(tank.group_id);
           setSubgroup(tank.subgroup || "");
-          setTankId(tank.id);
+          setTankId((tank as any).tank_id ?? tank.id);
         }
       } else {
-        // Manual selection mode - use provided initial values or empty
+        // No specific tank, use initial values
         setGroupId(initialGroupId || "");
         setSubgroup("");
         setTankId(initialTankId || "");
       }
-      // Always reset these when opening
+      // Reset form fields
       setDipValue("");
       setDipDate(new Date());
       setCalendarOpen(false);
+    } else {
+      // Modal is closing, reset everything
+      resetForm();
     }
   }, [open, initialTankId, initialGroupId, tanks]);
 
@@ -264,108 +268,93 @@ export default function AddDipModal({
             <div className="text-green-600 text-sm">{submitSuccess}</div>
           )}
           {/* Depot group */}
-          {initialTankId && tankId === initialTankId ? (
-            <>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Depot Group</label>
-                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">
-                  {selectedTank ? selectedTank.group_name : groups.find(g => g.id === groupId)?.name || groupId}
-                </div>
-              </div>
-              {subgroup && (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Sub-group</label>
-                  <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">{subgroup}</div>
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Tank</label>
-                <div className="px-3 py-2 border rounded bg-gray-100 text-gray-700">
-                  {selectedTank ? selectedTank.location : tanks.find(t => t.id === tankId)?.location || tankId}
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Depot group dropdown */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Depot Group <span className="text-red-500">*</span></label>
-                <Select
-                  value={groupId}
-                  onValueChange={v => {
-                    setGroupId(v);
-                    setSubgroup("");
-                    setTankId("");
-                  }}
-                  disabled={!!initialTankId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select depot group" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1200]">
-                    {groups.map(g => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Sub-group dropdown, only if more than one exists */}
-              {subgroups.length > 1 && (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Sub-group</label>
-                  <Select
-                    value={subgroup}
-                    onValueChange={v => {
-                      setSubgroup(v);
-                      setTankId("");
-                    }}
-                    disabled={!!initialTankId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select sub-group" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[1200]">
-                      {subgroups.map(sg => (
-                        <SelectItem key={sg!} value={sg!}>
-                          {sg}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {/* Tank dropdown */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Tank <span className="text-red-500">*</span></label>
-                <Select
-                  value={tankId}
-                  onValueChange={setTankId}
-                  disabled={!groupId || !!initialTankId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={groupId ? "Select tank" : "Choose group first"} />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1200] max-h-60 overflow-y-auto">
-                    {tanksForDropdown.length === 0 && (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">
-                        No tanks in selection
-                      </p>
-                    )}
-                    {tanksForDropdown.map(t => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.location}{" "}
-                        <span className="text-xs text-muted-foreground">
-                          Safe&nbsp;{typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">
+              Depot Group <span className="text-red-500">*</span>
+            </label>
+            <Select
+              value={groupId}
+              onValueChange={v => {
+                setGroupId(v);
+                setSubgroup("");
+                setTankId("");
+              }}
+              disabled={!!initialTankId && !!tankId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select depot group" />
+              </SelectTrigger>
+              <SelectContent>
+                {groups.map(g => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sub-group (only if more than one exists) */}
+          {subgroups.length > 1 && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Sub-group</label>
+              <Select
+                value={subgroup}
+                onValueChange={v => {
+                  setSubgroup(v === "all" ? "" : v);
+                  setTankId("");
+                }}
+                disabled={!!initialTankId && !!tankId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All sub-groups" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {subgroups.map(sg => (
+                    <SelectItem key={sg} value={sg}>
+                      {sg}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
+
+          {/* Tank */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">
+              Tank <span className="text-red-500">*</span>
+            </label>
+            <Select
+              value={tankId}
+              onValueChange={setTankId}
+              disabled={!groupId || (!!initialTankId && !!tankId)}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    groupId ? "Select tank" : "Choose group first"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                {tanksForDropdown.length === 0 && (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">
+                    No tanks in selection
+                  </p>
+                )}
+                {tanksForDropdown.map(t => (
+                  <SelectItem key={String((t as any).tank_id ?? t.id)} value={String((t as any).tank_id ?? t.id)}>
+                    {t.location} {" "}
+                    <span className="text-xs text-muted-foreground">
+                      Safe&nbsp;{typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Date picker - Fallback to native HTML5 date input */}
           <div className="space-y-1.5">

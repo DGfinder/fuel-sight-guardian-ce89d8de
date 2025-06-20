@@ -710,6 +710,10 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   }, []);
 
   const handleTankClick = useCallback((tank: Tank) => {
+    console.log('=== TABLE ROW CLICKED ===');
+    console.log('Tank clicked:', tank);
+    console.log('Tank ID:', tank.id);
+    console.log('Tank group_id:', tank.group_id);
     setEditDipModalOpen(false);
     setEditDipTank(null);
     openModal(tank);

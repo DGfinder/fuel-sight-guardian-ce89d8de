@@ -26,7 +26,6 @@ import { useTanks }      from "@/hooks/useTanks";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
 import { Z_INDEX } from '@/lib/z-index';
-import { Label } from "@/components/ui/label";
 
 interface Props {
   isOpen: boolean;
@@ -240,12 +239,17 @@ export default function EditDipModal({
   return (
     <Dialog open={isOpen} onOpenChange={handleModalOpenChange}>
       <DialogContent className="bg-white border shadow-lg max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT + 5 }}>
-        <DialogDescription className="sr-only">
-          {isEditMode ? 'Edit an existing dip reading.' : 'Add a new dip reading.'}
-        </DialogDescription>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold">
+            Edit Dip Reading
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Edit an existing dip reading for a fuel tank
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Depot Group *</Label>
+            <label className="text-sm font-medium">Depot Group *</label>
             {isEditMode ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700">{selectedGroup?.name || groupId}</div>
             ) : (
@@ -253,7 +257,7 @@ export default function EditDipModal({
                 <SelectTrigger>
                   <SelectValue placeholder="Select depot group" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[1200]">
                   {groups.map(group => (
                     <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
                   ))}
@@ -262,7 +266,7 @@ export default function EditDipModal({
             )}
           </div>
           <div className="space-y-2">
-            <Label>Tank *</Label>
+            <label className="text-sm font-medium">Tank *</label>
             {isEditMode ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700">{selectedTank?.location || tankId}</div>
             ) : (
@@ -270,7 +274,7 @@ export default function EditDipModal({
                 <SelectTrigger>
                   <SelectValue placeholder="Select tank" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[1200]">
                   {tanks.filter(t => t.group_id === groupId).map(tank => (
                     <SelectItem key={tank.id} value={tank.id}>{tank.location}</SelectItem>
                   ))}
@@ -278,13 +282,20 @@ export default function EditDipModal({
               </Select>
             )}
           </div>
+          {/* Subgroup read-only in edit mode if present */}
+          {isEditMode && selectedTank?.subgroup && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sub-group</label>
+              <div className="px-3 py-2 bg-gray-100 rounded text-gray-700">{selectedTank.subgroup}</div>
+            </div>
+          )}
           <div className="space-y-2">
-            <Label>Date *</Label>
+            <label className="text-sm font-medium">Date *</label>
             <Select value={selectedDate} onValueChange={setSelectedDate} required disabled={!tankId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select date" />
               </SelectTrigger>
-              <SelectContent className="z-[1100]">
+              <SelectContent className="z-[1200]">
                 {availableDips.map(dip => (
                   <SelectItem key={dip.created_at} value={dip.created_at}>{formatDate(dip.created_at)}</SelectItem>
                 ))}
@@ -292,7 +303,7 @@ export default function EditDipModal({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Dip Reading (litres) *</Label>
+            <label className="text-sm font-medium">Dip Reading (litres) *</label>
             <Input
               type="number"
               value={dipValue}

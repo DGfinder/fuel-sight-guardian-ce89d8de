@@ -17,6 +17,8 @@ export default function SwanTransitPage() {
   const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
   const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [editDipModalOpen, setEditDipModalOpen] = useState(false);
+  const [editDipTank, setEditDipTank] = useState(null);
 
   useEffect(() => {
     const getSession = async () => {
@@ -32,23 +34,8 @@ export default function SwanTransitPage() {
     };
   }, []);
 
-  // Filter tanks to only Swan Transit
   const swanTanks = (tanks || []).filter(t => t.group_name === SWAN_TRANSIT_GROUP_NAME);
   const selectedTank = swanTanks.find(t => t.id === selectedTankId) || null;
-
-  // Mock chart data for 30-day trend
-  const chartData = {
-    labels: Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`),
-    datasets: [
-      {
-        label: 'Fuel Level (L)',
-        data: Array.from({ length: 30 }, () => Math.floor(Math.random() * 30000) + 10000),
-        borderColor: '#008457',
-        backgroundColor: 'rgba(0,132,87,0.1)',
-        tension: 0.3,
-      },
-    ],
-  };
 
   return (
     <AppLayout selectedGroup={SWAN_TRANSIT_GROUP_NAME} onGroupSelect={() => {}}>
@@ -78,11 +65,12 @@ export default function SwanTransitPage() {
                   setSelectedTankId(tank.id);
                   setTankDetailsOpen(true);
                 }}
+                setEditDipTank={setEditDipTank}
+                setEditDipModalOpen={setEditDipModalOpen}
               />
             </div>
           </section>
 
-          {/* Tank Details Modal */}
           <TankDetailsModal
             tank={selectedTank}
             open={tankDetailsOpen}

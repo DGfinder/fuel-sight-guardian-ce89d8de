@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
@@ -41,19 +40,13 @@ export function useTankHistory({ tankId, enabled = true, days = 30 }: UseTankHis
       
       console.log(`Fetched ${data?.length || 0} dip readings for tank ${tankId}`);
       
-      // Map to the expected DipReading format
-      return (data || []).map((reading: HistoryDipReading) => ({
+      return (data || []).map((reading: any) => ({
+        ...reading,
         id: reading.id,
-        tankId: reading.tank_id,
         tank_id: reading.tank_id,
-        reading: reading.value,
         value: reading.value,
-        timestamp: reading.created_at,
         created_at: reading.created_at,
-        recorded_at: reading.created_at,
-        recordedBy: reading.recorded_by,
         recorded_by: reading.recorded_by,
-        notes: reading.notes
       }));
     },
     enabled: enabled && !!tankId,

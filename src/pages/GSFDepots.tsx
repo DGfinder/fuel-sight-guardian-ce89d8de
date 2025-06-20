@@ -35,23 +35,8 @@ export default function GSFDepotsPage() {
     };
   }, []);
 
-  // Filter tanks to only GSF Depots
   const gsfDepotsTanks = (tanks || []).filter(t => t.group_name === GSF_DEPOTS_GROUP_NAME);
   const selectedTank = gsfDepotsTanks.find(t => t.id === selectedTankId) || null;
-
-  // Mock chart data for 30-day trend
-  const chartData = {
-    labels: Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`),
-    datasets: [
-      {
-        label: 'Fuel Level (L)',
-        data: Array.from({ length: 30 }, () => Math.floor(Math.random() * 30000) + 10000),
-        borderColor: '#008457',
-        backgroundColor: 'rgba(0,132,87,0.1)',
-        tension: 0.3,
-      },
-    ],
-  };
 
   return (
     <AppLayout selectedGroup={GSF_DEPOTS_GROUP_NAME} onGroupSelect={() => {}}>
@@ -78,20 +63,16 @@ export default function GSFDepotsPage() {
               setEditDipModalOpen={setEditDipModalOpen}
             />
 
-            {/* Tank Details Modal */}
             <TankDetailsModal
               tank={selectedTank}
               open={tankDetailsOpen}
               onOpenChange={setTankDetailsOpen}
             />
+            
             <EditDipModal
-              isOpen={editDipModalOpen && !!editDipTank}
-              onClose={() => {
-                setEditDipModalOpen(false);
-                setEditDipTank(null);
-              }}
-              initialGroupId={editDipTank?.group_id || ''}
-              initialTankId={editDipTank?.id || ''}
+              isOpen={editDipModalOpen}
+              onClose={() => setEditDipModalOpen(false)}
+              initialTankId={editDipTank?.id}
             />
           </div>
         </div>

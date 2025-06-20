@@ -64,6 +64,7 @@ import {
 import AddDipModal from '@/components/modals/AddDipModal';
 import { Z_INDEX } from '@/lib/z-index';
 import { ModalErrorBoundary } from '@/components/ModalErrorBoundary';
+import EditDipModal from '@/components/modals/EditDipModal';
 
 // Register Chart.js components
 ChartJS.register(
@@ -91,6 +92,7 @@ export function TankDetailsModal({
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
   const [freshTank, setFreshTank] = useState<Tank | null>(tank);
   const [loadingFreshTank, setLoadingFreshTank] = useState(false);
+  const [isEditDipOpen, setIsEditDipOpen] = useState(false);
 
   // Reset AddDipModal state when main modal closes
   useEffect(() => {
@@ -110,11 +112,10 @@ export function TankDetailsModal({
   const dipHistoryQuery = useTankHistory({
     tankId: tank?.id,
     enabled: open && !!tank?.id,
-    days: 30, // Fetch last 30 days of history
+    days: 30,
   });
   const dipHistory = dipHistoryQuery.data || [];
 
-  // Refetch data when modal is opened or tank changes
   useEffect(() => {
     if (open && tank?.id) {
       dipHistoryQuery.refetch();
@@ -137,19 +138,15 @@ export function TankDetailsModal({
       }
     }
     fetchTank();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tank?.id]);
 
   if (!freshTank) return null;
 
-  // -- Data Processing for Chart --
-  // Sort dipHistory by date ascending for proper consumption calculation
   const sortedDipHistory = [...dipHistory].sort((a, b) => 
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
   const last30Dips = sortedDipHistory.slice(-30);
 
-  // Volume chart with min level reference
   const volumeChartData: ChartData<'line'> = {
     labels:
       last30Dips.length > 0
@@ -162,20 +159,19 @@ export function TankDetailsModal({
           last30Dips.length > 0
             ? last30Dips.map((d: DipReading) => d.value)
             : [0],
-        borderColor: '#10b981', // emerald-500
+        borderColor: '#10b981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         fill: true,
         tension: 0.4,
         pointBorderWidth: 2,
         pointHoverRadius: 6,
       },
-      // Add minimum level reference line
       ...(freshTank.min_level
         ? [
             {
               label: 'Minimum Level',
               data: Array(last30Dips.length || 1).fill(freshTank.min_level),
-              borderColor: '#ef4444', // red-500
+              borderColor: '#ef4444',
               borderDash: [5, 5],
               pointRadius: 0,
               fill: false,
@@ -186,7 +182,6 @@ export function TankDetailsModal({
     ],
   };
 
-  // Calculate daily burn rates for burn rate chart
   const burnRateData = [];
   const burnRateLabels = [];
   
@@ -195,11 +190,11 @@ export function TankDetailsModal({
     const previous = last30Dips[i - 1];
     const daysDiff = (new Date(current.created_at).getTime() - new Date(previous.created_at).getTime()) / (1000 * 60 * 60 * 24);
     
-    if (daysDiff > 0 && daysDiff <= 7) { // Only calculate for reasonable time differences
+    if (daysDiff > 0 && daysDiff <= 7) {
       const volumeDiff = previous.value - current.value;
       const dailyBurnRate = volumeDiff / daysDiff;
       
-      if (dailyBurnRate > 0) { // Only positive burn rates (consumption)
+      if (dailyBurnRate > 0) {
         burnRateData.push(dailyBurnRate);
         burnRateLabels.push(format(new Date(current.created_at), 'MMM d'));
       }
@@ -618,10 +613,16 @@ export function TankDetailsModal({
                         
                         <Button
                         onClick={() => {
-                          console.log('Add Dip button clicked, freshTank:', freshTank);
+                          console.log('=== ADD DIP BUTTON CLICKED ===');
+                          console.log('tank prop:', tank);
+                          console.log('tank?.id:', tank?.id);
+                          console.log('tank?.group_id:', tank?.group_id);
+                          console.log('freshTank:', freshTank);
+                          console.log('freshTank?.id:', freshTank?.id);
+                          console.log('freshTank?.group_id:', freshTank?.group_id);
                           setIsDipFormOpen(true);
                         }}
-                        className="w-full border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-2-blue-400"
+                        className="w-full border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-blue-400"
                       >
                         <Droplets className="w-4 h-4 mr-2" />
                         Add New Dip Reading
@@ -994,20 +995,21 @@ export function TankDetailsModal({
       {isDipFormOpen && (
         <AddDipModal
           open={isDipFormOpen}
-          onOpenChange={(open) => {
-            console.log('AddDipModal onOpenChange:', open);
-            setIsDipFormOpen(open);
-            // Don't close the TankDetailsModal when AddDipModal closes
-          }}
-          initialGroupId={freshTank?.group_id || ""}
-          initialTankId={freshTank?.id || ""}
+          onOpenChange={setIsDipFormOpen}
+          initialTankId={freshTank?.id}
+          initialGroupId={freshTank?.group_id}
           onSubmit={async () => {
-            console.log('AddDipModal submitted');
-            // AddDipModal will handle its own closing
-            // Tank data will be refreshed automatically via React Query
+            // This is a dummy function to satisfy the prop type.
+            // The modal handles its own submission.
           }}
         />
       )}
+      <EditDipModal
+        isOpen={isEditDipOpen}
+        onClose={() => setIsEditDipOpen(false)}
+        initialTankId={freshTank?.id}
+        initialGroupId={freshTank?.group_id}
+      />
     </>
   );
 }
