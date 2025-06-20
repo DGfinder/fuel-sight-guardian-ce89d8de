@@ -26,6 +26,7 @@ import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import AddDipModal from '@/components/modals/AddDipModal';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useTanks } from "@/hooks/useTanks";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface TankCount {
@@ -81,41 +82,45 @@ export const Sidebar: React.FC = () => {
   const [addDipModalOpen, setAddDipModalOpen] = useState(false);
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
+  const { tanks, isLoading: tanksLoading } = useTanks();
 
   const { data: tankCounts } = useQuery<TankCount>({
     queryKey: ['tankCounts', permissions?.userId],
     queryFn: async () => {
-      const { count } = await supabase
-        .from('fuel_tanks')
+      if (!permissions) return { total: 0, critical: 0, warning: 0 };
+
+      let query = supabase
+        .from('tanks_with_rolling_avg')
         .select('id', { count: 'exact', head: true });
+
+      if (!permissions.isAdmin && permissions.accessibleGroups.length > 0) {
+        const groupIds = permissions.accessibleGroups.map(g => g.id);
+        query = query.in('group_id', groupIds);
+      }
+
+      const { count } = await query;
         
       return {
         total: count || 0,
-        critical: 0,
-        warning: 0
+        critical: 0, // Placeholder
+        warning: 0, // Placeholder
       };
     },
-    enabled: !!permissions?.userId
+    enabled: !!permissions,
   });
 
   const navItems = useMemo(() => {
     if (!permissions) return [];
-
     const accessibleGroups = new Set(permissions.accessibleGroups.map(g => g.name));
-
     return ALL_NAV_ITEMS.filter(item => {
-      // Admins see everything
       if (permissions.isAdmin) return true;
-      // Non-group items are visible to everyone
       if (!item.group) return true;
-      // Group-specific items require permission
       return accessibleGroups.has(item.group);
     }).map(item => ({
       ...item,
       badge: item.badge === 'totalTanks' ? tankCounts?.total : null
     }));
   }, [permissions, tankCounts]);
-
 
   useEffect(() => {
     const handleResize = () => {
@@ -140,7 +145,7 @@ export const Sidebar: React.FC = () => {
     window.location.href = '/login';
   };
 
-  if (permissionsLoading) {
+  if (permissionsLoading || tanksLoading) {
     return <SidebarSkeleton />;
   }
   
@@ -249,12 +254,11 @@ export const Sidebar: React.FC = () => {
             className="flex items-center gap-1 text-white hover:text-[#FEDF19] transition-colors"
           >
             <Settings className="w-5 h-5" />
-            Settings
+            <span className="font-semibold">Settings</span>
           </Link>
           <button
             onClick={handleLogout}
-            className="ml-4 text-white hover:text-[#FEDF19] text-sm font-medium transition-colors"
-            aria-label="Logout"
+            className="flex items-center gap-1 text-white hover:text-[#FEDF19] transition-colors"
           >
             Logout
           </button>
@@ -272,11 +276,10 @@ export const Sidebar: React.FC = () => {
 
       {/* Add Dip Modal */}
       <AddDipModal
-        open={addDipModalOpen}
-        onOpenChange={setAddDipModalOpen}
-        onSubmit={() => {
-          // The modal handles its own logic, just need to close it
-          setAddDipModalOpen(false);
+        isOpen={addDipModalOpen}
+        onClose={() => setAddDipModalOpen(false)}
+        onDipAdded={() => {
+          // This is where a refresh/invalidation would happen
         }}
       />
     </>
