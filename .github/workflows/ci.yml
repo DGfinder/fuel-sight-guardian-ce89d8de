@@ -1,0 +1,46 @@
+# .github/workflows/ci.yml
+
+name: 'CI - Lint & Build'
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push events for the "main" branch
+  push:
+    branches: [ "main" ]
+  # Triggers the workflow on pull request events targeting the "main" branch
+  pull_request:
+    branches: [ "main" ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "lint-and-build"
+  lint-and-build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Step 1: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Sets up a specific version of Node.js for the job to use
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Using a modern, stable version of Node.js
+          cache: 'npm' # Enables caching of npm dependencies
+
+      # Step 3: Installs project dependencies using 'npm ci' for a clean, reliable install
+      - name: Install dependencies
+        run: npm ci
+
+      # Step 4: Runs the ESLint command to check code quality
+      # This step will show linting issues but won't fail the build
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: true
+
+      # Step 5: Runs the build command to make sure the project can be compiled for production
+      - name: Build project
+        run: npm run build 

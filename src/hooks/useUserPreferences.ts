@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
@@ -27,6 +27,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 
 export function useUserPreferences() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {

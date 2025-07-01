@@ -2,6 +2,7 @@
  * FIXED: Replaced corrupted terminal output with proper TypeScript
  * FIXED: Added comprehensive Database type to resolve import errors
  * OPTIMIZED: Included actual table definitions used in the application
+ * UPDATED: RBAC schema migration - added user_group_permissions, removed group_id from user_roles
  * MANUAL REVIEW: Replace with actual generated types from Supabase CLI when authenticated
  */
 export type Json =
@@ -112,24 +113,35 @@ export interface Database {
       }
       user_roles: {
         Row: {
-          id: string
           user_id: string
           role: string
-          group_id: string | null
           created_at?: string
         }
         Insert: {
-          id?: string
           user_id: string
           role: string
-          group_id?: string | null
           created_at?: string
         }
         Update: {
-          id?: string
           user_id?: string
           role?: string
-          group_id?: string | null
+          created_at?: string
+        }
+      }
+      user_group_permissions: {
+        Row: {
+          user_id: string
+          group_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          group_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          group_id?: string
           created_at?: string
         }
       }

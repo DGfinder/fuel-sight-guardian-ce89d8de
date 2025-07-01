@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 export interface CreateUserRoleParams {
   email: string;
   password: string;
-  role: 'admin' | 'swan_transit' | 'gsfs_depots' | 'kalgoorlie';
+  role: 'admin' | 'manager' | 'swan_transit' | 'gsfs_depots' | 'kalgoorlie';
   groupNames: string[]; // Array of group names (e.g., ['Swan Transit'])
 }
 
@@ -44,25 +44,37 @@ export async function createUserWithRole(params: CreateUserRoleParams) {
       throw new Error(`Groups not found: ${missingGroups.join(', ')}`);
     }
 
-    // 3. Create user role entries for each group
-    const userRoles = groups.map(group => ({
+    // 3. Create user role entry (single role per user)
+    const { error: roleError } = await supabase
+      .from('user_roles')
+      .insert({
+        user_id: authData.user.id,
+        role
+      });
+
+    if (roleError) {
+      throw new Error(`Failed to create user role: ${roleError.message}`);
+    }
+
+    // 4. Create user group permissions (separate table)
+    const groupPermissions = groups.map(group => ({
       user_id: authData.user.id,
-      role,
       group_id: group.id
     }));
 
-    const { error: rolesError } = await supabase
-      .from('user_roles')
-      .insert(userRoles);
+    const { error: permissionsError } = await supabase
+      .from('user_group_permissions')
+      .insert(groupPermissions);
 
-    if (rolesError) {
-      throw new Error(`Failed to create user roles: ${rolesError.message}`);
+    if (permissionsError) {
+      throw new Error(`Failed to create user group permissions: ${permissionsError.message}`);
     }
 
     return {
       success: true,
       user: authData.user,
-      roles: userRoles
+      role,
+      groupPermissions
     };
 
   } catch (error) {
@@ -73,17 +85,29 @@ export async function createUserWithRole(params: CreateUserRoleParams) {
 
 export async function updateUserRoles(userId: string, role: string, groupNames: string[]) {
   try {
-    // 1. Delete existing roles
-    const { error: deleteError } = await supabase
+    // 1. Update the user's role (single role per user)
+    const { error: roleError } = await supabase
       .from('user_roles')
+      .upsert({
+        user_id: userId,
+        role
+      });
+
+    if (roleError) {
+      throw new Error(`Failed to update user role: ${roleError.message}`);
+    }
+
+    // 2. Delete existing group permissions
+    const { error: deleteError } = await supabase
+      .from('user_group_permissions')
       .delete()
       .eq('user_id', userId);
 
     if (deleteError) {
-      throw new Error(`Failed to delete existing roles: ${deleteError.message}`);
+      throw new Error(`Failed to delete existing group permissions: ${deleteError.message}`);
     }
 
-    // 2. Get group IDs
+    // 3. Get group IDs for new permissions
     const { data: groups, error: groupsError } = await supabase
       .from('tank_groups')
       .select('id, name')
@@ -93,22 +117,27 @@ export async function updateUserRoles(userId: string, role: string, groupNames: 
       throw new Error(`Failed to fetch groups: ${groupsError.message}`);
     }
 
-    // 3. Create new roles
-    const userRoles = groups?.map(group => ({
+    // 4. Create new group permissions
+    const groupPermissions = groups?.map(group => ({
       user_id: userId,
-      role,
       group_id: group.id
     })) || [];
 
-    const { error: insertError } = await supabase
-      .from('user_roles')
-      .insert(userRoles);
+    if (groupPermissions.length > 0) {
+      const { error: insertError } = await supabase
+        .from('user_group_permissions')
+        .insert(groupPermissions);
 
-    if (insertError) {
-      throw new Error(`Failed to create new roles: ${insertError.message}`);
+      if (insertError) {
+        throw new Error(`Failed to create new group permissions: ${insertError.message}`);
+      }
     }
 
-    return { success: true, roles: userRoles };
+    return { 
+      success: true, 
+      role,
+      groupPermissions 
+    };
   } catch (error) {
     console.error('Error updating user roles:', error);
     throw error;
@@ -116,23 +145,42 @@ export async function updateUserRoles(userId: string, role: string, groupNames: 
 }
 
 export async function getUserRoles(userId: string) {
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select(`
-      role,
-      group_id,
-      tank_groups (
-        id,
-        name
-      )
-    `)
-    .eq('user_id', userId);
+  try {
+    // 1. Get user's role
+    const { data: roleData, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .single();
 
-  if (error) {
-    throw new Error(`Failed to fetch user roles: ${error.message}`);
+    if (roleError && roleError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch user role: ${roleError.message}`);
+    }
+
+    // 2. Get user's group permissions
+    const { data: groupData, error: groupError } = await supabase
+      .from('user_group_permissions')
+      .select(`
+        group_id,
+        tank_groups (
+          id,
+          name
+        )
+      `)
+      .eq('user_id', userId);
+
+    if (groupError) {
+      throw new Error(`Failed to fetch user group permissions: ${groupError.message}`);
+    }
+
+    return {
+      role: roleData?.role || null,
+      groups: groupData?.map(g => g.tank_groups).filter(Boolean) || []
+    };
+  } catch (error) {
+    console.error('Error fetching user roles:', error);
+    throw error;
   }
-
-  return data;
 }
 
 // Real-world example usage for your specific scenarios:
@@ -150,7 +198,7 @@ await createUserWithRole({
 await createUserWithRole({
   email: 'kewdale.supervisor@company.com', 
   password: 'SecurePassword123!',
-  role: 'admin', // or create custom 'kewdale' role
+  role: 'manager', // or 'admin' for full access
   groupNames: ['Swan Transit', 'BGC']
 });
 
@@ -166,7 +214,7 @@ await createUserWithRole({
 await createUserWithRole({
   email: 'area.manager@gsf.com',
   password: 'SecurePassword123!',
-  role: 'gsfs_depots', 
+  role: 'manager', 
   groupNames: ['Narrogin', 'Kalgoorlie', 'Geraldton']
 });
 
@@ -187,6 +235,6 @@ await createUserWithRole({
 });
 
 // 7. Update existing user permissions (change access)
-await updateUserRoles('existing-user-id', 'gsfs_depots', ['Narrogin', 'Kewdale']);
+await updateUserRoles('existing-user-id', 'manager', ['Narrogin', 'Kewdale']);
 
 */

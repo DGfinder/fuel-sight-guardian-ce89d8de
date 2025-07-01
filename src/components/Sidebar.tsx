@@ -141,8 +141,22 @@ export const Sidebar: React.FC = () => {
   const handleToggle = () => setOpen((prev) => !prev);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
+    try {
+      console.log('Logging out...');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+        // Force redirect even if there's an error
+        window.location.href = '/login';
+      } else {
+        console.log('Logout successful');
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Force redirect on any error
+      window.location.href = '/login';
+    }
   };
 
   if (permissionsLoading || tanksLoading) {
@@ -276,10 +290,11 @@ export const Sidebar: React.FC = () => {
 
       {/* Add Dip Modal */}
       <AddDipModal
-        isOpen={addDipModalOpen}
-        onClose={() => setAddDipModalOpen(false)}
-        onDipAdded={() => {
+        open={addDipModalOpen}
+        onOpenChange={setAddDipModalOpen}
+        onSubmit={async (groupId, tankId, dip) => {
           // This is where a refresh/invalidation would happen
+          console.log('Dip submitted:', { groupId, tankId, dip });
         }}
       />
     </>

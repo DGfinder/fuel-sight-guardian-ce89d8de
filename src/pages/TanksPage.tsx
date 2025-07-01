@@ -102,20 +102,20 @@ export default function TanksPage() {
     return [...new Set(tanks.map(tank => tank.group_name).filter(Boolean))];
   }, [tanks]);
 
-  const getStatusColor = (percentage: number) => {
-    if (percentage <= 20) return 'bg-red-500';
+  const getStatusColor = (percentage: number | null) => {
+    if (!percentage || percentage <= 20) return 'bg-red-500';
     if (percentage <= 40) return 'bg-yellow-500';
     return 'bg-green-500';
   };
 
-  const getStatusText = (percentage: number) => {
-    if (percentage <= 20) return 'Critical';
+  const getStatusText = (percentage: number | null) => {
+    if (!percentage || percentage <= 20) return 'Critical';
     if (percentage <= 40) return 'Low';
     return 'Normal';
   };
 
-  const getStatusIcon = (percentage: number) => {
-    if (percentage <= 20) return <AlertTriangle className="w-4 h-4 text-red-600" />;
+  const getStatusIcon = (percentage: number | null) => {
+    if (!percentage || percentage <= 20) return <AlertTriangle className="w-4 h-4 text-red-600" />;
     if (percentage <= 40) return <Clock className="w-4 h-4 text-yellow-600" />;
     return <CheckCircle className="w-4 h-4 text-green-600" />;
   };
@@ -341,7 +341,7 @@ export default function TanksPage() {
                 {tank.group_name}
               </div>
               <Badge 
-                variant={tank.current_level_percent <= 20 ? "destructive" : 
+                variant={!tank.current_level_percent || tank.current_level_percent <= 20 ? "destructive" : 
                         tank.current_level_percent <= 40 ? "secondary" : "default"}
                 className="w-fit"
               >
@@ -363,7 +363,7 @@ export default function TanksPage() {
                   <div 
                     className={`h-4 rounded-full transition-all duration-1000 ease-out ${getStatusColor(tank.current_level_percent)} relative overflow-hidden`}
                     style={{ 
-                      width: `${Math.min(tank.current_level_percent, 100)}%`
+                      width: `${Math.min(tank.current_level_percent || 0, 100)}%`
                     }}
                   >
                     <div className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
@@ -371,7 +371,7 @@ export default function TanksPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="font-semibold text-gray-700">
-                    {tank.current_level_percent.toFixed(1)}% Full
+                    {tank.current_level_percent?.toFixed(1) || 'N/A'}% Full
                   </span>
                   <span className="text-gray-500">
                     Safe: {tank.safe_level?.toLocaleString()}L
@@ -394,7 +394,7 @@ export default function TanksPage() {
                   <div className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded-lg">
                     <span className="text-gray-600">Days to minimum:</span>
                     <span className={`font-bold ${tank.days_to_min_level <= 2 ? 'text-red-600' : tank.days_to_min_level <= 5 ? 'text-yellow-600' : 'text-green-600'}`}>
-                      {tank.days_to_min_level.toFixed(1)} days
+                      {tank.days_to_min_level?.toFixed(1)} days
                     </span>
                   </div>
                 )}

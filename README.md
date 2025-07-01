@@ -4,6 +4,25 @@
 
 **URL**: https://lovable.dev/projects/04eee6f6-369f-4d9e-b23b-4142d36820cf
 
+## Continuous Integration (CI)
+
+This project includes automated CI checks that run on every push to the main branch and pull request. The CI pipeline ensures code quality and build stability.
+
+### What the CI checks:
+
+1. **Linting**: Runs ESLint to check for code style and potential issues
+2. **Build**: Verifies the project can be successfully built for production
+
+### CI Status
+
+The CI pipeline will show linting warnings and errors but won't fail the build for warnings. This allows the project to continue functioning while still providing feedback on code quality issues.
+
+### Viewing CI Results
+
+- **GitHub Actions**: Go to the "Actions" tab in your GitHub repository to see CI run history
+- **Pull Requests**: CI status will be displayed on each PR
+- **Main Branch**: CI runs automatically on every push to main
+
 ## How can I edit this code?
 
 There are several ways of editing your application.

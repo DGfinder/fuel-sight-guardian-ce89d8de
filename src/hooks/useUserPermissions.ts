@@ -1,82 +1,104 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
+import { UserRole, UserPermissions } from '../types/auth';
 
-export interface UserPermissions {
-  role: 'admin' | 'swan_transit' | 'gsfs_depots' | 'kalgoorlie' | null;
-  accessibleGroups: Array<{
-    id: string;
-    name: string;
-  }>;
-  isAdmin: boolean;
-  isSingleGroup: boolean;
-  userId: string | null;
-}
+export const useUserPermissions = () => {
+  return useQuery({
+    queryKey: ['userPermissions'],
+    queryFn: async (): Promise<UserPermissions> => {
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('🔍 [RBAC DEBUG] Fetching permissions for user:', user?.id);
+      
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
+      
+      try {
+        console.log('📋 [RBAC DEBUG] Querying user_roles table...');
+        
+        // Get user role
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
 
-export function useUserPermissions() {
-  return useQuery<UserPermissions | null>({
-    queryKey: ['user-permissions'],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return null;
+        if (roleError) {
+          console.error('❌ [RBAC DEBUG] Error fetching user role:', roleError);
+          throw new Error(`Failed to fetch user role: ${roleError.message}`);
+        }
 
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
+        const role = roleData?.role as UserRole || 'user';
+
+        // Get user's accessible groups
+        const { data: groupData, error: groupError } = await supabase
+          .from('user_group_permissions')
+          .select(`
+            group_id,
+            tank_groups!inner (
+              id,
+              name
+            )
+          `)
+          .eq('user_id', user.id);
+
+        if (groupError) {
+          console.error('❌ [RBAC DEBUG] Error fetching user groups:', groupError);
+          throw new Error(`Failed to fetch user groups: ${groupError.message}`);
+        }
+
+        const accessibleGroups = groupData?.map(item => ({
+          id: item.group_id,
+          name: (item.tank_groups as any).name
+        })) || [];
+
+        console.log('✅ [RBAC DEBUG] Permissions loaded successfully:', { role, accessibleGroups });
+
+        return {
           role,
-          group_id,
-          tank_groups (
-            id,
-            name
-          )
-        `)
-        .eq('user_id', session.user.id);
-
-      if (error) {
+          accessibleGroups,
+          isAdmin: role === 'admin',
+          isManager: role === 'manager',
+          isPrivileged: ['admin', 'manager'].includes(role),
+          canManageUsers: ['admin', 'manager'].includes(role),
+          canManageGroups: ['admin', 'manager'].includes(role),
+          canViewAllTanks: ['admin', 'manager'].includes(role),
+          canEditAllTanks: ['admin', 'manager'].includes(role),
+          canDeleteTanks: role === 'admin',
+          canViewAllDips: ['admin', 'manager'].includes(role),
+          canEditAllDips: ['admin', 'manager'].includes(role),
+          canDeleteDips: role === 'admin',
+          canViewAllAlerts: ['admin', 'manager'].includes(role),
+          canAcknowledgeAlerts: ['admin', 'manager'].includes(role),
+          canManageAlerts: role === 'admin',
+        };
+      } catch (error) {
+        console.error('💥 [RBAC DEBUG] Critical error in useUserPermissions:', error);
         throw error;
       }
-
-      if (!data || data.length === 0) {
-        // User has no roles assigned - deny access
-        return {
-          role: null,
-          accessibleGroups: [],
-          isAdmin: false,
-          isSingleGroup: false,
-          userId: session.user.id
-        };
-      }
-
-      const role = data[0]?.role;
-      const accessibleGroups = data
-        .map(r => r.tank_groups)
-        .filter(Boolean)
-        .map(group => ({
-          id: group.id,
-          name: group.name
-        }));
-
-      return {
-        role,
-        accessibleGroups,
-        isAdmin: role === 'admin',
-        isSingleGroup: accessibleGroups.length === 1,
-        userId: session.user.id
-      };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    retry: 2,
   });
-}
+};
 
 export function useCanAccessTank(tankId: string | undefined) {
   const { data: permissions } = useUserPermissions();
 
   return useQuery({
-    queryKey: ['tank-access', tankId, permissions?.userId],
+    queryKey: ['tank-access', tankId],
     queryFn: async () => {
-      if (!tankId || !permissions?.userId) return false;
+      if (!tankId || !permissions) return false;
       
-      if (permissions.isAdmin) return true;
+      console.log('🔍 [TANK ACCESS DEBUG] Checking access for tank:', tankId, {
+        isAdmin: permissions.isAdmin,
+        accessibleGroups: permissions.accessibleGroups.map(g => g.name)
+      });
+      
+      if (permissions.isAdmin) {
+        console.log('✅ [TANK ACCESS DEBUG] Admin access granted');
+        return true;
+      }
 
       const { data, error } = await supabase
         .from('fuel_tanks')
@@ -84,11 +106,21 @@ export function useCanAccessTank(tankId: string | undefined) {
         .eq('id', tankId)
         .single();
 
-      if (error) return false;
+      if (error) {
+        console.error('❌ [TANK ACCESS DEBUG] Error fetching tank group:', error);
+        return false;
+      }
 
-      return permissions.accessibleGroups.some(group => group.id === data.group_id);
+      const hasAccess = permissions.accessibleGroups.some(group => group.id === data.group_id);
+      console.log('🔍 [TANK ACCESS DEBUG] Tank group check:', {
+        tankGroupId: data.group_id,
+        accessibleGroupIds: permissions.accessibleGroups.map(g => g.id),
+        hasAccess
+      });
+
+      return hasAccess;
     },
-    enabled: !!tankId && !!permissions?.userId,
+    enabled: !!tankId && !!permissions,
     staleTime: 5 * 60 * 1000,
   });
 }

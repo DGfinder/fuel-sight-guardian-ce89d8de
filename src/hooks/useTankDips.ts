@@ -5,7 +5,12 @@ export const useTankDips = (tankId: string | undefined) =>
   useQuery({
     queryKey: ['dips', tankId],
     queryFn: async () => {
-      if (!tankId) return [];
+      if (!tankId) {
+        console.log('🔍 [DIPS DEBUG] No tankId provided, returning empty array');
+        return [];
+      }
+      
+      console.log('🔍 [DIPS DEBUG] Fetching dips for tank:', tankId);
       
       const { data, error } = await supabase
         .from('dip_readings')
@@ -14,7 +19,18 @@ export const useTankDips = (tankId: string | undefined) =>
         .order('created_at', { ascending: false })
         .limit(30);
         
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [DIPS DEBUG] Error fetching dips:', error);
+        throw error;
+      }
+      
+      console.log('✅ [DIPS DEBUG] Dips fetched successfully:', {
+        tankId,
+        dipCount: data?.length || 0,
+        firstDip: data?.[0],
+        lastDip: data?.[data.length - 1]
+      });
+      
       return data ?? [];
     },
     enabled: !!tankId
