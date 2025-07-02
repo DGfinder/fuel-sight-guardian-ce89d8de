@@ -100,14 +100,23 @@ export function useTanks() {
   });
 
   useEffect(() => {
-    // Ensure we only subscribe when the user has permissions and we haven't already subscribed
-    if (!userPermissions || channelRef.current) {
+    // Always clean up existing subscription when effect re-runs
+    if (channelRef.current) {
+      console.log('Cleaning up existing subscription...');
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    // Only create new subscription if we have permissions
+    if (!userPermissions) {
       return;
     }
 
+    console.log('Creating new subscription to fuel_tanks_changes...');
+    
     // Create the channel and store it in the ref
     channelRef.current = supabase
-      .channel('fuel_tanks_changes')
+      .channel(`fuel_tanks_changes_${Date.now()}`) // Unique channel name to avoid conflicts
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'fuel_tanks' },
@@ -126,9 +135,10 @@ export function useTanks() {
         }
       });
 
-    // Cleanup function to remove the channel subscription when the component unmounts
+    // Cleanup function to remove the channel subscription when the component unmounts or effect re-runs
     return () => {
       if (channelRef.current) {
+        console.log('Cleaning up subscription on unmount/re-run...');
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
