@@ -38,11 +38,37 @@ const getIconForTank = (tank: { current_level_percent?: number | null }) => {
   return createStatusIcon('normal');
 };
 
+type MapStyle = 'light' | 'dark' | 'satellite' | 'terrain';
+
+const mapStyles = {
+  light: {
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    name: 'Light'
+  },
+  dark: {
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    name: 'Dark'
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    name: 'Satellite'
+  },
+  terrain: {
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+    name: 'Terrain'
+  }
+};
+
 export default function MapView() {
   const { tanks, isLoading } = useTanks();
   const { openModal } = useTankModal();
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [mapStyle, setMapStyle] = useState<MapStyle>('dark');
 
   // --- ADDED FOR DIAGNOSIS ---
   console.log('Data received by MapView:', tanks);
@@ -130,6 +156,17 @@ export default function MapView() {
                     <SelectItem value="normal">Normal</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={mapStyle} onValueChange={(value: MapStyle) => setMapStyle(value)}>
+                  <SelectTrigger className="w-[100px] h-8 text-xs">
+                    <SelectValue placeholder="Map Style" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                    <SelectItem value="satellite">Satellite</SelectItem>
+                    <SelectItem value="terrain">Terrain</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="flex items-center gap-4 text-xs text-blue-600">
@@ -157,8 +194,9 @@ export default function MapView() {
             style={{ height: '100%', width: '100%' }}
           >
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              key={mapStyle}
+              url={mapStyles[mapStyle].url}
+              attribution={mapStyles[mapStyle].attribution}
             />
             {/* Tank markers with coordinate data */}
             {filteredTanks?.map((tank) => (
