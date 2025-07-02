@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useUserPermissions } from './useUserPermissions';
 import { UserPermissions } from '../types/auth';
+import { realtimeManager } from '../lib/realtime-manager';
 
 export interface Tank {
   id: string;
@@ -45,7 +45,7 @@ export function useTanks() {
   const queryClient = useQueryClient();
   const { data: permissions } = useUserPermissions();
   const userPermissions = permissions as UserPermissions | null;
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const subscriberIdRef = useRef<string | null>(null);
 
   const { data: tanks, isLoading, error } = useQuery<Tank[]>({
     queryKey: ['tanks', userPermissions],
@@ -100,47 +100,26 @@ export function useTanks() {
   });
 
   useEffect(() => {
-    // Always clean up existing subscription when effect re-runs
-    if (channelRef.current) {
-      console.log('Cleaning up existing subscription...');
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
+    // Set the query client in the global manager
+    realtimeManager.setQueryClient(queryClient);
 
-    // Only create new subscription if we have permissions
+    // Only subscribe if we have permissions
     if (!userPermissions) {
       return;
     }
 
-    console.log('Creating new subscription to fuel_tanks_changes...');
-    
-    // Create the channel and store it in the ref
-    channelRef.current = supabase
-      .channel(`fuel_tanks_changes_${Date.now()}`) // Unique channel name to avoid conflicts
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'fuel_tanks' },
-        (payload) => {
-          console.log('Real-time change received!', payload);
-          // Invalidate the query to force a refetch
-          queryClient.invalidateQueries({ queryKey: ['tanks', userPermissions] });
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to fuel_tanks_changes!');
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Channel error:', err);
-        }
-      });
+    // Generate unique subscriber ID if we don't have one
+    if (!subscriberIdRef.current) {
+      subscriberIdRef.current = `useTanks_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
 
-    // Cleanup function to remove the channel subscription when the component unmounts or effect re-runs
+    // Subscribe to global real-time updates
+    realtimeManager.subscribe(subscriberIdRef.current, userPermissions);
+
+    // Cleanup function
     return () => {
-      if (channelRef.current) {
-        console.log('Cleaning up subscription on unmount/re-run...');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      if (subscriberIdRef.current) {
+        realtimeManager.unsubscribe(subscriberIdRef.current);
       }
     };
   }, [queryClient, userPermissions]);
