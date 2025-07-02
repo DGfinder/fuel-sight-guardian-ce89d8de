@@ -14,6 +14,11 @@ export interface RecentDip {
   is_refill: boolean;
 }
 
+// Define TankGroup type
+interface TankGroup {
+  name: string;
+}
+
 export function useRecentDips(limit = 30) {
   return useQuery<RecentDip[]>({
     queryKey: ['recent-dips', limit],
@@ -53,7 +58,7 @@ export function useRecentDips(limit = 30) {
       if (tanksError) throw tanksError;
 
       // Create a lookup map for tank data
-      const tankMap = new Map();
+      const tankMap = new Map<string, { id: string; location: string; product_type: string; group_id: string; tank_groups: TankGroup[] }>();
       tanksData?.forEach(tank => {
         tankMap.set(tank.id, tank);
       });
@@ -71,7 +76,7 @@ export function useRecentDips(limit = 30) {
         })
         .map(reading => {
           const tank = tankMap.get(reading.tank_id);
-          const group = tank?.tank_groups as any;
+          const group = tank?.tank_groups && Array.isArray(tank.tank_groups) && tank.tank_groups.length > 0 ? tank.tank_groups[0] : undefined;
           
           return {
             id: reading.id,

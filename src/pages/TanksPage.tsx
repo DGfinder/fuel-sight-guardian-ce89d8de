@@ -55,7 +55,7 @@ export default function TanksPage() {
   const { filteredTanks, stats } = useMemo(() => {
     if (!tanks) return { filteredTanks: [], stats: { total: 0, critical: 0, low: 0, normal: 0 } };
 
-    let filtered = tanks.filter(tank => {
+    const filtered = tanks.filter(tank => {
       const matchesSearch = tank.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            tank.group_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            tank.product_type?.toLowerCase().includes(searchTerm.toLowerCase());

@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import * as Sentry from "@sentry/react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -24,12 +25,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error to monitoring service in production
-    if (process.env.NODE_ENV === 'production') {
-      // TODO: Send to error monitoring service (Sentry, LogRocket, etc.)
-    } else {
-      console.error('Error caught by boundary:', error, errorInfo);
-    }
+    // Log the error to Sentry
+    Sentry.captureException(error, { 
+      contexts: { 
+        react: { 
+          componentStack: errorInfo.componentStack 
+        } 
+      } 
+    });
+
+    // You can still log to console for development
+    console.error('Error caught by boundary:', error, errorInfo);
   }
 
   resetError = () => {

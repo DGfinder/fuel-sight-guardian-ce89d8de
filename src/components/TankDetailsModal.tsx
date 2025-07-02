@@ -84,6 +84,17 @@ interface TankDetailsModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// Define TankDetails type
+interface TankDetails {
+  address?: string;
+  vehicle?: string;
+  discharge?: string;
+  bp_portal?: string;
+  delivery_window?: string;
+  afterhours_contact?: string;
+  notes?: string;
+}
+
 // Main Component - No React.memo
 export function TankDetailsModal({
   tank,
@@ -92,7 +103,7 @@ export function TankDetailsModal({
 }: TankDetailsModalProps) {
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
   const [isEditDipOpen, setIsEditDipOpen] = useState(false);
-  const [tankDetails, setTankDetails] = useState<any>(null);
+  const [tankDetails, setTankDetails] = useState<TankDetails | null>(null);
 
   // Reset AddDipModal state when main modal closes
   useEffect(() => {
@@ -150,7 +161,7 @@ export function TankDetailsModal({
 
   if (!tank) return null;
 
-  const sortedDipHistory = [...dipHistory].sort((a, b) => 
+  const sortedDipHistory = [...dipHistory].sort((a: DipReading, b: DipReading) => 
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
   const last30Dips = sortedDipHistory.slice(-30);
@@ -1047,8 +1058,8 @@ function EditableNotesSection({ notes: initialNotes, onSave }: { notes: string; 
       // Invalidate queries to refetch tank data
       await queryClient.invalidateQueries({ queryKey: ['tanks'] });
       await queryClient.invalidateQueries({ queryKey: ['tank', tempNotes] });
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }

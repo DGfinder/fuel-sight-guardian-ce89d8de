@@ -263,7 +263,7 @@ interface NestedGroupAccordionProps {
   onTankClick: (tank: Tank) => void;
   todayBurnRate?: number;
   sortTanks: (t: Tank[]) => Tank[];
-  SortButton: any;
+  SortButton: React.FC<{ field: string; children: React.ReactNode }>;
   setEditDipTank: React.Dispatch<React.SetStateAction<Tank | null>>;
   setEditDipModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onServicedToggle: (tankId: string, serviced: boolean) => void;

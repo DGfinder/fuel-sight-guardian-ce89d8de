@@ -109,7 +109,7 @@ export default function AddDipModal({
 
   /* ─────────── Helpers ─────────────────────────────────────────── */
   const selectedTank: Tank | undefined = tanks.find(
-    t => ((t as any).tank_id ?? t.id) === tankId
+    t => t.id === tankId
   );
 
   console.log('AddDipModal state:', { groupId, subgroup, tankId, selectedTankLocation: selectedTank?.location });
@@ -152,12 +152,12 @@ export default function AddDipModal({
       // When modal opens, set the form values
       if (initialTankId && tanks.length > 0) {
         // Find the specific tank
-        const tank = tanks.find(t => ((t as any).tank_id ?? t.id) === initialTankId);
+        const tank = tanks.find(t => t.id === initialTankId);
         if (tank) {
           console.log('Setting tank data:', tank);
           setGroupId(tank.group_id);
           setSubgroup(tank.subgroup || "");
-          setTankId((tank as any).tank_id ?? tank.id);
+          setTankId(tank.id);
         }
       } else {
         // No specific tank, use initial values
@@ -345,7 +345,7 @@ export default function AddDipModal({
                   </p>
                 )}
                 {tanksForDropdown.map(t => (
-                  <SelectItem key={String((t as any).tank_id ?? t.id)} value={String((t as any).tank_id ?? t.id)}>
+                  <SelectItem key={String(t.id)} value={String(t.id)}>
                     {t.location} {" "}
                     <span className="text-xs text-muted-foreground">
                       Safe&nbsp;{typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L
