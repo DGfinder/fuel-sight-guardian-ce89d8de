@@ -31,6 +31,11 @@ export default function MapView() {
     );
   }
 
+  // Filter tanks that have valid coordinates
+  const tanksWithCoords = tanks?.filter(
+    (tank) => tank.latitude != null && tank.longitude != null
+  );
+
   // Default center for the map (Perth, WA)
   const defaultCenter: [number, number] = [-31.9523, 115.8613];
 
@@ -47,8 +52,10 @@ export default function MapView() {
           <div className="flex">
             <div className="ml-3">
               <p className="text-sm text-blue-700">
-                <strong>Map View Ready:</strong> Tank coordinates will be displayed here once location data is added to the database.
-                Currently showing {tanks?.length || 0} tanks available for mapping.
+                <strong>Map View:</strong> {tanksWithCoords?.length || 0} tanks with coordinates displayed.
+                {tanks && tanks.length > 0 && (
+                  <span> Total tanks: {tanks.length}.</span>
+                )}
               </p>
             </div>
           </div>
@@ -65,14 +72,34 @@ export default function MapView() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
-            {/* Placeholder marker for Perth */}
-            <Marker position={defaultCenter}>
-              <Popup>
-                <b>Default Location</b><br />
-                Perth, Western Australia<br />
-                Tank markers will appear here once coordinate data is available.
-              </Popup>
-            </Marker>
+            {/* Tank markers with coordinate data */}
+            {tanksWithCoords?.map((tank) => (
+              <Marker 
+                key={tank.id} 
+                position={[Number(tank.latitude), Number(tank.longitude)]}
+              >
+                <Popup>
+                  <div className="font-medium">
+                    <b>{tank.location}</b><br />
+                    <span className="text-sm text-gray-600">
+                      {tank.product_type}<br />
+                      Level: {tank.current_level_percent?.toFixed(1)}%<br />
+                      Group: {tank.group_name}
+                    </span>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+            {/* Default marker when no tank coordinates are available */}
+            {(!tanksWithCoords || tanksWithCoords.length === 0) && (
+              <Marker position={defaultCenter}>
+                <Popup>
+                  <b>Default Location</b><br />
+                  Perth, Western Australia<br />
+                  Tank markers will appear here once coordinate data is available.
+                </Popup>
+              </Marker>
+            )}
           </MapContainer>
         </div>
       </div>

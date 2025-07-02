@@ -32,6 +32,8 @@ export interface TankRow {
   delivery_window?: string;
   afterhours_contact?: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export type Tank = TankRow;

@@ -33,6 +33,8 @@ export interface Tank {
   delivery_window?: string;
   afterhours_contact?: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
   last_dip?: {
     value: number;
     created_at: string;
@@ -87,6 +89,8 @@ export function useTanks() {
         delivery_window: tank.delivery_window,
         afterhours_contact: tank.afterhours_contact,
         notes: tank.notes,
+        latitude: tank.latitude,
+        longitude: tank.longitude,
         last_dip: (tank.last_dip_ts && tank.current_level != null) 
           ? { 
               value: tank.current_level, 
@@ -146,6 +150,8 @@ export function useTanks() {
         delivery_window: tank.delivery_window,
         afterhours_contact: tank.afterhours_contact,
         notes: tank.notes,
+        latitude: tank.latitude,
+        longitude: tank.longitude,
         last_dip: (tank.last_dip_ts && tank.current_level != null) 
           ? { 
               value: tank.current_level, 
