@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { useTanks } from '@/hooks/useTanks';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -19,6 +20,29 @@ L.Marker.prototype.options.icon = defaultIcon;
 
 export default function MapView() {
   const { tanks, isLoading, refreshTanks } = useTanks();
+  const [selectedGroup, setSelectedGroup] = useState('all');
+
+  // --- ADDED FOR DIAGNOSIS ---
+  console.log('Data received by MapView:', tanks);
+  console.log('First tank with coordinates:', tanks?.find(tank => tank.latitude && tank.longitude));
+  console.log('Tanks with lat/lng count:', tanks?.filter(tank => tank.latitude != null && tank.longitude != null).length);
+
+  const uniqueGroups = useMemo(() => {
+    if (!tanks) return [];
+    return [...new Set(tanks.map(tank => tank.group_name).filter(Boolean))];
+  }, [tanks]);
+
+  const filteredTanks = useMemo(() => {
+    if (!tanks) return [];
+    const tanksWithCoords = tanks.filter(
+      (tank) => tank.latitude != null && tank.longitude != null
+    );
+
+    if (selectedGroup === 'all') {
+      return tanksWithCoords;
+    }
+    return tanksWithCoords.filter(tank => tank.group_name === selectedGroup);
+  }, [tanks, selectedGroup]);
 
   if (isLoading) {
     return (
@@ -31,16 +55,24 @@ export default function MapView() {
     );
   }
 
-  // Filter tanks that have valid coordinates
-  const tanksWithCoords = tanks?.filter(
-    (tank) => tank.latitude != null && tank.longitude != null
-  );
-
   // Default center for the map (Perth, WA)
   const defaultCenter: [number, number] = [-31.9523, 115.8613];
 
   return (
     <div className="relative h-[calc(100vh-theme(spacing.16))] w-full">
+      <div className="absolute top-2 left-2 z-[1000] bg-white p-2 rounded shadow-lg">
+        <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by group..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Groups</SelectItem>
+            {uniqueGroups.map(group => (
+              <SelectItem key={group} value={group}>{group}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="absolute top-2 right-2 z-[1000]">
         <Button onClick={() => refreshTanks()} variant="secondary" className="shadow-lg">
           Refresh Map
@@ -52,9 +84,12 @@ export default function MapView() {
           <div className="flex">
             <div className="ml-3">
               <p className="text-sm text-blue-700">
-                <strong>Map View:</strong> {tanksWithCoords?.length || 0} tanks with coordinates displayed.
+                <strong>Map View:</strong> {filteredTanks?.length || 0} tanks with coordinates displayed.
                 {tanks && tanks.length > 0 && (
                   <span> Total tanks: {tanks.length}.</span>
+                )}
+                {selectedGroup !== 'all' && (
+                  <span> Filtered by: {selectedGroup}.</span>
                 )}
               </p>
             </div>
@@ -73,7 +108,7 @@ export default function MapView() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
             {/* Tank markers with coordinate data */}
-            {tanksWithCoords?.map((tank) => (
+            {filteredTanks?.map((tank) => (
               <Marker 
                 key={tank.id} 
                 position={[Number(tank.latitude), Number(tank.longitude)]}
@@ -91,7 +126,7 @@ export default function MapView() {
               </Marker>
             ))}
             {/* Default marker when no tank coordinates are available */}
-            {(!tanksWithCoords || tanksWithCoords.length === 0) && (
+            {(!filteredTanks || filteredTanks.length === 0) && (
               <Marker position={defaultCenter}>
                 <Popup>
                   <b>Default Location</b><br />
