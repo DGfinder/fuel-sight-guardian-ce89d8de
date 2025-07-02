@@ -20,6 +20,7 @@ import BGC from '@/pages/BGC';
 import TanksPage from '@/pages/TanksPage';
 import AlertsPage from '@/pages/AlertsPage';
 import HealthPage from '@/pages/HealthPage';
+import MapView from '@/pages/MapView';
 import { useTankModal } from './contexts/TankModalContext';
 import { TankDetailsModal } from './components/TankDetailsModal';
 import { useGlobalModals } from './contexts/GlobalModalsContext';
@@ -86,6 +87,19 @@ const App = () => {
                           onGroupSelect={setSelectedGroup}
                         >
                           <TanksPage />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/map" 
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout 
+                          selectedGroup={selectedGroup}
+                          onGroupSelect={setSelectedGroup}
+                        >
+                          <MapView />
                         </AppLayout>
                       </ProtectedRoute>
                     } 

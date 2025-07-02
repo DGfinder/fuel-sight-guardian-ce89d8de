@@ -38,6 +38,7 @@ interface TankCount {
 const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
   { path: '/tanks', label: 'Tanks', icon: TankIcon, badge: 'totalTanks', group: null },
+  { path: '/map', label: 'Map View', icon: MapPin, badge: null, group: null },
   { path: '/swan-transit', label: 'Swan Transit', icon: BusIcon, badge: null, group: 'Swan Transit' },
   { path: '/kalgoorlie', label: 'Kalgoorlie', icon: MapPinIcon, badge: null, group: 'Kalgoorlie' },
   { path: '/gsf-depots', label: 'GSF Depots', icon: Building2Icon, badge: null, group: 'GSF Depots' },
