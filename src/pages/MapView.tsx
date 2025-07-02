@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { useTanks } from '@/hooks/useTanks';
+import { Button } from '@/components/ui/button';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -17,7 +18,7 @@ const defaultIcon = new L.Icon({
 L.Marker.prototype.options.icon = defaultIcon;
 
 export default function MapView() {
-  const { tanks, isLoading } = useTanks();
+  const { tanks, isLoading, refreshTanks } = useTanks();
 
   if (isLoading) {
     return (
@@ -34,7 +35,12 @@ export default function MapView() {
   const defaultCenter: [number, number] = [-31.9523, 115.8613];
 
   return (
-    <div className="h-[calc(100vh-theme(spacing.16))] w-full">
+    <div className="relative h-[calc(100vh-theme(spacing.16))] w-full">
+      <div className="absolute top-2 right-2 z-[1000]">
+        <Button onClick={() => refreshTanks()} variant="secondary" className="shadow-lg">
+          Refresh Map
+        </Button>
+      </div>
       <div className="h-full flex flex-col">
         {/* Info banner about coordinate data */}
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">

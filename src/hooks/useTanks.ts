@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useUserPermissions, UserPermissions } from './useUserPermissions';
+import { useUserPermissions } from './useUserPermissions';
+import { UserPermissions } from '../types/auth';
 
 export interface Tank {
   id: string;
@@ -44,7 +46,7 @@ export function useTanks() {
   const userPermissions = permissions as UserPermissions | null;
 
   const { data: tanks, isLoading, error } = useQuery<Tank[]>({
-    queryKey: ['tanks', userPermissions?.userId],
+    queryKey: ['tanks', userPermissions],
     queryFn: async () => {
       let query = supabase
         .from('tanks_with_rolling_avg')
@@ -95,6 +97,29 @@ export function useTanks() {
     enabled: !!userPermissions // Only run query when permissions are loaded
   });
 
+  useEffect(() => {
+    // Ensure we only subscribe when the user has permissions
+    if (!userPermissions) return;
+
+    const channel = supabase
+      .channel('fuel_tanks_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'fuel_tanks' },
+        (payload) => {
+          console.log('Real-time change received!', payload);
+          // Invalidate the query to force a refetch
+          queryClient.invalidateQueries({ queryKey: ['tanks', userPermissions] });
+        }
+      )
+      .subscribe();
+
+    // Cleanup function to remove the channel subscription when the component unmounts
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, userPermissions]);
+
   const { mutate: refreshTanks } = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase
@@ -127,7 +152,7 @@ export function useTanks() {
       }));
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['tanks'], data);
+      queryClient.setQueryData(['tanks', userPermissions], data);
     }
   });
 
