@@ -36,10 +36,8 @@ jobs:
         run: npm ci
 
       # Step 4: Runs the ESLint command to check code quality
-      # This step will show linting issues but won't fail the build
       - name: Run linter
         run: npm run lint
-        continue-on-error: true
 
       # Step 5: Runs the build command to make sure the project can be compiled for production
       - name: Build project
