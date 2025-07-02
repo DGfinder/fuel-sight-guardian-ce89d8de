@@ -1,6 +1,6 @@
 # .github/workflows/ci.yml
 
-name: 'CI - Lint & Build'
+name: 'CI - Lint, Scan & Build'
 
 # Controls when the workflow will run
 on:
@@ -43,4 +43,17 @@ jobs:
 
       # Step 5: Runs the build command to make sure the project can be compiled for production
       - name: Build project
-        run: npm run build 
+        run: npm run build
+
+  security-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all history for a deeper scan
+      - name: Perform Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

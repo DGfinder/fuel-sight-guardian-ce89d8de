@@ -2,13 +2,16 @@ import { supabase } from '../lib/supabase';
 
 export interface CreateUserRoleParams {
   email: string;
-  password: string;
   role: 'admin' | 'manager' | 'swan_transit' | 'gsfs_depots' | 'kalgoorlie';
   groupNames: string[]; // Array of group names (e.g., ['Swan Transit'])
 }
 
 export async function createUserWithRole(params: CreateUserRoleParams) {
-  const { email, password, role, groupNames } = params;
+  const { email, role, groupNames } = params;
+  const password = process.env.VITE_DEFAULT_USER_PASSWORD;
+  if (!password) {
+    throw new Error('VITE_DEFAULT_USER_PASSWORD environment variable is not set.');
+  }
 
   try {
     // 1. Create the user account
