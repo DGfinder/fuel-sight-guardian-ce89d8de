@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { UserPermissions } from '../types/auth';
 
 class RealtimeManager {
   private static instance: RealtimeManager;
@@ -21,7 +22,7 @@ class RealtimeManager {
     this.queryClient = queryClient;
   }
 
-  subscribe(subscriberId: string, userPermissions: any) {
+  subscribe(subscriberId: string, userPermissions: UserPermissions) {
     // Add this subscriber to the set
     this.subscribers.add(subscriberId);
     
