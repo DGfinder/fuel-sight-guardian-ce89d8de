@@ -5,52 +5,71 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Fix for default Leaflet icon path issue with bundlers like Vite
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+const defaultIcon = new L.Icon({
+    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
 });
+L.Marker.prototype.options.icon = defaultIcon;
 
 export default function MapView() {
   const { tanks, isLoading } = useTanks();
 
   if (isLoading) {
-    return <div>Loading map and tank locations...</div>;
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-theme(spacing.16))]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p>Loading map and tank locations...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Filter tanks that have valid coordinates
-  const tanksWithCoords = tanks?.filter(
-    (tank) => tank.latitude != null && tank.longitude != null
-  );
-
-  // Default center for the map if no tanks have coordinates
-  const defaultCenter: [number, number] = [-31.9523, 115.8613]; // Perth, WA
+  // Default center for the map (Perth, WA)
+  const defaultCenter: [number, number] = [-31.9523, 115.8613];
 
   return (
     <div className="h-[calc(100vh-theme(spacing.16))] w-full">
-      <MapContainer 
-        center={defaultCenter} 
-        zoom={7} 
-        style={{ height: '100%', width: '100%' }}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        {tanksWithCoords?.map((tank) => (
-          <Marker 
-            key={tank.id} 
-            position={[Number(tank.latitude), Number(tank.longitude)]}
+      <div className="h-full flex flex-col">
+        {/* Info banner about coordinate data */}
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+          <div className="flex">
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                <strong>Map View Ready:</strong> Tank coordinates will be displayed here once location data is added to the database.
+                Currently showing {tanks?.length || 0} tanks available for mapping.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Map container */}
+        <div className="flex-1">
+          <MapContainer 
+            center={defaultCenter} 
+            zoom={7} 
+            style={{ height: '100%', width: '100%' }}
           >
-            <Popup>
-              <b>{tank.location}</b><br />
-              {tank.product_type}<br />
-              Level: {tank.current_level_percent?.toFixed(1)}%
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+            {/* Placeholder marker for Perth */}
+            <Marker position={defaultCenter}>
+              <Popup>
+                <b>Default Location</b><br />
+                Perth, Western Australia<br />
+                Tank markers will appear here once coordinate data is available.
+              </Popup>
+            </Marker>
+          </MapContainer>
+        </div>
+      </div>
     </div>
   );
 } 
