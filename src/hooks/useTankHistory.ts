@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { DipReading } from '@/types/fuel';
 
 interface HistoryDipReading {
   id: string;
@@ -40,7 +41,7 @@ export function useTankHistory({ tankId, enabled = true, days = 30 }: UseTankHis
       
       console.log(`Fetched ${data?.length || 0} dip readings for tank ${tankId}`);
       
-      return (data || []).map((reading: any) => ({
+      return (data || []).map((reading: DipReading) => ({
         ...reading,
         id: reading.id,
         tank_id: reading.tank_id,

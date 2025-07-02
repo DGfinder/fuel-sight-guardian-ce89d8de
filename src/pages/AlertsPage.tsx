@@ -6,6 +6,8 @@ import { AlertTriangle, CheckCircle, Clock, MapPin } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from 'date-fns';
 
+type AlertVariant = 'destructive' | 'secondary' | 'default';
+
 export default function AlertsPage() {
   const { alerts, isLoading, error } = useAlerts();
 
@@ -37,7 +39,7 @@ export default function AlertsPage() {
     }
   };
 
-  const getAlertVariant = (type: string) => {
+  const getAlertVariant = (type: string): AlertVariant => {
     switch (type) {
       case 'critical':
         return 'destructive';
@@ -86,7 +88,7 @@ export default function AlertsPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-gray-900">{alert.message}</h3>
-                          <Badge variant={getAlertVariant(alert.type) as any}>
+                          <Badge variant={getAlertVariant(alert.type)}>
                             {alert.type.toUpperCase()}
                           </Badge>
                         </div>

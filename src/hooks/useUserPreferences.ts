@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { User } from '@supabase/supabase-js';
 
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
@@ -28,7 +29,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 export function useUserPreferences() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const getSession = async () => {

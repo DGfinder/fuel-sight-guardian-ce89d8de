@@ -85,7 +85,7 @@ export const Sidebar: React.FC = () => {
   const { tanks, isLoading: tanksLoading } = useTanks();
 
   const { data: tankCounts } = useQuery<TankCount>({
-    queryKey: ['tankCounts', permissions?.userId],
+    queryKey: ['tankCounts'],
     queryFn: async () => {
       if (!permissions) return { total: 0, critical: 0, warning: 0 };
 
@@ -135,7 +135,6 @@ export const Sidebar: React.FC = () => {
   // Close sidebar on route change if mobile
   useEffect(() => {
     if (isMobile) setOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isMobile]);
 
   const handleToggle = () => setOpen((prev) => !prev);

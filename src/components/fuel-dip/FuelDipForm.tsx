@@ -27,7 +27,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { isAfter } from "date-fns/isAfter";
-import { isValid } from "date-fns/isValid";
+import { isValid as isValidDate } from "date-fns/isValid";
 import { parseISO } from "date-fns/parseISO";
 
 //--------------------------------------------------
@@ -123,7 +123,7 @@ export function FuelDipForm({
     if (dateValue && (!selectedDate || format(selectedDate, "yyyy-MM-dd") !== dateValue)) {
       setSelectedDate(parseISO(dateValue));
     }
-  }, [dateValue]);
+  }, [dateValue, selectedDate]);
 
   //------------------------------------------------
   // Fetch groups once
@@ -260,12 +260,12 @@ export function FuelDipForm({
   useEffect(() => {
     if (readOnly) return;
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user) {
+      if (data.session?.user?.email) {
         setUser({ email: data.session.user.email });
       }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s?.user) {
+      if (s?.user?.email) {
         setUser({ email: s.user.email });
       }
     });
@@ -343,7 +343,7 @@ export function FuelDipForm({
               className={"w-full justify-start text-left font-normal" + (errors.date ? " border-red-500" : "")}
               onClick={() => setCalendarOpen(true)}
             >
-              {selectedDate && isValid(selectedDate)
+              {selectedDate && isValidDate(selectedDate)
                 ? format(selectedDate, "yyyy-MM-dd")
                 : <span className="text-muted-foreground">Pick a date</span>}
             </Button>

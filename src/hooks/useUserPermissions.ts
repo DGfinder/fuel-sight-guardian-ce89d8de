@@ -2,6 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { UserRole, UserPermissions } from '../types/auth';
 
+interface TankGroup {
+  id: string;
+  name: string;
+}
+
 export const useUserPermissions = () => {
   return useQuery({
     queryKey: ['userPermissions'],
@@ -49,7 +54,7 @@ export const useUserPermissions = () => {
 
         const accessibleGroups = groupData?.map(item => ({
           id: item.group_id,
-          name: (item.tank_groups as any).name
+          name: (item.tank_groups as unknown as TankGroup).name
         })) || [];
 
         console.log('✅ [RBAC DEBUG] Permissions loaded successfully:', { role, accessibleGroups });

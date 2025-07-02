@@ -157,7 +157,7 @@ export function TankDetailsModal({
     if (open && tank?.id) {
       dipHistoryQuery.refetch();
     }
-  }, [open, tank?.id, dipHistoryQuery.refetch]);
+  }, [open, tank?.id, dipHistoryQuery]);
 
   if (!tank) return null;
 
@@ -416,68 +416,46 @@ export function TankDetailsModal({
   };
 
   // Alerts rendering logic
-  const renderAlert = (alert) => {
-    const config = ALERT_TYPE_CONFIG[alert.type] || {};
-    const Icon = config.icon || AlertCircle;
-    const isSnoozed = alert.snoozed_until && new Date(alert.snoozed_until) > new Date();
-    const isAcknowledged = !!alert.acknowledged_at;
-    
+  const renderAlert = (alert: TankAlert) => {
+    const getAlertIcon = () => {
+      switch (alert.type) {
+        case 'critical':
+          return <AlertTriangle className="w-4 h-4 text-red-600" />;
+        case 'low_level':
+          return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
+        default:
+          return <Clock className="w-4 h-4 text-blue-600" />;
+      }
+    };
+
+    const getAlertColor = () => {
+      switch (alert.type) {
+        case 'critical':
+          return 'border-red-200 bg-red-50';
+        case 'low_level':
+          return 'border-yellow-200 bg-yellow-50';
+        default:
+          return 'border-blue-200 bg-blue-50';
+      }
+    };
+
     return (
-      <div
-        key={alert.id}
-        className={`group flex items-start gap-4 p-4 rounded-xl border transition-all duration-200 hover:shadow-md ${
-          config.borderColor || 'border-gray-200'
-        } ${config.bgColor || 'bg-gray-50'} ${
-          (isSnoozed || isAcknowledged) ? 'opacity-60' : ''
-        }`}
-      >
-        <div className={`p-2 rounded-lg ${config.bgColor || 'bg-gray-100'}`}>
-          <Icon className={`w-5 h-5 ${config.color || 'text-gray-500'}`} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className={`${config.color || ''} font-medium`}>
-                  {config.label || alert.type}
-                </Badge>
-                {isSnoozed && (
-                  <Badge variant="outline" className="text-gray-500 bg-gray-50">
-                    <BellOff className="w-3 h-3 mr-1" /> Snoozed
-                  </Badge>
-                )}
-                {isAcknowledged && (
-                  <Badge variant="outline" className="text-green-600 bg-green-50">
-                    <CheckCircle className="w-3 h-3 mr-1" /> Acknowledged
-                  </Badge>
-                )}
-              </div>
-              <p className="font-medium text-gray-900 mb-1">{alert.message}</p>
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Calendar className="w-4 h-4" />
-                {format(new Date(alert.created_at), 'MMM d, HH:mm')}
-              </div>
-            </div>
-            {!isAcknowledged && !isSnoozed && (
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => acknowledgeAlert(alert.id)}
-                  className="hover:bg-green-50 hover:text-green-600 hover:border-green-200"
-                >
-                  <CheckCircle className="w-4 h-4 mr-1" /> Acknowledge
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => snoozeAlert(alert.id)}
-                  className="hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
-                >
-                  <Clock className="w-4 h-4 mr-1" /> Snooze
-                </Button>
-              </div>
-            )}
+      <div key={alert.id} className={`p-3 border rounded-lg ${getAlertColor()}`}>
+        <div className="flex items-start gap-2">
+          {getAlertIcon()}
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-900">{alert.message}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {format(new Date(alert.created_at), 'MMM d, HH:mm')}
+            </p>
+          </div>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" onClick={() => acknowledgeAlert(alert.id)}>
+              <CheckCircle className="w-3 h-3" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => snoozeAlert(alert.id)}>
+              <Clock className="w-3 h-3" />
+            </Button>
           </div>
         </div>
       </div>
