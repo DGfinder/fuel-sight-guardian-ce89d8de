@@ -21,6 +21,7 @@ import TanksPage from '@/pages/TanksPage';
 import AlertsPage from '@/pages/AlertsPage';
 import HealthPage from '@/pages/HealthPage';
 import MapView from '@/pages/MapView';
+import PerformancePage from '@/pages/PerformancePage';
 import { useTankModal } from './contexts/TankModalContext';
 import { TankDetailsModal } from './components/TankDetailsModal';
 import { useGlobalModals } from './contexts/GlobalModalsContext';
@@ -100,6 +101,19 @@ const App = () => {
                           onGroupSelect={setSelectedGroup}
                         >
                           <MapView />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/performance" 
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <AppLayout 
+                          selectedGroup={selectedGroup}
+                          onGroupSelect={setSelectedGroup}
+                        >
+                          <PerformancePage />
                         </AppLayout>
                       </ProtectedRoute>
                     } 

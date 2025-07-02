@@ -17,7 +17,8 @@ import {
   ChevronRightIcon,
   BusIcon,
   MapPinIcon,
-  Building2Icon
+  Building2Icon,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
@@ -112,8 +113,22 @@ export const Sidebar: React.FC = () => {
 
   const navItems = useMemo(() => {
     if (!permissions) return [];
+
+    const allItems = [...ALL_NAV_ITEMS];
+
+    // Add admin-only Performance page
+    if (permissions.isAdmin) {
+      allItems.push({
+        path: '/performance',
+        label: 'Performance',
+        icon: TrendingUp,
+        badge: null,
+        group: null
+      });
+    }
+
     const accessibleGroups = new Set(permissions.accessibleGroups.map(g => g.name));
-    return ALL_NAV_ITEMS.filter(item => {
+    return allItems.filter(item => {
       if (permissions.isAdmin) return true;
       if (!item.group) return true;
       return accessibleGroups.has(item.group);
