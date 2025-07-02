@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useUserPermissions } from './useUserPermissions';
 import { UserPermissions } from '../types/auth';
@@ -44,6 +45,7 @@ export function useTanks() {
   const queryClient = useQueryClient();
   const { data: permissions } = useUserPermissions();
   const userPermissions = permissions as UserPermissions | null;
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const { data: tanks, isLoading, error } = useQuery<Tank[]>({
     queryKey: ['tanks', userPermissions],
@@ -98,10 +100,13 @@ export function useTanks() {
   });
 
   useEffect(() => {
-    // Ensure we only subscribe when the user has permissions
-    if (!userPermissions) return;
+    // Ensure we only subscribe when the user has permissions and we haven't already subscribed
+    if (!userPermissions || channelRef.current) {
+      return;
+    }
 
-    const channel = supabase
+    // Create the channel and store it in the ref
+    channelRef.current = supabase
       .channel('fuel_tanks_changes')
       .on(
         'postgres_changes',
@@ -112,11 +117,21 @@ export function useTanks() {
           queryClient.invalidateQueries({ queryKey: ['tanks', userPermissions] });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to fuel_tanks_changes!');
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Channel error:', err);
+        }
+      });
 
     // Cleanup function to remove the channel subscription when the component unmounts
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [queryClient, userPermissions]);
 
