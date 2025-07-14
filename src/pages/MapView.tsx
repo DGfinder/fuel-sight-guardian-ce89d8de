@@ -944,9 +944,10 @@ export default function MapView() {
                     </Button>
                   </ControlBar>
                 </Stack>
-              </CardContent>
-            </Card>
-          </Container>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Container>
           
           {/* Advanced Filters Panel */}
           {showAdvancedFilters && (
@@ -1044,7 +1045,7 @@ export default function MapView() {
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-fuel-normal"></div>
-                        <span className="hidden sm:inline">Normal (>40%)</span>
+                        <span className="hidden sm:inline">Normal (&gt;40%)</span>
                         <span className="sm:hidden">Normal</span>
                       </div>
                       {userLocation && (
@@ -1214,7 +1215,6 @@ export default function MapView() {
                 </Card>
               </Container>
             )}
-          </div>
         </div>
 
         {/* Map container */}
@@ -1324,4 +1324,4 @@ export default function MapView() {
       </div>
     </div>
   );
-} 
+}; 
