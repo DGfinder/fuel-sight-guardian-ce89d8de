@@ -197,6 +197,27 @@ export function TankDetailsModal({
         tension: 0.4,
         pointBorderWidth: 2,
         pointHoverRadius: 6,
+        pointBackgroundColor: last30Dips.length > 0 
+          ? last30Dips.map((d: DipReading) => {
+              const value = typeof d.value === 'number' && isFinite(d.value) ? d.value : 0;
+              const minLevel = tank?.min_level || 0;
+              return value <= minLevel ? '#dc2626' : '#10b981'; // Red for below min, green for above
+            })
+          : ['#10b981'],
+        pointBorderColor: last30Dips.length > 0 
+          ? last30Dips.map((d: DipReading) => {
+              const value = typeof d.value === 'number' && isFinite(d.value) ? d.value : 0;
+              const minLevel = tank?.min_level || 0;
+              return value <= minLevel ? '#dc2626' : '#10b981';
+            })
+          : ['#10b981'],
+        pointRadius: last30Dips.length > 0 
+          ? last30Dips.map((d: DipReading) => {
+              const value = typeof d.value === 'number' && isFinite(d.value) ? d.value : 0;
+              const minLevel = tank?.min_level || 0;
+              return value <= minLevel ? 6 : 4; // Larger points for critical readings
+            })
+          : [4],
       },
       ...(tank?.min_level
         ? [
@@ -259,6 +280,15 @@ export function TankDetailsModal({
         tension: 0.4,
         pointBorderWidth: 2,
         pointHoverRadius: 6,
+        pointBackgroundColor: burnRateData.length > 0 && tank?.rolling_avg
+          ? burnRateData.map(rate => rate > tank.rolling_avg * 1.5 ? '#dc2626' : '#f59e0b') // Red for high consumption
+          : ['#f59e0b'],
+        pointBorderColor: burnRateData.length > 0 && tank?.rolling_avg
+          ? burnRateData.map(rate => rate > tank.rolling_avg * 1.5 ? '#dc2626' : '#f59e0b')
+          : ['#f59e0b'],
+        pointRadius: burnRateData.length > 0 && tank?.rolling_avg
+          ? burnRateData.map(rate => rate > tank.rolling_avg * 1.5 ? 6 : 4) // Larger points for high consumption
+          : [4],
       },
       // Add average burn rate reference line
       ...(tank?.rolling_avg
@@ -297,6 +327,15 @@ export function TankDetailsModal({
         bodyColor: '#ffffff',
         cornerRadius: 8,
         padding: 12,
+        callbacks: {
+          afterLabel: function(context) {
+            if (context.datasetIndex === 0 && tank?.safe_level) {
+              const percentage = (context.parsed.y / tank.safe_level) * 100;
+              return `Tank Level: ${percentage.toFixed(1)}% of capacity`;
+            }
+            return '';
+          }
+        }
       },
     },
     scales: {
@@ -313,8 +352,9 @@ export function TankDetailsModal({
       y: {
         title: {
           display: true,
-          text: 'Volume (L)',
-          font: { size: 12, weight: 'bold' },
+          text: 'Volume (L) - Percentage calculated from 0% (empty) to 100% (full)',
+          font: { size: 11, weight: 'bold' },
+          color: '#374151',
         },
         beginAtZero: false,
         grid: {
@@ -622,9 +662,12 @@ export function TankDetailsModal({
                             className="h-2 mb-2"
                           />
                           <div className="flex justify-between text-xs text-blue-600">
-                            <span>0 L</span>
-                            <span>{Math.round(tankStatus.percentage)}%</span>
-                            <span>{typeof tank.safe_level === 'number' ? tank.safe_level.toLocaleString() : 'N/A'} L</span>
+                            <span>0 L (Empty)</span>
+                            <span className="bg-blue-100 px-2 py-1 rounded font-medium">{Math.round(tankStatus.percentage)}% of full capacity</span>
+                            <span>{typeof tank.safe_level === 'number' ? tank.safe_level.toLocaleString() : 'N/A'} L (Full)</span>
+                          </div>
+                          <div className="text-xs text-center text-blue-600 mt-2 italic">
+                            Percentage calculated from 0% (empty tank) to 100% (full capacity)
                           </div>
                         </div>
                         
@@ -726,6 +769,16 @@ export function TankDetailsModal({
                         </Badge>
                       )}
                     </CardTitle>
+                    <div className="text-sm text-gray-600 mt-2">
+                      {latestReading ? (
+                        <span>Latest reading: <strong>{format(new Date(latestReading.created_at), 'MMM d, yyyy HH:mm')}</strong> - {latestReading.value?.toLocaleString() || 'N/A'}L</span>
+                      ) : (
+                        <span>No recent readings available</span>
+                      )}
+                      {tank.current_level_percent && (
+                        <span className="ml-4 text-blue-700">• Current: <strong>{tank.current_level_percent.toFixed(1)}% of tank capacity</strong></span>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="h-64 relative">
@@ -758,6 +811,14 @@ export function TankDetailsModal({
                         </Badge>
                       )}
                     </CardTitle>
+                    <div className="text-sm text-gray-600 mt-2">
+                      {burnRateData.length > 0 ? (
+                        <span>Latest consumption: <strong>{burnRateData[burnRateData.length - 1]?.toFixed(1) || 'N/A'}L/day</strong></span>
+                      ) : (
+                        <span>Insufficient data for consumption calculation</span>
+                      )}
+                      <span className="ml-4 text-orange-700">• Percentage is calculated from 0% (empty) to 100% (full capacity)</span>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="h-64 relative">

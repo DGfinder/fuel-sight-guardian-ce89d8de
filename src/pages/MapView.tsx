@@ -55,7 +55,7 @@ const getIconForTank = (tank: { current_level_percent?: number | null }) => {
 
 function MapView() {
   const { tanks, isLoading } = useTanks();
-  const { openTankModal } = useTankModal();
+  const { openModal } = useTankModal();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -396,7 +396,7 @@ function MapView() {
                         <Popup>
                           <TankMapPopup 
                             tank={tank} 
-                            onViewDetails={openTankModal}
+                            onViewDetails={openModal}
                           />
                         </Popup>
                       </Marker>
