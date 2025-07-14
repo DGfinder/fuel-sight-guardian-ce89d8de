@@ -201,13 +201,17 @@ export function TankDetailsModal({
       ...(tank?.min_level
         ? [
             {
-              label: 'Minimum Level',
+              label: 'Minimum Level Threshold',
               data: Array(last30Dips.length || 1).fill(tank.min_level),
-              borderColor: '#ef4444',
-              borderDash: [5, 5],
+              borderColor: '#dc2626', // fuel-critical-600
+              backgroundColor: 'rgba(220, 38, 38, 0.1)', // fuel-critical with transparency
+              borderDash: [8, 4],
+              borderWidth: 3,
               pointRadius: 0,
               fill: false,
               tension: 0,
+              pointHoverRadius: 0,
+              pointHitRadius: 0,
             },
           ]
         : []),
@@ -649,7 +653,7 @@ export function TankDetailsModal({
                           console.log('tank?.group_id:', tank?.group_id);
                           setIsDipFormOpen(true);
                         }}
-                        className="w-full border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-blue-400"
+                        className="w-full bg-primary hover:bg-primary/90 text-white font-semibold shadow-sm focus:ring-2 focus:ring-primary/50"
                       >
                         <Droplets className="w-4 h-4 mr-2" />
                         Add New Dip Reading
@@ -778,7 +782,7 @@ export function TankDetailsModal({
                 <div className="flex justify-center">
                   <Button 
                     onClick={() => setIsDipFormOpen(true)}
-                    variant="outline"
+                    className="bg-primary hover:bg-primary/90 text-white font-semibold"
                     size="sm"
                   >
                     <Droplets className="w-4 h-4 mr-2" />
@@ -882,7 +886,7 @@ export function TankDetailsModal({
                         </p>
                         <Button
                           onClick={() => setIsDipFormOpen(true)}
-                          className="mt-4 border-2 border-blue-500 text-blue-700 font-semibold shadow-sm hover:bg-blue-50 focus:ring-2 focus:ring-blue-400"
+                          className="mt-4 bg-primary hover:bg-primary/90 text-white font-semibold shadow-sm focus:ring-2 focus:ring-primary/50"
                         >
                           <Droplets className="w-4 h-4 mr-2" />
                           Add New Dip Reading

@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Container, Stack, Inline, ControlBar, StatusPanel } from '@/components/ui/layout';
 import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -802,366 +804,415 @@ export default function MapView() {
   return (
     <div className="relative h-[calc(100vh-theme(spacing.16))] w-full print:h-auto print:max-w-full">
       <div className="h-full flex flex-col print:h-auto">
-        {/* Enhanced Info banner with filters */}
-        <div className="bg-blue-50 border-l-4 border-blue-400 p-3 md:p-4 mb-4 print:hidden">
-          {/* Mobile-first responsive layout */}
-          <div className="space-y-3 md:space-y-0 md:flex md:items-center md:justify-between">
-            {/* Tank count and filters */}
-            <div className="space-y-3 md:space-y-0 md:flex md:items-center md:gap-4">
-              <div className="text-sm text-blue-700 font-medium">
-                <strong>Map View:</strong> {filteredTanks?.length || 0} tanks displayed
-                {tanks && tanks.length > 0 && (
-                  <span className="text-blue-600"> of {tanks.length} total</span>
-                )}
-                {lastRefresh && (
-                  <div className="text-xs text-blue-600 mt-1">
-                    <Clock className="h-3 w-3 inline mr-1" />
-                    Last updated: {lastRefresh.toLocaleTimeString()}
-                  </div>
-                )}
-              </div>
-              
-              {/* Search bar */}
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Search tanks by name, location, or group..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-10 h-9 text-sm"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              
-              {/* Filter controls - responsive grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-5 lg:grid-cols-7 md:flex gap-2">
-                <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                  <SelectTrigger className="w-full md:w-[140px] h-9 md:h-8 text-sm md:text-xs">
-                    <SelectValue placeholder="All Groups" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Groups</SelectItem>
-                    {uniqueGroups.map(group => (
-                      <SelectItem key={group} value={group}>{group}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-[120px] h-9 md:h-8 text-sm md:text-xs">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Select value={mapStyle} onValueChange={handleMapStyleChange}>
-                  <SelectTrigger className="w-full md:w-[100px] h-9 md:h-8 text-sm md:text-xs">
-                    <SelectValue placeholder="Map Style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="satellite">Satellite</SelectItem>
-                    <SelectItem value="terrain">Terrain</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Button
-                  variant={enableClustering ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setEnableClustering(!enableClustering)}
-                  className="h-9 md:h-8 text-sm md:text-xs whitespace-nowrap"
-                >
-                  {enableClustering ? "Clustered" : "Individual"}
-                </Button>
-                
-                <Button
-                  variant={showHeatMap ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setShowHeatMap(!showHeatMap)}
-                  className="h-9 md:h-8 text-sm md:text-xs whitespace-nowrap"
-                >
-                  <Layers className="h-3 w-3 mr-1" />
-                  {showHeatMap ? "Heat Map" : "Heat Map"}
-                </Button>
-                
-                <Button
-                  variant={autoRefresh ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setAutoRefresh(!autoRefresh)}
-                  className="h-9 md:h-8 text-sm md:text-xs whitespace-nowrap"
-                >
-                  <RefreshCw className={`h-3 w-3 mr-1 ${autoRefresh ? 'animate-spin' : ''}`} />
-                  Auto
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleManualRefresh}
-                  className="h-9 md:h-8 text-sm md:text-xs whitespace-nowrap"
-                >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  Refresh
-                </Button>
-                
-                <Button
-                  variant={showAdvancedFilters ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className="h-9 md:h-8 text-sm md:text-xs whitespace-nowrap"
-                >
-                  <Filter className="h-3 w-3 mr-1" />
-                  Advanced
-                </Button>
-              </div>
-            </div>
-            
-            {/* Advanced Filters Panel */}
-            {showAdvancedFilters && (
-              <div className="bg-gray-50 border-l-4 border-gray-400 p-3">
-                <div className="text-sm font-medium text-gray-700 mb-3">
-                  <Filter className="h-4 w-4 inline mr-1" />
-                  Advanced Filters
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {/* Date Range Filter */}
+        {/* Header Section */}
+        <Container className="mb-4 print:hidden">
+          <Card className="border-l-4 border-primary bg-primary/5">
+            <CardContent className="py-4">
+              <Stack spacing="lg">
+                {/* Header Info */}
+                <Inline justify="between" align="center" className="flex-wrap">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Last Reading Date Range</label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="date"
-                        value={dateRange.from}
-                        onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
-                        className="h-8 text-xs"
-                        placeholder="From"
-                      />
-                      <Input
-                        type="date"
-                        value={dateRange.to}
-                        onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
-                        className="h-8 text-xs"
-                        placeholder="To"
-                      />
+                    <h1 className="text-lg font-semibold text-gray-900 mb-1">
+                      Fuel Tank Map View
+                    </h1>
+                    <div className="text-sm text-gray-700">
+                      <strong>{filteredTanks?.length || 0} tanks displayed</strong>
+                      {tanks && tanks.length > 0 && (
+                        <span className="text-gray-600 ml-2">of {tanks.length} total</span>
+                      )}
+                      {lastRefresh && (
+                        <div className="text-xs text-gray-600 mt-1 flex items-center">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Last updated: {lastRefresh.toLocaleTimeString()}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  {/* Alert Status Filter */}
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Alert Status</label>
-                    <Select value={alertStatusFilter} onValueChange={setAlertStatusFilter}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="All Alerts" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Tanks</SelectItem>
-                        <SelectItem value="has_alerts">Has Alerts</SelectItem>
-                        <SelectItem value="no_alerts">No Alerts</SelectItem>
-                        <SelectItem value="critical_alerts">Critical Alerts</SelectItem>
-                        <SelectItem value="low_fuel_alerts">Low Fuel Alerts</SelectItem>
-                        <SelectItem value="delivery_alerts">Delivery Alerts</SelectItem>
-                      </SelectContent>
-                    </Select>
+                </Inline>
+                
+                {/* Search & Primary Filters */}
+                <Stack spacing="md">
+                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    {/* Search bar */}
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <Input
+                        placeholder="Search tanks by name, location, or group..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-10 h-9 text-sm"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Primary Filters */}
+                    <Inline spacing="sm" className="flex-wrap">
+                      <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                        <SelectTrigger className="w-[140px] h-9 text-sm">
+                          <SelectValue placeholder="All Groups" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Groups</SelectItem>
+                          {uniqueGroups.map(group => (
+                            <SelectItem key={group} value={group}>{group}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[120px] h-9 text-sm">
+                          <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <Select value={mapStyle} onValueChange={handleMapStyleChange}>
+                        <SelectTrigger className="w-[100px] h-9 text-sm">
+                          <SelectValue placeholder="Map Style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="light">Light</SelectItem>
+                          <SelectItem value="dark">Dark</SelectItem>
+                          <SelectItem value="satellite">Satellite</SelectItem>
+                          <SelectItem value="terrain">Terrain</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Inline>
                   </div>
                   
-                  {/* Clear Filters */}
-                  <div className="flex items-end">
+                  {/* Map Controls */}
+                  <ControlBar position="left" className="bg-transparent border-0 py-2">
+                    <Button
+                      variant={enableClustering ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setEnableClustering(!enableClustering)}
+                      className="h-8 text-sm whitespace-nowrap"
+                    >
+                      {enableClustering ? "Clustered" : "Individual"}
+                    </Button>
+                    
+                    <Button
+                      variant={showHeatMap ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setShowHeatMap(!showHeatMap)}
+                      className="h-8 text-sm whitespace-nowrap"
+                    >
+                      <Layers className="h-3 w-3 mr-1" />
+                      Heat Map
+                    </Button>
+                    
+                    <Button
+                      variant={autoRefresh ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAutoRefresh(!autoRefresh)}
+                      className="h-8 text-sm whitespace-nowrap"
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-1 ${autoRefresh ? 'animate-spin' : ''}`} />
+                      Auto
+                    </Button>
+                    
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setDateRange({ from: '', to: '' });
-                        setAlertStatusFilter('all');
-                        setSelectedGroup('all');
-                        setStatusFilter('all');
-                        setSearchQuery('');
-                      }}
-                      className="h-8 text-xs"
+                      onClick={handleManualRefresh}
+                      className="h-8 text-sm whitespace-nowrap"
                     >
-                      <X className="h-3 w-3 mr-1" />
-                      Clear All
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Refresh
                     </Button>
+                    
+                    <Button
+                      variant={showAdvancedFilters ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                      className="h-8 text-sm whitespace-nowrap"
+                    >
+                      <Filter className="h-3 w-3 mr-1" />
+                      Advanced
+                    </Button>
+                  </ControlBar>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Container>
+          
+          {/* Advanced Filters Panel */}
+          {showAdvancedFilters && (
+            <Container className="mb-4">
+              <Card className="border-l-4 border-gray-400 bg-gray-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-700 flex items-center">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Advanced Filters
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Date Range Filter */}
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-2">Last Reading Date Range</label>
+                      <Inline spacing="sm">
+                        <Input
+                          type="date"
+                          value={dateRange.from}
+                          onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
+                          className="h-8 text-xs"
+                          placeholder="From"
+                        />
+                        <Input
+                          type="date"
+                          value={dateRange.to}
+                          onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+                          className="h-8 text-xs"
+                          placeholder="To"
+                        />
+                      </Inline>
+                    </div>
+                    
+                    {/* Alert Status Filter */}
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-2">Alert Status</label>
+                      <Select value={alertStatusFilter} onValueChange={setAlertStatusFilter}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="All Alerts" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Tanks</SelectItem>
+                          <SelectItem value="has_alerts">Has Alerts</SelectItem>
+                          <SelectItem value="no_alerts">No Alerts</SelectItem>
+                          <SelectItem value="critical_alerts">Critical Alerts</SelectItem>
+                          <SelectItem value="low_fuel_alerts">Low Fuel Alerts</SelectItem>
+                          <SelectItem value="delivery_alerts">Delivery Alerts</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Clear Filters */}
+                    <div className="flex items-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setDateRange({ from: '', to: '' });
+                          setAlertStatusFilter('all');
+                          setSelectedGroup('all');
+                          setStatusFilter('all');
+                          setSearchQuery('');
+                        }}
+                        className="h-8 text-xs"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Clear All
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Legend and controls */}
-            <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
-              <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs text-blue-600">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-fuel-critical"></div>
-                  <span className="hidden sm:inline">Critical (≤20%)</span>
-                  <span className="sm:hidden">Critical</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-fuel-low"></div>
-                  <span className="hidden sm:inline">Low (21-40%)</span>
-                  <span className="sm:hidden">Low</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-fuel-normal"></div>
-                  <span className="hidden sm:inline">Normal (&gt;40%)</span>
-                  <span className="sm:hidden">Normal</span>
-                </div>
-                {userLocation && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-primary"></div>
-                    <span className="hidden sm:inline">My Location</span>
-                    <span className="sm:hidden">Me</span>
+                </CardContent>
+              </Card>
+            </Container>
+          )}
+          
+          {/* Legend Section */}
+          <Container className="mb-4">
+            <StatusPanel variant="default" className="bg-white">
+              <CardContent className="py-3">
+                <Inline justify="between" align="center" className="flex-wrap gap-4">
+                  {/* Status Legend */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Tank Status Legend</h3>
+                    <Inline spacing="lg" className="flex-wrap text-xs text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-fuel-critical"></div>
+                        <span className="hidden sm:inline">Critical (≤20%)</span>
+                        <span className="sm:hidden">Critical</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-fuel-low"></div>
+                        <span className="hidden sm:inline">Low (21-40%)</span>
+                        <span className="sm:hidden">Low</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-fuel-normal"></div>
+                        <span className="hidden sm:inline">Normal (>40%)</span>
+                        <span className="sm:hidden">Normal</span>
+                      </div>
+                      {userLocation && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-primary"></div>
+                          <span className="hidden sm:inline">My Location</span>
+                          <span className="sm:hidden">Me</span>
+                        </div>
+                      )}
+                    </Inline>
                   </div>
-                )}
-              </div>
-              
-              {/* Control buttons */}
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleFindMyLocation}
-                  className="h-8 text-xs"
-                >
-                  <Navigation className="h-3 w-3 mr-1" />
-                  Find Me
-                </Button>
-                
-                <Button
-                  variant={measurementMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setMeasurementMode(!measurementMode)}
-                  className="h-8 text-xs"
-                >
-                  <Ruler className="h-3 w-3 mr-1" />
-                  Measure
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrintMap}
-                  className="h-8 text-xs"
-                >
-                  <Printer className="h-3 w-3 mr-1" />
-                  Print
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportPDF}
-                  className="h-8 text-xs"
-                >
-                  <FileText className="h-3 w-3 mr-1" />
-                  PDF
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportTanks}
-                  disabled={!filteredTanks?.length}
-                  className="h-8 text-xs"
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  CSV
-                </Button>
-                
-                <Button
-                  variant={showRouteMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setShowRouteMode(!showRouteMode);
-                    if (showRouteMode) {
-                      clearRoute();
-                    }
-                  }}
-                  className="h-8 text-xs"
-                >
-                  <Route className="h-3 w-3 mr-1" />
-                  Route
-                </Button>
-              </div>
-            </div>
+                  
+                  {/* Action Controls */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Map Tools</h3>
+                    <ControlBar position="left" className="bg-transparent border-0 py-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleFindMyLocation}
+                        className="h-8 text-xs"
+                      >
+                        <Navigation className="h-3 w-3 mr-1" />
+                        Find Me
+                      </Button>
+                      
+                      <Button
+                        variant={measurementMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setMeasurementMode(!measurementMode)}
+                        className="h-8 text-xs"
+                      >
+                        <Ruler className="h-3 w-3 mr-1" />
+                        Measure
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrintMap}
+                        className="h-8 text-xs"
+                      >
+                        <Printer className="h-3 w-3 mr-1" />
+                        Print
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportPDF}
+                        className="h-8 text-xs"
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        PDF
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportTanks}
+                        disabled={!filteredTanks?.length}
+                        className="h-8 text-xs"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        CSV
+                      </Button>
+                      
+                      <Button
+                        variant={showRouteMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          setShowRouteMode(!showRouteMode);
+                          if (showRouteMode) {
+                            clearRoute();
+                          }
+                        }}
+                        className="h-8 text-xs"
+                      >
+                        <Route className="h-3 w-3 mr-1" />
+                        Route
+                      </Button>
+                    </ControlBar>
+                  </div>
+                </Inline>
+              </CardContent>
+            </StatusPanel>
+          </Container>
             
             {/* Location error message */}
             {locationError && (
-              <div className="bg-red-50 border-l-4 border-red-400 p-2 text-sm text-red-700">
-                <AlertTriangle className="h-4 w-4 inline mr-1" />
-                {locationError}
-              </div>
+              <Container className="mb-4">
+                <StatusPanel variant="critical">
+                  <CardContent className="py-3">
+                    <div className="text-sm text-fuel-critical flex items-center">
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      {locationError}
+                    </div>
+                  </CardContent>
+                </StatusPanel>
+              </Container>
             )}
             
             {/* Measurement results */}
             {measurementMode && measurements.length > 0 && (
-              <div className="bg-green-50 border-l-4 border-green-400 p-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-green-700 font-medium">
-                    <Ruler className="h-4 w-4 inline mr-1" />
-                    Measurements:
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearMeasurements}
-                    className="h-6 text-xs"
-                  >
-                    Clear
-                  </Button>
-                </div>
-                <div className="mt-1 text-xs text-green-600">
-                  {measurements.map((measurement, index) => (
-                    <div key={index}>{measurement}</div>
-                  ))}
-                </div>
-              </div>
+              <Container className="mb-4">
+                <StatusPanel variant="success">
+                  <CardContent className="py-3">
+                    <Inline justify="between" align="center">
+                      <div className="text-sm text-fuel-normal font-medium flex items-center">
+                        <Ruler className="h-4 w-4 mr-2" />
+                        Measurements:
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearMeasurements}
+                        className="h-7 text-xs"
+                      >
+                        Clear
+                      </Button>
+                    </Inline>
+                    <div className="mt-2 text-xs text-fuel-normal">
+                      {measurements.map((measurement, index) => (
+                        <div key={index}>{measurement}</div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </StatusPanel>
+              </Container>
             )}
             
             {/* Route optimization panel */}
             {showRouteMode && (
-              <div className="bg-purple-50 border-l-4 border-purple-400 p-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-purple-700 font-medium">
-                    <Route className="h-4 w-4 inline mr-1" />
-                    Route Planning: {selectedTanks.length} tanks selected
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={generateOptimizedRoute}
-                      disabled={selectedTanks.length < 2}
-                      className="h-6 text-xs"
-                    >
-                      Optimize
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearRoute}
-                      className="h-6 text-xs"
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-                <div className="mt-1 text-xs text-purple-600">
-                  Click on tank markers to select them for route planning. 
-                  {userLocation && ' Your current location will be used as the starting point.'}
-                </div>
-              </div>
+              <Container className="mb-4">
+                <Card className="border-l-4 border-secondary bg-secondary/10">
+                  <CardContent className="py-3">
+                    <Inline justify="between" align="center" className="mb-2">
+                      <div className="text-sm text-gray-700 font-medium flex items-center">
+                        <Route className="h-4 w-4 mr-2" />
+                        Route Planning: {selectedTanks.length} tanks selected
+                      </div>
+                      <Inline spacing="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={generateOptimizedRoute}
+                          disabled={selectedTanks.length < 2}
+                          className="h-7 text-xs"
+                        >
+                          Optimize
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearRoute}
+                          className="h-7 text-xs"
+                        >
+                          Clear
+                        </Button>
+                      </Inline>
+                    </Inline>
+                    <div className="text-xs text-gray-600">
+                      Click on tank markers to select them for route planning. 
+                      {userLocation && ' Your current location will be used as the starting point.'}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Container>
             )}
           </div>
         </div>
