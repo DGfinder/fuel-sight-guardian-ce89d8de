@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container, Stack, Inline, ControlBar, StatusPanel } from '@/components/ui/layout';
+import { TankMapPopup } from '@/components/TankMapPopup';
 import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -391,18 +392,12 @@ function MapView() {
                         key={tank.id}
                         position={[tank.latitude!, tank.longitude!]}
                         icon={getIconForTank(tank)}
-                        eventHandlers={{
-                          click: () => openTankModal(tank),
-                        }}
                       >
                         <Popup>
-                          <div className="p-2">
-                            <h3 className="font-semibold">{tank.location}</h3>
-                            <p className="text-sm text-gray-600">{tank.group_name}</p>
-                            <p className="text-sm">
-                              Level: {tank.current_level_percent?.toFixed(1) || 'N/A'}%
-                            </p>
-                          </div>
+                          <TankMapPopup 
+                            tank={tank} 
+                            onViewDetails={openTankModal}
+                          />
                         </Popup>
                       </Marker>
                     ))
