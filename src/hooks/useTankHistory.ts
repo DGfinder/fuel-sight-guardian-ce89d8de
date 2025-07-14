@@ -41,13 +41,13 @@ export function useTankHistory({ tankId, enabled = true, days = 30 }: UseTankHis
       
       console.log(`Fetched ${data?.length || 0} dip readings for tank ${tankId}`);
       
-      return (data || []).map((reading: DipReading) => ({
-        ...reading,
+      return (data || []).map((reading: HistoryDipReading): DipReading => ({
         id: reading.id,
         tank_id: reading.tank_id,
         value: reading.value,
         created_at: reading.created_at,
         recorded_by: reading.recorded_by,
+        notes: reading.notes,
       }));
     },
     enabled: enabled && !!tankId,

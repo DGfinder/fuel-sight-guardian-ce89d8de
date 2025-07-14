@@ -107,17 +107,9 @@ export function TankDetailsModal({
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
   const [isEditDipOpen, setIsEditDipOpen] = useState(false);
   const [tankDetails, setTankDetails] = useState<TankDetails | null>(null);
-  const modalContentRef = useRef<HTMLDivElement>(null);
-
-  // Mobile gesture support
-  const { attachListeners } = useModalGestures(() => onOpenChange(false));
-
-  // Attach gesture listeners to modal content
-  useEffect(() => {
-    if (modalContentRef.current && open) {
-      return attachListeners(modalContentRef.current);
-    }
-  }, [attachListeners, open]);
+  // TODO: Re-enable mobile gesture support after fixing ref compatibility
+  // const modalContentRef = useRef<HTMLDivElement>(null);
+  // const { attachListeners } = useModalGestures(() => onOpenChange(false));
 
   // Reset AddDipModal state when main modal closes
   useEffect(() => {
@@ -165,7 +157,7 @@ export function TankDetailsModal({
     enabled: open && !!tank?.id,
     days: 30,
   });
-  const dipHistory = dipHistoryQuery.data || [];
+  const dipHistory = useMemo(() => dipHistoryQuery.data || [], [dipHistoryQuery.data]);
 
   useEffect(() => {
     if (open && tank?.id) {
@@ -174,26 +166,30 @@ export function TankDetailsModal({
   }, [open, tank?.id, dipHistoryQuery]);
 
   const sortedDipHistory = useMemo(() => 
-    [...dipHistory].sort((a: DipReading, b: DipReading) => 
+    dipHistory.sort((a: DipReading, b: DipReading) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     )
   , [dipHistory]);
   
   const last30Dips = useMemo(() => sortedDipHistory.slice(-30), [sortedDipHistory]);
 
-  if (!tank) return null;
-
   const volumeChartData: ChartData<'line'> = useMemo(() => ({
     labels:
       last30Dips.length > 0
-        ? last30Dips.map((d: DipReading) => format(new Date(d.created_at), 'MMM d'))
+        ? last30Dips.map((d: DipReading) => {
+            try {
+              return format(new Date(d.created_at), 'MMM d');
+            } catch (e) {
+              return 'Invalid Date';
+            }
+          })
         : ['No Data'],
     datasets: [
       {
         label: 'Volume (L)',
         data:
           last30Dips.length > 0
-            ? last30Dips.map((d: DipReading) => d.value)
+            ? last30Dips.map((d: DipReading) => typeof d.value === 'number' && isFinite(d.value) ? d.value : 0)
             : [0],
         borderColor: '#10b981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -202,7 +198,7 @@ export function TankDetailsModal({
         pointBorderWidth: 2,
         pointHoverRadius: 6,
       },
-      ...(tank.min_level
+      ...(tank?.min_level
         ? [
             {
               label: 'Minimum Level',
@@ -216,7 +212,7 @@ export function TankDetailsModal({
           ]
         : []),
     ],
-  }), [last30Dips, tank.min_level]);
+  }), [last30Dips, tank?.min_level]);
 
   const { burnRateData, burnRateLabels } = useMemo(() => {
     const data: number[] = [];
@@ -227,13 +223,19 @@ export function TankDetailsModal({
       const previous = last30Dips[i - 1];
       const daysDiff = (new Date(current.created_at).getTime() - new Date(previous.created_at).getTime()) / (1000 * 60 * 60 * 24);
       
-      if (daysDiff > 0 && daysDiff <= 7) {
+      if (daysDiff > 0 && daysDiff <= 7 && 
+          typeof previous.value === 'number' && 
+          typeof current.value === 'number') {
         const volumeDiff = previous.value - current.value;
         const dailyBurnRate = volumeDiff / daysDiff;
         
-        if (dailyBurnRate > 0) {
+        if (dailyBurnRate > 0 && isFinite(dailyBurnRate)) {
           data.push(dailyBurnRate);
-          labels.push(format(new Date(current.created_at), 'MMM d'));
+          try {
+            labels.push(format(new Date(current.created_at), 'MMM d'));
+          } catch (e) {
+            labels.push('Invalid Date');
+          }
         }
       }
     }
@@ -255,7 +257,7 @@ export function TankDetailsModal({
         pointHoverRadius: 6,
       },
       // Add average burn rate reference line
-      ...(tank.rolling_avg
+      ...(tank?.rolling_avg
         ? [
             {
               label: 'Average Burn Rate',
@@ -269,7 +271,7 @@ export function TankDetailsModal({
           ]
         : []),
     ],
-  }), [burnRateData, burnRateLabels, tank.rolling_avg]);
+  }), [burnRateData, burnRateLabels, tank?.rolling_avg]);
 
   const volumeChartOptions: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
@@ -377,6 +379,9 @@ export function TankDetailsModal({
       mode: 'index',
     },
   }), []);
+
+  // Early return if no tank - must be after all hooks
+  if (!tank) return null;
 
   // -- Depot Notes Logic --
   const depotNotes = 'No notes available.';
@@ -487,8 +492,7 @@ export function TankDetailsModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-          ref={modalContentRef}
-          className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border touch-manipulation" 
+          className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border" 
           style={{ zIndex: Z_INDEX.MODAL_CONTENT }}
         >
           <DialogDescription className="sr-only">
