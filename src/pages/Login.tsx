@@ -5,11 +5,10 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/lib/supabase';
 import logo from '@/assets/logo.png';
 import { useQueryClient } from '@tanstack/react-query';
+import { semanticColors } from '@/lib/design-tokens';
+import TruckHeroSection from '@/components/TruckHeroSection';
 
 // Custom theme matching the design spec
-// Import design tokens
-import { semanticColors } from '@/lib/design-tokens';
-
 const customTheme = {
   default: {
     colors: {
@@ -39,75 +38,78 @@ export default function Login() {
   }, [navigate, queryClient]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#fdfdfd]">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-        {/* Main Content */}
-        <div className="w-full flex items-center justify-center px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="relative w-[450px] h-[482px] flex flex-col items-center justify-center mx-auto" style={{maxWidth:'100%'}}>
-            {/* Top Left Shapes (visible and overlapping card) */}
-            <div className="hidden md:block" style={{position:'absolute', width:'150px', height:'150px', left:'-60px', top:'-40px', border:'1px solid rgb(var(--color-primary) / 0.16)', borderRadius:'20px', boxSizing:'border-box', zIndex:1}}></div>
-            <div className="hidden md:block" style={{position:'absolute', width:'200px', height:'200px', left:'-90px', top:'20px', background:'rgb(var(--color-primary) / 0.08)', borderRadius:'10px', zIndex:0}}></div>
-            {/* Bottom Right Shapes (visible and overlapping card) */}
-            <div className="hidden md:block" style={{position:'absolute', width:'180px', height:'180px', right:'-60px', bottom:'-40px', border:'2px dashed rgb(var(--color-primary) / 0.16)', borderRadius:'20px', boxSizing:'border-box', zIndex:1}}></div>
-            <div className="hidden md:block" style={{position:'absolute', width:'135px', height:'135px', right:'-30px', bottom:'-20px', background:'rgb(var(--color-primary) / 0.08)', borderRadius:'10px', zIndex:0}}></div>
+    <div className="min-h-screen flex">
+      {/* Left Side - Login Form */}
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-100 relative overflow-hidden animate-slide-in-left">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-[#008457]/10 to-[#FEDF19]/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-[#FEDF19]/10 to-[#008457]/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+        </div>
 
-            {/* Card Content */}
-            <div className="w-full h-full bg-white shadow-md rounded-[6px] flex flex-col items-center p-8 gap-6 z-10">
-              {/* Logo and Title Section */}
-              <div className="text-center space-y-3 w-full">
+        {/* Login Card */}
+        <div className="relative z-10 w-full max-w-md px-6">
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-8 transform transition-all duration-500 hover:shadow-3xl">
+            {/* Logo and Title */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#008457] to-[#006b47] rounded-2xl mb-4 shadow-lg">
                 <img 
                   src={logo} 
                   alt="Great Southern Fuels Logo" 
-                  className="w-[186px] h-16 mx-auto"
+                  className="w-12 h-12 object-contain filter brightness-0 invert"
                 />
-                <h1 className="text-[22px] font-bold text-gray-900 font-raleway leading-[30px]" style={{fontFamily: 'Raleway, sans-serif', textShadow: '0px 4px 4px rgba(0,0,0,0.25)'}}>TankAlert</h1>
-                <p className="text-[15px] text-gray-600 font-montserrat leading-[22px]" style={{fontFamily: 'Montserrat, sans-serif'}}>Real-time Fuel Monitoring by Great Southern Fuels</p>
               </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">TankAlert</h1>
+              <p className="text-gray-600 text-sm">Real-time Fuel Monitoring</p>
+              <p className="text-[#008457] text-xs font-medium mt-1">Great Southern Fuels</p>
+            </div>
 
-              {/* Auth UI Component */}
-              <Auth
-                supabaseClient={supabase}
-                appearance={{
-                  theme: customTheme,
-                  className: {
-                    container: 'w-full',
-                    button: 'w-full bg-primary text-white font-bold tracking-wide rounded-md hover:bg-primary/90 transition-colors duration-200 font-raleway',
-                    input: 'w-full border border-[#E9E9E9] rounded-md px-4 py-2 text-sm text-[#161616] focus:border-primary focus:ring-1 focus:ring-primary font-montserrat',
-                    label: 'text-sm font-medium text-[#161616] font-montserrat',
-                    anchor: 'text-sm text-primary hover:underline font-raleway',
-                    loader: 'text-sm font-montserrat',
-                    message: 'text-sm text-red-500 font-montserrat',
+            {/* Auth Component */}
+            <Auth
+              supabaseClient={supabase}
+              appearance={{
+                theme: customTheme,
+                className: {
+                  container: 'w-full space-y-4',
+                  button: 'w-full bg-gradient-to-r from-[#008457] to-[#006b47] hover:from-[#006b47] hover:to-[#005538] text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg',
+                  input: 'w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:border-[#008457] focus:ring-2 focus:ring-[#008457]/20 transition-all duration-300 bg-white/50 backdrop-blur-sm',
+                  label: 'text-sm font-medium text-gray-700 mb-2 block',
+                  anchor: 'text-sm text-[#008457] hover:text-[#006b47] hover:underline transition-colors duration-200',
+                  loader: 'text-sm text-gray-600',
+                  message: 'text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3 mt-2',
+                },
+              }}
+              localization={{
+                variables: {
+                  sign_in: {
+                    email_label: 'Email Address',
+                    password_label: 'Password',
+                    button_label: 'Sign In',
+                    link_text: "New to TankAlert? Contact your administrator",
+                    email_input_placeholder: 'john.doe@greatsouthernfuels.com.au',
                   },
-                }}
-                localization={{
-                  variables: {
-                    sign_in: {
-                      email_label: 'Email address',
-                      password_label: 'Your password',
-                      button_label: 'Sign in',
-                      link_text: "New on our platform? Create an account",
-                      email_input_placeholder: 'john.doe@greatsouthernfuels.com.au',
-                    },
-                    forgotten_password: {
-                      link_text: 'Forgot your password?',
-                    },
+                  forgotten_password: {
+                    link_text: 'Forgot your password?',
                   },
-                }}
-                providers={[]}
-                redirectTo={window.location.origin}
-                view="sign_in"
-                showLinks={true}
-              />
+                },
+              }}
+              providers={[]}
+              redirectTo={window.location.origin}
+              view="sign_in"
+              showLinks={true}
+            />
 
-              {/* Footer */}
-              <div className="text-center text-xs text-gray-500 mt-4 font-raleway w-full" style={{fontFamily: 'Raleway, sans-serif'}}>
-                <p>© {new Date().getFullYear()} Great Southern Fuels</p>
-                <p className="mt-1">Enterprise-grade fuel monitoring solution</p>
-              </div>
+            {/* Footer */}
+            <div className="text-center text-xs text-gray-500 mt-8 pt-6 border-t border-gray-200">
+              <p>© {new Date().getFullYear()} Great Southern Fuels</p>
+              <p className="mt-1 text-gray-400">Enterprise Fuel Monitoring Solution</p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Right Side - Truck Hero Image */}
+      <TruckHeroSection />
     </div>
   );
-} 
+}
