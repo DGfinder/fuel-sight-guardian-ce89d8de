@@ -13,6 +13,7 @@ export interface UserPreferences {
   webhook_alerts: boolean;
   low_fuel_threshold: number;
   critical_fuel_threshold: number;
+  preferred_map_style: 'light' | 'dark' | 'satellite' | 'terrain';
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -24,6 +25,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   webhook_alerts: false,
   low_fuel_threshold: 20,
   critical_fuel_threshold: 10,
+  preferred_map_style: 'light',
 };
 
 export function useUserPreferences() {
@@ -71,6 +73,7 @@ export function useUserPreferences() {
         webhook_alerts: data.webhook_alerts ?? DEFAULT_PREFERENCES.webhook_alerts,
         low_fuel_threshold: data.low_fuel_threshold ?? DEFAULT_PREFERENCES.low_fuel_threshold,
         critical_fuel_threshold: data.critical_fuel_threshold ?? DEFAULT_PREFERENCES.critical_fuel_threshold,
+        preferred_map_style: data.preferred_map_style || DEFAULT_PREFERENCES.preferred_map_style,
       };
     },
     enabled: !!user?.id,
