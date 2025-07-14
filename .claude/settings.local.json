@@ -29,7 +29,9 @@
       "Bash(sudo apt:*)",
       "Bash(sudo apt install:*)",
       "Bash(python3 -m pip install --user Pillow)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx tsx:*)",
+      "WebFetch(domain:supabase.com)"
     ],
     "deny": []
   }

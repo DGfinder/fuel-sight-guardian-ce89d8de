@@ -35,7 +35,7 @@ export const useUserPermissions = () => {
 
         const role = roleData?.role as UserRole || 'user';
 
-        // Get user's accessible groups
+        // Get user's accessible groups (full group access)
         const { data: groupData, error: groupError } = await supabase
           .from('user_group_permissions')
           .select(`
@@ -52,10 +52,73 @@ export const useUserPermissions = () => {
           throw new Error(`Failed to fetch user groups: ${groupError.message}`);
         }
 
-        const accessibleGroups = groupData?.map(item => ({
+        // Get user's accessible subgroups (subgroup-level access)
+        const { data: subgroupData, error: subgroupError } = await supabase
+          .from('user_subgroup_permissions')
+          .select(`
+            group_id,
+            subgroup_name,
+            tank_groups!inner (
+              id,
+              name
+            )
+          `)
+          .eq('user_id', user.id);
+
+        if (subgroupError) {
+          console.error('❌ [RBAC DEBUG] Error fetching user subgroups:', subgroupError);
+          throw new Error(`Failed to fetch user subgroups: ${subgroupError.message}`);
+        }
+
+        // Combine group and subgroup permissions
+        type AccessibleGroup = {
+          id: string;
+          name: string;
+          subgroups?: string[];
+        };
+        
+        // Add groups where user has full access
+        const fullAccessGroups: AccessibleGroup[] = groupData?.map(item => ({
           id: item.group_id,
           name: (item.tank_groups as unknown as TankGroup).name
         })) || [];
+        
+        // Add groups where user has subgroup access
+        const subgroupAccessMap = new Map<string, AccessibleGroup>();
+        
+        subgroupData?.forEach(item => {
+          const groupId = item.group_id;
+          const groupName = (item.tank_groups as unknown as TankGroup).name;
+          const subgroupName = item.subgroup_name;
+          
+          if (!subgroupAccessMap.has(groupId)) {
+            subgroupAccessMap.set(groupId, {
+              id: groupId,
+              name: groupName,
+              subgroups: []
+            });
+          }
+          
+          subgroupAccessMap.get(groupId)!.subgroups!.push(subgroupName);
+        });
+        
+        // Combine both types of access
+        const accessibleGroups: AccessibleGroup[] = [];
+        
+        // First, add all full access groups
+        fullAccessGroups.forEach(group => {
+          accessibleGroups.push(group);
+        });
+        
+        // Then add subgroup access groups (only if not already have full access)
+        Array.from(subgroupAccessMap.values()).forEach(group => {
+          const existingGroup = accessibleGroups.find(g => g.id === group.id);
+          if (!existingGroup) {
+            // User only has subgroup access to this group
+            accessibleGroups.push(group);
+          }
+          // If user has both full and subgroup access, keep full access (more permissive)
+        });
 
         console.log('✅ [RBAC DEBUG] Permissions loaded successfully:', { role, accessibleGroups });
 

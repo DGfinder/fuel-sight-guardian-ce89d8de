@@ -14,6 +14,7 @@ export interface UserPermissions {
   accessibleGroups: Array<{
     id: string;
     name: string;
+    subgroups?: string[]; // Only populated if user has subgroup-level access
   }>;
   isAdmin: boolean;
   isManager: boolean;

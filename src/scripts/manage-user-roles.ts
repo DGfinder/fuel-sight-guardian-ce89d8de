@@ -60,8 +60,12 @@ export async function createUserWithRole(params: CreateUserRoleParams) {
     }
 
     // 4. Create user group permissions (separate table)
+    if (!authData.user) {
+      throw new Error('Failed to create user - no user data returned');
+    }
+    
     const groupPermissions = groups.map(group => ({
-      user_id: authData.user.id,
+      user_id: authData.user!.id,
       group_id: group.id
     }));
 
@@ -147,6 +151,92 @@ export async function updateUserRoles(userId: string, role: string, groupNames: 
   }
 }
 
+// New function to update user subgroup permissions
+export async function updateUserSubgroupPermissions(
+  userId: string, 
+  role: string, 
+  subgroupPermissions: Array<{groupName: string, subgroups: string[]}>
+) {
+  try {
+    // 1. Update the user's role (single role per user)
+    const { error: roleError } = await supabase
+      .from('user_roles')
+      .upsert({
+        user_id: userId,
+        role
+      });
+
+    if (roleError) {
+      throw new Error(`Failed to update user role: ${roleError.message}`);
+    }
+
+    // 2. Delete existing group and subgroup permissions
+    const { error: deleteGroupError } = await supabase
+      .from('user_group_permissions')
+      .delete()
+      .eq('user_id', userId);
+
+    if (deleteGroupError) {
+      throw new Error(`Failed to delete existing group permissions: ${deleteGroupError.message}`);
+    }
+
+    const { error: deleteSubgroupError } = await supabase
+      .from('user_subgroup_permissions')
+      .delete()
+      .eq('user_id', userId);
+
+    if (deleteSubgroupError) {
+      throw new Error(`Failed to delete existing subgroup permissions: ${deleteSubgroupError.message}`);
+    }
+
+    // 3. Get group IDs for new permissions
+    const groupNames = subgroupPermissions.map(p => p.groupName);
+    const { data: groups, error: groupsError } = await supabase
+      .from('tank_groups')
+      .select('id, name')
+      .in('name', groupNames);
+
+    if (groupsError) {
+      throw new Error(`Failed to fetch groups: ${groupsError.message}`);
+    }
+
+    // 4. Create new subgroup permissions
+    const subgroupPermissionsToInsert = [];
+    
+    for (const permission of subgroupPermissions) {
+      const group = groups?.find(g => g.name === permission.groupName);
+      if (group) {
+        for (const subgroup of permission.subgroups) {
+          subgroupPermissionsToInsert.push({
+            user_id: userId,
+            group_id: group.id,
+            subgroup_name: subgroup
+          });
+        }
+      }
+    }
+
+    if (subgroupPermissionsToInsert.length > 0) {
+      const { error: insertError } = await supabase
+        .from('user_subgroup_permissions')
+        .insert(subgroupPermissionsToInsert);
+
+      if (insertError) {
+        throw new Error(`Failed to create new subgroup permissions: ${insertError.message}`);
+      }
+    }
+
+    return { 
+      success: true, 
+      role,
+      subgroupPermissions: subgroupPermissionsToInsert 
+    };
+  } catch (error) {
+    console.error('Error updating user subgroup permissions:', error);
+    throw error;
+  }
+}
+
 export async function getUserRoles(userId: string) {
   try {
     // 1. Get user's role
@@ -176,9 +266,30 @@ export async function getUserRoles(userId: string) {
       throw new Error(`Failed to fetch user group permissions: ${groupError.message}`);
     }
 
+    // 3. Get user's subgroup permissions
+    const { data: subgroupData, error: subgroupError } = await supabase
+      .from('user_subgroup_permissions')
+      .select(`
+        group_id,
+        subgroup_name,
+        tank_groups (
+          id,
+          name
+        )
+      `)
+      .eq('user_id', userId);
+
+    if (subgroupError) {
+      throw new Error(`Failed to fetch user subgroup permissions: ${subgroupError.message}`);
+    }
+
     return {
       role: roleData?.role || null,
-      groups: groupData?.map(g => g.tank_groups).filter(Boolean) || []
+      groups: groupData?.map(g => g.tank_groups).filter(Boolean) || [],
+      subgroups: subgroupData?.map(s => ({
+        group: s.tank_groups,
+        subgroup: s.subgroup_name
+      })).filter(Boolean) || []
     };
   } catch (error) {
     console.error('Error fetching user roles:', error);

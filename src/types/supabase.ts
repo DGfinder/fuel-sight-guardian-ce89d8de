@@ -145,6 +145,26 @@ export interface Database {
           created_at?: string
         }
       }
+      user_subgroup_permissions: {
+        Row: {
+          user_id: string
+          group_id: string
+          subgroup_name: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          group_id: string
+          subgroup_name: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          group_id?: string
+          subgroup_name?: string
+          created_at?: string
+        }
+      }
       tanks_with_rolling_avg: {
         Row: {
           id: string
