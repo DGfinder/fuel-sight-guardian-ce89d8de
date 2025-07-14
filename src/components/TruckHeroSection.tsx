@@ -10,12 +10,20 @@ interface TruckImage {
   location: string;
 }
 
+// Import optimized truck images
+import truck1Jpg from '@/assets/trucks/truck-1.jpg';
+import truck1Webp from '@/assets/trucks/truck-1.webp';
+import truck2Jpg from '@/assets/trucks/truck-2.jpg';
+import truck2Webp from '@/assets/trucks/truck-2.webp';
+import truck3Jpg from '@/assets/trucks/truck-3.jpg';
+import truck3Webp from '@/assets/trucks/truck-3.webp';
+
 // Actual truck images from Great Southern Fuels operations
 const truckImages: TruckImage[] = [
   {
     id: '1',
-    src: '/src/assets/trucks/truck-1.jpg',
-    webp: '/src/assets/trucks/truck-1.webp',
+    src: truck1Jpg,
+    webp: truck1Webp,
     alt: 'Great Southern Fuels Delivery Truck',
     title: 'Professional Fuel Delivery',
     description: 'Reliable fuel delivery service across Western Australia',
@@ -23,8 +31,8 @@ const truckImages: TruckImage[] = [
   },
   {
     id: '2', 
-    src: '/src/assets/trucks/truck-2.jpg',
-    webp: '/src/assets/trucks/truck-2.webp',
+    src: truck2Jpg,
+    webp: truck2Webp,
     alt: 'Great Southern Fuels Moora Service Truck',
     title: 'Moora Regional Coverage',
     description: 'Trusted fuel monitoring and delivery in the Moora region',
@@ -32,8 +40,8 @@ const truckImages: TruckImage[] = [
   },
   {
     id: '3',
-    src: '/src/assets/trucks/truck-3.jpg',
-    webp: '/src/assets/trucks/truck-3.webp',
+    src: truck3Jpg,
+    webp: truck3Webp,
     alt: 'Great Southern Fuels Geraldton Service Vehicle',
     title: 'Geraldton Operations',
     description: 'Comprehensive fuel services for the Mid West region',

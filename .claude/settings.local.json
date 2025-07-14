@@ -24,7 +24,12 @@
       "Bash(npx eslint:*)",
       "Bash(cp:*)",
       "Bash(sed:*)",
-      "Bash(dos2unix:*)"
+      "Bash(dos2unix:*)",
+      "Bash(ls:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(python3 -m pip install --user Pillow)",
+      "Bash(node:*)"
     ],
     "deny": []
   }
