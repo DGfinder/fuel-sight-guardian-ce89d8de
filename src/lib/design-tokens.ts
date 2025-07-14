@@ -3,33 +3,33 @@
  * Comprehensive design tokens for consistent UI/UX
  */
 
-// Brand Colors - Core brand identity
+// Brand Colors - Great Southern Fuel brand identity
 export const brandColors = {
   primary: {
-    50: '#eff6ff',
-    100: '#dbeafe',
-    200: '#bfdbfe',
-    300: '#93c5fd',
-    400: '#60a5fa',
-    500: '#3b82f6', // Primary blue
-    600: '#2563eb',
-    700: '#1d4ed8',
-    800: '#1e40af',
-    900: '#1e3a8a',
-    950: '#172554'
+    50: '#f0fdf4',
+    100: '#dcfce7',
+    200: '#bbf7d0',
+    300: '#86efac',
+    400: '#4ade80',
+    500: '#22c55e',
+    600: '#008457', // GSF Green - Primary brand color
+    700: '#15803d',
+    800: '#166534',
+    900: '#14532d',
+    950: '#052e16'
   },
   secondary: {
-    50: '#f0f9ff',
-    100: '#e0f2fe',
-    200: '#bae6fd',
-    300: '#7dd3fc',
-    400: '#38bdf8',
-    500: '#0ea5e9',
-    600: '#0284c7',
-    700: '#0369a1',
-    800: '#075985',
-    900: '#0c4a6e',
-    950: '#082f49'
+    50: '#fefce8',
+    100: '#fef9c3',
+    200: '#fef08a',
+    300: '#fde047',
+    400: '#facc15',
+    500: '#eab308',
+    600: '#FEDF19', // GSF Gold - Secondary brand color
+    700: '#a16207',
+    800: '#854d0e',
+    900: '#713f12',
+    950: '#422006'
   }
 } as const;
 
@@ -296,6 +296,12 @@ export const zIndex = {
 
 // Semantic color mappings for fuel industry
 export const semanticColors = {
+  // Brand colors
+  primary: brandColors.primary[600],                 // GSF Green
+  primaryDark: brandColors.primary[700],             // Darker GSF Green
+  secondary: brandColors.secondary[600],             // GSF Gold
+  secondaryDark: brandColors.secondary[700],         // Darker GSF Gold
+  
   // Tank status mapping
   tankCritical: fuelStatusColors.critical[600],      // ≤20% fuel
   tankLow: fuelStatusColors.low[500],                // 21-40% fuel
