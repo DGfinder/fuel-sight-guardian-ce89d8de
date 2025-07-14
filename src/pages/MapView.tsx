@@ -60,9 +60,116 @@ function MapView() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [mapStyle, setMapStyle] = useState('light');
+  const [autoRefresh, setAutoRefresh] = useState(false);
   
   // Default center for the map (Perth, WA)
   const defaultCenter: [number, number] = [-31.9505, 115.8605];
+  
+  // Map style configurations
+  const mapStyles = {
+    light: {
+      url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    },
+    dark: {
+      url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    },
+    satellite: {
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    },
+    terrain: {
+      url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+      attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+    },
+  };
+  
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (!autoRefresh) return;
+    
+    const interval = setInterval(() => {
+      // Trigger refetch of tanks data
+      window.location.reload();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [autoRefresh]);
+  
+  // Manual refresh handler
+  const handleManualRefresh = () => {
+    window.location.reload();
+  };
+  
+  // Export tanks as CSV
+  const exportToCSV = () => {
+    if (!filteredTanks.length) return;
+    
+    const headers = [
+      'Tank ID', 'Location', 'Group', 'Product Type', 'Current Level %', 
+      'Safe Level', 'Min Level', 'Latitude', 'Longitude', 'Last Reading Date'
+    ];
+    
+    const csvData = filteredTanks.map(tank => [
+      tank.id,
+      tank.location || '',
+      tank.group_name || '',
+      tank.product_type || '',
+      tank.current_level_percent?.toFixed(1) || '',
+      tank.safe_level || '',
+      tank.min_level || '',
+      tank.latitude || '',
+      tank.longitude || '',
+      tank.latest_dip_date ? new Date(tank.latest_dip_date).toLocaleDateString() : ''
+    ]);
+    
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(field => '"' + String(field).replaceAll('"', '""') + '"').join(','))
+      .join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'tank-locations-' + new Date().toISOString().split('T')[0] + '.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  // Export map as PDF
+  const exportToPDF = async () => {
+    try {
+      const mapElement = document.querySelector('.leaflet-container') as HTMLElement;
+      if (!mapElement) return;
+      
+      const canvas = await html2canvas(mapElement);
+      const imgData = canvas.toDataURL('image/png');
+      
+      const pdf = new jsPDF('landscape');
+      pdf.setFontSize(16);
+      pdf.text('Tank Locations Map', 20, 20);
+      
+      pdf.setFontSize(10);
+      pdf.text('Generated on: ' + new Date().toLocaleDateString(), 20, 30);
+      pdf.text('Total tanks shown: ' + filteredTanks.length, 20, 40);
+      
+      const imgWidth = 250;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 20, 50, imgWidth, imgHeight);
+      
+      pdf.save('tank-locations-map-' + new Date().toISOString().split('T')[0] + '.pdf');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    }
+  };
+  
+  // Print map
+  const printMap = () => {
+    window.print();
+  };
   
   // Filter tanks based on search and filters
   const filteredTanks = useMemo(() => {
@@ -168,27 +275,94 @@ function MapView() {
                     <SelectItem value="normal">Normal</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                <Select value={mapStyle} onValueChange={setMapStyle}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Map Style" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                    <SelectItem value="satellite">Satellite</SelectItem>
+                    <SelectItem value="terrain">Terrain</SelectItem>
+                  </SelectContent>
+                </Select>
               </Inline>
             </Stack>
           </CardContent>
         </Card>
         
-        {/* Legend */}
+        {/* Legend and Controls */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-6">
-              <span className="font-medium">Status Legend:</span>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-500 rounded"></div>
-                <span className="text-sm">Critical (&le;20%)</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <span className="font-medium">Status Legend:</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-red-500 rounded"></div>
+                  <span className="text-sm">Critical (&le;20%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-orange-500 rounded"></div>
+                  <span className="text-sm">Low (21-40%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-500 rounded"></div>
+                  <span className="text-sm">Normal (&gt;40%)</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                <span className="text-sm">Low (21-40%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-500 rounded"></div>
-                <span className="text-sm">Normal (&gt;40%)</span>
+              
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToCSV}
+                  className="h-8 text-sm whitespace-nowrap"
+                  disabled={!filteredTanks.length}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  CSV
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToPDF}
+                  className="h-8 text-sm whitespace-nowrap"
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  PDF
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={printMap}
+                  className="h-8 text-sm whitespace-nowrap"
+                >
+                  <Printer className="h-3 w-3 mr-1" />
+                  Print
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  className="h-8 text-sm whitespace-nowrap"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Refresh
+                </Button>
+                
+                <Button
+                  variant={autoRefresh ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className="h-8 text-sm whitespace-nowrap"
+                >
+                  <RefreshCw className={autoRefresh ? "h-3 w-3 mr-1 animate-spin" : "h-3 w-3 mr-1"} />
+                  Auto
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -204,8 +378,9 @@ function MapView() {
                 style={{ height: '100%', width: '100%' }}
               >
                 <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  key={mapStyle}
+                  url={mapStyles[mapStyle as keyof typeof mapStyles].url}
+                  attribution={mapStyles[mapStyle as keyof typeof mapStyles].attribution}
                 />
                 
                 <MarkerClusterGroup>
