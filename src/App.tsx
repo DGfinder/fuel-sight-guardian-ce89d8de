@@ -14,6 +14,7 @@ import Settings from '@/pages/Settings';
 import Login from "@/pages/Login";
 import ResetPassword from '@/pages/ResetPassword';
 import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import Geraldton from '@/pages/Geraldton';
 import GSFDepots from '@/pages/GSFDepots';
 import BGC from '@/pages/BGC';
@@ -70,12 +71,14 @@ const App = () => {
                     path="/" 
                     element={
                       <ProtectedRoute>
-                        <AppLayout 
-                          selectedGroup={selectedGroup}
-                          onGroupSelect={setSelectedGroup}
-                        >
-                          <Index selectedGroup={selectedGroup} />
-                        </AppLayout>
+                        <RouteErrorBoundary routeName="Dashboard" showHomeButton={false}>
+                          <AppLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <Index selectedGroup={selectedGroup} />
+                          </AppLayout>
+                        </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />
@@ -83,12 +86,14 @@ const App = () => {
                     path="/tanks" 
                     element={
                       <ProtectedRoute>
-                        <AppLayout 
-                          selectedGroup={selectedGroup}
-                          onGroupSelect={setSelectedGroup}
-                        >
-                          <TanksPage />
-                        </AppLayout>
+                        <RouteErrorBoundary routeName="Tanks" showHomeButton={true}>
+                          <AppLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <TanksPage />
+                          </AppLayout>
+                        </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />
@@ -96,12 +101,14 @@ const App = () => {
                     path="/map" 
                     element={
                       <ProtectedRoute>
-                        <AppLayout 
-                          selectedGroup={selectedGroup}
-                          onGroupSelect={setSelectedGroup}
-                        >
-                          <MapView />
-                        </AppLayout>
+                        <RouteErrorBoundary routeName="Map View" showHomeButton={true}>
+                          <AppLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <MapView />
+                          </AppLayout>
+                        </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />
@@ -109,12 +116,14 @@ const App = () => {
                     path="/performance" 
                     element={
                       <ProtectedRoute requiredRole="admin">
-                        <AppLayout 
-                          selectedGroup={selectedGroup}
-                          onGroupSelect={setSelectedGroup}
-                        >
-                          <PerformancePage />
-                        </AppLayout>
+                        <RouteErrorBoundary routeName="Performance" showHomeButton={true}>
+                          <AppLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <PerformancePage />
+                          </AppLayout>
+                        </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />
@@ -150,12 +159,14 @@ const App = () => {
                     path="/alerts" 
                     element={
                       <ProtectedRoute>
-                        <AppLayout 
-                          selectedGroup={selectedGroup}
-                          onGroupSelect={setSelectedGroup}
-                        >
-                          <AlertsPage />
-                        </AppLayout>
+                        <RouteErrorBoundary routeName="Alerts" showHomeButton={true}>
+                          <AppLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <AlertsPage />
+                          </AppLayout>
+                        </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />

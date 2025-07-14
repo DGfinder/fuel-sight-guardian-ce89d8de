@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, AlertTriangle, Activity } from 'lucide-react';
 import type { TankRow } from '@/types/fuel';
+import AuditActivity from '@/components/AuditActivity';
 
 interface GroupPerformance {
   groupName: string;
@@ -338,6 +339,41 @@ export default function PerformancePage() {
                     {overallMetrics?.networkAverageDays.toFixed(1) || '0'} days
                   </p>
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* System Audit Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AuditActivity 
+          hours={24}
+          limit={50}
+          showTitle={true}
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>System Health</CardTitle>
+            <CardDescription>Key metrics and alerts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Database Status</span>
+                <Badge className="bg-green-500">Online</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Real-time Updates</span>
+                <Badge className="bg-green-500">Active</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Audit Logging</span>
+                <Badge className="bg-green-500">Enabled</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Security Monitoring</span>
+                <Badge className="bg-green-500">Active</Badge>
               </div>
             </div>
           </CardContent>

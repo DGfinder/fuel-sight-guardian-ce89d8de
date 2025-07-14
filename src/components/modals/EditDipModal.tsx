@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 import {
   Dialog,
   DialogPortal,
@@ -34,6 +35,11 @@ interface Props {
   initialGroupId?: string;
   initialTankId?: string;
 }
+
+import { schemas, type EditDipFormData } from '@/lib/validation';
+
+// Use centralized validation schema
+const editDipSchema = schemas.editDip;
 
 function formatDate(dateString: string) {
   return dateString.split('T')[0];
@@ -165,16 +171,27 @@ export default function EditDipModal({
     e.preventDefault();
     setSubmitError(null);
     setSubmitSuccess(null);
-    if (!groupId || !tankId || !dipValue || !selectedDate) return;
-    setSaving(true);
+    
+    // Basic required field check
+    if (!groupId || !tankId || !dipValue || !selectedDate) {
+      setSubmitError("All fields are required");
+      return;
+    }
+    
+    // Comprehensive validation using Zod schema
     try {
+      editDipSchema.parse({ dipValue });
+      setSaving(true);
+      
       // Find the dip reading id for the selected date
       const dip = availableDips.find(d => d.created_at === selectedDate);
       if (!dip) throw new Error("Dip reading not found for selected date");
+      
       const { error } = await supabase
         .from('dip_readings')
         .update({ value: Number(dipValue), recorded_by: userId })
         .eq('id', dip.id);
+        
       if (error) {
         setSubmitError(error.message);
       } else {
@@ -182,6 +199,14 @@ export default function EditDipModal({
         await queryClient.invalidateQueries({ queryKey: ['tanks'] });
         if (onSubmit) await onSubmit(groupId, tankId, Number(dipValue), selectedDate);
         // Don't auto-close here, let useEffect handle it
+      }
+    } catch (validationError) {
+      // Handle validation errors from Zod schema
+      if (validationError instanceof z.ZodError) {
+        const errorMessage = validationError.errors.map(err => err.message).join(', ');
+        setSubmitError(`Validation error: ${errorMessage}`);
+      } else {
+        setSubmitError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setSaving(false);

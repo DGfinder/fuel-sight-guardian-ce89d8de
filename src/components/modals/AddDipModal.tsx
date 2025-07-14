@@ -10,6 +10,7 @@
 import * as React from "react";
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import {
   Dialog,
@@ -43,6 +44,11 @@ import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
 import { cn } from "@/lib/utils";
 import { Z_INDEX } from '@/lib/z-index';
+
+import { schemas, type AddDipFormData } from '@/lib/validation';
+
+// Use centralized validation schema
+const dipReadingSchema = schemas.addDip;
 
 interface Props {
   open: boolean;
@@ -180,13 +186,22 @@ export default function AddDipModal({
     e.preventDefault();
     setSubmitError(null);
     setSubmitSuccess(null);
-    if (!groupId || !tankId || !dipValue) return;
-    setSaving(true);
+    
+    // Comprehensive validation using Zod schema
     try {
+      const formData = dipReadingSchema.parse({
+        groupId,
+        tankId,
+        dipValue,
+        dipDate,
+      });
+      
+      setSaving(true);
+      
       const { error } = await supabase.from('dip_readings').insert({
-        tank_id: tankId,
-        value: Number(dipValue),
-        created_at: dipDate.toISOString(),
+        tank_id: formData.tankId,
+        value: Number(formData.dipValue),
+        created_at: formData.dipDate.toISOString(),
         recorded_by: userId,
         notes: null
       });
@@ -202,6 +217,14 @@ export default function AddDipModal({
         ]);
         resetForm();
         // Don't auto-close here, let useEffect handle it
+      }
+    } catch (validationError) {
+      // Handle validation errors from Zod schema
+      if (validationError instanceof z.ZodError) {
+        const errorMessage = validationError.errors.map(err => err.message).join(', ');
+        setSubmitError(`Validation error: ${errorMessage}`);
+      } else {
+        setSubmitError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setSaving(false);

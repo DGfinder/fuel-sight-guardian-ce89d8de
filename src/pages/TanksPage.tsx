@@ -32,10 +32,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import EditDipModal from '@/components/modals/EditDipModal';
 import { TankStatusTable } from "@/components/TankStatusTable";
+import { MobileTankCard } from "@/components/MobileTankCard";
+import { SkeletonTankGrid } from "@/components/SkeletonTankCard";
+import { SkeletonTable, SkeletonCard } from "@/components/ui/skeleton";
+import { useTankModal } from '@/contexts/TankModalContext';
 import type { Tank } from "@/types/fuel";
 
 export default function TanksPage() {
   const { tanks, isLoading, error, refreshTanks } = useTanks();
+  const { openModal } = useTankModal();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [groupFilter, setGroupFilter] = useState('all');
@@ -130,18 +135,42 @@ export default function TanksPage() {
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
-        {/* Loading skeleton */}
+        {/* Header skeleton */}
         <div className="flex justify-between items-center">
           <div className="space-y-2">
-            <div className="h-8 bg-gray-200 rounded-lg w-48 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 rounded w-64 animate-pulse"></div>
+            <SkeletonCard className="h-8 w-48" />
+            <SkeletonCard className="h-4 w-64" />
           </div>
-          <div className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+          <SkeletonCard className="h-10 w-32" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-64 bg-gray-200 rounded-lg animate-pulse"></div>
+
+        {/* Stats cards skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
           ))}
+        </div>
+
+        {/* Search and filters skeleton */}
+        <SkeletonCard className="p-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <SkeletonCard className="h-10 flex-1" />
+            <div className="flex gap-3">
+              <SkeletonCard className="h-10 w-32" />
+              <SkeletonCard className="h-10 w-40" />
+              <SkeletonCard className="h-10 w-32" />
+            </div>
+          </div>
+        </SkeletonCard>
+
+        {/* Desktop table skeleton - hidden on mobile */}
+        <div className="hidden md:block">
+          <SkeletonTable rows={8} columns={6} />
+        </div>
+
+        {/* Mobile cards skeleton - visible on mobile only */}
+        <div className="block md:hidden">
+          <SkeletonTankGrid count={6} />
         </div>
       </div>
     );
@@ -448,12 +477,49 @@ export default function TanksPage() {
         </div>
       )}
 
-      <TankStatusTable
-        tanks={filteredTanks}
-        onTankClick={handleTankClick}
-        setEditDipTank={setEditDipTank}
-        setEditDipModalOpen={setEditDipModalOpen}
-      />
+      {/* Desktop Table View */}
+      <div className="hidden md:block">
+        <TankStatusTable
+          tanks={filteredTanks}
+          onTankClick={handleTankClick}
+          setEditDipTank={setEditDipTank}
+          setEditDipModalOpen={setEditDipModalOpen}
+        />
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="block md:hidden">
+        <div className="grid gap-4 pb-20"> {/* pb-20 for mobile nav space */}
+          {filteredTanks.map((tank) => (
+            <MobileTankCard
+              key={tank.id}
+              tank={tank}
+              onTap={() => openModal(tank)}
+              onLongPress={() => {
+                setEditDipTank(tank);
+                setEditDipModalOpen(true);
+              }}
+              onSwipeLeft={() => {
+                // Quick action: View details
+                openModal(tank);
+              }}
+              onSwipeRight={() => {
+                // Quick action: Edit dip
+                setEditDipTank(tank);
+                setEditDipModalOpen(true);
+              }}
+            />
+          ))}
+          
+          {filteredTanks.length === 0 && !isLoading && (
+            <div className="text-center py-12">
+              <Droplets className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No tanks match your filters</h3>
+              <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       <EditDipModal
         isOpen={editDipModalOpen && !!editDipTank}

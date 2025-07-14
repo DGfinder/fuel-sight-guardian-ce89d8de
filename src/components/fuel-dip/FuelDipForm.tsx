@@ -33,14 +33,9 @@ import { parseISO } from "date-fns/parseISO";
 //--------------------------------------------------
 // Schema & types
 //--------------------------------------------------
-const schema = z.object({
-  group: z.string().min(1, "Select a depot group"),
-  subgroup: z.string().optional(),
-  tank: z.string().min(1, "Select a tank"),
-  date: z.string().min(1, "Date required"),
-  dip: z.number().positive("Enter a positive number"),
-  notes: z.string().optional(),
-});
+import { schemas } from "@/lib/validation";
+
+const schema = schemas.fuelDip;
 
 export type FormData = z.infer<typeof schema>;
 
@@ -105,7 +100,7 @@ export function FuelDipForm({
   // Local state
   //------------------------------------------------
   const { toast } = useToast();
-  const [user, setUser] = useState<null | { email: string }>(null);
+  const [user, setUser] = useState<null | { id: string; email: string }>(null);
   const [loading, setLoading] = useState(false);
 
   // dropdown data
@@ -242,7 +237,7 @@ export function FuelDipForm({
       tank_id: data.tank,
       value: data.dip,
       created_at: data.date,
-      recorded_by: user?.email ?? "unknown",
+      recorded_by: user?.id ?? "unknown",
       notes: data.notes ?? null,
     });
     setLoading(false);
@@ -260,13 +255,19 @@ export function FuelDipForm({
   useEffect(() => {
     if (readOnly) return;
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user?.email) {
-        setUser({ email: data.session.user.email });
+      if (data.session?.user?.id && data.session?.user?.email) {
+        setUser({ 
+          id: data.session.user.id,
+          email: data.session.user.email 
+        });
       }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s?.user?.email) {
-        setUser({ email: s.user.email });
+      if (s?.user?.id && s?.user?.email) {
+        setUser({ 
+          id: s.user.id,
+          email: s.user.email 
+        });
       }
     });
     return () => listener.subscription.unsubscribe();

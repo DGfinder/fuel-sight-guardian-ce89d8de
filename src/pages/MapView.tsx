@@ -7,35 +7,59 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Color-coded icons based on tank status
-const createStatusIcon = (status: 'critical' | 'low' | 'normal' | 'default') => {
-  const colors = {
-    critical: '#dc2626', // red-600
-    low: '#f59e0b',      // amber-500
-    normal: '#16a34a',   // green-600
-    default: '#3b82f6'   // blue-500
-  };
-
-  const color = colors[status];
-  
-  return new L.Icon({
+// Memoized icon instances to prevent memory leaks
+const TANK_ICONS = {
+  critical: new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
         <circle cx="12" cy="9" r="3" fill="#ffffff"/>
       </svg>
     `)}`,
     iconSize: [24, 36],
     iconAnchor: [12, 36],
     popupAnchor: [0, -36],
-  });
+  }),
+  low: new L.Icon({
+    iconUrl: `data:image/svg+xml;base64,${btoa(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="12" cy="9" r="3" fill="#ffffff"/>
+      </svg>
+    `)}`,
+    iconSize: [24, 36],
+    iconAnchor: [12, 36],
+    popupAnchor: [0, -36],
+  }),
+  normal: new L.Icon({
+    iconUrl: `data:image/svg+xml;base64,${btoa(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#16a34a" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="12" cy="9" r="3" fill="#ffffff"/>
+      </svg>
+    `)}`,
+    iconSize: [24, 36],
+    iconAnchor: [12, 36],
+    popupAnchor: [0, -36],
+  }),
+  default: new L.Icon({
+    iconUrl: `data:image/svg+xml;base64,${btoa(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#3b82f6" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="12" cy="9" r="3" fill="#ffffff"/>
+      </svg>
+    `)}`,
+    iconSize: [24, 36],
+    iconAnchor: [12, 36],
+    popupAnchor: [0, -36],
+  }),
 };
 
 const getIconForTank = (tank: { current_level_percent?: number | null }) => {
   const percent = tank.current_level_percent ?? 0;
-  if (percent <= 20) return createStatusIcon('critical');
-  if (percent <= 40) return createStatusIcon('low');
-  return createStatusIcon('normal');
+  if (percent <= 20) return TANK_ICONS.critical;
+  if (percent <= 40) return TANK_ICONS.low;
+  return TANK_ICONS.normal;
 };
 
 type MapStyle = 'light' | 'dark' | 'satellite' | 'terrain';
@@ -215,7 +239,7 @@ export default function MapView() {
             {(!filteredTanks || filteredTanks.length === 0) && (
               <Marker 
                 position={defaultCenter} 
-                icon={createStatusIcon('default')}
+                icon={TANK_ICONS.default}
               />
             )}
           </MapContainer>

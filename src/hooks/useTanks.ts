@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useUserPermissions } from './useUserPermissions';
 import { UserPermissions } from '../types/auth';
@@ -43,64 +43,90 @@ export interface Tank {
   usable_capacity?: number;
 }
 
+// Memoized tank data transformation function
+const transformTankData = (rawTank: any): Tank => ({
+  ...rawTank,
+  id: rawTank.id,
+  location: rawTank.location,
+  product_type: rawTank.product,
+  safe_level: rawTank.safe_fill,
+  min_level: rawTank.min_level,
+  group_id: rawTank.group_id,
+  group_name: rawTank.group_name,
+  subgroup: rawTank.subgroup,
+  current_level: rawTank.current_level,
+  current_level_percent: rawTank.current_level_percent_display,
+  rolling_avg: rawTank.rolling_avg_lpd,
+  days_to_min_level: rawTank.days_to_min_level,
+  usable_capacity: rawTank.usable_capacity,
+  prev_day_used: rawTank.prev_day_used,
+  serviced_on: rawTank.serviced_on,
+  serviced_by: rawTank.serviced_by,
+  address: rawTank.address,
+  vehicle: rawTank.vehicle,
+  discharge: rawTank.discharge,
+  bp_portal: rawTank.bp_portal,
+  delivery_window: rawTank.delivery_window,
+  afterhours_contact: rawTank.afterhours_contact,
+  notes: rawTank.notes,
+  latitude: rawTank.latitude,
+  longitude: rawTank.longitude,
+  last_dip: (rawTank.last_dip_ts && rawTank.current_level != null) 
+    ? { 
+        value: rawTank.current_level, 
+        created_at: rawTank.last_dip_ts, 
+        recorded_by: 'Unknown' 
+      } 
+    : null,
+});
+
 export function useTanks() {
   const queryClient = useQueryClient();
   const { data: permissions } = useUserPermissions();
   const userPermissions = permissions as UserPermissions | null;
   const subscriberIdRef = useRef<string | null>(null);
 
+  // Optimized query key - only include essential permission info to reduce cache invalidations
+  const queryKey = useMemo(() => {
+    if (!userPermissions || !userPermissions.accessibleGroups) return ['tanks', 'no-permissions'];
+    
+    return [
+      'tanks',
+      userPermissions.isAdmin,
+      userPermissions.accessibleGroups.map(g => g.id).sort().join(',')
+    ];
+  }, [userPermissions]);
+
   const { data: tanks, isLoading, error } = useQuery<Tank[]>({
-    queryKey: ['tanks', userPermissions],
+    queryKey,
     queryFn: async () => {
       let query = supabase
         .from('tanks_with_rolling_avg')
         .select('*');
 
       // RLS will handle security, but we can optimize the query for non-admin users
-      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups.length > 0) {
+      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups && userPermissions.accessibleGroups.length > 0) {
         const groupIds = userPermissions.accessibleGroups.map(g => g.id);
         query = query.in('group_id', groupIds);
       }
 
       const { data, error } = await query.order('last_dip_ts', { ascending: false });
       if (error) throw error;
-      return data?.map(tank => ({
-        ...tank,
-        id: tank.id,
-        location: tank.location,
-        product_type: tank.product,
-        safe_level: tank.safe_fill,
-        min_level: tank.min_level,
-        group_id: tank.group_id,
-        group_name: tank.group_name,
-        subgroup: tank.subgroup,
-        current_level: tank.current_level,
-        current_level_percent: tank.current_level_percent_display,
-        rolling_avg: tank.rolling_avg_lpd,
-        days_to_min_level: tank.days_to_min_level,
-        usable_capacity: tank.usable_capacity,
-        prev_day_used: tank.prev_day_used,
-        serviced_on: tank.serviced_on,
-        serviced_by: tank.serviced_by,
-        address: tank.address,
-        vehicle: tank.vehicle,
-        discharge: tank.discharge,
-        bp_portal: tank.bp_portal,
-        delivery_window: tank.delivery_window,
-        afterhours_contact: tank.afterhours_contact,
-        notes: tank.notes,
-        latitude: tank.latitude,
-        longitude: tank.longitude,
-        last_dip: (tank.last_dip_ts && tank.current_level != null) 
-          ? { 
-              value: tank.current_level, 
-              created_at: tank.last_dip_ts, 
-              recorded_by: 'Unknown' 
-            } 
-          : null,
-      }));
+      
+      // Use memoized transformation function
+      return data?.map(transformTankData) || [];
     },
-    enabled: !!userPermissions // Only run query when permissions are loaded
+    enabled: !!userPermissions, // Only run query when permissions are loaded
+    staleTime: 2 * 60 * 1000, // 2 minutes - tanks don't change that frequently
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
+    refetchOnWindowFocus: false, // Don't refetch on window focus to reduce load
+    retry: (failureCount, error) => {
+      // Only retry on network errors, not on auth/permission errors
+      if (error?.message?.includes('permission') || error?.message?.includes('auth')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   useEffect(() => {
@@ -130,61 +156,56 @@ export function useTanks() {
 
   const { mutate: refreshTanks } = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tanks_with_rolling_avg')
-        .select('*')
-        .order('last_dip_ts', { ascending: false });
+        .select('*');
+
+      // Apply same optimization as main query
+      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups && userPermissions.accessibleGroups.length > 0) {
+        const groupIds = userPermissions.accessibleGroups.map(g => g.id);
+        query = query.in('group_id', groupIds);
+      }
+
+      const { data, error } = await query.order('last_dip_ts', { ascending: false });
       if (error) throw error;
-      return data?.map(tank => ({
-        ...tank,
-        product_type: tank.product,
-        safe_level: tank.safe_fill,
-        current_level: tank.current_level,
-        current_level_percent: tank.current_level_percent_display,
-        rolling_avg: tank.rolling_avg_lpd,
-        usable_capacity: tank.usable_capacity,
-        address: tank.address,
-        vehicle: tank.vehicle,
-        discharge: tank.discharge,
-        bp_portal: tank.bp_portal,
-        delivery_window: tank.delivery_window,
-        afterhours_contact: tank.afterhours_contact,
-        notes: tank.notes,
-        latitude: tank.latitude,
-        longitude: tank.longitude,
-        last_dip: (tank.last_dip_ts && tank.current_level != null) 
-          ? { 
-              value: tank.current_level, 
-              created_at: tank.last_dip_ts, 
-              recorded_by: 'Unknown' 
-            } 
-          : null,
-      }));
+      
+      // Use same transformation function for consistency
+      return data?.map(transformTankData) || [];
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['tanks', userPermissions], data);
+      // Update cache with optimized key
+      queryClient.setQueryData(queryKey, data);
     }
   });
 
-  const { mutate: exportTanksToCSV } = useMutation({
+  const { mutate: exportTanksToCSV, isPending: isExporting } = useMutation({
     mutationFn: async () => {
-      if (!tanks) throw new Error('No tank data available');
+      // Use cached data instead of making a new query
+      const tanksData = tanks || queryClient.getQueryData<Tank[]>(queryKey);
+      if (!tanksData || tanksData.length === 0) {
+        throw new Error('No tank data available for export');
+      }
       
-      const headers = ['ID', 'Location', 'Product', 'Safe Level', 'Current Level', 'Rolling Avg', 'Days to Min', 'Group Name', 'Last Dip Value', 'Last Dip Date', 'Last Dip By'];
+      const headers = [
+        'ID', 'Location', 'Product', 'Safe Level', 'Current Level', 
+        'Rolling Avg', 'Days to Min', 'Group Name', 'Last Dip Value', 
+        'Last Dip Date', 'Last Dip By'
+      ];
+      
       const csvContent = [
         headers.join(','),
-        ...tanks.map(tank => [
-          tank.id,
-          tank.location || '',
-          tank.product_type || '',
+        ...tanksData.map(tank => [
+          `"${tank.id}"`,
+          `"${tank.location || ''}"`,
+          `"${tank.product_type || ''}"`,
           tank.safe_level || '',
           tank.current_level || '',
           tank.rolling_avg || '',
           tank.days_to_min_level || '',
-          tank.group_name || '',
+          `"${tank.group_name || ''}"`,
           tank.last_dip?.value ?? '',
-          tank.last_dip?.created_at ?? '',
-          tank.last_dip?.recorded_by ?? ''
+          `"${tank.last_dip?.created_at ?? ''}"`,
+          `"${tank.last_dip?.recorded_by ?? ''}"`
         ].join(','))
       ].join('\n');
 
@@ -200,11 +221,27 @@ export function useTanks() {
     }
   });
 
+  // Memoized computed values to prevent unnecessary recalculations
+  const computedStats = useMemo(() => {
+    if (!tanks) return { tanksCount: 0, criticalTanks: 0, lowTanks: 0 };
+    
+    return {
+      tanksCount: tanks.length,
+      criticalTanks: tanks.filter(t => (t.current_level_percent || 0) <= 20).length,
+      lowTanks: tanks.filter(t => {
+        const level = t.current_level_percent || 0;
+        return level > 20 && level <= 40;
+      }).length,
+    };
+  }, [tanks]);
+
   return {
     tanks,
     isLoading,
     error,
     refreshTanks,
-    exportTanksToCSV
+    exportTanksToCSV,
+    isExporting,
+    ...computedStats,
   };
 }

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useModalGestures } from '@/hooks/useTouchGestures';
+import { SkeletonChart, SkeletonText, Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogPortal,
@@ -66,6 +68,7 @@ import { Z_INDEX } from '@/lib/z-index';
 import { ModalErrorBoundary } from '@/components/ModalErrorBoundary';
 import EditDipModal from '@/components/modals/EditDipModal';
 import { useQueryClient } from '@tanstack/react-query';
+import AuditTrail from '@/components/AuditTrail';
 
 // Register Chart.js components
 ChartJS.register(
@@ -104,6 +107,17 @@ export function TankDetailsModal({
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
   const [isEditDipOpen, setIsEditDipOpen] = useState(false);
   const [tankDetails, setTankDetails] = useState<TankDetails | null>(null);
+  const modalContentRef = useRef<HTMLDivElement>(null);
+
+  // Mobile gesture support
+  const { attachListeners } = useModalGestures(() => onOpenChange(false));
+
+  // Attach gesture listeners to modal content
+  useEffect(() => {
+    if (modalContentRef.current && open) {
+      return attachListeners(modalContentRef.current);
+    }
+  }, [attachListeners, open]);
 
   // Reset AddDipModal state when main modal closes
   useEffect(() => {
@@ -159,14 +173,17 @@ export function TankDetailsModal({
     }
   }, [open, tank?.id, dipHistoryQuery]);
 
+  const sortedDipHistory = useMemo(() => 
+    [...dipHistory].sort((a: DipReading, b: DipReading) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+  , [dipHistory]);
+  
+  const last30Dips = useMemo(() => sortedDipHistory.slice(-30), [sortedDipHistory]);
+
   if (!tank) return null;
 
-  const sortedDipHistory = [...dipHistory].sort((a: DipReading, b: DipReading) => 
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
-  const last30Dips = sortedDipHistory.slice(-30);
-
-  const volumeChartData: ChartData<'line'> = {
+  const volumeChartData: ChartData<'line'> = useMemo(() => ({
     labels:
       last30Dips.length > 0
         ? last30Dips.map((d: DipReading) => format(new Date(d.created_at), 'MMM d'))
@@ -199,28 +216,32 @@ export function TankDetailsModal({
           ]
         : []),
     ],
-  };
+  }), [last30Dips, tank.min_level]);
 
-  const burnRateData = [];
-  const burnRateLabels = [];
-  
-  for (let i = 1; i < last30Dips.length; i++) {
-    const current = last30Dips[i];
-    const previous = last30Dips[i - 1];
-    const daysDiff = (new Date(current.created_at).getTime() - new Date(previous.created_at).getTime()) / (1000 * 60 * 60 * 24);
+  const { burnRateData, burnRateLabels } = useMemo(() => {
+    const data: number[] = [];
+    const labels: string[] = [];
     
-    if (daysDiff > 0 && daysDiff <= 7) {
-      const volumeDiff = previous.value - current.value;
-      const dailyBurnRate = volumeDiff / daysDiff;
+    for (let i = 1; i < last30Dips.length; i++) {
+      const current = last30Dips[i];
+      const previous = last30Dips[i - 1];
+      const daysDiff = (new Date(current.created_at).getTime() - new Date(previous.created_at).getTime()) / (1000 * 60 * 60 * 24);
       
-      if (dailyBurnRate > 0) {
-        burnRateData.push(dailyBurnRate);
-        burnRateLabels.push(format(new Date(current.created_at), 'MMM d'));
+      if (daysDiff > 0 && daysDiff <= 7) {
+        const volumeDiff = previous.value - current.value;
+        const dailyBurnRate = volumeDiff / daysDiff;
+        
+        if (dailyBurnRate > 0) {
+          data.push(dailyBurnRate);
+          labels.push(format(new Date(current.created_at), 'MMM d'));
+        }
       }
     }
-  }
+    
+    return { burnRateData: data, burnRateLabels: labels };
+  }, [last30Dips]);
 
-  const burnRateChartData: ChartData<'line'> = {
+  const burnRateChartData: ChartData<'line'> = useMemo(() => ({
     labels: burnRateLabels.length > 0 ? burnRateLabels : ['No Data'],
     datasets: [
       {
@@ -248,9 +269,9 @@ export function TankDetailsModal({
           ]
         : []),
     ],
-  };
+  }), [burnRateData, burnRateLabels, tank.rolling_avg]);
 
-  const volumeChartOptions: ChartOptions<'line'> = {
+  const volumeChartOptions: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -299,9 +320,9 @@ export function TankDetailsModal({
       intersect: false,
       mode: 'index',
     },
-  };
+  }), []);
 
-  const burnRateChartOptions: ChartOptions<'line'> = {
+  const burnRateChartOptions: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -355,7 +376,7 @@ export function TankDetailsModal({
       intersect: false,
       mode: 'index',
     },
-  };
+  }), []);
 
   // -- Depot Notes Logic --
   const depotNotes = 'No notes available.';
@@ -465,7 +486,11 @@ export function TankDetailsModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border" style={{ zIndex: Z_INDEX.MODAL_CONTENT }}>
+        <DialogContent 
+          ref={modalContentRef}
+          className="bg-white text-gray-900 max-w-3xl w-full p-0 rounded-xl shadow-xl border touch-manipulation" 
+          style={{ zIndex: Z_INDEX.MODAL_CONTENT }}
+        >
           <DialogDescription className="sr-only">
             Tank details and management for {tank?.location}
           </DialogDescription>
@@ -515,6 +540,10 @@ export function TankDetailsModal({
                 {alerts && alerts.length > 0 && (
                   <Badge className="ml-2 bg-red-500 text-white text-xs px-1.5 py-0.5">{alerts.length}</Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="audit">
+                <Shield className="w-4 h-4 mr-2" />
+                Audit Trail
               </TabsTrigger>
             </TabsList>
 
@@ -692,7 +721,9 @@ export function TankDetailsModal({
                   </CardHeader>
                   <CardContent>
                     <div className="h-64 relative">
-                      {last30Dips.length > 0 ? (
+                      {dipHistoryQuery.isLoading ? (
+                        <SkeletonChart className="h-full" />
+                      ) : last30Dips.length > 0 ? (
                         <Line data={volumeChartData} options={volumeChartOptions} />
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full text-gray-500">
@@ -722,7 +753,9 @@ export function TankDetailsModal({
                   </CardHeader>
                   <CardContent>
                     <div className="h-64 relative">
-                      {burnRateData.length > 0 ? (
+                      {dipHistoryQuery.isLoading ? (
+                        <SkeletonChart className="h-full" />
+                      ) : burnRateData.length > 0 ? (
                         <Line data={burnRateChartData} options={burnRateChartOptions} />
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full text-gray-500">
@@ -767,10 +800,15 @@ export function TankDetailsModal({
                   <CardContent>
                     {dipHistoryQuery.isLoading ? (
                       <div className="space-y-3">
-                        {[...Array(5)].map((_, i) => (
-                          <div key={i} className="animate-pulse p-3 bg-gray-100 rounded-lg">
-                            <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="p-3 bg-gray-50 rounded-lg border">
+                            <div className="flex justify-between items-start">
+                              <div className="space-y-2">
+                                <Skeleton className="h-4 w-24" />
+                                <SkeletonText lines={2} className="w-48" />
+                              </div>
+                              <Skeleton className="h-6 w-16 rounded-full" />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -970,6 +1008,15 @@ export function TankDetailsModal({
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Audit Trail Tab */}
+              <TabsContent value="audit" className="p-6">
+                <AuditTrail 
+                  tableName="fuel_tanks"
+                  recordId={tank?.id || ''}
+                  showTitle={false}
+                />
               </TabsContent>
             </div>
           </Tabs>
