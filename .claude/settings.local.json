@@ -21,7 +21,10 @@
       "Bash(npm run test:*)",
       "Bash(npm run:*)",
       "Bash(npm test)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(cp:*)",
+      "Bash(sed:*)",
+      "Bash(dos2unix:*)"
     ],
     "deny": []
   }
