@@ -5,15 +5,23 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        default: "bg-primary text-white hover:bg-primary/90",
+        destructive: "bg-error text-white hover:bg-error/90",
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        secondary: "bg-secondary text-white hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        
+        // Fuel status button variants
+        "fuel-critical": "bg-fuel-critical text-white hover:bg-fuel-critical/90 shadow-sm",
+        "fuel-low": "bg-fuel-low text-white hover:bg-fuel-low/90 shadow-sm",
+        "fuel-normal": "bg-fuel-normal text-white hover:bg-fuel-normal/90 shadow-sm",
+        "fuel-unknown": "bg-fuel-unknown text-white hover:bg-fuel-unknown/90 shadow-sm",
+        
+        // Success and warning variants using design system
+        success: "bg-success text-white hover:bg-success/90",
+        warning: "bg-warning text-white hover:bg-warning/90",
       },
       size: {
         default: "h-10 px-4 py-2",

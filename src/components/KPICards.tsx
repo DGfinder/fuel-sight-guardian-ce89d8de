@@ -89,9 +89,9 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       value: kpis.lowTanks.toString(),
       subtitle: 'Low fuel level',
       icon: AlertTriangle,
-      color: kpis.lowTanks === 0 ? 'text-[#008457]' : 'text-red-600',
-      bgColor: kpis.lowTanks === 0 ? 'bg-[#008457]/10' : 'bg-red-50',
-      borderColor: kpis.lowTanks === 0 ? 'border-[#008457]/20' : 'border-red-200',
+      color: kpis.lowTanks === 0 ? 'text-success' : 'text-error',
+      bgColor: kpis.lowTanks === 0 ? 'bg-success/10' : 'bg-error/10',
+      borderColor: kpis.lowTanks === 0 ? 'border-success/20' : 'border-error/20',
       alert: kpis.lowTanks > 0,
       emoji: '🔴'
     },
@@ -101,9 +101,9 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       value: kpis.criticalDays.toString(),
       subtitle: 'Critical timeline',
       icon: Clock,
-      color: kpis.criticalDays === 0 ? 'text-[#008457]' : 'text-[#FEDF19]',
-      bgColor: kpis.criticalDays === 0 ? 'bg-[#008457]/10' : 'bg-yellow-50',
-      borderColor: kpis.criticalDays === 0 ? 'border-[#008457]/20' : 'border-yellow-200',
+      color: kpis.criticalDays === 0 ? 'text-success' : 'text-warning',
+      bgColor: kpis.criticalDays === 0 ? 'bg-success/10' : 'bg-warning/10',
+      borderColor: kpis.criticalDays === 0 ? 'border-success/20' : 'border-warning/20',
       alert: kpis.criticalDays > 0,
       emoji: '🟡'
     },
@@ -135,9 +135,9 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       value: kpis.avgDaysToMin > 0 ? `${kpis.avgDaysToMin}` : 'N/A',
       subtitle: 'Fleet average',
       icon: Gauge,
-      color: 'text-[#008457]',
-      bgColor: 'bg-[#008457]/10',
-      borderColor: 'border-[#008457]/20',
+      color: 'text-success',
+      bgColor: 'bg-success/10',
+      borderColor: 'border-success/20',
       emoji: '⏳'
     }
   ];
@@ -155,8 +155,8 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
               "cursor-pointer transition-all duration-200 border-2",
               "hover:shadow-md hover:-translate-y-1",
               isSelected 
-                ? "ring-2 ring-[#008457] shadow-lg border-[#008457]/50 bg-[#008457]/5" 
-                : "hover:border-[#008457]/30 border-gray-200",
+                ? "ring-2 ring-primary shadow-lg border-primary/50 bg-primary/5" 
+                : "hover:border-primary/30 border-gray-200",
               card.alert && "ring-1 ring-red-200 shadow-md"
             )}
             onClick={() => onCardClick(card.id)}

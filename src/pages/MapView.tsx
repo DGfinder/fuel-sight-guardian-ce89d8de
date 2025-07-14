@@ -18,12 +18,14 @@ import 'leaflet-geometryutil';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-// Memoized icon instances to prevent memory leaks
+import { semanticColors } from '@/lib/design-tokens';
+
+// Memoized icon instances using design system colors
 const TANK_ICONS = {
   critical: new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${semanticColors.tankCritical}" stroke="#ffffff" stroke-width="2"/>
         <circle cx="12" cy="9" r="3" fill="#ffffff"/>
       </svg>
     `)}`,
@@ -34,7 +36,7 @@ const TANK_ICONS = {
   low: new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${semanticColors.tankLow}" stroke="#ffffff" stroke-width="2"/>
         <circle cx="12" cy="9" r="3" fill="#ffffff"/>
       </svg>
     `)}`,
@@ -45,7 +47,7 @@ const TANK_ICONS = {
   normal: new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#16a34a" stroke="#ffffff" stroke-width="2"/>
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${semanticColors.tankNormal}" stroke="#ffffff" stroke-width="2"/>
         <circle cx="12" cy="9" r="3" fill="#ffffff"/>
       </svg>
     `)}`,
@@ -56,7 +58,7 @@ const TANK_ICONS = {
   default: new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#3b82f6" stroke="#ffffff" stroke-width="2"/>
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${semanticColors.tankUnknown}" stroke="#ffffff" stroke-width="2"/>
         <circle cx="12" cy="9" r="3" fill="#ffffff"/>
       </svg>
     `)}`,
@@ -67,7 +69,7 @@ const TANK_ICONS = {
   user: new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-        <circle cx="12" cy="12" r="10" fill="#2563eb" stroke="#ffffff" stroke-width="3"/>
+        <circle cx="12" cy="12" r="10" fill="${semanticColors.textPrimary}" stroke="#ffffff" stroke-width="3"/>
         <circle cx="12" cy="12" r="4" fill="#ffffff"/>
       </svg>
     `)}`,
@@ -84,11 +86,19 @@ const getIconForTank = (tank: { current_level_percent?: number | null }) => {
   return TANK_ICONS.normal;
 };
 
+import { getFuelStatus, getFuelStatusText } from '@/components/ui/fuel-status';
+
 const getTankStatus = (tank: { current_level_percent?: number | null }) => {
   const percent = tank.current_level_percent ?? 0;
-  if (percent <= 20) return { status: 'Critical', color: 'bg-red-500', textColor: 'text-red-700' };
-  if (percent <= 40) return { status: 'Low', color: 'bg-amber-500', textColor: 'text-amber-700' };
-  return { status: 'Normal', color: 'bg-green-500', textColor: 'text-green-700' };
+  const status = getFuelStatus(percent);
+  
+  return {
+    status: status,
+    variant: status === 'critical' ? 'fuel-critical' : 
+             status === 'low' ? 'fuel-low' :
+             status === 'normal' ? 'fuel-normal' : 'fuel-unknown',
+    text: getFuelStatusText(percent)
+  };
 };
 
 // Custom popup component
@@ -113,8 +123,8 @@ const TankPopup = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm truncate">{tank.name}</h3>
-          <Badge className={`${statusInfo.color} text-white text-xs`}>
-            {statusInfo.status}
+          <Badge variant={statusInfo.variant as any} size="sm">
+            {statusInfo.text}
           </Badge>
         </div>
         
@@ -526,13 +536,13 @@ export default function MapView() {
       pdf.text('Legend:', 20, legendY);
       
       pdf.setFontSize(8);
-      pdf.setTextColor(220, 38, 38); // Red
+      pdf.setTextColor(220, 38, 38); // Critical color
       pdf.text('● Critical (≤20%)', 20, legendY + 5);
       
-      pdf.setTextColor(245, 158, 11); // Amber
+      pdf.setTextColor(245, 158, 11); // Low fuel color
       pdf.text('● Low (21-40%)', 20, legendY + 10);
       
-      pdf.setTextColor(22, 163, 74); // Green
+      pdf.setTextColor(22, 163, 74); // Normal fuel color
       pdf.text('● Normal (>40%)', 20, legendY + 15);
 
       // Save PDF
@@ -625,7 +635,7 @@ export default function MapView() {
 
     if (mapRef.current && routeCoords.length > 1) {
       const newRouteLayer = L.polyline(routeCoords, {
-        color: '#2563eb',
+        color: semanticColors.textPrimary,
         weight: 3,
         opacity: 0.7,
         dashArray: '10, 5'
@@ -993,23 +1003,23 @@ export default function MapView() {
             <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
               <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs text-blue-600">
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-fuel-critical"></div>
                   <span className="hidden sm:inline">Critical (≤20%)</span>
                   <span className="sm:hidden">Critical</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-fuel-low"></div>
                   <span className="hidden sm:inline">Low (21-40%)</span>
                   <span className="sm:hidden">Low</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-fuel-normal"></div>
                   <span className="hidden sm:inline">Normal (&gt;40%)</span>
                   <span className="sm:hidden">Normal</span>
                 </div>
                 {userLocation && (
                   <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-blue-600"></div>
+                    <div className="w-3 h-3 rounded-full bg-primary"></div>
                     <span className="hidden sm:inline">My Location</span>
                     <span className="sm:hidden">Me</span>
                   </div>
