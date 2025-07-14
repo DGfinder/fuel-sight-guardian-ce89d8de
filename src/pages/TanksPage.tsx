@@ -207,7 +207,13 @@ export default function TanksPage() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700">
+          <Button 
+            className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+            onClick={() => {
+              // TODO: Implement add tank functionality
+              console.log('Add tank functionality needed');
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Tank
           </Button>
@@ -348,16 +354,19 @@ export default function TanksPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => openModal(tank)}>
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setEditDipTank(tank);
+                        setEditDipModalOpen(true);
+                      }}>
                         <Plus className="w-4 h-4 mr-2" />
                         Add Dip Reading
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => openModal(tank)}>
                         <TrendingUp className="w-4 h-4 mr-2" />
                         View Trends
                       </DropdownMenuItem>
@@ -431,11 +440,23 @@ export default function TanksPage() {
 
               {/* Quick Actions */}
               <div className="flex gap-2 pt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <Button size="sm" variant="outline" className="flex-1 text-xs">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="flex-1 text-xs"
+                  onClick={() => openModal(tank)}
+                >
                   <Eye className="w-3 h-3 mr-1" />
                   Details
                 </Button>
-                <Button size="sm" className="flex-1 text-xs bg-blue-600 hover:bg-blue-700">
+                <Button 
+                  size="sm" 
+                  className="flex-1 text-xs bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    setEditDipTank(tank);
+                    setEditDipModalOpen(true);
+                  }}
+                >
                   <Plus className="w-3 h-3 mr-1" />
                   Add Dip
                 </Button>
@@ -470,7 +491,12 @@ export default function TanksPage() {
           <Droplets className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No tanks found</h3>
           <p className="text-gray-600 mb-4">Get started by adding your first fuel tank.</p>
-          <Button>
+          <Button
+            onClick={() => {
+              // TODO: Implement add tank functionality
+              console.log('Add tank functionality needed');
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Your First Tank
           </Button>

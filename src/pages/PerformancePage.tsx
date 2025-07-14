@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTanks } from '@/hooks/useTanks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, AlertTriangle, Activity } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TrendingUp, TrendingDown, AlertTriangle, Activity, Download, RefreshCw, Printer, Filter, ArrowUpDown } from 'lucide-react';
 import type { TankRow } from '@/types/fuel';
 import AuditActivity from '@/components/AuditActivity';
 
@@ -17,7 +19,11 @@ interface GroupPerformance {
 }
 
 export default function PerformancePage() {
-  const { tanks, isLoading } = useTanks();
+  const { tanks, isLoading, refreshTanks, exportTanksToCSV } = useTanks();
+  const [selectedGroup, setSelectedGroup] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('performance');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const groupPerformanceData = useMemo(() => {
     if (!tanks || tanks.length === 0) return [];
@@ -115,6 +121,58 @@ export default function PerformancePage() {
     };
   }, [tanks]);
 
+  // Get unique groups for filter
+  const uniqueGroups = useMemo(() => {
+    if (!tanks) return [];
+    const groups = tanks.map(tank => tank.group_name).filter(Boolean) as string[];
+    return Array.from(new Set(groups)).sort();
+  }, [tanks]);
+
+  // Filter and sort performance data
+  const filteredAndSortedData = useMemo(() => {
+    let filtered = [...groupPerformanceData];
+    
+    // Apply group filter
+    if (selectedGroup !== 'all') {
+      filtered = filtered.filter(group => group.groupName === selectedGroup);
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let valueA: number, valueB: number;
+      
+      switch (sortBy) {
+        case 'groupName':
+          return sortDirection === 'asc' 
+            ? a.groupName.localeCompare(b.groupName)
+            : b.groupName.localeCompare(a.groupName);
+        case 'totalTanks':
+          valueA = a.totalTanks;
+          valueB = b.totalTanks;
+          break;
+        case 'averageFuelLevel':
+          valueA = a.averageFuelLevel;
+          valueB = b.averageFuelLevel;
+          break;
+        case 'averageDaysToMin':
+          valueA = a.averageDaysToMin;
+          valueB = b.averageDaysToMin;
+          break;
+        case 'criticalPercentage':
+          valueA = a.criticalPercentage;
+          valueB = b.criticalPercentage;
+          break;
+        default: // performance
+          valueA = a.averageFuelLevel + (a.averageDaysToMin * 2) - (a.criticalPercentage * 3);
+          valueB = b.averageFuelLevel + (b.averageDaysToMin * 2) - (b.criticalPercentage * 3);
+      }
+      
+      return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+    });
+    
+    return filtered;
+  }, [groupPerformanceData, selectedGroup, sortBy, sortDirection]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -139,6 +197,64 @@ export default function PerformancePage() {
     return 'text-red-600';
   };
 
+  // Export performance data as CSV
+  const exportPerformanceData = () => {
+    const headers = [
+      'Rank', 'Group Name', 'Total Tanks', 'Average Fuel Level (%)', 
+      'Average Days to Min', 'Critical %', 'Low %', 'Normal %', 'Performance Score'
+    ];
+    
+    const csvData = groupPerformanceData.map((group, index) => {
+      const performanceScore = group.averageFuelLevel + (group.averageDaysToMin * 2) - (group.criticalPercentage * 3);
+      return [
+        index + 1,
+        group.groupName,
+        group.totalTanks,
+        group.averageFuelLevel.toFixed(1),
+        group.averageDaysToMin.toFixed(1),
+        group.criticalPercentage.toFixed(1),
+        group.lowPercentage.toFixed(1),
+        group.normalPercentage.toFixed(1),
+        performanceScore.toFixed(1)
+      ];
+    });
+    
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(field => '"' + String(field).replaceAll('"', '""') + '"').join(','))
+      .join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'performance-report-' + new Date().toISOString().split('T')[0] + '.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Print functionality
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Manual refresh
+  const handleRefresh = () => {
+    refreshTanks();
+  };
+
+  // Handle row click to expand/collapse details
+  const handleRowClick = (groupName: string) => {
+    setExpandedRow(expandedRow === groupName ? null : groupName);
+  };
+
+  // Get tanks for a specific group
+  const getTanksForGroup = (groupName: string) => {
+    if (!tanks) return [];
+    return tanks.filter(tank => tank.group_name === groupName);
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -151,6 +267,98 @@ export default function PerformancePage() {
           Admin Only
         </Badge>
       </div>
+
+      {/* Control Bar */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium">Filters:</span>
+              </div>
+              
+              <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All Groups" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  {uniqueGroups.map(group => (
+                    <SelectItem key={group} value={group}>{group}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="performance">Performance Score</SelectItem>
+                  <SelectItem value="groupName">Group Name</SelectItem>
+                  <SelectItem value="totalTanks">Total Tanks</SelectItem>
+                  <SelectItem value="averageFuelLevel">Avg Fuel Level</SelectItem>
+                  <SelectItem value="averageDaysToMin">Days to Min</SelectItem>
+                  <SelectItem value="criticalPercentage">Critical %</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                className="px-3"
+              >
+                <ArrowUpDown className="h-4 w-4" />
+                {sortDirection === 'asc' ? 'Asc' : 'Desc'}
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportPerformanceData}
+                className="whitespace-nowrap"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export CSV
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportTanksToCSV && exportTanksToCSV()}
+                className="whitespace-nowrap"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export Tanks
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="whitespace-nowrap"
+              >
+                <Printer className="h-4 w-4 mr-1" />
+                Print
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                className="whitespace-nowrap"
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Overall Network Metrics */}
       {overallMetrics && (
@@ -230,33 +438,93 @@ export default function PerformancePage() {
                 </tr>
               </thead>
               <tbody>
-                {groupPerformanceData.map((group, index) => (
-                  <tr key={group.groupName} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">#{index + 1}</span>
-                        {getPerformanceBadge(index)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-medium">{group.groupName}</td>
-                    <td className="text-right py-3 px-4">{group.totalTanks}</td>
-                    <td className="text-right py-3 px-4 font-medium">
-                      {group.averageFuelLevel.toFixed(1)}%
-                    </td>
-                    <td className="text-right py-3 px-4">
-                      {group.averageDaysToMin.toFixed(1)} days
-                    </td>
-                    <td className={`text-right py-3 px-4 font-medium ${getStatusColor(group.criticalPercentage)}`}>
-                      {group.criticalPercentage.toFixed(1)}%
-                    </td>
-                    <td className="text-right py-3 px-4 text-yellow-600">
-                      {group.lowPercentage.toFixed(1)}%
-                    </td>
-                    <td className="text-right py-3 px-4 text-green-600">
-                      {group.normalPercentage.toFixed(1)}%
-                    </td>
-                  </tr>
-                ))}
+                {filteredAndSortedData.map((group, index) => {
+                  const isExpanded = expandedRow === group.groupName;
+                  const groupTanks = getTanksForGroup(group.groupName);
+                  
+                  return (
+                    <React.Fragment key={group.groupName}>
+                      <tr 
+                        className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => handleRowClick(group.groupName)}
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">#{index + 1}</span>
+                            {getPerformanceBadge(index)}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-medium">
+                          <div className="flex items-center gap-2">
+                            {group.groupName}
+                            <span className="text-xs text-gray-400">
+                              {isExpanded ? '▼' : '▶'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="text-right py-3 px-4">{group.totalTanks}</td>
+                        <td className="text-right py-3 px-4 font-medium">
+                          {group.averageFuelLevel.toFixed(1)}%
+                        </td>
+                        <td className="text-right py-3 px-4">
+                          {group.averageDaysToMin.toFixed(1)} days
+                        </td>
+                        <td className={`text-right py-3 px-4 font-medium ${getStatusColor(group.criticalPercentage)}`}>
+                          {group.criticalPercentage.toFixed(1)}%
+                        </td>
+                        <td className="text-right py-3 px-4 text-yellow-600">
+                          {group.lowPercentage.toFixed(1)}%
+                        </td>
+                        <td className="text-right py-3 px-4 text-green-600">
+                          {group.normalPercentage.toFixed(1)}%
+                        </td>
+                      </tr>
+                      
+                      {isExpanded && (
+                        <tr className="bg-gray-50">
+                          <td colSpan={8} className="px-4 py-4">
+                            <div className="space-y-3">
+                              <h4 className="font-medium text-sm text-gray-700">
+                                Tank Details for {group.groupName}
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {groupTanks.slice(0, 6).map((tank) => (
+                                  <div key={tank.id} className="bg-white p-3 rounded border">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <span className="text-sm font-medium truncate">
+                                        {tank.location}
+                                      </span>
+                                      <Badge 
+                                        variant={
+                                          (tank.current_level_percent || 0) <= 20 ? 'fuel-critical' :
+                                          (tank.current_level_percent || 0) <= 40 ? 'fuel-low' : 'fuel-normal'
+                                        }
+                                        className="text-xs"
+                                      >
+                                        {tank.current_level_percent?.toFixed(1) || 'N/A'}%
+                                      </Badge>
+                                    </div>
+                                    <div className="text-xs text-gray-600 space-y-1">
+                                      <div>Product: {tank.product_type || 'Unknown'}</div>
+                                      {tank.days_to_min_level && tank.days_to_min_level > 0 && (
+                                        <div>Days to min: {tank.days_to_min_level.toFixed(1)}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {groupTanks.length > 6 && (
+                                <p className="text-xs text-gray-500">
+                                  ... and {groupTanks.length - 6} more tanks
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -272,7 +540,7 @@ export default function PerformancePage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {groupPerformanceData.map((group) => (
+              {filteredAndSortedData.map((group) => (
                 <div key={group.groupName} className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">{group.groupName}</span>
@@ -303,13 +571,13 @@ export default function PerformancePage() {
                 <div>
                   <p className="text-sm font-medium text-green-800">Best Performing Group</p>
                   <p className="text-lg font-bold text-green-900">
-                    {groupPerformanceData[0]?.groupName || 'N/A'}
+                    {filteredAndSortedData[0]?.groupName || 'N/A'}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-green-600">Avg Fuel Level</p>
                   <p className="text-lg font-bold text-green-800">
-                    {groupPerformanceData[0]?.averageFuelLevel.toFixed(1) || '0'}%
+                    {filteredAndSortedData[0]?.averageFuelLevel.toFixed(1) || '0'}%
                   </p>
                 </div>
               </div>
@@ -318,13 +586,13 @@ export default function PerformancePage() {
                 <div>
                   <p className="text-sm font-medium text-red-800">Needs Attention</p>
                   <p className="text-lg font-bold text-red-900">
-                    {groupPerformanceData[groupPerformanceData.length - 1]?.groupName || 'N/A'}
+                    {filteredAndSortedData[filteredAndSortedData.length - 1]?.groupName || 'N/A'}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-red-600">Critical Tanks</p>
                   <p className="text-lg font-bold text-red-800">
-                    {groupPerformanceData[groupPerformanceData.length - 1]?.criticalPercentage.toFixed(1) || '0'}%
+                    {filteredAndSortedData[filteredAndSortedData.length - 1]?.criticalPercentage.toFixed(1) || '0'}%
                   </p>
                 </div>
               </div>
