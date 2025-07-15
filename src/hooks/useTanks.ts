@@ -44,7 +44,7 @@ export interface Tank {
 }
 
 // Memoized tank data transformation function
-const transformTankData = (rawTank: any): Tank => ({
+const transformTankData = (rawTank: Record<string, unknown>): Tank => ({
   ...rawTank,
   id: rawTank.id,
   location: rawTank.location,

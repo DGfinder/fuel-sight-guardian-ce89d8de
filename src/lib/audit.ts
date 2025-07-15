@@ -13,8 +13,8 @@ export interface AuditLogEntry {
   table_name: string;
   record_id: string;
   action: 'INSERT' | 'UPDATE' | 'DELETE';
-  old_values: Record<string, any> | null;
-  new_values: Record<string, any> | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
   user_id: string | null;
   user_email: string | null;
   user_ip: string | null;
@@ -24,8 +24,8 @@ export interface AuditLogEntry {
 
 export interface AuditTrailEntry {
   action: 'INSERT' | 'UPDATE' | 'DELETE';
-  old_values: Record<string, any> | null;
-  new_values: Record<string, any> | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
   user_email: string | null;
   created_at: string;
 }
@@ -208,9 +208,10 @@ export class AuditService {
     switch (action) {
       case 'INSERT':
         return `${user} created a new record on ${date}`;
-      case 'UPDATE':
+      case 'UPDATE': {
         const changes = AuditService.getChanges(old_values, new_values);
         return `${user} updated ${changes} on ${date}`;
+      }
       case 'DELETE':
         return `${user} deleted record on ${date}`;
       default:
@@ -222,8 +223,8 @@ export class AuditService {
    * Get human-readable changes between old and new values
    */
   static getChanges(
-    oldValues: Record<string, any> | null,
-    newValues: Record<string, any> | null
+    oldValues: Record<string, unknown> | null,
+    newValues: Record<string, unknown> | null
   ): string {
     if (!oldValues || !newValues) return 'record';
 
@@ -295,7 +296,7 @@ export class AuditTracker {
    */
   static async logManualAction(
     action: string,
-    details: Record<string, any>,
+    details: Record<string, unknown>,
     context?: string
   ): Promise<void> {
     try {
@@ -321,7 +322,7 @@ export class AuditTracker {
    */
   static async logUserActivity(
     activityType: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     try {
       const { data: user } = await supabase.auth.getUser();

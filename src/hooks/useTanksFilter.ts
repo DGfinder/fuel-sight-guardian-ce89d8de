@@ -59,8 +59,8 @@ export function useTanksFilter(filters: FilterOptions = {}) {
     // Apply sorting
     if (filters.sortBy) {
       result.sort((a, b) => {
-        let aValue: any;
-        let bValue: any;
+        let aValue: string | number;
+        let bValue: string | number;
 
         switch (filters.sortBy) {
           case 'location':

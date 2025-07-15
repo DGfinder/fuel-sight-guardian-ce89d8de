@@ -54,8 +54,8 @@ export class RouteErrorBoundary extends Component<Props, State> {
     });
 
     // Report to error tracking service if available
-    if (typeof window !== 'undefined' && (window as any).analytics) {
-      (window as any).analytics.track('Route Error', {
+    if (typeof window !== 'undefined' && (window as Record<string, unknown>).analytics) {
+      ((window as Record<string, unknown>).analytics as { track: (event: string, props: Record<string, unknown>) => void }).track('Route Error', {
         route: this.props.routeName,
         error: error.message,
         retryCount: this.state.retryCount

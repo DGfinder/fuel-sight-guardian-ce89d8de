@@ -190,7 +190,7 @@ export async function autoFixAuthIssues(): Promise<{fixed: boolean, actions: str
 
 // Make cleanup function globally available for console access
 if (typeof window !== 'undefined') {
-  (window as any).fuelSightAuthCleanup = emergencyAuthCleanup;
-  (window as any).fuelSightCleanupScript = generateCleanupScript;
-  (window as any).fuelSightAutoFix = autoFixAuthIssues;
+  (window as Record<string, unknown>).fuelSightAuthCleanup = emergencyAuthCleanup;
+  (window as Record<string, unknown>).fuelSightCleanupScript = generateCleanupScript;
+  (window as Record<string, unknown>).fuelSightAutoFix = autoFixAuthIssues;
 }

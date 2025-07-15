@@ -82,8 +82,8 @@ export function AuditTrail({
 interface AuditEntryProps {
   entry: {
     action: 'INSERT' | 'UPDATE' | 'DELETE';
-    old_values: Record<string, any> | null;
-    new_values: Record<string, any> | null;
+    old_values: Record<string, unknown> | null;
+    new_values: Record<string, unknown> | null;
     user_email: string | null;
     created_at: string;
   };
@@ -104,9 +104,10 @@ function AuditEntry({ entry }: AuditEntryProps) {
         return 'Created this record';
       case 'DELETE':
         return 'Deleted this record';
-      case 'UPDATE':
+      case 'UPDATE': {
         const changes = AuditService.getChanges(old_values, new_values);
         return `Updated ${changes}`;
+      }
       default:
         return `Performed ${action}`;
     }
@@ -115,7 +116,7 @@ function AuditEntry({ entry }: AuditEntryProps) {
   const getChangedFields = () => {
     if (action !== 'UPDATE' || !old_values || !new_values) return null;
 
-    const changes: Array<{ field: string; oldValue: any; newValue: any }> = [];
+    const changes: Array<{ field: string; oldValue: unknown; newValue: unknown }> = [];
     const keys = new Set([...Object.keys(old_values), ...Object.keys(new_values)]);
 
     for (const key of keys) {

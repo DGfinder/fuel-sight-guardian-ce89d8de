@@ -105,7 +105,7 @@ const Heading = React.forwardRef<HTMLHeadingElement, HeadingProps>(
     return React.createElement(
       Component,
       {
-        className: cn(headingVariants({ level: level || (as as any), color }), className),
+        className: cn(headingVariants({ level: level || (as as HeadingLevel), color }), className),
         ref,
         ...props,
       },
