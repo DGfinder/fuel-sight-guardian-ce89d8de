@@ -23,18 +23,13 @@ import {
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { supabase } from '@/lib/supabase';
-import { useQuery } from '@tanstack/react-query';
+// Removed supabase and useQuery imports - using filtered data from useTanks hook
 import AddDipModal from '@/components/modals/AddDipModal';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTanks } from "@/hooks/useTanks";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface TankCount {
-  total: number;
-  critical: number;
-  warning: number;
-}
+// TankCount interface no longer needed - using data from useTanks hook
 
 const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
@@ -84,32 +79,9 @@ export const Sidebar: React.FC = () => {
   const [addDipModalOpen, setAddDipModalOpen] = useState(false);
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
-  const { tanks, isLoading: tanksLoading } = useTanks();
+  const { tanks, tanksCount, criticalTanks, lowTanks, isLoading: tanksLoading } = useTanks();
 
-  const { data: tankCounts } = useQuery<TankCount>({
-    queryKey: ['tankCounts'],
-    queryFn: async () => {
-      if (!permissions) return { total: 0, critical: 0, warning: 0 };
-
-      let query = supabase
-        .from('tanks_with_rolling_avg')
-        .select('id', { count: 'exact', head: true });
-
-      if (!permissions.isAdmin && permissions.accessibleGroups.length > 0) {
-        const groupIds = permissions.accessibleGroups.map(g => g.id);
-        query = query.in('group_id', groupIds);
-      }
-
-      const { count } = await query;
-        
-      return {
-        total: count || 0,
-        critical: 0, // Placeholder
-        warning: 0, // Placeholder
-      };
-    },
-    enabled: !!permissions,
-  });
+  // Using filtered counts from useTanks hook instead of separate query
 
   const navItems = useMemo(() => {
     if (!permissions) return [];
@@ -134,9 +106,9 @@ export const Sidebar: React.FC = () => {
       return accessibleGroups.has(item.group);
     }).map(item => ({
       ...item,
-      badge: item.badge === 'totalTanks' ? tankCounts?.total : null
+      badge: item.badge === 'totalTanks' ? tanksCount : null
     }));
-  }, [permissions, tankCounts]);
+  }, [permissions, tanksCount]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -267,9 +239,9 @@ export const Sidebar: React.FC = () => {
             >
               <AlertIcon className="w-5 h-5" />
               Alerts
-              {(tankCounts?.critical || 0) + (tankCounts?.warning || 0) > 0 && (
+              {(criticalTanks || 0) + (lowTanks || 0) > 0 && (
                 <span className="ml-2 bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
-                  {(tankCounts?.critical || 0) + (tankCounts?.warning || 0)}
+                  {(criticalTanks || 0) + (lowTanks || 0)}
                 </span>
               )}
             </Link>
