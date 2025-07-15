@@ -108,13 +108,102 @@ export function useTanks() {
       if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups && userPermissions.accessibleGroups.length > 0) {
         const groupIds = userPermissions.accessibleGroups.map(g => g.id);
         query = query.in('group_id', groupIds);
+        
+        // Additional client-side filtering for subgroup access
+        // This provides defense-in-depth alongside RLS policies
+        const hasSubgroupRestrictions = userPermissions.accessibleGroups.some(g => g.subgroups && g.subgroups.length > 0);
+        if (hasSubgroupRestrictions) {
+          // If user has subgroup restrictions, we need to filter at the application level too
+          // Note: This is backup filtering - RLS should handle this at database level
+          console.log('🔒 [SECURITY] User has subgroup restrictions, additional filtering will be applied');
+        }
       }
 
       const { data, error } = await query.order('last_dip_ts', { ascending: false });
       if (error) throw error;
       
+      let filteredData = data || [];
+      
+      // CRITICAL: Primary client-side subgroup filtering for users like Sally
+      // This is the main security mechanism since RLS on views is unreliable
+      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups) {
+        console.log('🔍 [SECURITY] Checking subgroup filtering for user permissions:', {
+          role: userPermissions.role,
+          isAdmin: userPermissions.isAdmin,
+          accessibleGroups: userPermissions.accessibleGroups.map(g => ({
+            id: g.id,
+            name: g.name,
+            hasSubgroups: !!g.subgroups,
+            subgroups: g.subgroups || []
+          }))
+        });
+
+        const hasSubgroupRestrictions = userPermissions.accessibleGroups.some(g => g.subgroups && g.subgroups.length > 0);
+        
+        // Apply filtering for users with subgroup restrictions (like Sally)
+        if (hasSubgroupRestrictions) {
+          console.log('🔒 [SECURITY] User has subgroup restrictions - applying strict filtering');
+          
+          filteredData = filteredData.filter(tank => {
+            // Find the group this tank belongs to
+            const tankGroup = userPermissions.accessibleGroups.find(g => g.id === tank.group_id);
+            
+            if (!tankGroup) {
+              console.log('🚫 [SECURITY] Tank filtered - group not in user permissions:', {
+                tankLocation: tank.location,
+                tankGroupId: tank.group_id,
+                userGroupIds: userPermissions.accessibleGroups.map(g => g.id)
+              });
+              return false; // No access to this group
+            }
+            
+            // For subgroup-restricted groups, check specific subgroup access
+            if (tankGroup.subgroups && tankGroup.subgroups.length > 0) {
+              const hasSubgroupAccess = tankGroup.subgroups.includes(tank.subgroup);
+              
+              if (!hasSubgroupAccess) {
+                console.log('🚫 [SECURITY] Tank filtered by subgroup restriction:', {
+                  tankLocation: tank.location,
+                  tankSubgroup: tank.subgroup,
+                  allowedSubgroups: tankGroup.subgroups,
+                  groupName: tankGroup.name
+                });
+              } else {
+                console.log('✅ [SECURITY] Tank allowed by subgroup access:', {
+                  tankLocation: tank.location,
+                  tankSubgroup: tank.subgroup,
+                  groupName: tankGroup.name
+                });
+              }
+              
+              return hasSubgroupAccess;
+            }
+            
+            // No subgroup restrictions for this group, allow full access
+            console.log('✅ [SECURITY] Tank allowed - no subgroup restrictions for this group:', {
+              tankLocation: tank.location,
+              groupName: tankGroup.name
+            });
+            return true;
+          });
+          
+          console.log('🔒 [SECURITY] Subgroup filtering complete:', {
+            originalCount: data?.length || 0,
+            filteredCount: filteredData.length,
+            removedCount: (data?.length || 0) - filteredData.length,
+            userRole: userPermissions.role,
+            userSubgroups: userPermissions.accessibleGroups.filter(g => g.subgroups).map(g => ({
+              group: g.name,
+              subgroups: g.subgroups
+            }))
+          });
+        } else {
+          console.log('ℹ️ [SECURITY] User has no subgroup restrictions - showing all accessible groups');
+        }
+      }
+      
       // Use memoized transformation function
-      return data?.map(transformTankData) || [];
+      return filteredData.map(transformTankData);
     },
     enabled: !!userPermissions, // Only run query when permissions are loaded
     staleTime: 2 * 60 * 1000, // 2 minutes - tanks don't change that frequently
@@ -169,8 +258,34 @@ export function useTanks() {
       const { data, error } = await query.order('last_dip_ts', { ascending: false });
       if (error) throw error;
       
+      let filteredData = data || [];
+      
+      // Apply same enhanced subgroup filtering as main query
+      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups) {
+        const hasSubgroupRestrictions = userPermissions.accessibleGroups.some(g => g.subgroups && g.subgroups.length > 0);
+        
+        if (hasSubgroupRestrictions) {
+          console.log('🔄 [SECURITY] Applying subgroup filtering to refresh mutation');
+          
+          filteredData = filteredData.filter(tank => {
+            const tankGroup = userPermissions.accessibleGroups.find(g => g.id === tank.group_id);
+            if (!tankGroup) return false;
+            
+            if (tankGroup.subgroups && tankGroup.subgroups.length > 0) {
+              return tankGroup.subgroups.includes(tank.subgroup);
+            }
+            return true;
+          });
+          
+          console.log('🔄 [SECURITY] Refresh filtering complete:', {
+            originalCount: data?.length || 0,
+            filteredCount: filteredData.length
+          });
+        }
+      }
+      
       // Use same transformation function for consistency
-      return data?.map(transformTankData) || [];
+      return filteredData.map(transformTankData);
     },
     onSuccess: (data) => {
       // Update cache with optimized key
