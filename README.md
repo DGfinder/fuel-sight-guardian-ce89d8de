@@ -1,8 +1,8 @@
-# Welcome to your Lovable project
+# TankAlert - Fuel Tank Monitoring System
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/04eee6f6-369f-4d9e-b23b-4142d36820cf
+**Description**: Fuel tank monitoring system for Great Southern Fuels
 
 ## Continuous Integration (CI)
 
@@ -27,15 +27,9 @@ The CI pipeline will show linting warnings and errors but won't fail the build f
 
 There are several ways of editing your application.
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/04eee6f6-369f-4d9e-b23b-4142d36820cf) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
 **Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+You can work locally using your own IDE by cloning this repo and pushing changes.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -81,12 +75,11 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/04eee6f6-369f-4d9e-b23b-4142d36820cf) and click on Share -> Publish.
+This project can be deployed using various hosting services like Vercel, Netlify, or similar platforms that support Vite/React applications.
 
-## Can I connect a custom domain to my Lovable project?
+Build the project for production:
+```sh
+npm run build
+```
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+The built files will be in the `dist` directory, ready for deployment.

@@ -1,7 +1,11 @@
--- ENHANCED BULLETPROOF TANKS_WITH_ROLLING_AVG VIEW (CORRECTED ROLLING AVERAGES)
+-- ENHANCED BULLETPROOF TANKS_WITH_ROLLING_AVG VIEW (WITH REFILL PROTECTION)
 -- This builds on the working basic view and adds advanced fuel analytics
--- FIXES: Rolling averages now show realistic 3000-5000 L/day consumption rates
--- Includes: proper % above minimum, corrected rolling averages, days to minimum, and status
+-- MAJOR FIXES: 
+-- 1. Rolling averages use consecutive readings only (LAG function) - eliminates over-counting
+-- 2. Refill protection - rolling averages restart after refills for accurate consumption rates
+-- Previous bugs: JOIN over-counting + mixing pre/post-refill consumption patterns
+-- Now shows realistic 3000-5000 L/day consumption rates with refill-aware calculations
+-- Includes: proper % above minimum, refill-protected rolling averages, days to minimum, and status
 
 -- ============================================================================
 -- STEP 1: Drop existing view
@@ -74,21 +78,48 @@ tank_with_rolling_avg AS (
   -- Add 7-day rolling average calculation with more flexible filtering
   SELECT 
     tpd.*,
-    -- 7-day rolling average consumption (negative values indicate consumption)
+    -- 7-day rolling average consumption (WITH REFILL PROTECTION)
     COALESCE(
-      -(WITH daily_consumption AS (
+      -(WITH consecutive_readings AS (
           SELECT 
-            DATE(dr1.created_at) as consumption_date,
-            SUM(ABS(dr1.value - dr2.value)) as daily_consumed  -- Sum multiple readings per day
-          FROM dip_readings dr1
-          JOIN dip_readings dr2 ON dr1.tank_id = dr2.tank_id
-          WHERE dr1.tank_id = tpd.id
-            AND dr1.created_at > dr2.created_at
-            AND dr1.created_at >= NOW() - INTERVAL '7 days'
-            AND (dr1.value - dr2.value) < 0  -- Only consumption (decreases)
-            AND ABS(dr1.value - dr2.value) BETWEEN 50 AND 15000  -- More flexible consumption range
-            AND EXTRACT(epoch FROM (dr1.created_at - dr2.created_at)) / 86400 BETWEEN 0.3 AND 4.0  -- More flexible timing
-          GROUP BY DATE(dr1.created_at)  -- Group only by date, sum consumption per day
+            tank_id,
+            created_at,
+            value,
+            LAG(value) OVER (PARTITION BY tank_id ORDER BY created_at) as prev_value,
+            LAG(created_at) OVER (PARTITION BY tank_id ORDER BY created_at) as prev_date
+          FROM dip_readings
+          WHERE tank_id = tpd.id
+            AND created_at >= NOW() - INTERVAL '8 days'
+        ),
+        refill_detection AS (
+          SELECT 
+            *,
+            CASE WHEN (value - prev_value) > 1000 THEN created_at ELSE NULL END as refill_timestamp
+          FROM consecutive_readings
+        ),
+        last_refill_per_tank AS (
+          SELECT 
+            tank_id,
+            MAX(refill_timestamp) as last_refill_date
+          FROM refill_detection
+          GROUP BY tank_id
+        ),
+        post_refill_readings AS (
+          SELECT cr.*
+          FROM consecutive_readings cr
+          LEFT JOIN last_refill_per_tank lr ON cr.tank_id = lr.tank_id
+          WHERE cr.created_at > COALESCE(lr.last_refill_date, '1900-01-01')  -- Only data after last refill
+            AND cr.prev_value IS NOT NULL
+            AND (cr.value - cr.prev_value) < 0  -- Only consumption (decreases)
+            AND ABS(cr.value - cr.prev_value) BETWEEN 50 AND 15000  -- Realistic consumption range
+            AND EXTRACT(epoch FROM (cr.created_at - cr.prev_date)) / 86400 BETWEEN 0.3 AND 4.0  -- Reasonable time gaps
+        ),
+        daily_consumption AS (
+          SELECT 
+            DATE(created_at) as consumption_date,
+            SUM(ABS(value - prev_value)) as daily_consumed  -- Sum post-refill consumption per day
+          FROM post_refill_readings
+          GROUP BY DATE(created_at)
         )
         SELECT ROUND(AVG(daily_consumed)::numeric, 0)
         FROM daily_consumption
@@ -141,15 +172,21 @@ SELECT
   END as current_level_percent,
   
   -- ============================================================================
-  -- ENHANCED ROLLING AVERAGE AND USAGE CALCULATIONS (WITH VISUAL INDICATORS)
+  -- ENHANCED ROLLING AVERAGE AND USAGE CALCULATIONS (NUMERIC + DISPLAY)
   -- ============================================================================
-  tra.rolling_avg_lpd,  -- Already negative for consumption (visual: -4378)
-  
+  tra.rolling_avg_lpd,  -- Keep original name for backward compatibility
   CASE 
-    WHEN tra.prev_day_used < 0 THEN tra.prev_day_used  -- Keep negative for consumption (visual: -2500)
-    WHEN tra.prev_day_used > 0 THEN tra.prev_day_used  -- Keep positive for refills (visual: +15000) 
-    ELSE 0  -- No change
-  END as prev_day_used,
+    WHEN tra.rolling_avg_lpd < 0 THEN CONCAT('-', ABS(tra.rolling_avg_lpd))  -- Format as "-4378"
+    WHEN tra.rolling_avg_lpd = 0 THEN '0'  -- No consumption data
+    ELSE CONCAT('+', tra.rolling_avg_lpd)  -- Unlikely but handle positive values
+  END as rolling_avg_lpd_display,
+  
+  tra.prev_day_used,  -- Keep original name for backward compatibility
+  CASE 
+    WHEN tra.prev_day_used < 0 THEN CONCAT('-', ABS(tra.prev_day_used))  -- Format as "-2500"
+    WHEN tra.prev_day_used > 0 THEN CONCAT('+', tra.prev_day_used)  -- Format as "+15000"
+    ELSE '0'  -- No change
+  END as prev_day_used_display,
   
   -- ============================================================================
   -- DAYS TO MINIMUM LEVEL CALCULATION
@@ -208,8 +245,9 @@ SELECT
   -- ============================================================================
   GREATEST(0, COALESCE(tra.safe_level, 10000) - COALESCE(tra.min_level, 0)) as usable_capacity,
   
-  -- Ullage: Available fuel capacity (how much fuel can be added)
+  -- Ullage: Available fuel capacity (numeric + display versions)
   GREATEST(0, COALESCE(tra.safe_level, 10000) - COALESCE(tra.current_level, 0)) as ullage,
+  CONCAT('+', GREATEST(0, COALESCE(tra.safe_level, 10000) - COALESCE(tra.current_level, 0))) as ullage_display,
   
   -- ============================================================================
   -- ALL TANK METADATA

@@ -1,9 +1,10 @@
--- Test the ENHANCED bulletproof view with visual fuel indicators
+-- Test the ENHANCED bulletproof view (WITH REFILL PROTECTION)
 -- Run this in Supabase SQL Editor to verify:
--- 1. Rolling averages show negative values (e.g., -4378) for consumption visualization
--- 2. Previous day used shows negative for consumption (-2500), positive for refills (+15000)
--- 3. Ullage shows available fuel capacity that can be added
--- 4. Jandakot now shows rolling average instead of 0
+-- 1. Rolling averages use consecutive readings only (eliminates over-counting)
+-- 2. Refill protection: averages restart after refills for accurate rates
+-- 3. Mt Claremont shows ~3000 L/day (NOT 16,829 L/day from over-counting)
+-- 4. Tanks with recent refills show post-refill consumption patterns only
+-- 5. Visual indicators work: minus signs for consumption, plus for refills
 
 -- Test 1: Visual Indicators Test
 SELECT 
@@ -12,28 +13,69 @@ SELECT
     current_level,
     safe_fill,
     ullage,
+    ullage_display,
     rolling_avg_lpd,
+    rolling_avg_lpd_display,
     prev_day_used,
+    prev_day_used_display,
     CASE 
-        WHEN rolling_avg_lpd < 0 THEN '✅ Negative (consumption shown)'
-        WHEN rolling_avg_lpd = 0 THEN '⚠️ Zero (no data)'
-        ELSE '❌ Positive (should be negative)'
+        WHEN rolling_avg_lpd_display LIKE '-%' THEN '✅ Shows minus sign'
+        WHEN rolling_avg_lpd_display = '0' THEN '⚠️ Zero (no data)'
+        WHEN rolling_avg_lpd_display LIKE '+%' THEN '⚠️ Shows plus (unusual)'
+        ELSE '❌ No sign formatting'
     END as rolling_avg_visual,
     CASE 
-        WHEN prev_day_used < 0 THEN '✅ Negative (consumption)'
-        WHEN prev_day_used > 1000 THEN '✅ Positive (refill)'
-        WHEN prev_day_used = 0 THEN '⚪ Zero (no change)'
-        ELSE '⚠️ Small change'
+        WHEN prev_day_used_display LIKE '-%' THEN '✅ Shows minus (consumption)'
+        WHEN prev_day_used_display LIKE '+%' THEN '✅ Shows plus (refill)'
+        WHEN prev_day_used_display = '0' THEN '⚪ Zero (no change)'
+        ELSE '❌ No sign formatting'
     END as prev_day_visual,
     CASE 
-        WHEN ullage > 0 THEN CONCAT('✅ Available: ', ullage, 'L')
-        ELSE '❌ No capacity'
+        WHEN ullage_display LIKE '+%' THEN '✅ Shows plus sign'
+        ELSE '❌ No plus sign'
     END as ullage_visual
 FROM tanks_with_rolling_avg
-WHERE subgroup = 'GSFS Narrogin' OR location = 'Jandakot'
+WHERE subgroup = 'GSFS Narrogin' OR location = 'Jandakot' OR location = 'Mt Claremont'
 ORDER BY location;
 
--- Test 2: Status Distribution Across All Tanks
+-- Test 2: Mt Claremont Over-Counting Fix Verification
+SELECT 
+    'Mt Claremont Rolling Average Fix' as test_name,
+    location,
+    rolling_avg_lpd,
+    rolling_avg_lpd_display,
+    CASE 
+        WHEN rolling_avg_lpd BETWEEN -5000 AND -1000 THEN '✅ FIXED: Realistic consumption range'
+        WHEN rolling_avg_lpd < -10000 THEN '❌ Still too high (over-counting bug)'
+        WHEN rolling_avg_lpd = 0 THEN '⚠️ No consumption data'
+        ELSE '⚠️ Unusual value'
+    END as rolling_avg_status,
+    'Previous bug: 16,829 L/day' as previous_bug,
+    'Expected: ~3,000 L/day' as expected_fix
+FROM tanks_with_rolling_avg
+WHERE location = 'Mt Claremont';
+
+-- Test 3: Refill Protection Logic Verification
+SELECT 
+    'Refill Protection Test' as test_name,
+    location,
+    rolling_avg_lpd,
+    rolling_avg_lpd_display,
+    prev_day_used,
+    prev_day_used_display,
+    CASE 
+        WHEN prev_day_used_display LIKE '+%' AND rolling_avg_lpd BETWEEN -5000 AND -500 THEN '✅ REFILL DETECTED: Post-refill avg calculated'
+        WHEN prev_day_used_display LIKE '+%' AND rolling_avg_lpd = 0 THEN '⚠️ REFILL DETECTED: No post-refill consumption yet'
+        WHEN prev_day_used_display LIKE '+%' AND ABS(rolling_avg_lpd) > 10000 THEN '❌ REFILL DETECTED: Still using pre-refill data'
+        WHEN prev_day_used_display LIKE '-%' THEN '✅ NORMAL CONSUMPTION: Rolling avg calculated normally'
+        ELSE '⚪ NO RECENT ACTIVITY'
+    END as refill_protection_status,
+    'Refill protection ensures accurate post-refill consumption rates' as explanation
+FROM tanks_with_rolling_avg
+WHERE prev_day_used_display LIKE '+%' OR location = 'Mt Claremont'
+ORDER BY prev_day_used_display DESC;
+
+-- Test 4: Status Distribution Across All Tanks
 SELECT 
     'Status Distribution' as test_name,
     status,
@@ -51,12 +93,14 @@ ORDER BY
         ELSE 5 
     END;
 
--- Test 3: Rolling Average and Previous Day Validation
+-- Test 5: Rolling Average and Previous Day Validation
 SELECT 
     'Rolling Average & Prev Day Test' as test_name,
     location,
     rolling_avg_lpd,
+    rolling_avg_lpd_display,
     prev_day_used,
+    prev_day_used_display,
     CASE 
         WHEN rolling_avg_lpd < 0 THEN 'Consuming fuel (correct)'
         WHEN rolling_avg_lpd = 0 THEN 'No consumption data'
@@ -69,10 +113,10 @@ SELECT
         ELSE 'Small change'
     END as prev_day_status
 FROM tanks_with_rolling_avg
-WHERE subgroup = 'GSFS Narrogin' OR location = 'Jandakot'
+WHERE subgroup = 'GSFS Narrogin' OR location = 'Jandakot' OR location = 'Mt Claremont'
 ORDER BY location;
 
--- Test 4: Days to Minimum Validation
+-- Test 6: Days to Minimum Validation
 SELECT 
     'Days to Minimum' as test_name,
     location,
@@ -91,7 +135,7 @@ FROM tanks_with_rolling_avg
 WHERE subgroup = 'GSFS Narrogin'
 ORDER BY location;
 
--- Test 5: Percentage Calculation Verification
+-- Test 7: Percentage Calculation Verification
 SELECT 
     'Percentage Verification' as test_name,
     location,
