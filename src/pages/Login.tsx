@@ -7,7 +7,6 @@ import logo from '@/assets/logo.png';
 import { useQueryClient } from '@tanstack/react-query';
 import { semanticColors } from '@/lib/design-tokens';
 import TruckHeroSection from '@/components/TruckHeroSection';
-import SwooshBridge from '@/components/SwooshBridge';
 
 // Custom theme matching the design spec
 const customTheme = {
@@ -39,10 +38,7 @@ export default function Login() {
   }, [navigate, queryClient]);
 
   return (
-    <div className="min-h-screen flex relative">
-      {/* Swoosh Bridge Element - Connecting Login to Hero */}
-      <SwooshBridge className="hidden lg:block" />
-      
+    <div className="min-h-screen flex">
       {/* Left Side - Login Form */}
       <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-100 relative overflow-hidden animate-slide-in-left">
         {/* Animated background elements */}
@@ -56,24 +52,11 @@ export default function Login() {
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-8 transform transition-all duration-500 hover:shadow-3xl">
             {/* Logo and Title */}
             <div className="text-center mb-8">
-              <div className="relative inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#008457] to-[#006b47] rounded-2xl mb-4 shadow-lg overflow-hidden">
-                {/* Swoosh Background Pattern in Logo */}
-                <div className="absolute inset-0 opacity-20">
-                  <svg width="80" height="80" viewBox="0 0 80 80" className="w-full h-full">
-                    <path
-                      d="M10 40 Q30 30, 50 40 T80 35"
-                      stroke="#FEDF19"
-                      strokeWidth="3"
-                      fill="none"
-                      strokeLinecap="round"
-                      opacity="0.6"
-                    />
-                  </svg>
-                </div>
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#008457] to-[#006b47] rounded-2xl mb-4 shadow-lg">
                 <img 
                   src={logo} 
                   alt="Great Southern Fuels Logo" 
-                  className="w-12 h-12 object-contain filter brightness-0 invert relative z-10"
+                  className="w-12 h-12 object-contain filter brightness-0 invert"
                 />
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">TankAlert</h1>
