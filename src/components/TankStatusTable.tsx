@@ -19,8 +19,13 @@ import { useTankModal } from '@/contexts/TankModalContext';
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
 function getStatus(percent: number, days: number | null): 'critical' | 'low' | 'normal' {
-  if (percent < 0.2 || (days !== null && days <= 2)) return 'critical';
-  if (percent < 0.4 || (days !== null && days <= 5)) return 'low';
+  // Critical: Immediate action required (≤1.5 days OR ≤10% fuel)
+  if (percent <= 0.1 || (days !== null && days <= 1.5)) return 'critical';
+  
+  // Low: Schedule soon (≤2.5 days OR ≤20% fuel)
+  if (percent <= 0.2 || (days !== null && days <= 2.5)) return 'low';
+  
+  // Normal: No immediate concern (>2.5 days AND >20% fuel)
   return 'normal';
 }
 

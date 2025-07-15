@@ -395,8 +395,21 @@ export function TankDetailsModal({
     
     const percentage = (tank.current_level / tank.safe_level) * 100;
     
-    if (percentage <= 20) return { status: 'critical', color: 'red', percentage };
-    if (percentage <= 40) return { status: 'low', color: 'orange', percentage };
+    // Use consistent status logic with TankStatusTable.tsx
+    // Consider both percentage and days to minimum for accurate status
+    const daysToMin = tank.days_to_min_level;
+    
+    // Critical: ≤1.5 days OR ≤10% fuel
+    if (percentage <= 10 || (daysToMin !== null && daysToMin <= 1.5)) {
+      return { status: 'critical', color: 'red', percentage };
+    }
+    
+    // Low: ≤2.5 days OR ≤20% fuel  
+    if (percentage <= 20 || (daysToMin !== null && daysToMin <= 2.5)) {
+      return { status: 'low', color: 'orange', percentage };
+    }
+    
+    // Normal: >2.5 days AND >20% fuel
     if (percentage <= 75) return { status: 'normal', color: 'blue', percentage };
     return { status: 'high', color: 'green', percentage };
   };

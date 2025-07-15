@@ -114,16 +114,24 @@ tank_with_rolling_avg AS (
             AND ABS(cr.value - cr.prev_value) BETWEEN 50 AND 15000  -- Realistic consumption range
             AND EXTRACT(epoch FROM (cr.created_at - cr.prev_date)) / 86400 BETWEEN 0.3 AND 4.0  -- Reasonable time gaps
         ),
-        daily_consumption AS (
+        consumption_with_rates AS (
           SELECT 
-            DATE(created_at) as consumption_date,
-            SUM(ABS(value - prev_value)) as daily_consumed  -- Sum post-refill consumption per day
+            created_at,
+            prev_date,
+            ABS(value - prev_value) as fuel_consumed,
+            EXTRACT(epoch FROM (created_at - prev_date)) / 86400 as days_elapsed,
+            -- Calculate daily rate for each consumption period
+            CASE 
+              WHEN EXTRACT(epoch FROM (created_at - prev_date)) / 86400 > 0 
+              THEN ABS(value - prev_value) / (EXTRACT(epoch FROM (created_at - prev_date)) / 86400)
+              ELSE 0
+            END as daily_consumption_rate
           FROM post_refill_readings
-          GROUP BY DATE(created_at)
+          WHERE EXTRACT(epoch FROM (created_at - prev_date)) / 86400 > 0
         )
-        SELECT ROUND(AVG(daily_consumed)::numeric, 0)
-        FROM daily_consumption
-        WHERE daily_consumed > 0
+        SELECT ROUND(AVG(daily_consumption_rate)::numeric, 0)
+        FROM consumption_with_rates
+        WHERE daily_consumption_rate > 0 AND daily_consumption_rate < 20000  -- Reasonable daily rates
        ),
       0
     ) as rolling_avg_lpd
@@ -205,11 +213,11 @@ SELECT
   -- STATUS CALCULATION (Critical/Low/Medium/Good)
   -- ============================================================================
   CASE 
-    -- Critical: Less than 1 day OR 10% or less above minimum
+    -- Critical: Immediate action required (≤1.5 days OR ≤10% fuel level)
     WHEN (tra.rolling_avg_lpd < 0 
           AND tra.current_level IS NOT NULL
           AND tra.current_level > COALESCE(tra.min_level, 0)
-          AND ((tra.current_level - COALESCE(tra.min_level, 0)) / ABS(tra.rolling_avg_lpd)) <= 1)
+          AND ((tra.current_level - COALESCE(tra.min_level, 0)) / ABS(tra.rolling_avg_lpd)) <= 1.5)
          OR 
          (COALESCE(tra.safe_level, 10000) > COALESCE(tra.min_level, 0)
           AND tra.current_level IS NOT NULL
@@ -217,16 +225,16 @@ SELECT
                (COALESCE(tra.safe_level, 10000) - COALESCE(tra.min_level, 0))::numeric) * 100 <= 10)
     THEN 'Critical'
     
-    -- Low: Less than 2 days OR 25% or less above minimum
+    -- Low: Schedule soon (≤2.5 days OR ≤20% fuel level)
     WHEN (tra.rolling_avg_lpd < 0 
           AND tra.current_level IS NOT NULL
           AND tra.current_level > COALESCE(tra.min_level, 0)
-          AND ((tra.current_level - COALESCE(tra.min_level, 0)) / ABS(tra.rolling_avg_lpd)) <= 2)
+          AND ((tra.current_level - COALESCE(tra.min_level, 0)) / ABS(tra.rolling_avg_lpd)) <= 2.5)
          OR 
          (COALESCE(tra.safe_level, 10000) > COALESCE(tra.min_level, 0)
           AND tra.current_level IS NOT NULL
           AND ((tra.current_level - COALESCE(tra.min_level, 0))::numeric / 
-               (COALESCE(tra.safe_level, 10000) - COALESCE(tra.min_level, 0))::numeric) * 100 <= 25)
+               (COALESCE(tra.safe_level, 10000) - COALESCE(tra.min_level, 0))::numeric) * 100 <= 20)
     THEN 'Low'
     
     -- Medium: 60% or less above minimum

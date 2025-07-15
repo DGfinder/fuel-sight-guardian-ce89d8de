@@ -302,10 +302,10 @@ export const semanticColors = {
   secondary: brandColors.secondary[600],             // GSF Gold
   secondaryDark: brandColors.secondary[700],         // Darker GSF Gold
   
-  // Tank status mapping
-  tankCritical: fuelStatusColors.critical[600],      // ≤20% fuel
-  tankLow: fuelStatusColors.low[500],                // 21-40% fuel
-  tankNormal: fuelStatusColors.normal[600],          // >40% fuel
+  // Tank status mapping - Updated for better scheduler decision making
+  tankCritical: fuelStatusColors.critical[600],      // ≤1.5 days OR ≤10% fuel (immediate action)
+  tankLow: fuelStatusColors.low[500],                // ≤2.5 days OR ≤20% fuel (schedule soon)
+  tankNormal: fuelStatusColors.normal[600],          // >2.5 days AND >20% fuel (no immediate concern)
   tankUnknown: fuelStatusColors.unknown[500],        // No data
   
   // Alert severity mapping
