@@ -40,7 +40,7 @@ export const useUserPermissions = () => {
           .from('user_group_permissions')
           .select(`
             group_id,
-            tank_groups!inner (
+            tank_groups!group_id (
               id,
               name
             )
