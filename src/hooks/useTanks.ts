@@ -55,7 +55,7 @@ const transformTankData = (rawTank: any): Tank => ({
   group_name: rawTank.group_name,
   subgroup: rawTank.subgroup,
   current_level: rawTank.current_level,
-  current_level_percent: rawTank.current_level_percent_display,
+  current_level_percent: rawTank.current_level_percent_display || rawTank.current_level_percent,
   rolling_avg: rawTank.rolling_avg_lpd,
   days_to_min_level: rawTank.days_to_min_level,
   usable_capacity: rawTank.usable_capacity,
