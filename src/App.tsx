@@ -5,6 +5,7 @@ import { AppStateProvider } from "@/contexts/AppStateContext";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import AppLayout from "@/components/AppLayout";
+import '@/lib/auth-cleanup'; // Initialize auth cleanup utilities
 import Index from "@/pages/Index";
 import NotFound from "@/pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";

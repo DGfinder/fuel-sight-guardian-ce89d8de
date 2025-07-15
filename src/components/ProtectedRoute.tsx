@@ -18,14 +18,43 @@ export function ProtectedRoute({ children, requiredRole, requiredGroup }: Protec
 
   useEffect(() => {
     const getSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('🔒 Auth session error:', error);
+          // Clear any corrupted auth state
+          localStorage.removeItem('supabase.auth.token');
+          sessionStorage.clear();
+          setSession(null);
+        } else {
+          setSession(data.session);
+        }
+      } catch (error) {
+        console.error('🔒 Failed to get session:', error);
+        setSession(null);
+      } finally {
+        setLoading(false);
+      }
     };
+    
     getSession();
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔒 Auth state change:', event, session?.user?.id);
+      
+      // Handle specific auth events
+      if (event === 'SIGNED_OUT') {
+        // Clear all storage on signout
+        localStorage.clear();
+        sessionStorage.clear();
+        setSession(null);
+      } else if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+        setSession(session);
+      } else if (event === 'USER_UPDATED') {
+        setSession(session);
+      }
     });
+    
     return () => {
       listener?.subscription.unsubscribe();
     };
@@ -50,6 +79,18 @@ export function ProtectedRoute({ children, requiredRole, requiredGroup }: Protec
           <h2 className="text-xl font-semibold text-red-600 mb-2">Access Denied</h2>
           <p className="text-gray-600">You don't have permission to access this application.</p>
           <p className="text-sm text-gray-500 mt-2">Please contact your administrator.</p>
+          <button 
+            onClick={async () => {
+              console.log('🔄 Clearing auth state and redirecting...');
+              localStorage.clear();
+              sessionStorage.clear();
+              await supabase.auth.signOut();
+              window.location.replace('/login');
+            }}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Clear Session & Login Again
+          </button>
         </div>
       </div>
     );

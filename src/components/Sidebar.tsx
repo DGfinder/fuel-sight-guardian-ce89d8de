@@ -27,6 +27,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import AddDipModal from '@/components/modals/AddDipModal';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTanks } from "@/hooks/useTanks";
+import { useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from "@/components/ui/skeleton";
 
 // TankCount interface no longer needed - using data from useTanks hook
@@ -80,6 +81,7 @@ export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
   const { tanks, tanksCount, criticalTanks, lowTanks, isLoading: tanksLoading } = useTanks();
+  const queryClient = useQueryClient();
 
   // Using filtered counts from useTanks hook instead of separate query
 
@@ -129,20 +131,46 @@ export const Sidebar: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      console.log('Logging out...');
-      const { error } = await supabase.auth.signOut();
+      console.log('🚪 Starting logout process...');
+      
+      // Step 1: Clear React Query cache first to prevent stale data
+      queryClient.clear();
+      console.log('✅ React Query cache cleared');
+      
+      // Step 2: Clear browser storage
+      localStorage.clear();
+      sessionStorage.clear();
+      console.log('✅ Browser storage cleared');
+      
+      // Step 3: Sign out from Supabase
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
-        console.error('Logout error:', error);
-        // Force redirect even if there's an error
-        window.location.href = '/login';
+        console.error('⚠️ Supabase logout error (proceeding anyway):', error);
       } else {
-        console.log('Logout successful');
-        window.location.href = '/login';
+        console.log('✅ Supabase signout successful');
       }
+      
+      // Step 4: Clear any remaining auth state
+      await supabase.auth.refreshSession();
+      
+      // Step 5: Force a clean redirect (use replace to prevent back button issues)
+      console.log('🔄 Redirecting to login...');
+      window.location.replace('/login');
+      
     } catch (error) {
-      console.error('Logout failed:', error);
-      // Force redirect on any error
-      window.location.href = '/login';
+      console.error('💥 Logout process failed:', error);
+      
+      // Emergency cleanup - clear everything and force redirect
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        queryClient.clear();
+      } catch (cleanupError) {
+        console.error('Cleanup failed:', cleanupError);
+      }
+      
+      // Force redirect even on complete failure
+      window.location.replace('/login');
     }
   };
 
