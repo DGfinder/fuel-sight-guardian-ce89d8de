@@ -1,15 +1,38 @@
 # TANK VIEW FIX INSTRUCTIONS
 
+## 🚨 CRITICAL UPDATE: RLS POLICY ISSUE IDENTIFIED
+
+The tank view problem is caused by **RLS (Row Level Security) policy conflicts**, not just the SQL view.
+
 ## Problem
-The `tanks_with_rolling_avg` view is showing 0% for all tanks instead of correct percentages like:
-- Narrogin ADF: Should show **60.6%** (200000L / 330000L)
-- Narrogin ULP: Should show **13.5%** (14800L / 110000L) 
-- Narrogin ULP98: Should show **77.3%** (23200L / 30000L)
+The `tanks_with_rolling_avg` view is showing **EMPTY DATA** (no tanks at all) due to:
+- **RLS infinite recursion** in helper functions
+- **Blocked table access** due to overly restrictive policies  
+- **Permission conflicts** between user roles and access rules
 
-## Solution
-Execute the corrected SQL view manually in Supabase SQL Editor.
+Expected percentages (once fixed):
+- Narrogin ADF: **60.6%** (200000L / 330000L)
+- Narrogin ULP: **13.5%** (14800L / 110000L) 
+- Narrogin ULP98: **77.3%** (23200L / 30000L)
 
-## Step-by-Step Instructions
+## ⚡ EMERGENCY SOLUTION (Recommended)
+**Use the nuclear option to disable RLS temporarily:**
+
+### 🚨 IMMEDIATE FIX
+1. **Execute**: `emergency_disable_rls_nuclear.sql` in Supabase SQL Editor
+2. **Follow**: Complete procedure in `EMERGENCY_RLS_FIX_PROCEDURE.md`
+3. **Result**: Tanks will show immediately with correct percentages
+
+### 📋 Quick Steps
+1. Copy contents of `emergency_disable_rls_nuclear.sql`
+2. Paste into Supabase SQL Editor  
+3. Click **RUN**
+4. Verify test results show working percentages
+5. Refresh frontend - tanks should appear
+
+---
+
+## 🛠️ ALTERNATIVE: Manual View Fix (If RLS Not the Issue)
 
 ### 1. Access Supabase SQL Editor
 1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
@@ -17,7 +40,7 @@ Execute the corrected SQL view manually in Supabase SQL Editor.
 3. Click on **SQL Editor** in the left sidebar
 4. Click **New Query** or use an existing query tab
 
-### 2. Execute the Fix
+### 2. Execute the View Fix
 1. Copy the entire contents of `working-view.sql` file
 2. Paste it into the SQL Editor
 3. Click **Run** button (or press Ctrl+Enter)
