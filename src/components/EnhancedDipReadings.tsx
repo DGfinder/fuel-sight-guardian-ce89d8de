@@ -76,7 +76,7 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
     searchQuery: '',
     dateFrom: undefined,
     dateTo: undefined,
-    recordedBy: '',
+    recordedBy: 'all',
     sortBy: 'created_at',
     sortOrder: 'desc',
     dateRange: '30d',
@@ -126,7 +126,7 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
     dateFrom,
     dateTo,
     searchQuery: filters.searchQuery || undefined,
-    recordedBy: filters.recordedBy || undefined,
+    recordedBy: filters.recordedBy === 'all' ? undefined : filters.recordedBy,
     sortBy: filters.sortBy,
     sortOrder: filters.sortOrder,
     limit: pageSize,
@@ -347,12 +347,17 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                     <SelectValue placeholder="All recorders" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All recorders</SelectItem>
+                    <SelectItem value="all">All recorders</SelectItem>
                     {recordersQuery.data?.map(recorder => (
-                      <SelectItem key={recorder.id} value={recorder.id}>
-                        {recorder.name}
+                      <SelectItem key={recorder} value={recorder}>
+                        {recorder}
                       </SelectItem>
-                    ))}
+                    )) || []}
+                    {recordersQuery.error && (
+                      <SelectItem value="error" disabled>
+                        Error loading recorders
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -387,6 +392,21 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                   </div>
                 ))}
               </div>
+            </div>
+          ) : dipHistoryQuery.error ? (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+              <BarChart3 className="w-12 h-12 text-gray-300 mb-3" />
+              <h3 className="font-medium text-gray-600 mb-2">Unable to Load Readings</h3>
+              <p className="text-sm text-center mb-4">
+                There was an error loading the dip readings data.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => dipHistoryQuery.refetch()}
+              >
+                Try Again
+              </Button>
             </div>
           ) : dipHistory.length > 0 ? (
             <div className="overflow-hidden">
@@ -445,7 +465,7 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                     </div>
                     <div className="text-sm">
                       <div className="font-medium">
-                        {dip.recorded_by_name || dip.recorded_by || 'Unknown'}
+                        {dip.recorded_by || 'Unknown'}
                       </div>
                     </div>
                     <div className="text-sm">

@@ -10,9 +10,6 @@ interface HistoryDipReading {
   recorded_by: string;
   notes: string;
   updated_at: string;
-  profiles?: {
-    full_name: string | null;
-  } | null;
 }
 
 interface UseTankHistoryParams {
@@ -67,12 +64,7 @@ export function useTankHistory({
       
       let query = supabase
         .from('dip_readings')
-        .select(`
-          *,
-          profiles:recorded_by (
-            full_name
-          )
-        `, { count: 'exact' })
+        .select('*', { count: 'exact' })
         .eq('tank_id', tankId);
 
       // Date filtering
@@ -92,7 +84,7 @@ export function useTankHistory({
       }
 
       // Filter by recorded_by
-      if (recordedBy) {
+      if (recordedBy && recordedBy !== 'all') {
         query = query.eq('recorded_by', recordedBy);
       }
 
@@ -127,7 +119,6 @@ export function useTankHistory({
         value: reading.value,
         created_at: reading.created_at,
         recorded_by: reading.recorded_by,
-        recorded_by_name: reading.profiles?.full_name || undefined,
         notes: reading.notes,
       }));
 
@@ -148,29 +139,15 @@ export function useTankRecorders(tankId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('dip_readings')
-        .select(`
-          recorded_by,
-          profiles:recorded_by (
-            full_name
-          )
-        `)
+        .select('recorded_by')
         .eq('tank_id', tankId)
         .not('recorded_by', 'is', null);
       
       if (error) throw error;
       
-      // Get unique values with display names
-      const recordersMap = new Map();
-      data.forEach(r => {
-        if (r.recorded_by && !recordersMap.has(r.recorded_by)) {
-          recordersMap.set(r.recorded_by, {
-            id: r.recorded_by,
-            name: r.profiles?.full_name || r.recorded_by
-          });
-        }
-      });
-      
-      return Array.from(recordersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+      // Get unique values
+      const uniqueRecorders = [...new Set(data.map(r => r.recorded_by))].filter(Boolean);
+      return uniqueRecorders.sort();
     },
     enabled: !!tankId,
   });
