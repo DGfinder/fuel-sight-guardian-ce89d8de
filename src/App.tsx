@@ -62,7 +62,7 @@ const queryClient = new QueryClient({
       // Background refetch for fresh data
       refetchInterval: (data, query) => {
         // Refetch tank data every 30 seconds if page is visible
-        if (query.queryKey[0] === 'tanks' && document.visibilityState === 'visible') {
+        if (query?.queryKey?.[0] === 'tanks' && document.visibilityState === 'visible') {
           return 30 * 1000;
         }
         return false;
