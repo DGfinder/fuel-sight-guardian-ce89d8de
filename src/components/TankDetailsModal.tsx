@@ -158,7 +158,7 @@ export function TankDetailsModal({
     enabled: open && !!tank?.id,
     days: 30,
   });
-  const dipHistory = useMemo(() => dipHistoryQuery.data || [], [dipHistoryQuery.data]);
+  const dipHistory = useMemo(() => dipHistoryQuery.data?.readings || [], [dipHistoryQuery.data]);
 
   useEffect(() => {
     if (open && tank?.id) {
@@ -167,9 +167,9 @@ export function TankDetailsModal({
   }, [open, tank?.id, dipHistoryQuery]);
 
   const sortedDipHistory = useMemo(() => 
-    dipHistory.sort((a: DipReading, b: DipReading) => 
+    Array.isArray(dipHistory) ? [...dipHistory].sort((a: DipReading, b: DipReading) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    )
+    ) : []
   , [dipHistory]);
   
   const last30Dips = useMemo(() => sortedDipHistory.slice(-30), [sortedDipHistory]);
