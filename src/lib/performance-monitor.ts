@@ -1,4 +1,4 @@
-import { getCLS, getFID, getFCP, getLCP, getTTFB, Metric } from 'web-vitals';
+import { onCLS, onINP, onFCP, onLCP, onTTFB, type Metric } from 'web-vitals';
 
 // Performance metrics interface
 export interface PerformanceMetrics {
@@ -106,27 +106,27 @@ class PerformanceMonitor {
   }
 
   private monitorWebVitals(): void {
-    getCLS((metric: Metric) => {
+    onCLS((metric: Metric) => {
       this.metrics.cls = metric.value;
       this.reportMetric('CLS', metric.value);
     });
 
-    getFID((metric: Metric) => {
+    onINP((metric: Metric) => {
       this.metrics.fid = metric.value;
-      this.reportMetric('FID', metric.value);
+      this.reportMetric('INP', metric.value);
     });
 
-    getFCP((metric: Metric) => {
+    onFCP((metric: Metric) => {
       this.metrics.fcp = metric.value;
       this.reportMetric('FCP', metric.value);
     });
 
-    getLCP((metric: Metric) => {
+    onLCP((metric: Metric) => {
       this.metrics.lcp = metric.value;
       this.reportMetric('LCP', metric.value);
     });
 
-    getTTFB((metric: Metric) => {
+    onTTFB((metric: Metric) => {
       this.metrics.ttfb = metric.value;
       this.reportMetric('TTFB', metric.value);
     });
