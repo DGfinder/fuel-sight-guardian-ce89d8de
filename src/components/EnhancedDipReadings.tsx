@@ -83,7 +83,7 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
   });
   
   const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(10);
   const [showFilters, setShowFilters] = useState(false);
 
   // Calculate date range based on selection
@@ -365,23 +365,33 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
       <Card>
         <CardContent className="p-0">
           {dipHistoryQuery.isLoading ? (
-            <div className="space-y-3 p-6">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="p-3 bg-gray-50 rounded-lg border">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-3 w-48" />
-                    </div>
-                    <Skeleton className="h-6 w-16 rounded-full" />
-                  </div>
+            <div className="space-y-4 p-6">
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                  <p className="text-sm text-gray-600">Loading dip readings...</p>
                 </div>
-              ))}
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_1fr_80px_1fr_2fr_100px] gap-4 py-3 px-6 border rounded-lg bg-gray-50">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-6 w-12 rounded-full" />
+                  </div>
+                ))}
+              </div>
             </div>
           ) : dipHistory.length > 0 ? (
-            <>
-              {/* Table Header */}
-              <div className="grid grid-cols-6 gap-4 py-3 px-6 bg-gray-50 border-b text-sm font-medium text-gray-700">
+            <div className="overflow-hidden">
+              {/* Table Header - Fixed */}
+              <div className="grid grid-cols-[1fr_1fr_80px_1fr_2fr_100px] gap-4 py-3 px-6 bg-gray-50 border-b text-sm font-medium text-gray-700 sticky top-0 z-10">
                 <button
                   onClick={() => toggleSort('created_at')}
                   className="flex items-center gap-1 text-left hover:text-gray-900"
@@ -408,10 +418,11 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                 <div>Actions</div>
               </div>
 
-              {/* Table Rows */}
-              <div className="divide-y">
+              {/* Table Rows - Scrollable */}
+              <div className="max-h-80 overflow-y-auto">
+                <div className="divide-y">
                 {dipHistory.map((dip, index) => (
-                  <div key={dip.id || index} className="grid grid-cols-6 gap-4 py-3 px-6 hover:bg-gray-50 transition-colors">
+                  <div key={dip.id || index} className="grid grid-cols-[1fr_1fr_80px_1fr_2fr_100px] gap-4 py-3 px-6 hover:bg-gray-50 transition-colors">
                     <div className="text-sm">
                       <div className="font-medium">
                         {format(new Date(dip.created_at), 'MMM d, yyyy')}
@@ -438,10 +449,12 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                       </div>
                     </div>
                     <div className="text-sm">
-                      {dip.notes && (
-                        <div className="truncate max-w-32" title={dip.notes}>
+                      {dip.notes ? (
+                        <div className="truncate" title={dip.notes}>
                           {dip.notes}
                         </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
                       )}
                     </div>
                     <div className="text-sm">
@@ -471,6 +484,7 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
 
               {/* Pagination */}
@@ -484,10 +498,10 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
                       <SelectItem value="25">25</SelectItem>
                       <SelectItem value="50">50</SelectItem>
                       <SelectItem value="100">100</SelectItem>
-                      <SelectItem value="200">200</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -516,7 +530,7 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                   </Button>
                 </div>
               </div>
-            </>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <BarChart3 className="w-12 h-12 text-gray-300 mb-3" />
