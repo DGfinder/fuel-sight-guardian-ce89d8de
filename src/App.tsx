@@ -32,6 +32,7 @@ const AlertsPage = lazy(() => import('@/pages/AlertsPage'));
 const HealthPage = lazy(() => import('@/pages/HealthPage'));
 const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
+const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -191,6 +192,21 @@ const App = () => {
                   <Route path="/geraldton" element={<ProtectedRoute><Geraldton /></ProtectedRoute>} />
                   <Route path="/gsf-depots" element={<ProtectedRoute><GSFDepots /></ProtectedRoute>} />
                   <Route path="/bgc" element={<ProtectedRoute><BGC /></ProtectedRoute>} />
+                  <Route 
+                    path="/groups/:groupName/dip-history" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Dip History" showHomeButton={true}>
+                          <AppLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <DipHistoryPage />
+                          </AppLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
                   <Route path="/settings" element={
                     <ProtectedRoute>
                       <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>

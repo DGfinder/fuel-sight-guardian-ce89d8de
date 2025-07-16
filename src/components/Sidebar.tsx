@@ -15,10 +15,12 @@ import {
   DatabaseIcon as TankIcon,
   BellIcon as AlertIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
   BusIcon,
   MapPinIcon,
   Building2Icon,
-  TrendingUp
+  TrendingUp,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
@@ -36,11 +38,56 @@ const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
   { path: '/tanks', label: 'Tanks', icon: TankIcon, badge: 'totalTanks', group: null },
   { path: '/map', label: 'Map View', icon: MapPin, badge: null, group: null },
-  { path: '/swan-transit', label: 'Swan Transit', icon: BusIcon, badge: null, group: 'Swan Transit' },
-  { path: '/kalgoorlie', label: 'Kalgoorlie', icon: MapPinIcon, badge: null, group: 'Kalgoorlie' },
-  { path: '/gsf-depots', label: 'GSF Depots', icon: Building2Icon, badge: null, group: 'GSF Depots' },
-  { path: '/geraldton', label: 'Geraldton', icon: MapPinIcon, badge: null, group: 'Geraldton' },
-  { path: '/bgc', label: 'BGC', icon: Building2Icon, badge: null, group: 'BGC' }
+  { 
+    path: '/swan-transit', 
+    label: 'Swan Transit', 
+    icon: BusIcon, 
+    badge: null, 
+    group: 'Swan Transit',
+    children: [
+      { path: '/groups/swan-transit/dip-history', label: 'Dip History', icon: History }
+    ]
+  },
+  { 
+    path: '/kalgoorlie', 
+    label: 'Kalgoorlie', 
+    icon: MapPinIcon, 
+    badge: null, 
+    group: 'Kalgoorlie',
+    children: [
+      { path: '/groups/kalgoorlie/dip-history', label: 'Dip History', icon: History }
+    ]
+  },
+  { 
+    path: '/gsf-depots', 
+    label: 'GSF Depots', 
+    icon: Building2Icon, 
+    badge: null, 
+    group: 'GSF Depots',
+    children: [
+      { path: '/groups/gsf-depots/dip-history', label: 'Dip History', icon: History }
+    ]
+  },
+  { 
+    path: '/geraldton', 
+    label: 'Geraldton', 
+    icon: MapPinIcon, 
+    badge: null, 
+    group: 'Geraldton',
+    children: [
+      { path: '/groups/geraldton/dip-history', label: 'Dip History', icon: History }
+    ]
+  },
+  { 
+    path: '/bgc', 
+    label: 'BGC', 
+    icon: Building2Icon, 
+    badge: null, 
+    group: 'BGC',
+    children: [
+      { path: '/groups/bgc/dip-history', label: 'Dip History', icon: History }
+    ]
+  }
 ];
 
 const SidebarSkeleton = () => (
@@ -78,6 +125,7 @@ export const Sidebar: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [addDipModalOpen, setAddDipModalOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
   const { tanks, tanksCount, criticalTanks, lowTanks, isLoading: tanksLoading } = useTanks();
@@ -127,7 +175,37 @@ export const Sidebar: React.FC = () => {
     if (isMobile) setOpen(false);
   }, [location.pathname, isMobile]);
 
+  // Auto-expand groups when child routes are active
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const newExpandedGroups = new Set(expandedGroups);
+    
+    // Check if current path matches any child route
+    ALL_NAV_ITEMS.forEach(item => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(child => child.path === currentPath);
+        if (hasActiveChild) {
+          newExpandedGroups.add(item.label);
+        }
+      }
+    });
+    
+    setExpandedGroups(newExpandedGroups);
+  }, [location.pathname]);
+
   const handleToggle = () => setOpen((prev) => !prev);
+
+  const toggleGroup = (groupLabel: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupLabel)) {
+        newSet.delete(groupLabel);
+      } else {
+        newSet.add(groupLabel);
+      }
+      return newSet;
+    });
+  };
 
   const handleLogout = async () => {
     try {
@@ -226,30 +304,96 @@ export const Sidebar: React.FC = () => {
 
           {/* Nav Links */}
           <ul className="flex flex-col gap-1">
-            {navItems.map(({ path, label, icon: Icon, badge }) => (
-              <li key={path}>
-                <Link
-                  to={path}
-                  className={cn(
-                    "flex items-center justify-between p-2 rounded-lg transition-colors",
-                    location.pathname === path
-                      ? "bg-blue-600 text-white"
-                      : "hover:bg-gray-800 text-gray-300"
+            {navItems.map((item) => {
+              const { path, label, icon: Icon, badge, children } = item;
+              const hasChildren = children && children.length > 0;
+              const isExpanded = expandedGroups.has(label);
+              const isActive = location.pathname === path;
+              const hasActiveChild = children?.some(child => child.path === location.pathname);
+
+              return (
+                <li key={path}>
+                  {hasChildren ? (
+                    // Parent item with children
+                    <>
+                      <div
+                        onClick={() => toggleGroup(label)}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer",
+                          isActive || hasActiveChild
+                            ? "bg-blue-600 text-white"
+                            : "hover:bg-gray-800 text-gray-300"
+                        )}
+                      >
+                        <Link
+                          to={path}
+                          className="flex items-center gap-3 flex-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{label}</span>
+                        </Link>
+                        <div className="flex items-center gap-2">
+                          {badge !== null && (
+                            <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
+                              {badge}
+                            </span>
+                          )}
+                          {isExpanded ? (
+                            <ChevronDownIcon className="w-4 h-4" />
+                          ) : (
+                            <ChevronRightIcon className="w-4 h-4" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Child items */}
+                      {isExpanded && (
+                        <ul className="ml-4 mt-1 space-y-1">
+                          {children.map((child) => (
+                            <li key={child.path}>
+                              <Link
+                                to={child.path}
+                                className={cn(
+                                  "flex items-center gap-3 p-2 rounded-lg transition-colors",
+                                  location.pathname === child.path
+                                    ? "bg-blue-500 text-white"
+                                    : "hover:bg-gray-800 text-gray-300"
+                                )}
+                              >
+                                <child.icon className="w-4 h-4" />
+                                <span className="text-sm">{child.label}</span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  ) : (
+                    // Regular item without children
+                    <Link
+                      to={path}
+                      className={cn(
+                        "flex items-center justify-between p-2 rounded-lg transition-colors",
+                        isActive
+                          ? "bg-blue-600 text-white"
+                          : "hover:bg-gray-800 text-gray-300"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="w-5 h-5" />
+                        <span>{label}</span>
+                      </div>
+                      {badge !== null && (
+                        <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
+                          {badge}
+                        </span>
+                      )}
+                    </Link>
                   )}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-5 h-5" />
-                    <span>{label}</span>
-                  </div>
-                  {badge !== null && (
-                    <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
-                      {badge}
-                    </span>
-                  )}
-                  <ChevronRightIcon className="w-4 h-4" />
-                </Link>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
 
           {/* Quick Actions */}
