@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppStateProvider } from "@/contexts/AppStateContext";
@@ -6,24 +6,9 @@ import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import AppLayout from "@/components/AppLayout";
 import '@/lib/auth-cleanup'; // Initialize auth cleanup utilities
-import Index from "@/pages/Index";
-import NotFound from "@/pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import SwanTransit from '@/pages/SwanTransit';
-import Kalgoorlie from '@/pages/Kalgoorlie';
-import Settings from '@/pages/Settings';
-import Login from "@/pages/Login";
-import ResetPassword from '@/pages/ResetPassword';
 import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
-import Geraldton from '@/pages/Geraldton';
-import GSFDepots from '@/pages/GSFDepots';
-import BGC from '@/pages/BGC';
-import TanksPage from '@/pages/TanksPage';
-import AlertsPage from '@/pages/AlertsPage';
-import HealthPage from '@/pages/HealthPage';
-import MapView from '@/pages/MapView';
-import PerformancePage from '@/pages/PerformancePage';
 import { useTankModal } from './contexts/TankModalContext';
 import { TankDetailsModal } from './components/TankDetailsModal';
 import { useGlobalModals } from './contexts/GlobalModalsContext';
@@ -31,15 +16,80 @@ import EditDipModal from './components/modals/EditDipModal';
 import { AlertsDrawer } from './components/AlertsDrawer';
 import { Calendar } from './components/ui/calendar';
 
+// Lazy load page components for better code splitting
+const Index = lazy(() => import("@/pages/Index"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const SwanTransit = lazy(() => import('@/pages/SwanTransit'));
+const Kalgoorlie = lazy(() => import('@/pages/Kalgoorlie'));
+const Settings = lazy(() => import('@/pages/Settings'));
+const Login = lazy(() => import("@/pages/Login"));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
+const Geraldton = lazy(() => import('@/pages/Geraldton'));
+const GSFDepots = lazy(() => import('@/pages/GSFDepots'));
+const BGC = lazy(() => import('@/pages/BGC'));
+const TanksPage = lazy(() => import('@/pages/TanksPage'));
+const AlertsPage = lazy(() => import('@/pages/AlertsPage'));
+const HealthPage = lazy(() => import('@/pages/HealthPage'));
+const MapView = lazy(() => import('@/pages/MapView'));
+const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
+
+// Enhanced loading component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="flex flex-col items-center space-y-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <p className="text-sm text-muted-foreground">Loading...</p>
+    </div>
+  </div>
+);
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        // Don't retry on 4xx errors except 408, 429
+        if (error?.status >= 400 && error?.status < 500 && ![408, 429].includes(error?.status)) {
+          return false;
+        }
+        return failureCount < 3;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnReconnect: true,
+      refetchOnMount: true,
+      staleTime: 2 * 60 * 1000, // 2 minutes for real-time data
+      gcTime: 10 * 60 * 1000, // 10 minutes garbage collection (formerly cacheTime)
+      // Background refetch for fresh data
+      refetchInterval: (data, query) => {
+        // Refetch tank data every 30 seconds if page is visible
+        if (query.queryKey[0] === 'tanks' && document.visibilityState === 'visible') {
+          return 30 * 1000;
+        }
+        return false;
+      },
+      // Optimize for tank-heavy pages
+      structuralSharing: true,
+      // Persist important queries
+      networkMode: 'online',
+    },
+    mutations: {
+      retry: (failureCount, error) => {
+        // Only retry mutations on network errors or 5xx
+        if (error?.status >= 500 || !error?.status) {
+          return failureCount < 2;
+        }
+        return false;
+      },
+      retryDelay: 1000,
+      networkMode: 'online',
     },
   },
 });
+
+// Expose queryClient globally for debugging in development
+if (import.meta.env.DEV) {
+  (window as any).queryClient = queryClient;
+}
 
 function HashRedirector() {
   const navigate = useNavigate();
@@ -67,22 +117,23 @@ const App = () => {
               <HashRedirector />
               <Toaster />
               <RealtimeErrorBoundary>
-                <Routes>
-                  <Route 
-                    path="/" 
-                    element={
-                      <ProtectedRoute>
-                        <RouteErrorBoundary routeName="Dashboard" showHomeButton={false}>
-                          <AppLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <Index selectedGroup={selectedGroup} />
-                          </AppLayout>
-                        </RouteErrorBoundary>
-                      </ProtectedRoute>
-                    } 
-                  />
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route 
+                      path="/" 
+                      element={
+                        <ProtectedRoute>
+                          <RouteErrorBoundary routeName="Dashboard" showHomeButton={false}>
+                            <AppLayout 
+                              selectedGroup={selectedGroup}
+                              onGroupSelect={setSelectedGroup}
+                            >
+                              <Index selectedGroup={selectedGroup} />
+                            </AppLayout>
+                          </RouteErrorBoundary>
+                        </ProtectedRoute>
+                      } 
+                    />
                   <Route 
                     path="/tanks" 
                     element={
@@ -171,8 +222,9 @@ const App = () => {
                       </ProtectedRoute>
                     } 
                   />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
               </RealtimeErrorBoundary>
             </BrowserRouter>
             <TankDetailsModal tank={selectedTank} open={open} onOpenChange={closeModal} />
