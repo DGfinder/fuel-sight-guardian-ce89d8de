@@ -150,6 +150,8 @@ function calculateConsumptionMetrics(readings: any[]): FuelConsumptionMetrics {
   if (readings.length < 2) return getEmptyConsumptionMetrics();
   
   const dailyChanges: { date: string; consumption: number }[] = [];
+  let filteredCount = 0;
+  let totalFilteredVolume = 0;
   
   // Calculate daily consumption (excluding refuel days)
   for (let i = 1; i < readings.length; i++) {
@@ -158,13 +160,21 @@ function calculateConsumptionMetrics(readings: any[]): FuelConsumptionMetrics {
     const change = prev.value - curr.value; // Positive = consumption
     
     // Only include if it's consumption (not a refuel)
-    if (change > 0 && change < 500) { // Max 500L per day seems reasonable
+    // Increased limit to 15,000L to match database logic for realistic consumption rates (3000-5000L/day typical)
+    if (change > 0 && change < 15000) { // Max 15,000L per day - aligns with database view logic
       dailyChanges.push({
         date: curr.created_at.split('T')[0],
         consumption: change
       });
+    } else if (change > 0) {
+      // Log filtered high consumption values (potential refuels)
+      filteredCount++;
+      totalFilteredVolume += change;
     }
   }
+  
+  // Debug logging
+  console.log(`Fuel Analytics Debug: Found ${dailyChanges.length} consumption days, filtered ${filteredCount} high-volume changes (${totalFilteredVolume.toLocaleString()}L total)`);
   
   if (dailyChanges.length === 0) return getEmptyConsumptionMetrics();
   
@@ -185,7 +195,7 @@ function calculateConsumptionMetrics(readings: any[]): FuelConsumptionMetrics {
   // Find peak and low consumption days
   const sortedByConsumption = [...dailyChanges].sort((a, b) => b.consumption - a.consumption);
   
-  return {
+  const result = {
     dailyAverageConsumption: averageDailyConsumption,
     weeklyAverageConsumption: averageDailyConsumption * 7,
     monthlyAverageConsumption: averageDailyConsumption * 30,
@@ -201,6 +211,11 @@ function calculateConsumptionMetrics(readings: any[]): FuelConsumptionMetrics {
       })
       .reduce((sum, day) => sum + day.consumption, 0)
   };
+  
+  // Debug logging for final calculated metrics
+  console.log(`Fuel Analytics Result: Daily avg: ${Math.round(result.dailyAverageConsumption)}L, Trend: ${result.consumptionTrend}, Total last 30d: ${Math.round(result.totalConsumedLast30Days)}L`);
+  
+  return result;
 }
 
 // Calculate refuel analytics

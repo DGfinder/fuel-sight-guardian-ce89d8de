@@ -118,32 +118,57 @@ export function useTankHistory({
       // Fetch user profiles separately
       let userProfiles = new Map<string, string>();
       if (userIds.length > 0) {
+        console.log(`Tank History: Looking up profiles for ${userIds.length} users:`, userIds);
         try {
           const { data: profiles, error: profileError } = await supabase
             .from('profiles')
             .select('id, full_name')
             .in('id', userIds);
           
-          if (!profileError && profiles) {
+          if (profileError) {
+            console.warn('Profile lookup error:', profileError);
+          } else if (profiles) {
+            console.log(`Tank History: Found ${profiles.length} profiles:`, profiles);
             profiles.forEach(profile => {
               if (profile.full_name) {
                 userProfiles.set(profile.id, profile.full_name);
+              } else {
+                console.warn(`Profile ${profile.id} has empty full_name`);
               }
             });
+            console.log(`Tank History: Successfully mapped ${userProfiles.size} user names`);
           }
         } catch (profileError) {
           console.warn('Could not fetch user profiles:', profileError);
         }
       }
       
-      let readings = (data || []).map((reading: any): DipReading => ({
-        id: reading.id,
-        tank_id: reading.tank_id,
-        value: reading.value,
-        created_at: reading.created_at,
-        recorded_by: userProfiles.get(reading.recorded_by) || reading.recorded_by || 'Unknown',
-        notes: reading.notes,
-      }));
+      let readings = (data || []).map((reading: any): DipReading => {
+        const userId = reading.recorded_by;
+        const fullName = userProfiles.get(userId);
+        
+        // Enhanced fallback logic for better UX
+        let displayName = 'Unknown User';
+        if (fullName) {
+          displayName = fullName;
+        } else if (userId && userId.length > 0) {
+          // If we have a UUID, show a more user-friendly format
+          if (userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            displayName = `User (${userId.substring(0, 8)}...)`;
+          } else {
+            displayName = userId; // Fallback to original value
+          }
+        }
+        
+        return {
+          id: reading.id,
+          tank_id: reading.tank_id,
+          value: reading.value,
+          created_at: reading.created_at,
+          recorded_by: displayName,
+          notes: reading.notes,
+        };
+      });
 
       // Client-side filtering by recorded_by (full name)
       if (recordedBy && recordedBy !== 'all') {
@@ -180,6 +205,7 @@ export function useTankRecorders(tankId: string) {
       
       // Fetch user profiles for these IDs
       try {
+        console.log(`Tank Recorders: Looking up profiles for ${uniqueUserIds.length} users:`, uniqueUserIds);
         const { data: profiles, error: profileError } = await supabase
           .from('profiles')
           .select('id, full_name')
@@ -187,19 +213,35 @@ export function useTankRecorders(tankId: string) {
         
         if (profileError) throw profileError;
         
+        console.log(`Tank Recorders: Found ${profiles?.length || 0} profiles:`, profiles);
+        
         // Create map of user ID to full name
         const userMap = new Map<string, string>();
         profiles?.forEach(profile => {
           if (profile.full_name) {
             userMap.set(profile.id, profile.full_name);
+          } else {
+            console.warn(`Tank Recorders: Profile ${profile.id} has empty full_name`);
           }
         });
         
-        // Get unique full names, fallback to UUID if no profile
-        const uniqueRecorders = [...new Set(uniqueUserIds.map(userId => 
-          userMap.get(userId) || userId || 'Unknown'
-        ))].filter(Boolean);
+        // Get unique full names, fallback to formatted UUID if no profile
+        const uniqueRecorders = [...new Set(uniqueUserIds.map(userId => {
+          const fullName = userMap.get(userId);
+          if (fullName) {
+            return fullName;
+          } else if (userId && userId.length > 0) {
+            // If we have a UUID, show a more user-friendly format
+            if (userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+              return `User (${userId.substring(0, 8)}...)`;
+            } else {
+              return userId; // Fallback to original value
+            }
+          }
+          return 'Unknown User';
+        }))].filter(Boolean);
         
+        console.log(`Tank Recorders: Resolved ${userMap.size} names out of ${uniqueUserIds.length} users`);
         return uniqueRecorders.sort();
       } catch (profileError) {
         console.warn('Could not fetch user profiles for recorders:', profileError);

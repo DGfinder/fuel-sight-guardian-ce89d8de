@@ -46,18 +46,25 @@ export function useRecentDips(limit = 30) {
       // Fetch user profiles separately
       let userProfiles = new Map<string, string>();
       if (userIds.length > 0) {
+        console.log(`Recent Dips: Looking up profiles for ${userIds.length} users:`, userIds);
         try {
           const { data: profiles, error: profileError } = await supabase
             .from('profiles')
             .select('id, full_name')
             .in('id', userIds);
           
-          if (!profileError && profiles) {
+          if (profileError) {
+            console.warn('Recent Dips profile lookup error:', profileError);
+          } else if (profiles) {
+            console.log(`Recent Dips: Found ${profiles.length} profiles:`, profiles);
             profiles.forEach(profile => {
               if (profile.full_name) {
                 userProfiles.set(profile.id, profile.full_name);
+              } else {
+                console.warn(`Recent Dips: Profile ${profile.id} has empty full_name`);
               }
             });
+            console.log(`Recent Dips: Successfully mapped ${userProfiles.size} user names`);
           }
         } catch (profileError) {
           console.warn('Could not fetch user profiles:', profileError);
@@ -102,11 +109,27 @@ export function useRecentDips(limit = 30) {
           const tank = tankMap.get(reading.tank_id);
           const group = tank?.tank_groups && Array.isArray(tank.tank_groups) && tank.tank_groups.length > 0 ? tank.tank_groups[0] : undefined;
           
+          const userId = reading.recorded_by;
+          const fullName = userProfiles.get(userId);
+          
+          // Enhanced fallback logic for better UX
+          let displayName = 'Unknown User';
+          if (fullName) {
+            displayName = fullName;
+          } else if (userId && userId.length > 0) {
+            // If we have a UUID, show a more user-friendly format
+            if (userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+              displayName = `User (${userId.substring(0, 8)}...)`;
+            } else {
+              displayName = userId; // Fallback to original value
+            }
+          }
+          
           return {
             id: reading.id,
             value: reading.value,
             created_at: reading.created_at,
-            recorded_by: userProfiles.get(reading.recorded_by) || reading.recorded_by || 'Unknown',
+            recorded_by: displayName,
             tank_id: reading.tank_id,
             tank_location: tank?.location || 'Unknown Tank',
             product_type: tank?.product_type || 'Unknown',
