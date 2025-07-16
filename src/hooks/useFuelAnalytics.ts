@@ -18,24 +18,66 @@ export interface FuelConsumptionMetrics {
   monthlyAverageConsumption: number;
   consumptionTrend: 'increasing' | 'decreasing' | 'stable';
   peakConsumptionDay: string;
+  peakConsumptionValue: number;
   lowConsumptionDay: string;
+  lowConsumptionValue: number;
   totalConsumedLast30Days: number;
+  totalConsumedInPeriod: number;
+  consumptionStabilityScore: number; // 0-100, higher is more stable
 }
 
 export interface RefuelAnalytics {
   totalRefuels: number;
   averageRefuelVolume: number;
   averageDaysBetweenRefuels: number;
+  daysSinceLastRefuel: number;
   lastRefuelDate: string | null;
   nextPredictedRefuel: string | null;
+  nextPredictedRefuelDays: number | null;
   refuelEfficiency: number; // percentage of tank capacity typically used
   mostEfficientRefuelVolume: number;
+}
+
+export interface TankPerformanceMetrics {
+  averageFillPercentage: number;
+  timeInZones: {
+    critical: number; // <20%
+    low: number; // 20-40%
+    normal: number; // 40-70%
+    high: number; // >70%
+  };
+  capacityUtilizationRate: number; // % of capacity effectively used
+  operationalEfficiencyScore: number; // 0-100 score
+  daysSinceLastCritical: number | null;
+  lowestLevelReached: number;
+  highestLevelReached: number;
+}
+
+export interface OperationalInsights {
+  lowFuelEvents: {
+    belowMinLevel: number;
+    criticalLevel: number; // <20%
+    lastOccurrence: string | null;
+  };
+  readingFrequency: {
+    averagePerDay: number;
+    averagePerWeek: number;
+    consistencyScore: number; // 0-100
+  };
+  dataQuality: {
+    completenessScore: number; // 0-100
+    anomalyCount: number;
+    largeVolumeChanges: number;
+  };
+  complianceScore: number; // 0-100 based on expected reading schedule
 }
 
 export interface FuelAnalyticsData {
   refuelEvents: RefuelEvent[];
   consumptionMetrics: FuelConsumptionMetrics;
   refuelAnalytics: RefuelAnalytics;
+  tankPerformance: TankPerformanceMetrics;
+  operationalInsights: OperationalInsights;
   insights: string[];
   alerts: string[];
 }
@@ -44,31 +86,54 @@ interface UseFuelAnalyticsParams {
   tankId: string;
   enabled?: boolean;
   analysisRange?: number; // days to analyze, default 90
+  dateFrom?: Date;
+  dateTo?: Date;
 }
 
 export function useFuelAnalytics({ 
   tankId, 
   enabled = true, 
-  analysisRange = 90 
+  analysisRange = 90,
+  dateFrom,
+  dateTo 
 }: UseFuelAnalyticsParams) {
+  // Get tank data for performance metrics
+  const { data: tankData } = useQuery({
+    queryKey: ['tank-data', tankId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fuel_tanks')
+        .select('*')
+        .eq('id', tankId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: enabled && !!tankId
+  });
+
   // Get tank history for analysis
   const { data: historyData } = useTankHistory({
     tankId,
     enabled,
-    days: analysisRange,
+    days: dateFrom && dateTo ? undefined : analysisRange,
+    dateFrom,
+    dateTo,
     sortBy: 'created_at',
     sortOrder: 'asc', // Chronological order for analysis
     limit: 1000 // Get more data for analysis
   });
 
   return useQuery<FuelAnalyticsData>({
-    queryKey: ['fuel-analytics', tankId, analysisRange],
+    queryKey: ['fuel-analytics', tankId, analysisRange, dateFrom, dateTo],
     queryFn: async () => {
       if (!historyData?.readings || historyData.readings.length < 2) {
         return {
           refuelEvents: [],
           consumptionMetrics: getEmptyConsumptionMetrics(),
           refuelAnalytics: getEmptyRefuelAnalytics(),
+          tankPerformance: getEmptyTankPerformance(),
+          operationalInsights: getEmptyOperationalInsights(),
           insights: ['Insufficient data for analysis'],
           alerts: []
         };
@@ -80,21 +145,29 @@ export function useFuelAnalytics({
       const refuelEvents = detectRefuelEvents(readings);
       
       // Calculate consumption metrics
-      const consumptionMetrics = calculateConsumptionMetrics(readings);
+      const consumptionMetrics = calculateConsumptionMetrics(readings, dateFrom, dateTo);
       
       // Calculate refuel analytics
       const refuelAnalytics = calculateRefuelAnalytics(refuelEvents, readings);
       
+      // Calculate tank performance
+      const tankPerformance = calculateTankPerformance(readings, tankData);
+      
+      // Calculate operational insights
+      const operationalInsights = calculateOperationalInsights(readings, tankData);
+      
       // Generate insights
-      const insights = generateInsights(refuelEvents, consumptionMetrics, refuelAnalytics);
+      const insights = generateInsights(refuelEvents, consumptionMetrics, refuelAnalytics, tankPerformance, operationalInsights);
       
       // Generate alerts
-      const alerts = generateAlerts(refuelEvents, consumptionMetrics, refuelAnalytics);
+      const alerts = generateAlerts(refuelEvents, consumptionMetrics, refuelAnalytics, tankPerformance, operationalInsights);
 
       return {
         refuelEvents,
         consumptionMetrics,
         refuelAnalytics,
+        tankPerformance,
+        operationalInsights,
         insights,
         alerts
       };
@@ -146,76 +219,99 @@ function detectRefuelEvents(readings: any[]): RefuelEvent[] {
 }
 
 // Calculate consumption metrics
-function calculateConsumptionMetrics(readings: any[]): FuelConsumptionMetrics {
+function calculateConsumptionMetrics(readings: any[], dateFrom?: Date, dateTo?: Date): FuelConsumptionMetrics {
   if (readings.length < 2) return getEmptyConsumptionMetrics();
   
-  const dailyChanges: { date: string; consumption: number }[] = [];
-  let filteredCount = 0;
-  let totalFilteredVolume = 0;
+  const dailyConsumption = new Map<string, number>();
+  const weeklyConsumption = new Map<string, number>();
+  const monthlyConsumption = new Map<string, number>();
   
-  // Calculate daily consumption (excluding refuel days)
+  // Calculate consumption between readings
   for (let i = 1; i < readings.length; i++) {
     const prev = readings[i - 1];
     const curr = readings[i];
     const change = prev.value - curr.value; // Positive = consumption
     
-    // Only include if it's consumption (not a refuel)
-    // Increased limit to 15,000L to match database logic for realistic consumption rates (3000-5000L/day typical)
-    if (change > 0 && change < 15000) { // Max 15,000L per day - aligns with database view logic
-      dailyChanges.push({
-        date: curr.created_at.split('T')[0],
-        consumption: change
-      });
-    } else if (change > 0) {
-      // Log filtered high consumption values (potential refuels)
-      filteredCount++;
-      totalFilteredVolume += change;
+    // Only include consumption (not refuels) - max 15,000L per day
+    if (change > 0 && change < 15000) {
+      const date = new Date(curr.created_at);
+      const dayKey = date.toISOString().split('T')[0];
+      const weekKey = getWeekKey(date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      dailyConsumption.set(dayKey, (dailyConsumption.get(dayKey) || 0) + change);
+      weeklyConsumption.set(weekKey, (weeklyConsumption.get(weekKey) || 0) + change);
+      monthlyConsumption.set(monthKey, (monthlyConsumption.get(monthKey) || 0) + change);
     }
   }
   
-  // Debug logging
-  console.log(`Fuel Analytics Debug: Found ${dailyChanges.length} consumption days, filtered ${filteredCount} high-volume changes (${totalFilteredVolume.toLocaleString()}L total)`);
+  const dailyValues = Array.from(dailyConsumption.values());
+  if (dailyValues.length === 0) return getEmptyConsumptionMetrics();
   
-  if (dailyChanges.length === 0) return getEmptyConsumptionMetrics();
+  // Calculate true averages
+  const dailyAvg = dailyValues.reduce((sum, val) => sum + val, 0) / dailyValues.length;
+  const weeklyAvg = Array.from(weeklyConsumption.values()).reduce((sum, val) => sum + val, 0) / weeklyConsumption.size;
+  const monthlyAvg = Array.from(monthlyConsumption.values()).reduce((sum, val) => sum + val, 0) / monthlyConsumption.size;
   
-  const totalConsumption = dailyChanges.reduce((sum, day) => sum + day.consumption, 0);
-  const averageDailyConsumption = totalConsumption / dailyChanges.length;
+  // Calculate consumption stability (coefficient of variation)
+  const stdDev = Math.sqrt(dailyValues.reduce((sum, val) => sum + Math.pow(val - dailyAvg, 2), 0) / dailyValues.length);
+  const coefficientOfVariation = (stdDev / dailyAvg) * 100;
+  const stabilityScore = Math.max(0, Math.min(100, 100 - coefficientOfVariation));
+  
+  // Find peak and low days
+  let peakDay = { date: '', value: 0 };
+  let lowDay = { date: '', value: Infinity };
+  dailyConsumption.forEach((value, date) => {
+    if (value > peakDay.value) peakDay = { date, value };
+    if (value < lowDay.value) lowDay = { date, value };
+  });
   
   // Calculate trend
-  const firstHalf = dailyChanges.slice(0, Math.floor(dailyChanges.length / 2));
-  const secondHalf = dailyChanges.slice(Math.floor(dailyChanges.length / 2));
-  const firstHalfAvg = firstHalf.reduce((sum, day) => sum + day.consumption, 0) / firstHalf.length;
-  const secondHalfAvg = secondHalf.reduce((sum, day) => sum + day.consumption, 0) / secondHalf.length;
+  const sortedDays = Array.from(dailyConsumption.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const midPoint = Math.floor(sortedDays.length / 2);
+  const firstHalf = sortedDays.slice(0, midPoint);
+  const secondHalf = sortedDays.slice(midPoint);
+  
+  const firstHalfAvg = firstHalf.reduce((sum, [_, val]) => sum + val, 0) / firstHalf.length;
+  const secondHalfAvg = secondHalf.reduce((sum, [_, val]) => sum + val, 0) / secondHalf.length;
   
   let trend: 'increasing' | 'decreasing' | 'stable' = 'stable';
   const changePercent = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
   if (changePercent > 10) trend = 'increasing';
   else if (changePercent < -10) trend = 'decreasing';
   
-  // Find peak and low consumption days
-  const sortedByConsumption = [...dailyChanges].sort((a, b) => b.consumption - a.consumption);
+  // Calculate total consumed in period
+  const totalConsumed = dailyValues.reduce((sum, val) => sum + val, 0);
   
-  const result = {
-    dailyAverageConsumption: averageDailyConsumption,
-    weeklyAverageConsumption: averageDailyConsumption * 7,
-    monthlyAverageConsumption: averageDailyConsumption * 30,
+  // Calculate last 30 days
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const last30Days = Array.from(dailyConsumption.entries())
+    .filter(([date]) => new Date(date) >= thirtyDaysAgo)
+    .reduce((sum, [_, val]) => sum + val, 0);
+  
+  return {
+    dailyAverageConsumption: dailyAvg,
+    weeklyAverageConsumption: weeklyAvg,
+    monthlyAverageConsumption: monthlyAvg,
     consumptionTrend: trend,
-    peakConsumptionDay: sortedByConsumption[0]?.date || '',
-    lowConsumptionDay: sortedByConsumption[sortedByConsumption.length - 1]?.date || '',
-    totalConsumedLast30Days: dailyChanges
-      .filter(day => {
-        const dayDate = new Date(day.date);
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        return dayDate >= thirtyDaysAgo;
-      })
-      .reduce((sum, day) => sum + day.consumption, 0)
+    peakConsumptionDay: peakDay.date,
+    peakConsumptionValue: peakDay.value,
+    lowConsumptionDay: lowDay.date,
+    lowConsumptionValue: lowDay.value,
+    totalConsumedLast30Days: last30Days,
+    totalConsumedInPeriod: totalConsumed,
+    consumptionStabilityScore: stabilityScore
   };
-  
-  // Debug logging for final calculated metrics
-  console.log(`Fuel Analytics Result: Daily avg: ${Math.round(result.dailyAverageConsumption)}L, Trend: ${result.consumptionTrend}, Total last 30d: ${Math.round(result.totalConsumedLast30Days)}L`);
-  
-  return result;
+}
+
+// Helper to get week key
+function getWeekKey(date: Date): string {
+  const year = date.getFullYear();
+  const firstDayOfYear = new Date(year, 0, 1);
+  const daysSinceYearStart = Math.floor((date.getTime() - firstDayOfYear.getTime()) / (24 * 60 * 60 * 1000));
+  const weekNumber = Math.ceil((daysSinceYearStart + firstDayOfYear.getDay() + 1) / 7);
+  return `${year}-W${String(weekNumber).padStart(2, '0')}`;
 }
 
 // Calculate refuel analytics
@@ -234,27 +330,196 @@ function calculateRefuelAnalytics(refuelEvents: RefuelEvent[], readings: any[]):
     : 0;
   
   const lastRefuel = refuelEvents[refuelEvents.length - 1];
+  const now = new Date();
   const daysSinceLastRefuel = lastRefuel 
-    ? (new Date().getTime() - new Date(lastRefuel.date).getTime()) / (1000 * 60 * 60 * 24)
+    ? Math.floor((now.getTime() - new Date(lastRefuel.date).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
   
   // Predict next refuel based on average interval
-  const nextPredictedRefuel = lastRefuel && averageInterval > 0
-    ? new Date(new Date(lastRefuel.date).getTime() + (averageInterval * 24 * 60 * 60 * 1000)).toISOString()
-    : null;
+  let nextPredictedRefuelDays: number | null = null;
+  let nextPredictedRefuel: string | null = null;
+  
+  if (lastRefuel && averageInterval > 0) {
+    nextPredictedRefuelDays = Math.max(0, Math.round(averageInterval - daysSinceLastRefuel));
+    const nextDate = new Date(now.getTime() + (nextPredictedRefuelDays * 24 * 60 * 60 * 1000));
+    nextPredictedRefuel = nextDate.toISOString();
+  }
   
   // Calculate efficiency (how much of tank capacity is typically used)
   const tankCapacity = Math.max(...readings.map((r: any) => r.value));
-  const efficiency = averageVolume / tankCapacity * 100;
+  const efficiency = (averageVolume / tankCapacity) * 100;
   
   return {
     totalRefuels: refuelEvents.length,
     averageRefuelVolume: averageVolume,
     averageDaysBetweenRefuels: averageInterval,
+    daysSinceLastRefuel,
     lastRefuelDate: lastRefuel?.date || null,
     nextPredictedRefuel,
+    nextPredictedRefuelDays,
     refuelEfficiency: efficiency,
     mostEfficientRefuelVolume: Math.max(...refuelEvents.map(r => r.volumeAdded))
+  };
+}
+
+// Calculate tank performance metrics
+function calculateTankPerformance(readings: any[], tankData: any): TankPerformanceMetrics {
+  if (!readings.length || !tankData) return getEmptyTankPerformance();
+  
+  const safeLevel = tankData.safe_level || 0;
+  if (!safeLevel) return getEmptyTankPerformance();
+  
+  // Calculate fill percentages and time in zones
+  const fillPercentages: number[] = [];
+  const timeInZones = { critical: 0, low: 0, normal: 0, high: 0 };
+  let lowestLevel = Infinity;
+  let highestLevel = 0;
+  let lastCriticalDate: Date | null = null;
+  
+  readings.forEach((reading, index) => {
+    const fillPercent = (reading.value / safeLevel) * 100;
+    fillPercentages.push(fillPercent);
+    
+    if (reading.value < lowestLevel) lowestLevel = reading.value;
+    if (reading.value > highestLevel) highestLevel = reading.value;
+    
+    // Track time in zones (using time until next reading)
+    if (index < readings.length - 1) {
+      const hoursUntilNext = (new Date(readings[index + 1].created_at).getTime() - 
+                              new Date(reading.created_at).getTime()) / (1000 * 60 * 60);
+      
+      if (fillPercent < 20) {
+        timeInZones.critical += hoursUntilNext;
+        lastCriticalDate = new Date(reading.created_at);
+      } else if (fillPercent < 40) {
+        timeInZones.low += hoursUntilNext;
+      } else if (fillPercent < 70) {
+        timeInZones.normal += hoursUntilNext;
+      } else {
+        timeInZones.high += hoursUntilNext;
+      }
+    }
+  });
+  
+  const totalHours = Object.values(timeInZones).reduce((sum, hours) => sum + hours, 0);
+  
+  // Convert to percentages
+  if (totalHours > 0) {
+    Object.keys(timeInZones).forEach(zone => {
+      timeInZones[zone as keyof typeof timeInZones] = (timeInZones[zone as keyof typeof timeInZones] / totalHours) * 100;
+    });
+  }
+  
+  // Calculate metrics
+  const avgFillPercentage = fillPercentages.reduce((sum, p) => sum + p, 0) / fillPercentages.length;
+  const capacityUtilization = ((highestLevel - lowestLevel) / safeLevel) * 100;
+  
+  // Operational efficiency score (0-100)
+  // Based on: avoiding critical levels, maintaining good average, utilizing capacity
+  const criticalPenalty = Math.min(30, timeInZones.critical * 3);
+  const avgFillScore = Math.min(40, (avgFillPercentage / 100) * 40);
+  const utilizationScore = Math.min(30, (capacityUtilization / 100) * 30);
+  const efficiencyScore = Math.max(0, 100 - criticalPenalty + avgFillScore + utilizationScore) / 100 * 100;
+  
+  const daysSinceLastCritical = lastCriticalDate 
+    ? Math.floor((new Date().getTime() - lastCriticalDate.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  
+  return {
+    averageFillPercentage: avgFillPercentage,
+    timeInZones,
+    capacityUtilizationRate: capacityUtilization,
+    operationalEfficiencyScore: efficiencyScore,
+    daysSinceLastCritical,
+    lowestLevelReached: lowestLevel,
+    highestLevelReached: highestLevel
+  };
+}
+
+// Calculate operational insights
+function calculateOperationalInsights(readings: any[], tankData: any): OperationalInsights {
+  if (!readings.length) return getEmptyOperationalInsights();
+  
+  const minLevel = tankData?.min_level || 0;
+  const safeLevel = tankData?.safe_level || 0;
+  
+  // Count low fuel events
+  let belowMinCount = 0;
+  let criticalCount = 0;
+  let lastLowFuelDate: string | null = null;
+  
+  readings.forEach(reading => {
+    if (minLevel && reading.value < minLevel) {
+      belowMinCount++;
+      lastLowFuelDate = reading.created_at;
+    }
+    if (safeLevel && (reading.value / safeLevel) * 100 < 20) {
+      criticalCount++;
+      if (!lastLowFuelDate || reading.created_at > lastLowFuelDate) {
+        lastLowFuelDate = reading.created_at;
+      }
+    }
+  });
+  
+  // Calculate reading frequency
+  const timeSpan = readings.length > 1 
+    ? (new Date(readings[readings.length - 1].created_at).getTime() - new Date(readings[0].created_at).getTime()) / (1000 * 60 * 60 * 24)
+    : 0;
+  
+  const avgPerDay = timeSpan > 0 ? readings.length / timeSpan : 0;
+  const avgPerWeek = avgPerDay * 7;
+  
+  // Calculate consistency score based on reading intervals
+  const intervals: number[] = [];
+  for (let i = 1; i < readings.length; i++) {
+    const interval = (new Date(readings[i].created_at).getTime() - 
+                     new Date(readings[i - 1].created_at).getTime()) / (1000 * 60 * 60); // hours
+    intervals.push(interval);
+  }
+  
+  const avgInterval = intervals.length > 0 ? intervals.reduce((sum, i) => sum + i, 0) / intervals.length : 24;
+  const intervalStdDev = intervals.length > 0 
+    ? Math.sqrt(intervals.reduce((sum, i) => sum + Math.pow(i - avgInterval, 2), 0) / intervals.length)
+    : 0;
+  const consistencyScore = Math.max(0, Math.min(100, 100 - (intervalStdDev / avgInterval) * 100));
+  
+  // Data quality metrics
+  let anomalyCount = 0;
+  let largeChanges = 0;
+  
+  for (let i = 1; i < readings.length; i++) {
+    const change = Math.abs(readings[i].value - readings[i - 1].value);
+    const percentChange = (change / readings[i - 1].value) * 100;
+    
+    // Anomaly: extreme changes that aren't refuels
+    if (percentChange > 50 && change > 1000) {
+      anomalyCount++;
+    }
+    if (change > 5000) {
+      largeChanges++;
+    }
+  }
+  
+  const completenessScore = Math.min(100, (avgPerDay / 1) * 100); // Expecting at least 1 reading per day
+  const complianceScore = (consistencyScore + completenessScore) / 2;
+  
+  return {
+    lowFuelEvents: {
+      belowMinLevel: belowMinCount,
+      criticalLevel: criticalCount,
+      lastOccurrence: lastLowFuelDate
+    },
+    readingFrequency: {
+      averagePerDay: avgPerDay,
+      averagePerWeek: avgPerWeek,
+      consistencyScore
+    },
+    dataQuality: {
+      completenessScore,
+      anomalyCount,
+      largeVolumeChanges: largeChanges
+    },
+    complianceScore
   };
 }
 
@@ -262,7 +527,9 @@ function calculateRefuelAnalytics(refuelEvents: RefuelEvent[], readings: any[]):
 function generateInsights(
   refuelEvents: RefuelEvent[], 
   consumption: FuelConsumptionMetrics, 
-  refuels: RefuelAnalytics
+  refuels: RefuelAnalytics,
+  performance: TankPerformanceMetrics,
+  operational: OperationalInsights
 ): string[] {
   const insights: string[] = [];
   
@@ -293,7 +560,9 @@ function generateInsights(
 function generateAlerts(
   refuelEvents: RefuelEvent[], 
   consumption: FuelConsumptionMetrics, 
-  refuels: RefuelAnalytics
+  refuels: RefuelAnalytics,
+  performance: TankPerformanceMetrics,
+  operational: OperationalInsights
 ): string[] {
   const alerts: string[] = [];
   
@@ -328,8 +597,12 @@ function getEmptyConsumptionMetrics(): FuelConsumptionMetrics {
     monthlyAverageConsumption: 0,
     consumptionTrend: 'stable',
     peakConsumptionDay: '',
+    peakConsumptionValue: 0,
     lowConsumptionDay: '',
-    totalConsumedLast30Days: 0
+    lowConsumptionValue: 0,
+    totalConsumedLast30Days: 0,
+    totalConsumedInPeriod: 0,
+    consumptionStabilityScore: 0
   };
 }
 
@@ -338,9 +611,49 @@ function getEmptyRefuelAnalytics(): RefuelAnalytics {
     totalRefuels: 0,
     averageRefuelVolume: 0,
     averageDaysBetweenRefuels: 0,
+    daysSinceLastRefuel: 0,
     lastRefuelDate: null,
     nextPredictedRefuel: null,
+    nextPredictedRefuelDays: null,
     refuelEfficiency: 0,
     mostEfficientRefuelVolume: 0
+  };
+}
+
+function getEmptyTankPerformance(): TankPerformanceMetrics {
+  return {
+    averageFillPercentage: 0,
+    timeInZones: {
+      critical: 0,
+      low: 0,
+      normal: 0,
+      high: 0
+    },
+    capacityUtilizationRate: 0,
+    operationalEfficiencyScore: 0,
+    daysSinceLastCritical: null,
+    lowestLevelReached: 0,
+    highestLevelReached: 0
+  };
+}
+
+function getEmptyOperationalInsights(): OperationalInsights {
+  return {
+    lowFuelEvents: {
+      belowMinLevel: 0,
+      criticalLevel: 0,
+      lastOccurrence: null
+    },
+    readingFrequency: {
+      averagePerDay: 0,
+      averagePerWeek: 0,
+      consistencyScore: 0
+    },
+    dataQuality: {
+      completenessScore: 0,
+      anomalyCount: 0,
+      largeVolumeChanges: 0
+    },
+    complianceScore: 0
   };
 }
