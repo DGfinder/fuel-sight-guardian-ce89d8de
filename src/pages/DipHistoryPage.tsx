@@ -606,6 +606,182 @@ export default function DipHistoryPage() {
         )}
       </div>
 
+      {/* Restored Business Intelligence Section */}
+      {analyticsQuery.data && filters.tankId !== 'all' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Fuel Consumption Analytics */}
+          <ExpandableCard
+            title="Daily Consumption"
+            value={`${Math.round(analyticsQuery.data.consumptionMetrics.dailyAverageConsumption)}L`}
+            subtitle={`${analyticsQuery.data.consumptionMetrics.consumptionTrend === 'increasing' ? '📈' : 
+                        analyticsQuery.data.consumptionMetrics.consumptionTrend === 'decreasing' ? '📉' : '→'} ${analyticsQuery.data.consumptionMetrics.consumptionTrend}`}
+            icon={<TrendingDown className="w-4 h-4 text-orange-600" />}
+            iconBg="bg-orange-100"
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600">Weekly Average</p>
+                  <p className="font-semibold">{Math.round(analyticsQuery.data.consumptionMetrics.weeklyAverageConsumption)}L</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Monthly Average</p>
+                  <p className="font-semibold">{Math.round(analyticsQuery.data.consumptionMetrics.monthlyAverageConsumption)}L</p>
+                </div>
+              </div>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Last 30 Days Total:</span>
+                  <span className="font-medium">{Math.round(analyticsQuery.data.consumptionMetrics.totalConsumedLast30Days)}L</span>
+                </div>
+                {analyticsQuery.data.consumptionMetrics.peakConsumptionDay && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Peak Usage Day:</span>
+                    <span className="font-medium">{format(new Date(analyticsQuery.data.consumptionMetrics.peakConsumptionDay), 'MMM d')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </ExpandableCard>
+
+          {/* Refuel Analytics with Recent Events */}
+          <ExpandableCard
+            title="Refuel Analytics"
+            value={analyticsQuery.data.refuelAnalytics.totalRefuels}
+            subtitle={
+              analyticsQuery.data.refuelAnalytics.averageDaysBetweenRefuels > 0 
+                ? `Every ${Math.round(analyticsQuery.data.refuelAnalytics.averageDaysBetweenRefuels)} days`
+                : undefined
+            }
+            icon="⛽"
+            iconBg="bg-green-100"
+          >
+            <div className="space-y-4">
+              {/* Refuel Stats */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600">Avg Volume</p>
+                  <p className="font-semibold">{Math.round(analyticsQuery.data.refuelAnalytics.averageRefuelVolume)}L</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Tank Efficiency</p>
+                  <p className="font-semibold">{Math.round(analyticsQuery.data.refuelAnalytics.refuelEfficiency)}%</p>
+                </div>
+              </div>
+              
+              {/* Recent Refuel Events */}
+              {analyticsQuery.data.refuelEvents.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Recent Events</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {analyticsQuery.data.refuelEvents.slice(-4).reverse().map((refuel) => (
+                      <div key={refuel.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                        <div>
+                          <p className="font-medium">{format(new Date(refuel.date), 'MMM d')}</p>
+                          <p className="text-gray-600">+{refuel.volumeAdded.toLocaleString()}L</p>
+                        </div>
+                        <div className="text-right text-gray-600">
+                          {refuel.timeSinceLast && (
+                            <p>{Math.round(refuel.timeSinceLast)}d ago</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ExpandableCard>
+
+          {/* Tank Performance Overview */}
+          <ExpandableCard
+            title="Tank Performance"
+            value={`${groupTanks.length} Tanks`}
+            subtitle={`${totalCount.toLocaleString()} readings`}
+            icon={<BarChart3 className="w-4 h-4 text-blue-600" />}
+            iconBg="bg-blue-100"
+          >
+            <div className="space-y-4">
+              {statsQuery.data && (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600">Average Level</p>
+                    <p className="font-semibold">{Math.round(statsQuery.data.average).toLocaleString()}L</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Total Entries</p>
+                    <p className="font-semibold">{statsQuery.data.count}</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Active Tanks:</span>
+                  <span className="font-medium">{groupTanks.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Data Range:</span>
+                  <span className="font-medium">{filters.dateRange.replace('d', ' days').replace('m', ' months').replace('y', ' year')}</span>
+                </div>
+              </div>
+            </div>
+          </ExpandableCard>
+        </div>
+      )}
+
+      {/* Business Intelligence & Insights */}
+      {analyticsQuery.data && filters.tankId !== 'all' && (analyticsQuery.data.insights.length > 0 || analyticsQuery.data.alerts.length > 0) && (
+        <ExpandableCard
+          title="Business Intelligence"
+          value={`${analyticsQuery.data.insights.length + analyticsQuery.data.alerts.length}`}
+          subtitle="insights & alerts"
+          icon="💡"
+          iconBg="bg-purple-100"
+          defaultExpanded={analyticsQuery.data.alerts.length > 0} // Auto-expand if there are alerts
+        >
+          <div className="space-y-6">
+            {/* Alerts Section */}
+            {analyticsQuery.data.alerts.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-orange-700 mb-3 flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-orange-100 flex items-center justify-center text-xs">⚠️</span>
+                  Action Required ({analyticsQuery.data.alerts.length})
+                </h4>
+                <ul className="space-y-2">
+                  {analyticsQuery.data.alerts.map((alert, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm p-2 bg-orange-50 rounded">
+                      <span className="text-orange-600 mt-0.5">•</span>
+                      <span className="text-orange-800">{alert}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Insights Section */}
+            {analyticsQuery.data.insights.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-blue-700 mb-3 flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-xs">💡</span>
+                  Key Insights ({analyticsQuery.data.insights.length})
+                </h4>
+                <ul className="space-y-2">
+                  {analyticsQuery.data.insights.map((insight, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm p-2 bg-blue-50 rounded">
+                      <span className="text-blue-600 mt-0.5">•</span>
+                      <span className="text-blue-800">{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </ExpandableCard>
+      )}
+
       {/* Advanced Filters Panel - Better mobile layout */}
       {showAdvancedFilters && (
         <Card>
