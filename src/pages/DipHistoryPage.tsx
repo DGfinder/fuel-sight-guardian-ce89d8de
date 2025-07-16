@@ -24,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { ExpandableCard, AnalyticsCard } from '@/components/ui/expandable-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -349,195 +350,187 @@ export default function DipHistoryPage() {
         </div>
       </div>
 
-      {/* Enhanced Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Tanks</p>
-                <p className="text-2xl font-semibold">{groupTanks.length}</p>
-              </div>
-              <BarChart3 className="w-8 h-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Redesigned Analytics Dashboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Readings</p>
-                <p className="text-2xl font-semibold">{totalCount.toLocaleString()}</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Refuel Analytics */}
+        {/* Fuel Consumption Analytics */}
         {analyticsQuery.data && (
-          <>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Refuels</p>
-                    <p className="text-2xl font-semibold">{analyticsQuery.data.refuelAnalytics.totalRefuels}</p>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                    ⛽
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Avg Refuel Volume</p>
-                    <p className="text-xl font-semibold">{Math.round(analyticsQuery.data.refuelAnalytics.averageRefuelVolume)}L</p>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    📊
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Daily Consumption</p>
-                    <p className="text-xl font-semibold">{Math.round(analyticsQuery.data.consumptionMetrics.dailyAverageConsumption)}L</p>
-                    <p className="text-xs text-gray-500">
-                      {analyticsQuery.data.consumptionMetrics.consumptionTrend === 'increasing' ? '📈' : 
-                       analyticsQuery.data.consumptionMetrics.consumptionTrend === 'decreasing' ? '📉' : '→'} 
-                      {analyticsQuery.data.consumptionMetrics.consumptionTrend}
-                    </p>
-                  </div>
-                  <TrendingDown className="w-8 h-8 text-orange-600" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Refuel Frequency</p>
-                    <p className="text-xl font-semibold">
-                      {analyticsQuery.data.refuelAnalytics.averageDaysBetweenRefuels > 0 
-                        ? `${Math.round(analyticsQuery.data.refuelAnalytics.averageDaysBetweenRefuels)} days`
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <Calendar className="w-8 h-8 text-purple-600" />
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        {statsQuery.data && (
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+          <ExpandableCard
+            title="Daily Consumption"
+            value={`${Math.round(analyticsQuery.data.consumptionMetrics.dailyAverageConsumption)}L`}
+            subtitle={
+              <span className="flex items-center gap-1 text-xs">
+                {analyticsQuery.data.consumptionMetrics.consumptionTrend === 'increasing' ? '📈' : 
+                 analyticsQuery.data.consumptionMetrics.consumptionTrend === 'decreasing' ? '📉' : '→'} 
+                {analyticsQuery.data.consumptionMetrics.consumptionTrend}
+              </span>
+            }
+            icon={<TrendingDown className="w-4 h-4 text-orange-600" />}
+            iconBg="bg-orange-100"
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-sm text-gray-600">Avg Level</p>
-                  <p className="text-xl font-semibold">{Math.round(statsQuery.data.average).toLocaleString()}L</p>
+                  <p className="text-gray-600">Weekly Average</p>
+                  <p className="font-semibold">{Math.round(analyticsQuery.data.consumptionMetrics.weeklyAverageConsumption)}L</p>
                 </div>
-                <BarChart3 className="w-8 h-8 text-blue-600" />
+                <div>
+                  <p className="text-gray-600">Monthly Average</p>
+                  <p className="font-semibold">{Math.round(analyticsQuery.data.consumptionMetrics.monthlyAverageConsumption)}L</p>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Last 30 Days Total:</span>
+                  <span className="font-medium">{Math.round(analyticsQuery.data.consumptionMetrics.totalConsumedLast30Days)}L</span>
+                </div>
+                {analyticsQuery.data.consumptionMetrics.peakConsumptionDay && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Peak Usage Day:</span>
+                    <span className="font-medium">{format(new Date(analyticsQuery.data.consumptionMetrics.peakConsumptionDay), 'MMM d')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </ExpandableCard>
         )}
+
+        {/* Refuel Analytics with Recent Events */}
+        {analyticsQuery.data && (
+          <ExpandableCard
+            title="Refuel Analytics"
+            value={analyticsQuery.data.refuelAnalytics.totalRefuels}
+            subtitle={
+              analyticsQuery.data.refuelAnalytics.averageDaysBetweenRefuels > 0 
+                ? `Every ${Math.round(analyticsQuery.data.refuelAnalytics.averageDaysBetweenRefuels)} days`
+                : undefined
+            }
+            icon={<span className="text-green-600">⛽</span>}
+            iconBg="bg-green-100"
+          >
+            <div className="space-y-4">
+              {/* Refuel Stats */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600">Avg Volume</p>
+                  <p className="font-semibold">{Math.round(analyticsQuery.data.refuelAnalytics.averageRefuelVolume)}L</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Tank Efficiency</p>
+                  <p className="font-semibold">{Math.round(analyticsQuery.data.refuelAnalytics.refuelEfficiency)}%</p>
+                </div>
+              </div>
+              
+              {/* Recent Refuel Events */}
+              {analyticsQuery.data.refuelEvents.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Recent Events</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {analyticsQuery.data.refuelEvents.slice(-4).reverse().map((refuel) => (
+                      <div key={refuel.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                        <div>
+                          <p className="font-medium">{format(new Date(refuel.date), 'MMM d')}</p>
+                          <p className="text-gray-600">+{refuel.volumeAdded.toLocaleString()}L</p>
+                        </div>
+                        <div className="text-right text-gray-600">
+                          {refuel.timeSinceLast && (
+                            <p>{Math.round(refuel.timeSinceLast)}d ago</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ExpandableCard>
+        )}
+
+        {/* Tank Performance Overview */}
+        <ExpandableCard
+          title="Tank Performance"
+          value={`${groupTanks.length} Tanks`}
+          subtitle={`${totalCount.toLocaleString()} readings`}
+          icon={<BarChart3 className="w-4 h-4 text-blue-600" />}
+          iconBg="bg-blue-100"
+        >
+          <div className="space-y-4">
+            {statsQuery.data && (
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600">Average Level</p>
+                  <p className="font-semibold">{Math.round(statsQuery.data.average).toLocaleString()}L</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Total Entries</p>
+                  <p className="font-semibold">{statsQuery.data.count}</p>
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Active Tanks:</span>
+                <span className="font-medium">{groupTanks.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Data Range:</span>
+                <span className="font-medium">{filters.dateRange.replace('d', ' days').replace('m', ' months').replace('y', ' year')}</span>
+              </div>
+            </div>
+          </div>
+        </ExpandableCard>
       </div>
 
-      {/* Analytics Insights & Alerts */}
+      {/* Combined Insights & Alerts */}
       {analyticsQuery.data && (analyticsQuery.data.insights.length > 0 || analyticsQuery.data.alerts.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Insights */}
-          {analyticsQuery.data.insights.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">💡</div>
-                  Business Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {analyticsQuery.data.insights.map((insight, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <span className="text-blue-600">•</span>
-                      <span>{insight}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Alerts */}
-          {analyticsQuery.data.alerts.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center">⚠️</div>
-                  Alerts & Recommendations
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+        <ExpandableCard
+          title="Business Intelligence"
+          value={`${analyticsQuery.data.insights.length + analyticsQuery.data.alerts.length}`}
+          subtitle="insights & alerts"
+          icon={<span className="text-purple-600">💡</span>}
+          iconBg="bg-purple-100"
+          defaultExpanded={analyticsQuery.data.alerts.length > 0} // Auto-expand if there are alerts
+        >
+          <div className="space-y-6">
+            {/* Alerts Section */}
+            {analyticsQuery.data.alerts.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-orange-700 mb-3 flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-orange-100 flex items-center justify-center text-xs">⚠️</span>
+                  Action Required ({analyticsQuery.data.alerts.length})
+                </h4>
                 <ul className="space-y-2">
                   {analyticsQuery.data.alerts.map((alert, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <span className="text-orange-600">•</span>
-                      <span>{alert}</span>
+                    <li key={index} className="flex items-start gap-2 text-sm p-2 bg-orange-50 rounded">
+                      <span className="text-orange-600 mt-0.5">•</span>
+                      <span className="text-orange-800">{alert}</span>
                     </li>
                   ))}
                 </ul>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+              </div>
+            )}
 
-      {/* Refuel Events Summary */}
-      {analyticsQuery.data && analyticsQuery.data.refuelEvents.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">⛽</div>
-              Recent Refuel Events
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {analyticsQuery.data.refuelEvents.slice(-5).reverse().map((refuel, index) => (
-                <div key={refuel.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium">{format(new Date(refuel.date), 'MMM d, yyyy')}</p>
-                    <p className="text-sm text-gray-600">
-                      +{refuel.volumeAdded.toLocaleString()}L 
-                      ({refuel.beforeLevel.toLocaleString()}L → {refuel.afterLevel.toLocaleString()}L)
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    {refuel.timeSinceLast && (
-                      <p className="text-sm text-gray-600">{Math.round(refuel.timeSinceLast)} days since last</p>
-                    )}
-                    {refuel.efficiency && (
-                      <p className="text-xs text-gray-500">{Math.round(refuel.efficiency)}L/day consumed</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+            {/* Insights Section */}
+            {analyticsQuery.data.insights.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-blue-700 mb-3 flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-xs">💡</span>
+                  Key Insights ({analyticsQuery.data.insights.length})
+                </h4>
+                <ul className="space-y-2">
+                  {analyticsQuery.data.insights.map((insight, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm p-2 bg-blue-50 rounded">
+                      <span className="text-blue-600 mt-0.5">•</span>
+                      <span className="text-blue-800">{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </ExpandableCard>
       )}
 
       {/* Filters Panel */}
