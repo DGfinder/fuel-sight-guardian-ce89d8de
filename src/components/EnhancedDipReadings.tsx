@@ -84,7 +84,7 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
   
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
   // Calculate date range based on selection
   const { dateFrom, dateTo } = useMemo(() => {
@@ -349,8 +349,8 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                   <SelectContent>
                     <SelectItem value="">All recorders</SelectItem>
                     {recordersQuery.data?.map(recorder => (
-                      <SelectItem key={recorder} value={recorder}>
-                        {recorder}
+                      <SelectItem key={recorder.id} value={recorder.id}>
+                        {recorder.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -445,7 +445,7 @@ export function EnhancedDipReadings({ tank }: EnhancedDipReadingsProps) {
                     </div>
                     <div className="text-sm">
                       <div className="font-medium">
-                        {dip.recorded_by || 'Unknown'}
+                        {dip.recorded_by_name || dip.recorded_by || 'Unknown'}
                       </div>
                     </div>
                     <div className="text-sm">

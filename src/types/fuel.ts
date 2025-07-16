@@ -71,6 +71,7 @@ export interface DipReading {
   value: number;
   created_at: string;
   recorded_by: string;
+  recorded_by_name?: string; // Display name from profiles
   notes?: string;
 }
 

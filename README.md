@@ -1,8 +1,23 @@
-# TankAlert - Fuel Tank Monitoring System
+# TankAlert - Real-Time Fuel Tank Monitoring Dashboard
 
-## Project info
+## What This Application Does
 
-**Description**: Fuel tank monitoring system for Great Southern Fuels
+**TankAlert** is a real-time fuel tank monitoring dashboard that tracks fuel levels across multiple depots and prevents fuel shortages. It's specifically designed for fuel depot operators, truck depots, and fuel supply companies.
+
+### Core Purpose:
+- **Monitor fuel tank levels** in real-time across multiple locations
+- **Prevent fuel shortages** with predictive alerts and consumption tracking
+- **Track fuel usage patterns** with historical dip readings and consumption analytics
+- **Manage multiple depots** with role-based access for different operators
+- **Alert operators** when tanks reach critical or low fuel levels
+
+### Who Uses This:
+- **Fuel depot operators** monitoring tank levels and recording fuel readings
+- **Depot managers** overseeing multiple tank groups and fuel operations  
+- **Fleet managers** ensuring fuel availability for truck operations
+- **Fuel supply companies** managing distributed fuel infrastructure
+
+**Business Domain**: Australian fuel supply chain management, specifically for companies like Great Southern Fuels, Swan Transit, and other fuel depot operators.
 
 ## 📁 Project Structure
 

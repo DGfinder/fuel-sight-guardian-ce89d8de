@@ -941,18 +941,6 @@ export function TankDetailsModal({
             </div>
           </Tabs>
 
-          {/* Simplified Bottom Bar */}
-          <div className="px-6 py-4 border-t bg-gray-50">
-            <div className="flex items-center gap-3 text-sm text-gray-600">
-              <div className={`w-2 h-2 rounded-full ${
-                tankStatus.color === 'green' ? 'bg-green-500' :
-                tankStatus.color === 'blue' ? 'bg-blue-500' :
-                tankStatus.color === 'orange' ? 'bg-orange-500' :
-                'bg-red-500'
-              }`}></div>
-              <span>Status: {tankStatus.status}</span>
-            </div>
-          </div>
           </ModalErrorBoundary>
         </DialogContent>
       </Dialog>
