@@ -4,6 +4,17 @@
 
 **Description**: Fuel tank monitoring system for Great Southern Fuels
 
+## 📁 Project Structure
+
+The project has been organized into a clean, maintainable structure:
+
+- **`src/`** - Application source code
+- **`docs/`** - All documentation organized by category (migration, RBAC, fixes, guides)
+- **`database/`** - SQL scripts organized by functionality (migrations, fixes, RBAC, views, utils)
+- **`tools/`** - Utility scripts for user management, testing, and fixes
+- **`scripts/`** - Build and deployment scripts
+- **`.github/`** - GitHub Actions and workflows
+
 ## Continuous Integration (CI)
 
 This project includes automated CI checks that run on every push to the main branch and pull request. The CI pipeline ensures code quality and build stability.
