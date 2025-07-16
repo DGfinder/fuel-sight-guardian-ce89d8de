@@ -24,8 +24,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Fuel Sight Guardian',
-        short_name: 'FuelSight',
+        name: 'TankAlert',
+        short_name: 'TankAlert',
         description: 'Real-time fuel tank monitoring and management system',
         theme_color: '#008457',
         background_color: '#ffffff',
