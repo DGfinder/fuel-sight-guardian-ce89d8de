@@ -184,14 +184,40 @@ const App = () => {
                     path="/swan-transit" 
                     element={
                       <ProtectedRoute>
-                        <SwanTransit />
+                        <RouteErrorBoundary routeName="Swan Transit" showHomeButton={true}>
+                          <SwanTransit />
+                        </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />
-                  <Route path="/kalgoorlie" element={<ProtectedRoute><Kalgoorlie /></ProtectedRoute>} />
-                  <Route path="/geraldton" element={<ProtectedRoute><Geraldton /></ProtectedRoute>} />
-                  <Route path="/gsf-depots" element={<ProtectedRoute><GSFDepots /></ProtectedRoute>} />
-                  <Route path="/bgc" element={<ProtectedRoute><BGC /></ProtectedRoute>} />
+                  <Route path="/kalgoorlie" element={
+                    <ProtectedRoute>
+                      <RouteErrorBoundary routeName="Kalgoorlie" showHomeButton={true}>
+                        <Kalgoorlie />
+                      </RouteErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/geraldton" element={
+                    <ProtectedRoute>
+                      <RouteErrorBoundary routeName="Geraldton" showHomeButton={true}>
+                        <Geraldton />
+                      </RouteErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/gsf-depots" element={
+                    <ProtectedRoute>
+                      <RouteErrorBoundary routeName="GSF Depots" showHomeButton={true}>
+                        <GSFDepots />
+                      </RouteErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/bgc" element={
+                    <ProtectedRoute>
+                      <RouteErrorBoundary routeName="BGC" showHomeButton={true}>
+                        <BGC />
+                      </RouteErrorBoundary>
+                    </ProtectedRoute>
+                  } />
                   <Route 
                     path="/groups/:groupName/dip-history" 
                     element={
