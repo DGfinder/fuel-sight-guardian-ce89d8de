@@ -23,7 +23,7 @@ export function useRecentDips(limit = 30) {
   return useQuery<RecentDip[]>({
     queryKey: ['recent-dips', limit],
     queryFn: async () => {
-      // Fetch recent dip readings with user profiles
+      // Fetch recent dip readings
       const { data: rawData, error } = await supabase
         .from('dip_readings')
         .select(`
@@ -31,8 +31,7 @@ export function useRecentDips(limit = 30) {
           value,
           created_at,
           recorded_by,
-          tank_id,
-          profiles!recorded_by(full_name)
+          tank_id
         `)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -40,6 +39,30 @@ export function useRecentDips(limit = 30) {
 
       if (error) throw error;
       if (!rawData || rawData.length === 0) return [];
+
+      // Get unique user IDs for profile lookup
+      const userIds = [...new Set(rawData.map(r => r.recorded_by).filter(Boolean))];
+      
+      // Fetch user profiles separately
+      let userProfiles = new Map<string, string>();
+      if (userIds.length > 0) {
+        try {
+          const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', userIds);
+          
+          if (!profileError && profiles) {
+            profiles.forEach(profile => {
+              if (profile.full_name) {
+                userProfiles.set(profile.id, profile.full_name);
+              }
+            });
+          }
+        } catch (profileError) {
+          console.warn('Could not fetch user profiles:', profileError);
+        }
+      }
 
       // Get tank and group info separately
       const tankIds = [...new Set(rawData.map(r => r.tank_id))];
@@ -83,7 +106,7 @@ export function useRecentDips(limit = 30) {
             id: reading.id,
             value: reading.value,
             created_at: reading.created_at,
-            recorded_by: reading.profiles?.full_name || reading.recorded_by || 'Unknown',
+            recorded_by: userProfiles.get(reading.recorded_by) || reading.recorded_by || 'Unknown',
             tank_id: reading.tank_id,
             tank_location: tank?.location || 'Unknown Tank',
             product_type: tank?.product_type || 'Unknown',

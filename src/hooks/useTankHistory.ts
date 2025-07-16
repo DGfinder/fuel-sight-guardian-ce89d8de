@@ -10,9 +10,6 @@ interface HistoryDipReading {
   recorded_by: string;
   notes: string;
   updated_at: string;
-  profiles?: {
-    full_name: string | null;
-  } | null;
 }
 
 interface UseTankHistoryParams {
@@ -67,10 +64,7 @@ export function useTankHistory({
       
       let query = supabase
         .from('dip_readings')
-        .select(`
-          *,
-          profiles!recorded_by(full_name)
-        `, { count: 'exact' })
+        .select('*', { count: 'exact' })
         .eq('tank_id', tankId);
 
       // Date filtering
@@ -117,14 +111,37 @@ export function useTankHistory({
       }
       
       console.log(`Fetched ${data?.length || 0} dip readings for tank ${tankId} (total: ${count})`);
-      console.log('Sample dip reading data with profiles:', data?.[0]);
       
-      let readings = (data || []).map((reading: HistoryDipReading): DipReading => ({
+      // Get unique user IDs for profile lookup
+      const userIds = [...new Set(data?.map(r => r.recorded_by).filter(Boolean))];
+      
+      // Fetch user profiles separately
+      let userProfiles = new Map<string, string>();
+      if (userIds.length > 0) {
+        try {
+          const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', userIds);
+          
+          if (!profileError && profiles) {
+            profiles.forEach(profile => {
+              if (profile.full_name) {
+                userProfiles.set(profile.id, profile.full_name);
+              }
+            });
+          }
+        } catch (profileError) {
+          console.warn('Could not fetch user profiles:', profileError);
+        }
+      }
+      
+      let readings = (data || []).map((reading: any): DipReading => ({
         id: reading.id,
         tank_id: reading.tank_id,
         value: reading.value,
         created_at: reading.created_at,
-        recorded_by: reading.profiles?.full_name || reading.recorded_by || 'Unknown',
+        recorded_by: userProfiles.get(reading.recorded_by) || reading.recorded_by || 'Unknown',
         notes: reading.notes,
       }));
 
@@ -148,22 +165,47 @@ export function useTankRecorders(tankId: string) {
   return useQuery({
     queryKey: ['tank-recorders', tankId],
     queryFn: async () => {
+      // Get unique user IDs from dip readings
       const { data, error } = await supabase
         .from('dip_readings')
-        .select(`
-          recorded_by,
-          profiles!recorded_by(full_name)
-        `)
+        .select('recorded_by')
         .eq('tank_id', tankId)
         .not('recorded_by', 'is', null);
       
       if (error) throw error;
       
-      // Get unique full names, fallback to UUID if no profile
-      const uniqueRecorders = [...new Set(data.map(r => 
-        r.profiles?.full_name || r.recorded_by || 'Unknown'
-      ))].filter(Boolean);
-      return uniqueRecorders.sort();
+      const uniqueUserIds = [...new Set(data.map(r => r.recorded_by))].filter(Boolean);
+      
+      if (uniqueUserIds.length === 0) return [];
+      
+      // Fetch user profiles for these IDs
+      try {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', uniqueUserIds);
+        
+        if (profileError) throw profileError;
+        
+        // Create map of user ID to full name
+        const userMap = new Map<string, string>();
+        profiles?.forEach(profile => {
+          if (profile.full_name) {
+            userMap.set(profile.id, profile.full_name);
+          }
+        });
+        
+        // Get unique full names, fallback to UUID if no profile
+        const uniqueRecorders = [...new Set(uniqueUserIds.map(userId => 
+          userMap.get(userId) || userId || 'Unknown'
+        ))].filter(Boolean);
+        
+        return uniqueRecorders.sort();
+      } catch (profileError) {
+        console.warn('Could not fetch user profiles for recorders:', profileError);
+        // Fallback to user IDs
+        return uniqueUserIds.sort();
+      }
     },
     enabled: !!tankId,
   });
