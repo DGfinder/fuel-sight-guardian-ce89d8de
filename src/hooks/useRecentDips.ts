@@ -23,7 +23,7 @@ export function useRecentDips(limit = 30) {
   return useQuery<RecentDip[]>({
     queryKey: ['recent-dips', limit],
     queryFn: async () => {
-      // Fetch recent dip readings
+      // Fetch recent dip readings with user profiles
       const { data: rawData, error } = await supabase
         .from('dip_readings')
         .select(`
@@ -31,7 +31,8 @@ export function useRecentDips(limit = 30) {
           value,
           created_at,
           recorded_by,
-          tank_id
+          tank_id,
+          profiles!recorded_by(full_name)
         `)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -82,7 +83,7 @@ export function useRecentDips(limit = 30) {
             id: reading.id,
             value: reading.value,
             created_at: reading.created_at,
-            recorded_by: reading.recorded_by,
+            recorded_by: reading.profiles?.full_name || reading.recorded_by || 'Unknown',
             tank_id: reading.tank_id,
             tank_location: tank?.location || 'Unknown Tank',
             product_type: tank?.product_type || 'Unknown',

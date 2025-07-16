@@ -179,7 +179,7 @@ export default function DipHistoryPage() {
   const hasMore = dipHistoryQuery.data?.hasMore || false;
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  const updateFilter = (key: keyof FilterState, value: any) => {
+  const updateFilter = (key: keyof FilterState, value: string | Date | undefined) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setCurrentPage(0); // Reset to first page when filtering
   };
@@ -188,14 +188,14 @@ export default function DipHistoryPage() {
     if (range === 'custom') {
       setFilters(prev => ({ 
         ...prev, 
-        dateRange: range as any,
+        dateRange: range as FilterState['dateRange'],
         dateFrom: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Default to 30 days ago
         dateTo: new Date()
       }));
     } else {
       setFilters(prev => ({ 
         ...prev, 
-        dateRange: range as any,
+        dateRange: range as FilterState['dateRange'],
         dateFrom: undefined,
         dateTo: undefined
       }));

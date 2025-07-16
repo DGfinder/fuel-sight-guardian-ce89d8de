@@ -10,6 +10,9 @@ interface HistoryDipReading {
   recorded_by: string;
   notes: string;
   updated_at: string;
+  profiles?: {
+    full_name: string | null;
+  } | null;
 }
 
 interface UseTankHistoryParams {
@@ -64,7 +67,10 @@ export function useTankHistory({
       
       let query = supabase
         .from('dip_readings')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          profiles!recorded_by(full_name)
+        `, { count: 'exact' })
         .eq('tank_id', tankId);
 
       // Date filtering
@@ -78,15 +84,14 @@ export function useTankHistory({
         query = query.gte('created_at', fromDate.toISOString());
       }
 
-      // Text search in notes and recorded_by
+      // Text search in notes and user full names
       if (searchQuery) {
-        query = query.or(`notes.ilike.%${searchQuery}%,recorded_by.ilike.%${searchQuery}%`);
+        query = query.or(`notes.ilike.%${searchQuery}%,profiles.full_name.ilike.%${searchQuery}%`);
       }
 
-      // Filter by recorded_by
-      if (recordedBy && recordedBy !== 'all') {
-        query = query.eq('recorded_by', recordedBy);
-      }
+      // Filter by recorded_by (this will now be a full name, so we need to filter differently)
+      // For now, we'll handle this filtering on the client side after getting the data
+      // since we're matching full names but the database stores UUIDs
 
       // Value range filtering
       if (minValue !== undefined) {
@@ -112,15 +117,21 @@ export function useTankHistory({
       }
       
       console.log(`Fetched ${data?.length || 0} dip readings for tank ${tankId} (total: ${count})`);
+      console.log('Sample dip reading data with profiles:', data?.[0]);
       
-      const readings = (data || []).map((reading: HistoryDipReading): DipReading => ({
+      let readings = (data || []).map((reading: HistoryDipReading): DipReading => ({
         id: reading.id,
         tank_id: reading.tank_id,
         value: reading.value,
         created_at: reading.created_at,
-        recorded_by: reading.recorded_by,
+        recorded_by: reading.profiles?.full_name || reading.recorded_by || 'Unknown',
         notes: reading.notes,
       }));
+
+      // Client-side filtering by recorded_by (full name)
+      if (recordedBy && recordedBy !== 'all') {
+        readings = readings.filter(reading => reading.recorded_by === recordedBy);
+      }
 
       return {
         readings,
@@ -139,14 +150,19 @@ export function useTankRecorders(tankId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('dip_readings')
-        .select('recorded_by')
+        .select(`
+          recorded_by,
+          profiles!recorded_by(full_name)
+        `)
         .eq('tank_id', tankId)
         .not('recorded_by', 'is', null);
       
       if (error) throw error;
       
-      // Get unique values
-      const uniqueRecorders = [...new Set(data.map(r => r.recorded_by))].filter(Boolean);
+      // Get unique full names, fallback to UUID if no profile
+      const uniqueRecorders = [...new Set(data.map(r => 
+        r.profiles?.full_name || r.recorded_by || 'Unknown'
+      ))].filter(Boolean);
       return uniqueRecorders.sort();
     },
     enabled: !!tankId,
