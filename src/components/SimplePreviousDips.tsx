@@ -148,7 +148,7 @@ export function SimplePreviousDips({ tank, dipHistory, isLoading }: SimplePrevio
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-gray-400" />
                   <span className="text-xs text-gray-600">
-                    {dip.full_name || 'Unknown'}
+                    {dip.recorded_by || 'Unknown'}
                   </span>
                 </div>
               </div>
