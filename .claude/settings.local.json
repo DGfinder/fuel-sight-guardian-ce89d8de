@@ -36,7 +36,8 @@
       "WebFetch(domain:github.com)",
       "Bash(chmod:*)",
       "Bash(SUPABASE_URL=\"https://wjzsdsvbtapriiuxzmih.supabase.co\" SUPABASE_ANON_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqenNkc3ZidGFwcmlpdXh6bWloIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTE4MDU1MiwiZXhwIjoyMDY0NzU2NTUyfQ.c6HZBGuXBz-RHXwFasOmJ8A_e0oRkt6vy-hNFDidCKo\" psql \"postgresql://postgres:haydenhamilton06091995@db.wjzsdsvbtapriiuxzmih.supabase.co:5432/postgres\" -f fix_tanks_rolling_avg_final.sql)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(timeout 10 npm run dev)"
     ],
     "deny": []
   }

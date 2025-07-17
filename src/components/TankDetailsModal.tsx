@@ -49,6 +49,7 @@ import { Tank, TankAlert, DipReading } from '@/types/fuel';
 import { useTankHistory } from '@/hooks/useTankHistory';
 import { useTankAlerts } from '@/hooks/useTankAlerts';
 import { SimplePreviousDips } from '@/components/SimplePreviousDips';
+import { LocationTab } from '@/components/LocationTab';
 import { ALERT_TYPE_CONFIG } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { Line } from 'react-chartjs-2';
@@ -69,7 +70,6 @@ import { Z_INDEX } from '@/lib/z-index';
 import { ModalErrorBoundary } from '@/components/ModalErrorBoundary';
 import EditDipModal from '@/components/modals/EditDipModal';
 import { useQueryClient } from '@tanstack/react-query';
-import AuditTrail from '@/components/AuditTrail';
 
 // Register Chart.js components
 ChartJS.register(
@@ -562,9 +562,9 @@ export function TankDetailsModal({
                   <Badge className="ml-2 bg-red-500 text-white text-xs px-1.5 py-0.5">{alerts.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="audit">
-                <Shield className="w-4 h-4 mr-2" />
-                Audit Trail
+              <TabsTrigger value="location">
+                <MapPin className="w-4 h-4 mr-2" />
+                Location
               </TabsTrigger>
             </TabsList>
 
@@ -934,14 +934,11 @@ export function TankDetailsModal({
                 </Card>
               </TabsContent>
 
-              {/* Audit Trail Tab */}
-              <TabsContent value="audit" className="p-6">
-                <AuditTrail 
-                  tableName="fuel_tanks"
-                  recordId={tank?.id || ''}
-                  showTitle={false}
-                />
+              {/* Location Tab */}
+              <TabsContent value="location" className="p-0">
+                <LocationTab tank={tank} />
               </TabsContent>
+
             </div>
           </Tabs>
 
