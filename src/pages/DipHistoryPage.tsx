@@ -688,13 +688,13 @@ export default function DipHistoryPage() {
                 <div className="flex justify-between">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="text-gray-600 cursor-help">Capacity Utilization:</span>
+                      <span className="text-gray-600 cursor-help">Capacity Utilisation:</span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Range between lowest and highest levels as % of usable capacity (above min level)</p>
+                      <p>Range between lowest and highest levels as % of useable capacity (above min level)</p>
                     </TooltipContent>
                   </Tooltip>
-                  <span className="font-medium">{Math.round(analyticsQuery.data.tankPerformance.capacityUtilizationRate)}%</span>
+                  <span className="font-medium">{Math.round(analyticsQuery.data.tankPerformance.capacityUtilisationRate)}%</span>
                 </div>
                 {analyticsQuery.data.tankPerformance.daysSinceLastCritical !== null && (
                   <div className="flex justify-between">

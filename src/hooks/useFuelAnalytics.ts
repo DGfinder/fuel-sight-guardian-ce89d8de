@@ -46,7 +46,7 @@ export interface TankPerformanceMetrics {
     normal: number; // 26-70%
     high: number; // >70%
   };
-  capacityUtilizationRate: number; // % of capacity effectively used
+  capacityUtilisationRate: number; // % of capacity effectively used
   operationalEfficiencyScore: number; // 0-100 score
   daysSinceLastCritical: number | null;
   lowestLevelReached: number;
@@ -440,8 +440,8 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
   // Based on: avoiding critical levels, maintaining good average, utilizing capacity
   const criticalPenalty = Math.min(30, timeInZones.critical * 3);
   const avgFillScore = Math.min(40, (avgFillPercentage / 100) * 40);
-  const utilizationScore = Math.min(30, (capacityUtilization / 100) * 30);
-  const efficiencyScore = Math.max(0, Math.min(100, 100 - criticalPenalty + avgFillScore + utilizationScore));
+  const utilisationScore = Math.min(30, (capacityUtilization / 100) * 30);
+  const efficiencyScore = Math.max(0, Math.min(100, 100 - criticalPenalty + avgFillScore + utilisationScore));
   
   const daysSinceLastCritical = lastCriticalDate 
     ? Math.floor((new Date().getTime() - lastCriticalDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -450,7 +450,7 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
   return {
     averageFillPercentage: avgFillPercentage,
     timeInZones,
-    capacityUtilizationRate: capacityUtilization,
+    capacityUtilisationRate: capacityUtilization,
     operationalEfficiencyScore: efficiencyScore,
     daysSinceLastCritical,
     lowestLevelReached: lowestLevel,
@@ -481,10 +481,10 @@ function calculateSeasonalAnalysis(readings: any[], dateFrom?: Date, dateTo?: Da
     
     if (change > 0 && change < 15000) { // Valid consumption
       const date = new Date(curr.created_at);
-      const monthKey = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+      const monthKey = date.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+      const monthName = date.toLocaleDateString('en-AU', { month: 'long' });
       const season = getSeason(date.getMonth());
-      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const dayOfWeek = date.toLocaleDateString('en-AU', { weekday: 'long' });
       const weekKey = getWeekKey(date);
       
       // Monthly data
@@ -598,13 +598,13 @@ function calculateSeasonalAnalysis(readings: any[], dateFrom?: Date, dateTo?: Da
   };
 }
 
-// Helper functions for seasonal analysis
+// Helper functions for seasonal analysis (Southern Hemisphere - Perth, WA)
 function getSeason(month: number): string {
   // month is 0-based (0 = January)
-  if (month >= 2 && month <= 4) return 'Spring'; // Mar, Apr, May
-  if (month >= 5 && month <= 7) return 'Summer'; // Jun, Jul, Aug
-  if (month >= 8 && month <= 10) return 'Fall'; // Sep, Oct, Nov
-  return 'Winter'; // Dec, Jan, Feb
+  if (month >= 2 && month <= 4) return 'Autumn'; // Mar, Apr, May
+  if (month >= 5 && month <= 7) return 'Winter'; // Jun, Jul, Aug
+  if (month >= 8 && month <= 10) return 'Spring'; // Sep, Oct, Nov
+  return 'Summer'; // Dec, Jan, Feb
 }
 
 function getMonthNumber(monthName: string): number {
@@ -614,7 +614,7 @@ function getMonthNumber(monthName: string): number {
 }
 
 function getSeasonOrder(season: string): number {
-  const seasons = ['Spring', 'Summer', 'Fall', 'Winter'];
+  const seasons = ['Summer', 'Autumn', 'Winter', 'Spring'];
   return seasons.indexOf(season);
 }
 
@@ -863,7 +863,7 @@ function getEmptyTankPerformance(): TankPerformanceMetrics {
       normal: 0,
       high: 0
     },
-    capacityUtilizationRate: 0,
+    capacityUtilisationRate: 0,
     operationalEfficiencyScore: 0,
     daysSinceLastCritical: null,
     lowestLevelReached: 0,
