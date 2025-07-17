@@ -464,7 +464,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                   <th className="px-3 py-3 text-center">
                                     <SortButton field="current_level">Current Level</SortButton>
                                   </th>
-                                  <th className="px-3 py-3 text-center">% Full</th>
+                                  <th className="px-3 py-3 text-center">% Above Min</th>
                                   <th className="px-3 py-3 text-center">Days-to-Min</th>
                                   <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
                                   <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
@@ -528,7 +528,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                             <th className="px-3 py-3 text-center">
                               <SortButton field="current_level">Current Level</SortButton>
                             </th>
-                            <th className="px-3 py-3 text-center">% Full</th>
+                            <th className="px-3 py-3 text-center">% Above Min</th>
                             <th className="px-3 py-3 text-center">Days-to-Min</th>
                             <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
                             <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
@@ -602,7 +602,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                             <th className="px-3 py-3 text-center">
                               <SortButton field="current_level">Current Level</SortButton>
                             </th>
-                            <th className="px-3 py-3 text-center">% Full</th>
+                            <th className="px-3 py-3 text-center">% Above Min</th>
                             <th className="px-3 py-3 text-center">Days-to-Min</th>
                             <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
                             <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
