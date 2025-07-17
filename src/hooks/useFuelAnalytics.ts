@@ -41,9 +41,9 @@ export interface RefuelAnalytics {
 export interface TankPerformanceMetrics {
   averageFillPercentage: number;
   timeInZones: {
-    critical: number; // <20%
-    low: number; // 20-40%
-    normal: number; // 40-70%
+    critical: number; // <10%
+    low: number; // 11-25%
+    normal: number; // 26-70%
     high: number; // >70%
   };
   capacityUtilizationRate: number; // % of capacity effectively used
@@ -441,7 +441,7 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
   const criticalPenalty = Math.min(30, timeInZones.critical * 3);
   const avgFillScore = Math.min(40, (avgFillPercentage / 100) * 40);
   const utilizationScore = Math.min(30, (capacityUtilization / 100) * 30);
-  const efficiencyScore = Math.max(0, 100 - criticalPenalty + avgFillScore + utilizationScore) / 100 * 100;
+  const efficiencyScore = Math.max(0, Math.min(100, 100 - criticalPenalty + avgFillScore + utilizationScore));
   
   const daysSinceLastCritical = lastCriticalDate 
     ? Math.floor((new Date().getTime() - lastCriticalDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -660,29 +660,39 @@ function calculateOperationalInsights(readings: any[], tankData: any): Operation
     }
   });
   
-  // Calculate reading frequency
-  const timeSpan = readings.length > 1 
-    ? (new Date(readings[readings.length - 1].created_at).getTime() - new Date(readings[0].created_at).getTime()) / (1000 * 60 * 60 * 24)
+  // Calculate reading frequency (weekdays only - Monday to Friday)
+  const weekdayReadings = readings.filter(reading => {
+    const date = new Date(reading.created_at);
+    const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday (1) to Friday (5)
+  });
+  
+  // Calculate weekday time span
+  const timeSpan = weekdayReadings.length > 1 
+    ? (new Date(weekdayReadings[weekdayReadings.length - 1].created_at).getTime() - new Date(weekdayReadings[0].created_at).getTime()) / (1000 * 60 * 60 * 24)
     : 0;
   
-  const avgPerDay = timeSpan > 0 ? readings.length / timeSpan : 0;
-  const avgPerWeek = avgPerDay * 7;
+  // Count weekdays in the time span
+  const weekdaysInSpan = timeSpan > 0 ? Math.floor(timeSpan / 7) * 5 + Math.min(5, timeSpan % 7) : 0;
   
-  // Calculate consistency score based on reading intervals
-  const intervals: number[] = [];
-  for (let i = 1; i < readings.length; i++) {
-    const interval = (new Date(readings[i].created_at).getTime() - 
-                     new Date(readings[i - 1].created_at).getTime()) / (1000 * 60 * 60); // hours
-    intervals.push(interval);
+  const avgPerDay = weekdaysInSpan > 0 ? weekdayReadings.length / weekdaysInSpan : 0;
+  const avgPerWeek = avgPerDay * 5; // 5 weekdays per week
+  
+  // Calculate consistency score based on weekday reading intervals only
+  const weekdayIntervals: number[] = [];
+  for (let i = 1; i < weekdayReadings.length; i++) {
+    const interval = (new Date(weekdayReadings[i].created_at).getTime() - 
+                     new Date(weekdayReadings[i - 1].created_at).getTime()) / (1000 * 60 * 60); // hours
+    weekdayIntervals.push(interval);
   }
   
-  const avgInterval = intervals.length > 0 ? intervals.reduce((sum, i) => sum + i, 0) / intervals.length : 24;
-  const intervalStdDev = intervals.length > 0 
-    ? Math.sqrt(intervals.reduce((sum, i) => sum + Math.pow(i - avgInterval, 2), 0) / intervals.length)
+  const avgInterval = weekdayIntervals.length > 0 ? weekdayIntervals.reduce((sum, i) => sum + i, 0) / weekdayIntervals.length : 24;
+  const intervalStdDev = weekdayIntervals.length > 0 
+    ? Math.sqrt(weekdayIntervals.reduce((sum, i) => sum + Math.pow(i - avgInterval, 2), 0) / weekdayIntervals.length)
     : 0;
   const consistencyScore = Math.max(0, Math.min(100, 100 - (intervalStdDev / avgInterval) * 100));
   
-  // Data quality metrics
+  // Data quality metrics (use all readings for anomaly detection)
   let anomalyCount = 0;
   let largeChanges = 0;
   
@@ -699,7 +709,7 @@ function calculateOperationalInsights(readings: any[], tankData: any): Operation
     }
   }
   
-  const completenessScore = Math.min(100, (avgPerDay / 1) * 100); // Expecting at least 1 reading per day
+  const completenessScore = Math.min(100, (avgPerDay / 1) * 100); // Expecting at least 1 reading per weekday
   const complianceScore = (consistencyScore + completenessScore) / 2;
   
   return {

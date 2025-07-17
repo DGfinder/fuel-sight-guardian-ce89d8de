@@ -667,15 +667,15 @@ export default function DipHistoryPage() {
             <div className="space-y-4">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Critical Time (&lt;20%):</span>
+                  <span className="text-gray-600">Critical Time (&lt;10%):</span>
                   <span className="font-medium">{Math.round(analyticsQuery.data.tankPerformance.timeInZones.critical)}%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Low Time (20-40%):</span>
+                  <span className="text-gray-600">Low Time (11-25%):</span>
                   <span className="font-medium">{Math.round(analyticsQuery.data.tankPerformance.timeInZones.low)}%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Normal Time (40-70%):</span>
+                  <span className="text-gray-600">Normal Time (26-70%):</span>
                   <span className="font-medium">{Math.round(analyticsQuery.data.tankPerformance.timeInZones.normal)}%</span>
                 </div>
                 <div className="flex justify-between">
@@ -725,7 +725,14 @@ export default function DipHistoryPage() {
                   <span className="font-medium">{analyticsQuery.data.operationalInsights.lowFuelEvents.belowMinLevel}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Readings/Day:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-gray-600 cursor-help">Readings/Weekday:</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Average readings per weekday (Monday-Friday only)</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <span className="font-medium">{analyticsQuery.data.operationalInsights.readingFrequency.averagePerDay.toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between">
@@ -734,7 +741,7 @@ export default function DipHistoryPage() {
                       <span className="text-gray-600 cursor-help">Consistency:</span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>How regular reading intervals are (100% = very consistent timing)</p>
+                      <p>How regular reading intervals are during weekdays (Monday-Friday only). 100% = very consistent timing</p>
                     </TooltipContent>
                   </Tooltip>
                   <span className="font-medium">{Math.round(analyticsQuery.data.operationalInsights.readingFrequency.consistencyScore)}%</span>
