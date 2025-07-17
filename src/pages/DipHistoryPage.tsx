@@ -501,12 +501,12 @@ export default function DipHistoryPage() {
                 <label className="text-sm font-medium text-gray-700">From Date</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[40px]">
                       <Calendar className="mr-2 h-4 w-4" />
                       {filters.dateFrom ? format(filters.dateFrom, 'PPP') : 'Pick a date'}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0 z-50">
                     <CalendarComponent
                       mode="single"
                       selected={filters.dateFrom}
@@ -521,12 +521,12 @@ export default function DipHistoryPage() {
                 <label className="text-sm font-medium text-gray-700">To Date</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[40px]">
                       <Calendar className="mr-2 h-4 w-4" />
                       {filters.dateTo ? format(filters.dateTo, 'PPP') : 'Pick a date'}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0 z-50">
                     <CalendarComponent
                       mode="single"
                       selected={filters.dateTo}
@@ -904,12 +904,12 @@ export default function DipHistoryPage() {
                     <label className="text-sm font-medium">From Date</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[40px]">
                           <Calendar className="mr-2 h-4 w-4" />
                           {filters.dateFrom ? format(filters.dateFrom, 'PPP') : 'Pick a date'}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
+                      <PopoverContent className="w-auto p-0 z-50">
                         <CalendarComponent
                           mode="single"
                           selected={filters.dateFrom}
@@ -924,12 +924,12 @@ export default function DipHistoryPage() {
                     <label className="text-sm font-medium">To Date</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[40px]">
                           <Calendar className="mr-2 h-4 w-4" />
                           {filters.dateTo ? format(filters.dateTo, 'PPP') : 'Pick a date'}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
+                      <PopoverContent className="w-auto p-0 z-50">
                         <CalendarComponent
                           mode="single"
                           selected={filters.dateTo}

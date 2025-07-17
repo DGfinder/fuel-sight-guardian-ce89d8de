@@ -8,12 +8,6 @@ import {
   Calendar,
   Droplets
 } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tank, DipReading } from '@/types/fuel';
@@ -80,117 +74,106 @@ export function SimplePreviousDips({ tank, dipHistory, isLoading }: SimplePrevio
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <History className="w-5 h-5 text-blue-600" />
-            Previous Dip Readings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-16" />
-                  <Skeleton className="h-3 w-12" />
-                </div>
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <History className="w-5 h-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Previous Dip Readings</h3>
+        </div>
+        <div className="space-y-3">
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-16" />
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-3 w-12" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
   if (!recentDips.length) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <History className="w-5 h-5 text-blue-600" />
-            Previous Dip Readings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-            <Droplets className="w-12 h-12 text-gray-300 mb-3" />
-            <h3 className="font-medium text-gray-600 mb-2">No Dip Readings</h3>
-            <p className="text-sm text-center">
-              No dip readings have been recorded for this tank yet.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <History className="w-5 h-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Previous Dip Readings</h3>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+          <Droplets className="w-12 h-12 text-gray-300 mb-3" />
+          <h3 className="font-medium text-gray-600 mb-2">No Dip Readings</h3>
+          <p className="text-sm text-center">
+            No dip readings have been recorded for this tank yet.
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <History className="w-5 h-5 text-blue-600" />
-          Previous Dip Readings
-          <Badge variant="outline" className="text-xs">
-            {recentDips.length} recent
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {recentDips.map((dip, index) => {
-            const change = getDipChange(dip, index);
-            
-            return (
-              <div 
-                key={dip.id} 
-                className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <span className="font-medium text-sm">
-                      {format(new Date(dip.created_at), 'MMM d, yyyy')}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {format(new Date(dip.created_at), 'HH:mm')}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span className="text-xs text-gray-600">
-                      {dip.recorded_by || 'Unknown'}
-                    </span>
-                  </div>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <History className="w-5 h-5 text-blue-600" />
+        <h3 className="text-lg font-semibold">Previous Dip Readings</h3>
+        <Badge variant="outline" className="text-xs">
+          {recentDips.length} recent
+        </Badge>
+      </div>
+      
+      <div className="space-y-2">
+        {recentDips.map((dip, index) => {
+          const change = getDipChange(dip, index);
+          
+          return (
+            <div 
+              key={dip.id} 
+              className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <span className="font-medium text-sm">
+                    {format(new Date(dip.created_at), 'MMM d, yyyy')}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {format(new Date(dip.created_at), 'HH:mm')}
+                  </span>
                 </div>
-
-                <div className="text-right space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-lg">
-                      {typeof dip.value === 'number' ? dip.value.toLocaleString() : 'N/A'}L
-                    </span>
-                  </div>
-                  
-                  {getChangeDisplay(change)}
+                
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs text-gray-600">
+                    {dip.recorded_by || 'Unknown'}
+                  </span>
                 </div>
               </div>
-            );
-          })}
+
+              <div className="text-right space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-lg">
+                    {typeof dip.value === 'number' ? dip.value.toLocaleString() : 'N/A'}L
+                  </span>
+                </div>
+                
+                {getChangeDisplay(change)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      
+      {recentDips.length >= 20 && (
+        <div className="mt-4 text-center">
+          <p className="text-xs text-gray-500">
+            Showing most recent 20 readings
+          </p>
         </div>
-        
-        {recentDips.length >= 20 && (
-          <div className="mt-4 text-center">
-            <p className="text-xs text-gray-500">
-              Showing most recent 20 readings
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }
