@@ -79,8 +79,6 @@ interface FilterState {
   sortBy: 'created_at' | 'value' | 'recorded_by';
   sortOrder: 'asc' | 'desc';
   dateRange: 'all' | '7d' | '30d' | '3m' | '6m' | '1y' | 'custom';
-  showMinLevelOnly: boolean;
-  showCriticalOnly: boolean;
 }
 
 const DATE_RANGE_OPTIONS = [
@@ -125,8 +123,6 @@ export default function DipHistoryPage() {
     sortBy: 'created_at',
     sortOrder: 'desc',
     dateRange: '30d',
-    showMinLevelOnly: false,
-    showCriticalOnly: false,
   });
 
   const [currentPage, setCurrentPage] = useState(0);
@@ -232,28 +228,10 @@ export default function DipHistoryPage() {
     dateTo
   });
 
-  // Process and filter data
+  // Process data
   const dipHistory = useMemo(() => {
-    let data = dipHistoryQuery.data?.readings || [];
-    
-    // Apply minimum level filtering
-    if (filters.showMinLevelOnly && filters.tankId !== 'all') {
-      const tank = groupTanks.find(t => t.id === filters.tankId);
-      if (tank?.min_level != null) {
-        data = data.filter(reading => reading.value < tank.min_level!);
-      }
-    }
-    
-    // Apply critical level filtering
-    if (filters.showCriticalOnly && filters.tankId !== 'all') {
-      const tank = groupTanks.find(t => t.id === filters.tankId);
-      if (tank?.safe_level != null) {
-        data = data.filter(reading => (reading.value / tank.safe_level!) * 100 < 20);
-      }
-    }
-    
-    return data;
-  }, [dipHistoryQuery.data?.readings, filters.showMinLevelOnly, filters.showCriticalOnly, filters.tankId, groupTanks]);
+    return dipHistoryQuery.data?.readings || [];
+  }, [dipHistoryQuery.data?.readings]);
 
   const totalCount = dipHistoryQuery.data?.totalCount || 0;
   const hasMore = dipHistoryQuery.data?.hasMore || false;
@@ -516,36 +494,51 @@ export default function DipHistoryPage() {
             </div>
           </div>
 
-          {/* Quick Filter Toggles - Stack on mobile */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2 border-t">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="min-level"
-                checked={filters.showMinLevelOnly}
-                onCheckedChange={(checked) => updateFilter('showMinLevelOnly', checked)}
-                disabled={filters.tankId === 'all'}
-              />
-              <label htmlFor="min-level" className="text-sm font-medium flex items-center gap-1">
-                <AlertTriangle className="w-4 h-4 text-red-500" />
-                <span className="hidden sm:inline">Below Minimum Level Only</span>
-                <span className="sm:hidden">Below Min Only</span>
-              </label>
+          {/* Custom Date Range Pickers */}
+          {filters.dateRange === 'custom' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4 border-t">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">From Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {filters.dateFrom ? format(filters.dateFrom, 'PPP') : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <CalendarComponent
+                      mode="single"
+                      selected={filters.dateFrom}
+                      onSelect={(date) => updateFilter('dateFrom', date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">To Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {filters.dateTo ? format(filters.dateTo, 'PPP') : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <CalendarComponent
+                      mode="single"
+                      selected={filters.dateTo}
+                      onSelect={(date) => updateFilter('dateTo', date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
-            
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="critical"
-                checked={filters.showCriticalOnly}
-                onCheckedChange={(checked) => updateFilter('showCriticalOnly', checked)}
-                disabled={filters.tankId === 'all'}
-              />
-              <label htmlFor="critical" className="text-sm font-medium flex items-center gap-1">
-                <AlertCircle className="w-4 h-4 text-orange-500" />
-                <span className="hidden sm:inline">Critical Levels Only</span>
-                <span className="sm:hidden">Critical Only</span>
-              </label>
-            </div>
-          </div>
+          )}
+
         </CardContent>
       </Card>
 

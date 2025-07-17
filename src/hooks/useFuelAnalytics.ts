@@ -168,13 +168,13 @@ export function useFuelAnalytics({
       const operationalInsights = calculateOperationalInsights(readings, tankData);
       
       // Calculate seasonal analysis
-      const seasonalAnalysis = calculateSeasonalAnalysis(readings);
+      const seasonalAnalysis = calculateSeasonalAnalysis(readings, dateFrom, dateTo);
       
       // Generate insights
       const insights = generateInsights(refuelEvents, consumptionMetrics, refuelAnalytics, tankPerformance, operationalInsights, seasonalAnalysis);
       
       // Generate alerts
-      const alerts = generateAlerts(refuelEvents, consumptionMetrics, refuelAnalytics, tankPerformance, operationalInsights);
+      const alerts = generateAlerts(refuelEvents, consumptionMetrics, refuelAnalytics, tankPerformance, operationalInsights, readings, tankData);
 
       return {
         refuelEvents,
@@ -459,12 +459,19 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
 }
 
 // Calculate seasonal consumption analysis
-function calculateSeasonalAnalysis(readings: any[]): SeasonalAnalysis {
+function calculateSeasonalAnalysis(readings: any[], dateFrom?: Date, dateTo?: Date): SeasonalAnalysis {
   if (readings.length < 2) return getEmptySeasonalAnalysis();
   
-  // Group consumption by month
+  // Determine the analysis period
+  const analysisStart = dateFrom || new Date(readings[0].created_at);
+  const analysisEnd = dateTo || new Date(readings[readings.length - 1].created_at);
+  const daysDifference = Math.ceil((analysisEnd.getTime() - analysisStart.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Choose analysis granularity based on date range
   const monthlyData = new Map<string, { total: number; count: number }>();
   const seasonalData = new Map<string, { total: number; count: number }>();
+  const weeklyData = new Map<string, { total: number; count: number }>();
+  const dayOfWeekData = new Map<string, { total: number; count: number }>();
   
   // Process readings to calculate consumption
   for (let i = 1; i < readings.length; i++) {
@@ -477,6 +484,8 @@ function calculateSeasonalAnalysis(readings: any[]): SeasonalAnalysis {
       const monthKey = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       const monthName = date.toLocaleDateString('en-US', { month: 'long' });
       const season = getSeason(date.getMonth());
+      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const weekKey = getWeekKey(date);
       
       // Monthly data
       const monthData = monthlyData.get(monthKey) || { total: 0, count: 0 };
@@ -489,48 +498,103 @@ function calculateSeasonalAnalysis(readings: any[]): SeasonalAnalysis {
       seasonData.total += change;
       seasonData.count += 1;
       seasonalData.set(season, seasonData);
+      
+      // Day of week data (for short periods)
+      const dayData = dayOfWeekData.get(dayOfWeek) || { total: 0, count: 0 };
+      dayData.total += change;
+      dayData.count += 1;
+      dayOfWeekData.set(dayOfWeek, dayData);
+      
+      // Weekly data (for medium periods)
+      const weekData = weeklyData.get(weekKey) || { total: 0, count: 0 };
+      weekData.total += change;
+      weekData.count += 1;
+      weeklyData.set(weekKey, weekData);
     }
   }
   
-  // Calculate monthly averages
+  // Smart period-based analysis
+  let highestPeriod = { month: '', value: 0 };
+  let lowestPeriod = { month: '', value: Infinity };
+  let seasonalPattern = '';
+  
+  if (daysDifference <= 14) {
+    // Short period: Use day-of-week analysis
+    const dayOfWeekConsumption = Array.from(dayOfWeekData.entries()).map(([day, data]) => ({
+      day,
+      average: data.count > 0 ? data.total / data.count : 0,
+      total: data.total
+    })).filter(d => d.average > 0).sort((a, b) => b.average - a.average);
+    
+    if (dayOfWeekConsumption.length > 0) {
+      highestPeriod = { month: dayOfWeekConsumption[0].day, value: dayOfWeekConsumption[0].average };
+      lowestPeriod = { month: dayOfWeekConsumption[dayOfWeekConsumption.length - 1].day, value: dayOfWeekConsumption[dayOfWeekConsumption.length - 1].average };
+      seasonalPattern = `Peak day: ${highestPeriod.month}, Low day: ${lowestPeriod.month}`;
+    }
+  } else if (daysDifference <= 60) {
+    // Medium period: Use weekly analysis
+    const weeklyConsumption = Array.from(weeklyData.entries()).map(([week, data]) => ({
+      week,
+      average: data.count > 0 ? data.total / data.count : 0,
+      total: data.total
+    })).filter(w => w.average > 0).sort((a, b) => b.average - a.average);
+    
+    if (weeklyConsumption.length > 0) {
+      highestPeriod = { month: `Week ${weeklyConsumption[0].week}`, value: weeklyConsumption[0].average };
+      lowestPeriod = { month: `Week ${weeklyConsumption[weeklyConsumption.length - 1].week}`, value: weeklyConsumption[weeklyConsumption.length - 1].average };
+      seasonalPattern = `Peak week: ${weeklyConsumption[0].week}, Low week: ${weeklyConsumption[weeklyConsumption.length - 1].week}`;
+    }
+  } else {
+    // Long period: Use monthly/seasonal analysis
+    const monthlyConsumption = Array.from(monthlyData.entries()).map(([month, data]) => ({
+      month: month.split(' ')[0], // Just month name
+      average: data.count > 0 ? data.total / data.count : 0,
+      total: data.total
+    })).filter(m => m.average > 0).sort((a, b) => getMonthNumber(a.month) - getMonthNumber(b.month));
+    
+    if (monthlyConsumption.length > 0) {
+      const sortedByAverage = [...monthlyConsumption].sort((a, b) => b.average - a.average);
+      highestPeriod = { month: sortedByAverage[0].month, value: sortedByAverage[0].average };
+      lowestPeriod = { month: sortedByAverage[sortedByAverage.length - 1].month, value: sortedByAverage[sortedByAverage.length - 1].average };
+      
+      // Calculate seasonal averages for seasonal pattern
+      const seasonalConsumption = Array.from(seasonalData.entries()).map(([season, data]) => ({
+        season,
+        average: data.count > 0 ? data.total / data.count : 0,
+        total: data.total
+      })).sort((a, b) => getSeasonOrder(a.season) - getSeasonOrder(b.season));
+      
+      seasonalPattern = determineSeasonalPattern(seasonalConsumption);
+    }
+  }
+  
+  // Calculate monthly averages (for compatibility)
   const monthlyConsumption = Array.from(monthlyData.entries()).map(([month, data]) => ({
     month: month.split(' ')[0], // Just month name
     average: data.count > 0 ? data.total / data.count : 0,
     total: data.total
   })).sort((a, b) => getMonthNumber(a.month) - getMonthNumber(b.month));
   
-  // Calculate seasonal averages
+  // Calculate seasonal averages (for compatibility)
   const seasonalConsumption = Array.from(seasonalData.entries()).map(([season, data]) => ({
     season,
     average: data.count > 0 ? data.total / data.count : 0,
     total: data.total
   })).sort((a, b) => getSeasonOrder(a.season) - getSeasonOrder(b.season));
   
-  // Find highest and lowest consumption months
-  let highestMonth = { month: '', value: 0 };
-  let lowestMonth = { month: '', value: Infinity };
-  
-  monthlyConsumption.forEach(({ month, average }) => {
-    if (average > highestMonth.value) highestMonth = { month, value: average };
-    if (average < lowestMonth.value && average > 0) lowestMonth = { month, value: average };
-  });
-  
   // Calculate monthly variation
   const allAverages = monthlyConsumption.map(m => m.average).filter(a => a > 0);
-  const overallAverage = allAverages.reduce((sum, avg) => sum + avg, 0) / allAverages.length;
-  const variations = allAverages.map(avg => Math.abs((avg - overallAverage) / overallAverage * 100));
-  const monthlyVariation = variations.reduce((sum, v) => sum + v, 0) / variations.length;
-  
-  // Determine seasonal pattern
-  const seasonPattern = determineSeasonalPattern(seasonalConsumption);
+  const overallAverage = allAverages.length > 0 ? allAverages.reduce((sum, avg) => sum + avg, 0) / allAverages.length : 0;
+  const variations = overallAverage > 0 ? allAverages.map(avg => Math.abs((avg - overallAverage) / overallAverage * 100)) : [0];
+  const monthlyVariation = variations.length > 0 ? variations.reduce((sum, v) => sum + v, 0) / variations.length : 0;
   
   return {
     monthlyConsumption,
     seasonalConsumption,
-    highestConsumptionMonth: highestMonth,
-    lowestConsumptionMonth: lowestMonth,
+    highestConsumptionMonth: highestPeriod,
+    lowestConsumptionMonth: lowestPeriod,
     monthlyVariation,
-    seasonalPattern: seasonPattern
+    seasonalPattern: seasonalPattern || 'Insufficient data'
   };
 }
 
@@ -712,16 +776,26 @@ function generateAlerts(
   consumption: FuelConsumptionMetrics, 
   refuels: RefuelAnalytics,
   performance: TankPerformanceMetrics,
-  operational: OperationalInsights
+  operational: OperationalInsights,
+  readings: any[],
+  tankData: any
 ): string[] {
   const alerts: string[] = [];
   
-  // Alert if no recent refuels
+  // Alert if no recent refuels (with fuel level consideration)
   if (refuelEvents.length > 0) {
     const lastRefuel = refuelEvents[refuelEvents.length - 1];
     const daysSinceLastRefuel = (new Date().getTime() - new Date(lastRefuel.date).getTime()) / (1000 * 60 * 60 * 24);
     
-    if (daysSinceLastRefuel > refuels.averageDaysBetweenRefuels * 1.5) {
+    // Calculate current fuel level percentage above min_level
+    const currentLevel = readings.length > 0 ? readings[readings.length - 1].value : 0; // Most recent reading
+    const minLevel = tankData?.min_level || 0;
+    const safeLevel = tankData?.safe_level || 0;
+    const usableCapacity = safeLevel - minLevel;
+    const currentFillPercent = usableCapacity > 0 ? ((currentLevel - minLevel) / usableCapacity) * 100 : 0;
+    
+    // Refuel overdue if: fuel level < 30% OR days since last refuel > 4 days
+    if (currentFillPercent < 30 || daysSinceLastRefuel > 4) {
       alerts.push('⚠️ Refuel overdue - tank may need attention');
     }
   }
