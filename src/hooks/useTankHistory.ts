@@ -89,7 +89,7 @@ export function useGroupTankHistory({
 
       let query = supabase
         .from('dip_readings')
-        .select('*', { count: 'exact' })
+        .select('id, tank_id, value, created_at, recorded_by, notes, updated_at, created_by_name', { count: 'exact' })
         .in('tank_id', tankIds);
 
       // Date filtering
@@ -168,12 +168,20 @@ export function useGroupTankHistory({
         const userId = reading.recorded_by;
         const fullName = userProfiles.get(userId);
         
-        // Enhanced fallback logic for better UX
+        // Enhanced fallback logic prioritizing created_by_name if available
+        const createdByName = reading.created_by_name;
         let displayName = 'Unknown User';
-        if (fullName) {
+        
+        // Priority 1: Use created_by_name if it exists and is not empty
+        if (createdByName && createdByName.trim().length > 0) {
+          displayName = createdByName.trim();
+        }
+        // Priority 2: Use profile lookup result
+        else if (fullName) {
           displayName = fullName;
-        } else if (userId && userId.length > 0) {
-          // If we have a UUID, show a more user-friendly format
+        }
+        // Priority 3: Format UUID nicely if available
+        else if (userId && userId.length > 0) {
           if (userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
             displayName = `User (${userId.substring(0, 8)}...)`;
           } else {
@@ -242,7 +250,7 @@ export function useTankHistory({
       
       let query = supabase
         .from('dip_readings')
-        .select('*', { count: 'exact' })
+        .select('id, tank_id, value, created_at, recorded_by, notes, updated_at, created_by_name', { count: 'exact' })
         .eq('tank_id', tankId);
 
       // Date filtering
@@ -325,12 +333,20 @@ export function useTankHistory({
         const userId = reading.recorded_by;
         const fullName = userProfiles.get(userId);
         
-        // Enhanced fallback logic for better UX
+        // Enhanced fallback logic prioritizing created_by_name if available
+        const createdByName = reading.created_by_name;
         let displayName = 'Unknown User';
-        if (fullName) {
+        
+        // Priority 1: Use created_by_name if it exists and is not empty
+        if (createdByName && createdByName.trim().length > 0) {
+          displayName = createdByName.trim();
+        }
+        // Priority 2: Use profile lookup result
+        else if (fullName) {
           displayName = fullName;
-        } else if (userId && userId.length > 0) {
-          // If we have a UUID, show a more user-friendly format
+        }
+        // Priority 3: Format UUID nicely if available
+        else if (userId && userId.length > 0) {
           if (userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
             displayName = `User (${userId.substring(0, 8)}...)`;
           } else {

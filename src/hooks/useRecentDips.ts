@@ -31,7 +31,8 @@ export function useRecentDips(limit = 30) {
           value,
           created_at,
           recorded_by,
-          tank_id
+          tank_id,
+          created_by_name
         `)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -111,13 +112,21 @@ export function useRecentDips(limit = 30) {
           
           const userId = reading.recorded_by;
           const fullName = userProfiles.get(userId);
+          const createdByName = reading.created_by_name;
           
-          // Enhanced fallback logic for better UX
+          // Enhanced fallback logic prioritizing created_by_name if available
           let displayName = 'Unknown User';
-          if (fullName) {
+          
+          // Priority 1: Use created_by_name if it exists and is not empty
+          if (createdByName && createdByName.trim().length > 0) {
+            displayName = createdByName.trim();
+          }
+          // Priority 2: Use profile lookup result
+          else if (fullName) {
             displayName = fullName;
-          } else if (userId && userId.length > 0) {
-            // If we have a UUID, show a more user-friendly format
+          }
+          // Priority 3: Format UUID nicely if available
+          else if (userId && userId.length > 0) {
             if (userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
               displayName = `User (${userId.substring(0, 8)}...)`;
             } else {

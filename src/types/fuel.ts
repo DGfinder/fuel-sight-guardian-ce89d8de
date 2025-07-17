@@ -72,6 +72,7 @@ export interface DipReading {
   created_at: string;
   recorded_by: string;
   notes?: string;
+  created_by_name?: string;
 }
 
 export type GroupSnapshot = {
