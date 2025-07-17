@@ -9,7 +9,6 @@ import { useTanks } from '@/hooks/useTanks';
 import { getFuelStatus } from '@/components/ui/fuel-status';
 import { TankMapPopup } from '@/components/TankMapPopup';
 import { useTankModal } from '@/contexts/TankModalContext';
-import { useNavigate } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -56,8 +55,16 @@ interface LocationTabProps {
 export const LocationTab: React.FC<LocationTabProps> = ({ tank }) => {
   const { tanks } = useTanks();
   const { openModal } = useTankModal();
-  const navigate = useNavigate();
   const [mapLoaded, setMapLoaded] = useState(false);
+
+  // Safe navigation function to avoid router context issues
+  const navigateToMap = () => {
+    try {
+      window.location.href = '/map';
+    } catch (error) {
+      console.warn('Navigation failed:', error);
+    }
+  };
 
   // Default center (Perth, WA) if no coordinates
   const defaultCenter: [number, number] = [-31.9505, 115.8605];
@@ -107,7 +114,7 @@ export const LocationTab: React.FC<LocationTabProps> = ({ tank }) => {
               Geographic coordinates have not been set for this tank.
             </p>
             <Button
-              onClick={() => navigate('/map')}
+              onClick={navigateToMap}
               className="bg-primary hover:bg-primary/90"
             >
               <ExternalLink className="w-4 h-4 mr-2" />
@@ -185,7 +192,7 @@ export const LocationTab: React.FC<LocationTabProps> = ({ tank }) => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/map')}
+              onClick={navigateToMap}
             >
               <ExternalLink className="w-4 h-4 mr-2" />
               View Full Map
