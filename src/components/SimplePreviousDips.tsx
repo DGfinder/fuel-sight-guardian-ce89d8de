@@ -125,7 +125,7 @@ export function SimplePreviousDips({ tank, dipHistory, isLoading }: SimplePrevio
         </Badge>
       </div>
       
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2">
         {recentDips.map((dip, index) => {
           const change = getDipChange(dip, index);
           
@@ -148,7 +148,7 @@ export function SimplePreviousDips({ tank, dipHistory, isLoading }: SimplePrevio
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-gray-400" />
                   <span className="text-xs text-gray-600">
-                    {dip.recorded_by || 'Unknown'}
+                    {dip.full_name || 'Unknown'}
                   </span>
                 </div>
               </div>
