@@ -48,7 +48,7 @@ import { format } from 'date-fns';
 import { Tank, TankAlert, DipReading } from '@/types/fuel';
 import { useTankHistory } from '@/hooks/useTankHistory';
 import { useTankAlerts } from '@/hooks/useTankAlerts';
-import { EnhancedDipReadings } from '@/components/EnhancedDipReadings';
+import { SimplePreviousDips } from '@/components/SimplePreviousDips';
 import { ALERT_TYPE_CONFIG } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { Line } from 'react-chartjs-2';
@@ -804,9 +804,13 @@ export function TankDetailsModal({
                 </div>
               </TabsContent>
 
-              {/* Enhanced Previous Dips Tab */}
+              {/* Simplified Previous Dips Tab */}
               <TabsContent value="dips" className="p-6">
-                <EnhancedDipReadings tank={tank} />
+                <SimplePreviousDips 
+                  tank={tank} 
+                  dipHistory={dipHistory} 
+                  isLoading={dipHistoryQuery.isLoading} 
+                />
               </TabsContent>
 
               {/* Enhanced Notes Tab with Tank Details */}
