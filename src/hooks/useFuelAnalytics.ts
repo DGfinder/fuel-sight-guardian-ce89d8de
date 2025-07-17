@@ -72,12 +72,22 @@ export interface OperationalInsights {
   complianceScore: number; // 0-100 based on expected reading schedule
 }
 
+export interface SeasonalAnalysis {
+  monthlyConsumption: { month: string; average: number; total: number }[];
+  seasonalConsumption: { season: string; average: number; total: number }[];
+  highestConsumptionMonth: { month: string; value: number };
+  lowestConsumptionMonth: { month: string; value: number };
+  monthlyVariation: number; // percentage variation from annual average
+  seasonalPattern: string; // description of the pattern
+}
+
 export interface FuelAnalyticsData {
   refuelEvents: RefuelEvent[];
   consumptionMetrics: FuelConsumptionMetrics;
   refuelAnalytics: RefuelAnalytics;
   tankPerformance: TankPerformanceMetrics;
   operationalInsights: OperationalInsights;
+  seasonalAnalysis: SeasonalAnalysis;
   insights: string[];
   alerts: string[];
 }
@@ -134,6 +144,7 @@ export function useFuelAnalytics({
           refuelAnalytics: getEmptyRefuelAnalytics(),
           tankPerformance: getEmptyTankPerformance(),
           operationalInsights: getEmptyOperationalInsights(),
+          seasonalAnalysis: getEmptySeasonalAnalysis(),
           insights: ['Insufficient data for analysis'],
           alerts: []
         };
@@ -156,8 +167,11 @@ export function useFuelAnalytics({
       // Calculate operational insights
       const operationalInsights = calculateOperationalInsights(readings, tankData);
       
+      // Calculate seasonal analysis
+      const seasonalAnalysis = calculateSeasonalAnalysis(readings);
+      
       // Generate insights
-      const insights = generateInsights(refuelEvents, consumptionMetrics, refuelAnalytics, tankPerformance, operationalInsights);
+      const insights = generateInsights(refuelEvents, consumptionMetrics, refuelAnalytics, tankPerformance, operationalInsights, seasonalAnalysis);
       
       // Generate alerts
       const alerts = generateAlerts(refuelEvents, consumptionMetrics, refuelAnalytics, tankPerformance, operationalInsights);
@@ -168,6 +182,7 @@ export function useFuelAnalytics({
         refuelAnalytics,
         tankPerformance,
         operationalInsights,
+        seasonalAnalysis,
         insights,
         alerts
       };
@@ -367,9 +382,11 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
   if (!readings.length || !tankData) return getEmptyTankPerformance();
   
   const safeLevel = tankData.safe_level || 0;
-  if (!safeLevel) return getEmptyTankPerformance();
+  const minLevel = tankData.min_level || 0;
   
-  // Calculate fill percentages and time in zones
+  if (!safeLevel || !minLevel || safeLevel <= minLevel) return getEmptyTankPerformance();
+  
+  // Calculate fill percentages and time in zones (relative to min_level)
   const fillPercentages: number[] = [];
   const timeInZones = { critical: 0, low: 0, normal: 0, high: 0 };
   let lowestLevel = Infinity;
@@ -377,23 +394,27 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
   let lastCriticalDate: Date | null = null;
   
   readings.forEach((reading, index) => {
-    const fillPercent = (reading.value / safeLevel) * 100;
+    // Calculate percentage above min level: 0% = at min_level, 100% = at safe_level
+    const usableCapacity = safeLevel - minLevel;
+    const levelAboveMin = Math.max(0, reading.value - minLevel);
+    const fillPercent = (levelAboveMin / usableCapacity) * 100;
     fillPercentages.push(fillPercent);
     
     if (reading.value < lowestLevel) lowestLevel = reading.value;
     if (reading.value > highestLevel) highestLevel = reading.value;
     
     // Track time in zones (using time until next reading)
+    // Updated thresholds: Critical <10%, Low 11-25%, Normal 26-70%, High >70%
     if (index < readings.length - 1) {
       const hoursUntilNext = (new Date(readings[index + 1].created_at).getTime() - 
                               new Date(reading.created_at).getTime()) / (1000 * 60 * 60);
       
-      if (fillPercent < 20) {
+      if (fillPercent < 10) {
         timeInZones.critical += hoursUntilNext;
         lastCriticalDate = new Date(reading.created_at);
-      } else if (fillPercent < 40) {
+      } else if (fillPercent <= 25) {
         timeInZones.low += hoursUntilNext;
-      } else if (fillPercent < 70) {
+      } else if (fillPercent <= 70) {
         timeInZones.normal += hoursUntilNext;
       } else {
         timeInZones.high += hoursUntilNext;
@@ -412,7 +433,8 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
   
   // Calculate metrics
   const avgFillPercentage = fillPercentages.reduce((sum, p) => sum + p, 0) / fillPercentages.length;
-  const capacityUtilization = ((highestLevel - lowestLevel) / safeLevel) * 100;
+  const usableCapacity = safeLevel - minLevel;
+  const capacityUtilization = ((highestLevel - lowestLevel) / usableCapacity) * 100;
   
   // Operational efficiency score (0-100)
   // Based on: avoiding critical levels, maintaining good average, utilizing capacity
@@ -436,6 +458,112 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
   };
 }
 
+// Calculate seasonal consumption analysis
+function calculateSeasonalAnalysis(readings: any[]): SeasonalAnalysis {
+  if (readings.length < 2) return getEmptySeasonalAnalysis();
+  
+  // Group consumption by month
+  const monthlyData = new Map<string, { total: number; count: number }>();
+  const seasonalData = new Map<string, { total: number; count: number }>();
+  
+  // Process readings to calculate consumption
+  for (let i = 1; i < readings.length; i++) {
+    const prev = readings[i - 1];
+    const curr = readings[i];
+    const change = prev.value - curr.value; // Positive = consumption
+    
+    if (change > 0 && change < 15000) { // Valid consumption
+      const date = new Date(curr.created_at);
+      const monthKey = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+      const season = getSeason(date.getMonth());
+      
+      // Monthly data
+      const monthData = monthlyData.get(monthKey) || { total: 0, count: 0 };
+      monthData.total += change;
+      monthData.count += 1;
+      monthlyData.set(monthKey, monthData);
+      
+      // Seasonal data
+      const seasonData = seasonalData.get(season) || { total: 0, count: 0 };
+      seasonData.total += change;
+      seasonData.count += 1;
+      seasonalData.set(season, seasonData);
+    }
+  }
+  
+  // Calculate monthly averages
+  const monthlyConsumption = Array.from(monthlyData.entries()).map(([month, data]) => ({
+    month: month.split(' ')[0], // Just month name
+    average: data.count > 0 ? data.total / data.count : 0,
+    total: data.total
+  })).sort((a, b) => getMonthNumber(a.month) - getMonthNumber(b.month));
+  
+  // Calculate seasonal averages
+  const seasonalConsumption = Array.from(seasonalData.entries()).map(([season, data]) => ({
+    season,
+    average: data.count > 0 ? data.total / data.count : 0,
+    total: data.total
+  })).sort((a, b) => getSeasonOrder(a.season) - getSeasonOrder(b.season));
+  
+  // Find highest and lowest consumption months
+  let highestMonth = { month: '', value: 0 };
+  let lowestMonth = { month: '', value: Infinity };
+  
+  monthlyConsumption.forEach(({ month, average }) => {
+    if (average > highestMonth.value) highestMonth = { month, value: average };
+    if (average < lowestMonth.value && average > 0) lowestMonth = { month, value: average };
+  });
+  
+  // Calculate monthly variation
+  const allAverages = monthlyConsumption.map(m => m.average).filter(a => a > 0);
+  const overallAverage = allAverages.reduce((sum, avg) => sum + avg, 0) / allAverages.length;
+  const variations = allAverages.map(avg => Math.abs((avg - overallAverage) / overallAverage * 100));
+  const monthlyVariation = variations.reduce((sum, v) => sum + v, 0) / variations.length;
+  
+  // Determine seasonal pattern
+  const seasonPattern = determineSeasonalPattern(seasonalConsumption);
+  
+  return {
+    monthlyConsumption,
+    seasonalConsumption,
+    highestConsumptionMonth: highestMonth,
+    lowestConsumptionMonth: lowestMonth,
+    monthlyVariation,
+    seasonalPattern: seasonPattern
+  };
+}
+
+// Helper functions for seasonal analysis
+function getSeason(month: number): string {
+  // month is 0-based (0 = January)
+  if (month >= 2 && month <= 4) return 'Spring'; // Mar, Apr, May
+  if (month >= 5 && month <= 7) return 'Summer'; // Jun, Jul, Aug
+  if (month >= 8 && month <= 10) return 'Fall'; // Sep, Oct, Nov
+  return 'Winter'; // Dec, Jan, Feb
+}
+
+function getMonthNumber(monthName: string): number {
+  const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  return months.indexOf(monthName);
+}
+
+function getSeasonOrder(season: string): number {
+  const seasons = ['Spring', 'Summer', 'Fall', 'Winter'];
+  return seasons.indexOf(season);
+}
+
+function determineSeasonalPattern(seasonalData: { season: string; average: number }[]): string {
+  if (seasonalData.length < 2) return 'Insufficient data';
+  
+  const sorted = [...seasonalData].sort((a, b) => b.average - a.average);
+  const highest = sorted[0]?.season || '';
+  const lowest = sorted[sorted.length - 1]?.season || '';
+  
+  return `Peak: ${highest}, Low: ${lowest}`;
+}
+
 // Calculate operational insights
 function calculateOperationalInsights(readings: any[], tankData: any): OperationalInsights {
   if (!readings.length) return getEmptyOperationalInsights();
@@ -453,10 +581,17 @@ function calculateOperationalInsights(readings: any[], tankData: any): Operation
       belowMinCount++;
       lastLowFuelDate = reading.created_at;
     }
-    if (safeLevel && (reading.value / safeLevel) * 100 < 20) {
-      criticalCount++;
-      if (!lastLowFuelDate || reading.created_at > lastLowFuelDate) {
-        lastLowFuelDate = reading.created_at;
+    // Critical level: <10% above min_level (new calculation)
+    if (safeLevel && minLevel && safeLevel > minLevel) {
+      const usableCapacity = safeLevel - minLevel;
+      const levelAboveMin = Math.max(0, reading.value - minLevel);
+      const fillPercent = (levelAboveMin / usableCapacity) * 100;
+      
+      if (fillPercent < 10) {
+        criticalCount++;
+        if (!lastLowFuelDate || reading.created_at > lastLowFuelDate) {
+          lastLowFuelDate = reading.created_at;
+        }
       }
     }
   });
@@ -529,7 +664,8 @@ function generateInsights(
   consumption: FuelConsumptionMetrics, 
   refuels: RefuelAnalytics,
   performance: TankPerformanceMetrics,
-  operational: OperationalInsights
+  operational: OperationalInsights,
+  seasonal: SeasonalAnalysis
 ): string[] {
   const insights: string[] = [];
   
@@ -551,6 +687,20 @@ function generateInsights(
   if (refuels.nextPredictedRefuel) {
     const daysUntilRefuel = Math.round((new Date(refuels.nextPredictedRefuel).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     insights.push(`Next refuel predicted in ${daysUntilRefuel} days`);
+  }
+  
+  // Add seasonal insights
+  if (seasonal.highestConsumptionMonth.month && seasonal.lowestConsumptionMonth.month) {
+    insights.push(`Highest consumption: ${seasonal.highestConsumptionMonth.month} (${Math.round(seasonal.highestConsumptionMonth.value)}L/day avg)`);
+    insights.push(`Lowest consumption: ${seasonal.lowestConsumptionMonth.month} (${Math.round(seasonal.lowestConsumptionMonth.value)}L/day avg)`);
+  }
+  
+  if (seasonal.seasonalPattern !== 'Insufficient data') {
+    insights.push(`Seasonal pattern: ${seasonal.seasonalPattern}`);
+  }
+  
+  if (seasonal.monthlyVariation > 20) {
+    insights.push(`High seasonal variation (±${Math.round(seasonal.monthlyVariation)}%) - consider seasonal planning`);
   }
   
   return insights;
@@ -655,5 +805,16 @@ function getEmptyOperationalInsights(): OperationalInsights {
       largeVolumeChanges: 0
     },
     complianceScore: 0
+  };
+}
+
+function getEmptySeasonalAnalysis(): SeasonalAnalysis {
+  return {
+    monthlyConsumption: [],
+    seasonalConsumption: [],
+    highestConsumptionMonth: { month: '', value: 0 },
+    lowestConsumptionMonth: { month: '', value: 0 },
+    monthlyVariation: 0,
+    seasonalPattern: 'Insufficient data'
   };
 }

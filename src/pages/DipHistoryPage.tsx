@@ -58,6 +58,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useTanks } from '@/hooks/useTanks';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTankHistory, useTankRecorders, useTankReadingStats, useGroupTankHistory, useGroupTankRecorders } from '@/hooks/useTankHistory';
@@ -409,7 +415,8 @@ export default function DipHistoryPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <TooltipProvider>
+      <div className="p-6 space-y-6">
       {/* Header with Breadcrumb */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
@@ -572,7 +579,14 @@ export default function DipHistoryPage() {
                   <p className="font-semibold">{analyticsQuery.data.refuelAnalytics.daysSinceLastRefuel} days</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Efficiency</p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-gray-600 cursor-help">Efficiency</p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Percentage of tank capacity typically filled during refuels</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <p className="font-semibold">{Math.round(analyticsQuery.data.refuelAnalytics.refuelEfficiency)}%</p>
                 </div>
               </div>
@@ -624,7 +638,14 @@ export default function DipHistoryPage() {
                   <p className="font-semibold">{Math.round(analyticsQuery.data.consumptionMetrics.peakConsumptionValue).toLocaleString()}L</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Stability Score</p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-gray-600 cursor-help">Stability Score</p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>How consistent daily usage is (100% = very stable, 0% = highly variable)</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <p className="font-semibold">{Math.round(analyticsQuery.data.consumptionMetrics.consumptionStabilityScore)}%</p>
                 </div>
               </div>
@@ -672,7 +693,14 @@ export default function DipHistoryPage() {
               
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Capacity Utilization:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-gray-600 cursor-help">Capacity Utilization:</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Range between lowest and highest levels as % of usable capacity (above min level)</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <span className="font-medium">{Math.round(analyticsQuery.data.tankPerformance.capacityUtilizationRate)}%</span>
                 </div>
                 {analyticsQuery.data.tankPerformance.daysSinceLastCritical !== null && (
@@ -708,14 +736,28 @@ export default function DipHistoryPage() {
                   <span className="font-medium">{analyticsQuery.data.operationalInsights.readingFrequency.averagePerDay.toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Consistency:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-gray-600 cursor-help">Consistency:</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>How regular reading intervals are (100% = very consistent timing)</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <span className="font-medium">{Math.round(analyticsQuery.data.operationalInsights.readingFrequency.consistencyScore)}%</span>
                 </div>
               </div>
               
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Data Quality:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-gray-600 cursor-help">Data Quality:</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Overall data completeness and reading frequency score</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <span className="font-medium">{Math.round(analyticsQuery.data.operationalInsights.dataQuality.completenessScore)}%</span>
                 </div>
                 <div className="flex justify-between">
@@ -1179,6 +1221,7 @@ export default function DipHistoryPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
