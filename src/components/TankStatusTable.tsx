@@ -387,11 +387,11 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
             <AccordionTrigger className={`px-6 py-4 font-semibold text-gray-800 sticky top-0 z-10 shadow-sm border border-gray-200 rounded-lg flex items-center justify-between group transition-all duration-200 border-l-4 ${statusColors[groupStatus]}`}>
               <div className="flex items-center gap-4">
                 <span className="text-lg font-bold">{group.name}</span>
-                <Badge variant="outline" className="bg-white/80 text-gray-600 border-gray-300 px-3 py-1 text-sm font-medium">
+                <Badge variant="outline" className="bg-white/80 text-gray-600 border-gray-300">
                   {totalTanks} tanks
                 </Badge>
                 {group.shouldShowSubgroups && group.subGroups.length > 0 && (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-2 py-1 text-xs">
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                     {group.subGroups.length} subgroups
                   </Badge>
                 )}
@@ -403,9 +403,9 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                 <Accordion type="multiple" defaultValue={[]} className="w-full">
                   {group.subGroups.map(sub => (
                     <AccordionItem value={sub.id} key={sub.id} className="border-none">
-                      <AccordionTrigger className="bg-gray-100 px-4 py-2 font-semibold text-gray-700 flex items-center gap-2">
+                      <AccordionTrigger className="bg-gray-100 px-4 py-2 font-semibold text-gray-700 flex items-center gap-3">
                         {sub.name}
-                        <Badge variant="outline" className="bg-gray-100 text-gray-700 ml-2">
+                        <Badge variant="outline" className="bg-gray-100 text-gray-700">
                           {sub.tanks.length} tank{sub.tanks.length !== 1 ? 's' : ''}
                         </Badge>
                       </AccordionTrigger>

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bell, AlertTriangle, Filter, PlusCircle } from "lucide-react";
+import { Bell, AlertTriangle, Filter, Map } from "lucide-react";
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { useTanks } from '@/hooks/useTanks';
@@ -14,8 +14,7 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { Tank } from '@/types/fuel';
 import { StickyMobileNav } from '@/components/StickyMobileNav';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { FuelDipForm } from '@/components/fuel-dip/FuelDipForm';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useGlobalModals } from '@/contexts/GlobalModalsContext';
 import EditDipModal from '@/components/modals/EditDipModal';
@@ -41,7 +40,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   }, []);
 
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
-  const [dipModalOpen, setDipModalOpen] = useState(false);
+  const navigate = useNavigate();
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
   const { openEditDip, openAlerts } = useGlobalModals();
@@ -170,7 +169,7 @@ export default function Index({ selectedGroup }: IndexProps) {
             <Button
               variant="outline"
               onClick={() => openAlerts()}
-              className="relative border-gray-300 hover:border-primary hover:text-primary"
+              className="relative border-accent text-accent hover:bg-accent hover:text-accent-foreground"
             >
               <Bell className="h-4 w-4 mr-2" />
               Alerts
@@ -184,18 +183,13 @@ export default function Index({ selectedGroup }: IndexProps) {
               )}
             </Button>
             <Button
-              className="bg-primary hover:bg-primary/90 text-white font-bold text-base rounded-lg py-2 px-4 shadow flex items-center"
-              onClick={() => setDipModalOpen(true)}
+              className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-base rounded-lg py-2 px-4 shadow flex items-center"
+              onClick={() => navigate('/map')}
             >
-              <PlusCircle className="w-4 h-4 mr-2" />
-              Add Dip Reading
+              <Map className="w-4 h-4 mr-2" />
+              View Map
             </Button>
           </div>
-          <Dialog open={dipModalOpen} onOpenChange={setDipModalOpen}>
-            <DialogContent className="max-w-xl">
-              <FuelDipForm />
-            </DialogContent>
-          </Dialog>
         </div>
 
         {/* KPI Strip */}
