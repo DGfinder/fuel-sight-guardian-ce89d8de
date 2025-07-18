@@ -20,13 +20,12 @@ import {
   MapPinIcon,
   Building2Icon,
   TrendingUp,
-  History
+  History,
+  Mail
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from '@/lib/supabase';
-import AddDipModal from '@/components/modals/AddDipModal';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTanks } from "@/hooks/useTanks";
 import { useQueryClient } from '@tanstack/react-query';
@@ -124,7 +123,6 @@ export const Sidebar: React.FC = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [addDipModalOpen, setAddDipModalOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
@@ -399,11 +397,15 @@ export const Sidebar: React.FC = () => {
           {/* Quick Actions */}
           <div className="flex flex-col gap-2 mt-8">
             <button
-              onClick={() => setAddDipModalOpen(true)}
+              onClick={() => {
+                const subject = "TankAlert Support Request";
+                const body = `Hi Hayden,\n\nI need help with TankAlert.\n\nIssue Description:\n[Please describe your issue here]\n\n---\nSystem Information:\nPage: ${location.pathname}\nTimestamp: ${new Date().toLocaleString()}`;
+                window.open(`mailto:Hayden@stevemacs.com.au?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+              }}
               className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-white border-2 border-secondary rounded-lg font-bold hover:bg-primary/90 transition-colors shadow-md"
             >
-              <Plus className="w-5 h-5" />
-              Add Dip Reading
+              <Mail className="w-5 h-5" />
+              Get Help
             </button>
             <Link
               to="/alerts"
@@ -447,15 +449,6 @@ export const Sidebar: React.FC = () => {
         />
       )}
 
-      {/* Add Dip Modal */}
-      <AddDipModal
-        open={addDipModalOpen}
-        onOpenChange={setAddDipModalOpen}
-        onSubmit={async (groupId, tankId, dip) => {
-          // This is where a refresh/invalidation would happen
-          console.log('Dip submitted:', { groupId, tankId, dip });
-        }}
-      />
     </>
   );
 };
