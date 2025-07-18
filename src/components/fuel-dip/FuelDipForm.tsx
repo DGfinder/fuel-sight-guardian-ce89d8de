@@ -13,6 +13,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/lib/supabase";
+import { useQuery } from '@tanstack/react-query';
+import type { Tables } from '@/types/supabase';
 import { useToast } from "@/hooks/use-toast";
 import {
   Command,
@@ -238,6 +240,7 @@ export function FuelDipForm({
       value: data.dip,
       created_at: data.date,
       recorded_by: user?.id ?? "unknown",
+      created_by_name: userProfile?.full_name || null,
       notes: data.notes ?? null,
     });
     setLoading(false);
@@ -272,6 +275,23 @@ export function FuelDipForm({
     });
     return () => listener.subscription.unsubscribe();
   }, [readOnly]);
+
+  // Fetch user profile to get full name
+  const { data: userProfile } = useQuery<Tables<'profiles'> | null>({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (error) return null;
+        return data as Tables<'profiles'>;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!user?.id,
+    retry: false,
+  });
 
   //------------------------------------------------
   // Render

@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-// Removed supabase and useQuery imports - using filtered data from useTanks hook
+import { supabase } from '@/lib/supabase';
 import AddDipModal from '@/components/modals/AddDipModal';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTanks } from "@/hooks/useTanks";
@@ -279,7 +279,7 @@ export const Sidebar: React.FC = () => {
       {/* Sidebar panel */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 bg-primary border-r-4 border-secondary z-40 flex flex-col justify-between transition-transform duration-200",
+          "fixed top-0 left-0 h-full w-64 bg-primary border-r-4 border-t-4 border-secondary z-40 flex flex-col justify-between transition-transform duration-200",
           "rounded-r-xl shadow-lg",
           isMobile ? (open ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
         )}

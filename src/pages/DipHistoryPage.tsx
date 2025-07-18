@@ -243,7 +243,7 @@ export default function DipHistoryPage() {
     
     const totalTanks = groupTanks.length;
     const criticalTanks = groupTanks.filter(tank => 
-      tank.current_level_percent && tank.current_level_percent < 20
+      tank.current_level_percent && tank.current_level_percent <= 10
     ).length;
     const belowMinTanks = groupTanks.filter(tank => 
       tank.current_level && tank.min_level && tank.current_level < tank.min_level
@@ -289,8 +289,8 @@ export default function DipHistoryPage() {
       const tank = groupTanks.find(t => t.id === dip.tank_id);
       const capacityPercent = tank?.safe_level ? Math.round((dip.value / tank.safe_level) * 100) : 0;
       const status = tank?.min_level && dip.value < tank.min_level ? 'Below Minimum' : 
-                    capacityPercent < 20 ? 'Critical' : 
-                    capacityPercent < 40 ? 'Low' : 'Normal';
+                    capacityPercent <= 10 ? 'Critical' : 
+                    capacityPercent <= 20 ? 'Low' : 'Normal';
       
       return [
         format(new Date(dip.created_at), 'yyyy-MM-dd'),
@@ -340,9 +340,9 @@ export default function DipHistoryPage() {
     
     if (isMinLevel) {
       return <Badge variant="destructive" className="text-xs">Below Min</Badge>;
-    } else if (capacityPercent < 20) {
+    } else if (capacityPercent <= 10) {
       return <Badge variant="destructive" className="text-xs">Critical</Badge>;
-    } else if (capacityPercent < 40) {
+    } else if (capacityPercent <= 20) {
       return <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">Low</Badge>;
     }
     return null;
@@ -467,7 +467,7 @@ export default function DipHistoryPage() {
                     <SelectItem key={tank.id} value={tank.id}>
                       <div className="flex items-center justify-between w-full">
                         <span>{tank.location}</span>
-                        {tank.current_level_percent && tank.current_level_percent < 20 && (
+                        {tank.current_level_percent && tank.current_level_percent <= 10 && (
                           <Badge variant="destructive" className="ml-2 text-xs">Critical</Badge>
                         )}
                       </div>

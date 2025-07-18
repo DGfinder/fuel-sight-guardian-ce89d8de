@@ -76,8 +76,8 @@ const fuelLevelBarVariants = cva(
 // Utility function to determine fuel status from percentage
 export const getFuelStatus = (percentage: number | null | undefined): 'critical' | 'low' | 'normal' | 'unknown' => {
   if (percentage === null || percentage === undefined) return 'unknown';
-  if (percentage <= 20) return 'critical';
-  if (percentage <= 40) return 'low';
+  if (percentage <= 10) return 'critical';
+  if (percentage <= 20) return 'low';
   return 'normal';
 }
 

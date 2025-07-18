@@ -5,6 +5,7 @@
 
 import { useMemo } from 'react';
 import { useTanks, Tank } from './useTanks';
+import { getFuelStatus } from '@/components/ui/fuel-status';
 
 export interface FilterOptions {
   searchTerm?: string;
@@ -43,16 +44,7 @@ export function useTanksFilter(filters: FilterOptions = {}) {
     if (filters.statusFilter && filters.statusFilter !== 'all') {
       result = result.filter(tank => {
         const level = tank.current_level_percent || 0;
-        switch (filters.statusFilter) {
-          case 'critical':
-            return level <= 20;
-          case 'low':
-            return level > 20 && level <= 40;
-          case 'normal':
-            return level > 40;
-          default:
-            return true;
-        }
+        return getFuelStatus(level) === filters.statusFilter;
       });
     }
 

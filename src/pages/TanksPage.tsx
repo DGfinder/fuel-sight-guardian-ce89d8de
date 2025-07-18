@@ -21,6 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
+import { getFuelStatus } from '@/components/ui/fuel-status';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -66,9 +67,7 @@ export default function TanksPage() {
                            tank.product_type?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || 
-                           (statusFilter === 'critical' && tank.current_level_percent <= 20) ||
-                           (statusFilter === 'low' && tank.current_level_percent > 20 && tank.current_level_percent <= 40) ||
-                           (statusFilter === 'normal' && tank.current_level_percent > 40);
+                           getFuelStatus(tank.current_level_percent) === statusFilter;
       
       const matchesGroup = groupFilter === 'all' || tank.group_name === groupFilter;
       
@@ -94,9 +93,9 @@ export default function TanksPage() {
     // Calculate stats
     const stats = {
       total: tanks.length,
-      critical: tanks.filter(t => t.current_level_percent <= 20).length,
-      low: tanks.filter(t => t.current_level_percent > 20 && t.current_level_percent <= 40).length,
-      normal: tanks.filter(t => t.current_level_percent > 40).length
+      critical: tanks.filter(t => getFuelStatus(t.current_level_percent) === 'critical').length,
+      low: tanks.filter(t => getFuelStatus(t.current_level_percent) === 'low').length,
+      normal: tanks.filter(t => getFuelStatus(t.current_level_percent) === 'normal').length
     };
 
     return { filteredTanks: filtered, stats };
@@ -108,21 +107,33 @@ export default function TanksPage() {
   }, [tanks]);
 
   const getStatusColor = (percentage: number | null) => {
-    if (!percentage || percentage <= 20) return 'bg-red-500';
-    if (percentage <= 40) return 'bg-yellow-500';
-    return 'bg-green-500';
+    const status = getFuelStatus(percentage);
+    switch (status) {
+      case 'critical': return 'bg-red-500';
+      case 'low': return 'bg-yellow-500';
+      case 'normal': return 'bg-green-500';
+      default: return 'bg-gray-500';
+    }
   };
 
   const getStatusText = (percentage: number | null) => {
-    if (!percentage || percentage <= 20) return 'Critical';
-    if (percentage <= 40) return 'Low';
-    return 'Normal';
+    const status = getFuelStatus(percentage);
+    switch (status) {
+      case 'critical': return 'Critical';
+      case 'low': return 'Low';
+      case 'normal': return 'Normal';
+      default: return 'Unknown';
+    }
   };
 
   const getStatusIcon = (percentage: number | null) => {
-    if (!percentage || percentage <= 20) return <AlertTriangle className="w-4 h-4 text-red-600" />;
-    if (percentage <= 40) return <Clock className="w-4 h-4 text-yellow-600" />;
-    return <CheckCircle className="w-4 h-4 text-green-600" />;
+    const status = getFuelStatus(percentage);
+    switch (status) {
+      case 'critical': return <AlertTriangle className="w-4 h-4 text-red-600" />;
+      case 'low': return <Clock className="w-4 h-4 text-yellow-600" />;
+      case 'normal': return <CheckCircle className="w-4 h-4 text-green-600" />;
+      default: return <Clock className="w-4 h-4 text-gray-600" />;
+    }
   };
 
   // Handler for clicking a tank row in the table
@@ -379,8 +390,8 @@ export default function TanksPage() {
                 {tank.group_name}
               </div>
               <Badge 
-                variant={!tank.current_level_percent || tank.current_level_percent <= 20 ? "destructive" : 
-                        tank.current_level_percent <= 40 ? "secondary" : "default"}
+                variant={getFuelStatus(tank.current_level_percent) === 'critical' ? "destructive" : 
+                        getFuelStatus(tank.current_level_percent) === 'low' ? "secondary" : "default"}
                 className="w-fit"
               >
                 {getStatusText(tank.current_level_percent)}

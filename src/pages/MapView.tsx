@@ -47,10 +47,13 @@ const TANK_ICONS = {
 };
 
 const getIconForTank = (tank: { current_level_percent?: number | null }) => {
-  const percent = tank.current_level_percent ?? 0;
-  if (percent <= 20) return TANK_ICONS.critical;
-  if (percent <= 40) return TANK_ICONS.low;
-  return TANK_ICONS.normal;
+  const status = getFuelStatus(tank.current_level_percent);
+  switch (status) {
+    case 'critical': return TANK_ICONS.critical;
+    case 'low': return TANK_ICONS.low;
+    case 'normal': return TANK_ICONS.normal;
+    default: return TANK_ICONS.default;
+  }
 };
 
 function MapView() {
@@ -189,10 +192,8 @@ function MapView() {
       
       // Status filter
       if (selectedStatus !== 'all') {
-        const percent = tank.current_level_percent ?? 0;
-        if (selectedStatus === 'critical' && percent > 20) return false;
-        if (selectedStatus === 'low' && (percent <= 20 || percent > 40)) return false;
-        if (selectedStatus === 'normal' && percent <= 40) return false;
+        const status = getFuelStatus(tank.current_level_percent);
+        if (selectedStatus !== status) return false;
       }
       
       return true;
@@ -301,15 +302,15 @@ function MapView() {
                 <span className="font-medium">Status Legend:</span>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-red-500 rounded"></div>
-                  <span className="text-sm">Critical (&le;20%)</span>
+                  <span className="text-sm">Critical (&le;10%)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                  <span className="text-sm">Low (21-40%)</span>
+                  <span className="text-sm">Low (11-20%)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-green-500 rounded"></div>
-                  <span className="text-sm">Normal (&gt;40%)</span>
+                  <span className="text-sm">Normal (&gt;20%)</span>
                 </div>
               </div>
               

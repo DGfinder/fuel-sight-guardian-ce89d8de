@@ -9,7 +9,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useMemo } from "react";
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
 import {
@@ -42,6 +42,7 @@ import { useTankGroups } from "@/hooks/useTankGroups";
 import { useTanks }      from "@/hooks/useTanks";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
+import type { Tables } from '@/types/supabase';
 import { cn } from "@/lib/utils";
 import { Z_INDEX } from '@/lib/z-index';
 
@@ -139,6 +140,23 @@ export default function AddDipModal({
     });
   }, []);
 
+  // Fetch user profile to get full name
+  const { data: userProfile } = useQuery<Tables<'profiles'> | null>({
+    queryKey: ['profile', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        if (error) return null;
+        return data as Tables<'profiles'>;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!userId,
+    retry: false,
+  });
+
   // Handle auto-close after success with proper cleanup
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -203,6 +221,7 @@ export default function AddDipModal({
         value: Number(formData.dipValue),
         created_at: formData.dipDate.toISOString(),
         recorded_by: userId,
+        created_by_name: userProfile?.full_name || null,
         notes: null
       });
       if (error) {

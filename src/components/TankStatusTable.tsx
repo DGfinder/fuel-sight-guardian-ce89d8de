@@ -72,8 +72,8 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
   const status = useMemo(() => {
     if (tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 2) return 'critical';
     if (tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 5) return 'low';
-    if (percent < 20) return 'critical';
-    if (percent < 40) return 'low';
+    if (percent <= 10) return 'critical';
+    if (percent <= 20) return 'low';
     return 'normal';
   }, [percent, tank.days_to_min_level]);
   const lastDipTs = tank.last_dip?.created_at ? new Date(tank.last_dip.created_at) : null;
@@ -353,12 +353,12 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
     
     const criticalTanks = allTanks.filter(tank => {
       const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return percent < 20 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 2);
+      return percent <= 10 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 2);
     });
     
     const warningTanks = allTanks.filter(tank => {
       const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return (percent >= 20 && percent < 40) || (tank.days_to_min_level !== null && tank.days_to_min_level > 2 && tank.days_to_min_level <= 5);
+      return (percent > 10 && percent <= 20) || (tank.days_to_min_level !== null && tank.days_to_min_level > 2 && tank.days_to_min_level <= 5);
     });
 
     if (criticalTanks.length > 0) return 'critical';

@@ -52,8 +52,8 @@ export function MobileTankCard({
 
   const getStatusColor = () => {
     const level = tank.current_level_percent || 0;
-    if (level <= 20) return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'destructive' as const };
-    if (level <= 40) return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'secondary' as const };
+    if (level <= 10) return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'destructive' as const };
+    if (level <= 20) return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'secondary' as const };
     return { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'default' as const };
   };
 
@@ -99,7 +99,7 @@ export function MobileTankCard({
             variant={statusColor.badge}
             className="text-xs px-2 py-1 flex-shrink-0"
           >
-            {level <= 20 ? 'Critical' : level <= 40 ? 'Low' : 'Normal'}
+            {level <= 10 ? 'Critical' : level <= 20 ? 'Low' : 'Normal'}
           </Badge>
         </div>
 
@@ -118,8 +118,8 @@ export function MobileTankCard({
             value={level} 
             className="h-2"
             indicatorClassName={
-              level <= 20 ? 'bg-red-500' : 
-              level <= 40 ? 'bg-amber-500' : 
+              level <= 10 ? 'bg-red-500' : 
+              level <= 20 ? 'bg-amber-500' : 
               'bg-green-500'
             }
           />
@@ -173,7 +173,7 @@ export function MobileTankCard({
         </div>
 
         {/* Critical level warning */}
-        {level <= 20 && (
+        {level <= 10 && (
           <div className="flex items-center gap-2 p-2 bg-red-100 rounded-md">
             <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
             <span className="text-xs text-red-700">
