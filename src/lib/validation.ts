@@ -57,6 +57,17 @@ export const businessRules = {
     // Basic sanity check for fuel levels
     return level >= 0 && level <= 1000000;
   },
+
+  isWithinSafeFillLevel: (dipValue: number, safeFillLevel: number) => {
+    return dipValue <= safeFillLevel;
+  },
+
+  validateDipReading: (dipValue: number, safeFillLevel: number) => {
+    if (dipValue < 0) return { valid: false, error: "Dip value cannot be negative" };
+    if (dipValue > 1000000) return { valid: false, error: "Dip value exceeds maximum limit (1,000,000 L)" };
+    if (dipValue > safeFillLevel) return { valid: false, error: `Dip value (${dipValue.toLocaleString()} L) exceeds safe fill level (${safeFillLevel.toLocaleString()} L)` };
+    return { valid: true };
+  },
 };
 
 // Form validation schemas
@@ -144,6 +155,25 @@ export const validateAndFormat = {
    */
   formatErrors: (error: z.ZodError) => {
     return error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+  },
+
+  /**
+   * Check if date is same day (YYYY-MM-DD format)
+   */
+  isSameDay: (date1: string, date2: string) => {
+    const d1 = date1.split('T')[0]; // Get date part only
+    const d2 = date2.split('T')[0];
+    return d1 === d2;
+  },
+
+  /**
+   * Format date to YYYY-MM-DD
+   */
+  formatDateOnly: (date: Date | string) => {
+    if (typeof date === 'string') {
+      return date.split('T')[0];
+    }
+    return date.toISOString().split('T')[0];
   },
 };
 

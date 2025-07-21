@@ -27,6 +27,17 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { isAfter } from "date-fns/isAfter";
 import { isValid as isValidDate } from "date-fns/isValid";
@@ -35,7 +46,7 @@ import { parseISO } from "date-fns/parseISO";
 //--------------------------------------------------
 // Schema & types
 //--------------------------------------------------
-import { schemas } from "@/lib/validation";
+import { schemas, businessRules, validateAndFormat } from "@/lib/validation";
 
 const schema = schemas.fuelDip;
 
@@ -109,6 +120,11 @@ export function FuelDipForm({
   const [groups, setGroups] = useState<TankGroup[]>([]);
   const [tanks, setTanks] = useState<Tank[]>([]);
   const [tanksLoading, setTanksLoading] = useState(false);
+
+  // same-day dip handling
+  const [existingSameDayDip, setExistingSameDayDip] = useState<any>(null);
+  const [showSameDayDialog, setShowSameDayDialog] = useState(false);
+  const [safeFillError, setSafeFillError] = useState<string>("");
 
   // Add to FuelDipForm component state:
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -230,26 +246,130 @@ export function FuelDipForm({
       : null;
 
   //------------------------------------------------
+  // Enhanced validation for safe fill level
+  //------------------------------------------------
+  useEffect(() => {
+    if (selectedTank && typeof dipValue === "number") {
+      const validation = businessRules.validateDipReading(dipValue, selectedTank.safe_level);
+      setSafeFillError(validation.valid ? "" : validation.error || "");
+    } else {
+      setSafeFillError("");
+    }
+  }, [dipValue, selectedTank]);
+
+  //------------------------------------------------
+  // Same-day dip checking
+  //------------------------------------------------
+  const checkForSameDayDip = async (tankId: string, date: string) => {
+    const dateOnly = validateAndFormat.formatDateOnly(date);
+    
+    const { data, error } = await supabase
+      .from('dip_readings')
+      .select('id, value, created_at, created_by_name')
+      .eq('tank_id', tankId)
+      .gte('created_at', dateOnly + 'T00:00:00')
+      .lt('created_at', dateOnly + 'T23:59:59')
+      .is('archived_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error checking for same-day dip:', error);
+      return null;
+    }
+
+    return data && data.length > 0 ? data[0] : null;
+  };
+
+  //------------------------------------------------
   // Submit handler
   //------------------------------------------------
   const onSubmit = async (data: FormData) => {
     if (readOnly) return;
-    setLoading(true);
-    const { error } = await supabase.from("dip_readings").insert({
-      tank_id: data.tank,
-      value: data.dip,
-      created_at: data.date,
-      recorded_by: user?.id ?? "unknown",
-      created_by_name: userProfile?.full_name || null,
-      notes: data.notes ?? null,
-    });
-    setLoading(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+
+    // Validate against safe fill level first
+    if (safeFillError) {
+      toast({ 
+        title: "Validation Error", 
+        description: safeFillError, 
+        variant: "destructive" 
+      });
       return;
     }
-    toast({ title: "Success", description: "Dip submitted" });
-    reset();
+
+    setLoading(true);
+
+    try {
+      // Check for existing same-day dip
+      const existingDip = await checkForSameDayDip(data.tank, data.date);
+      
+      if (existingDip) {
+        setExistingSameDayDip(existingDip);
+        setShowSameDayDialog(true);
+        setLoading(false);
+        return;
+      }
+
+      // No same-day dip found, proceed with normal submission
+      await submitDipReading(data);
+    } catch (error) {
+      setLoading(false);
+      toast({ 
+        title: "Error", 
+        description: "Failed to check for existing dip reading", 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const submitDipReading = async (data: FormData, replaceSameDay = false) => {
+    try {
+      // If replacing same-day dip, archive the existing one first
+      if (replaceSameDay && existingSameDayDip) {
+        const { error: archiveError } = await supabase
+          .from('dip_readings')
+          .update({ archived_at: new Date().toISOString() })
+          .eq('id', existingSameDayDip.id);
+
+        if (archiveError) {
+          throw new Error(`Failed to archive existing dip: ${archiveError.message}`);
+        }
+      }
+
+      // Insert new dip reading
+      const { error } = await supabase.from("dip_readings").insert({
+        tank_id: data.tank,
+        value: data.dip,
+        created_at: data.date,
+        recorded_by: user?.id ?? "unknown",
+        created_by_name: userProfile?.full_name || null,
+        notes: data.notes ?? null,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setLoading(false);
+      setShowSameDayDialog(false);
+      setExistingSameDayDip(null);
+      
+      toast({ 
+        title: "Success", 
+        description: replaceSameDay 
+          ? "Dip reading updated (previous reading archived)" 
+          : "Dip reading submitted" 
+      });
+      
+      reset();
+    } catch (error: any) {
+      setLoading(false);
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to submit dip reading", 
+        variant: "destructive" 
+      });
+    }
   };
 
   //------------------------------------------------
@@ -396,11 +516,16 @@ export function FuelDipForm({
           step={1}
           min={0}
           {...register("dip", { required: true, valueAsNumber: true })}
-          className="w-full border rounded px-3 py-2"
+          className={`w-full border rounded px-3 py-2 ${safeFillError ? 'border-red-500' : ''}`}
           disabled={readOnly}
         />
         {errors.dip && <p className="text-xs text-red-600">{errors.dip.message}</p>}
-        {overfill && (
+        {safeFillError && (
+          <p className="text-xs text-red-600 mt-1 font-medium">
+            {safeFillError}
+          </p>
+        )}
+        {overfill && !safeFillError && (
           <p className="text-xs text-orange-600 mt-1">
             Warning: above safe fill ({selectedTank?.safe_level !== undefined && selectedTank?.safe_level !== null ? selectedTank.safe_level.toLocaleString() : 'N/A'} L)
           </p>
@@ -426,11 +551,60 @@ export function FuelDipForm({
         <Button
           type="submit"
           className="w-full bg-green-700 hover:bg-green-800 text-white"
-          disabled={loading || !isValid}
+          disabled={loading || !isValid || !!safeFillError}
         >
           {loading ? "Submitting…" : "Submit Dip Reading"}
         </Button>
       )}
+
+      {/* Same-day dip confirmation dialog */}
+      <AlertDialog open={showSameDayDialog} onOpenChange={setShowSameDayDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace Existing Dip Reading?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A dip reading already exists for this tank on {existingSameDayDip?.created_at ? format(new Date(existingSameDayDip.created_at), 'yyyy-MM-dd') : 'this date'}:
+              <br />
+              <br />
+              <strong>Current reading:</strong> {existingSameDayDip?.value?.toLocaleString()} L
+              <br />
+              <strong>Recorded by:</strong> {existingSameDayDip?.created_by_name || 'Unknown'}
+              <br />
+              <strong>New reading:</strong> {dipValue?.toLocaleString()} L
+              <br />
+              <br />
+              The previous reading will be archived (not deleted) and your new reading will become the active one.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setShowSameDayDialog(false);
+                setExistingSameDayDip(null);
+                setLoading(false);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const currentFormData = {
+                  group: watchedGroup,
+                  subgroup: watchedSubgroup || "",
+                  tank: watchedTank,
+                  date: dateValue,
+                  dip: dipValue || 0,
+                  notes: watch("notes") || "",
+                };
+                submitDipReading(currentFormData, true);
+              }}
+              className="bg-green-700 hover:bg-green-800"
+            >
+              Replace Reading
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }

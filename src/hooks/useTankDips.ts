@@ -16,6 +16,7 @@ export const useTankDips = (tankId: string | undefined) =>
         .from('dip_readings')
         .select('value, created_at')
         .eq('tank_id', tankId)
+        .is('archived_at', null) // Only active readings
         .order('created_at', { ascending: false })
         .limit(30);
         

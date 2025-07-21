@@ -23,7 +23,7 @@ export function useRecentDips(limit = 30) {
   return useQuery<RecentDip[]>({
     queryKey: ['recent-dips', limit],
     queryFn: async () => {
-      // Fetch recent dip readings
+      // Fetch recent active dip readings only
       const { data: rawData, error } = await supabase
         .from('dip_readings')
         .select(`
@@ -34,6 +34,7 @@ export function useRecentDips(limit = 30) {
           tank_id,
           created_by_name
         `)
+        .is('archived_at', null) // Only active readings
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
         .limit(limit);

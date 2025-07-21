@@ -90,7 +90,8 @@ export function useGroupTankHistory({
       let query = supabase
         .from('dip_readings')
         .select('id, tank_id, value, created_at, recorded_by, notes, updated_at, created_by_name', { count: 'exact' })
-        .in('tank_id', tankIds);
+        .in('tank_id', tankIds)
+        .is('archived_at', null); // Only get active (non-archived) readings
 
       // Date filtering
       if (dateFrom && dateTo) {
@@ -251,7 +252,8 @@ export function useTankHistory({
       let query = supabase
         .from('dip_readings')
         .select('id, tank_id, value, created_at, recorded_by, notes, updated_at, created_by_name', { count: 'exact' })
-        .eq('tank_id', tankId);
+        .eq('tank_id', tankId)
+        .is('archived_at', null); // Only get active (non-archived) readings
 
       // Date filtering
       if (dateFrom && dateTo) {
@@ -384,11 +386,12 @@ export function useTankRecorders(tankId: string) {
   return useQuery({
     queryKey: ['tank-recorders', tankId],
     queryFn: async () => {
-      // Get unique user IDs from dip readings
+      // Get unique user IDs from active dip readings only
       const { data, error } = await supabase
         .from('dip_readings')
         .select('recorded_by')
         .eq('tank_id', tankId)
+        .is('archived_at', null) // Only active readings
         .not('recorded_by', 'is', null);
       
       if (error) throw error;
@@ -463,11 +466,12 @@ export function useGroupTankRecorders(tankIds: string[]) {
     queryFn: async () => {
       if (tankIds.length === 0) return [];
       
-      // Get unique user IDs from dip readings across all tanks
+      // Get unique user IDs from active dip readings across all tanks
       const { data, error } = await supabase
         .from('dip_readings')
         .select('recorded_by')
         .in('tank_id', tankIds)
+        .is('archived_at', null) // Only active readings
         .not('recorded_by', 'is', null);
       
       if (error) throw error;
@@ -543,7 +547,8 @@ export function useTankReadingStats(tankId: string, dateFrom?: Date, dateTo?: Da
       let query = supabase
         .from('dip_readings')
         .select('value, created_at')
-        .eq('tank_id', tankId);
+        .eq('tank_id', tankId)
+        .is('archived_at', null); // Only active readings
 
       if (dateFrom && dateTo) {
         query = query

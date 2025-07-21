@@ -68,6 +68,7 @@ export function RecentActivity() {
             )
           )
         `)
+        .is('archived_at', null) // Only active readings
         .order('created_at', { ascending: false })
         .limit(10);
 

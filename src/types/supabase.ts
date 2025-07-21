@@ -74,6 +74,7 @@ export interface Database {
           recorded_by: string
           notes: string | null
           created_by_name: string | null
+          archived_at: string | null
         }
         Insert: {
           id?: string
@@ -83,6 +84,7 @@ export interface Database {
           recorded_by: string
           notes?: string | null
           created_by_name?: string | null
+          archived_at?: string | null
         }
         Update: {
           id?: string
@@ -92,6 +94,7 @@ export interface Database {
           recorded_by?: string
           notes?: string | null
           created_by_name?: string | null
+          archived_at?: string | null
         }
       }
       profiles: {
