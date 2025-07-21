@@ -337,6 +337,7 @@ export default function EditDipModal({
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={handleModalOpenChange}>
       <DialogContent className="bg-white border shadow-lg max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT + 5 }}>
         <DialogHeader>
@@ -490,5 +491,5 @@ export default function EditDipModal({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  );
+  </>);
 } 
