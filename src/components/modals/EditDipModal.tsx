@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input }   from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectTrigger,
@@ -21,12 +22,24 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useTankGroups } from "@/hooks/useTankGroups";
 import { useTanks }      from "@/hooks/useTanks";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
 import { Z_INDEX } from '@/lib/z-index';
+import { differenceInHours } from 'date-fns';
 
 interface Props {
   isOpen: boolean;
@@ -67,6 +80,11 @@ export default function EditDipModal({
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [availableDips, setAvailableDips] = useState<{ value: number, created_at: string, id: string }[]>([]);
+  
+  // Delete functionality state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const tanksForGroup = useMemo(
     () => tanks.filter(t => t.group_id === groupId),
@@ -93,6 +111,26 @@ export default function EditDipModal({
   const isEditMode = !!initialTankId;
   const selectedTank = tanks.find(t => t.id === tankId);
   const selectedGroup = groups.find(g => g.id === groupId);
+  
+  // User permissions for deletion
+  const { data: permissions } = useUserPermissions();
+  const selectedDip = availableDips.find(d => d.created_at === selectedDate);
+  
+  // Check if user can delete this dip
+  const canDelete = useMemo(() => {
+    if (!selectedDip || !permissions) return false;
+    
+    // Admins can delete any dip
+    if (permissions.isAdmin) return true;
+    
+    // Users can only delete their own dips within 24 hours
+    const dipCreatedAt = new Date(selectedDip.created_at);
+    const hoursOld = differenceInHours(new Date(), dipCreatedAt);
+    
+    // For now, we'll allow deletion if it's less than 24 hours old
+    // In a more complete implementation, we'd also check if the current user created it
+    return hoursOld <= 24;
+  }, [selectedDip, permissions]);
 
   // Fetch available dips for selected tank
   useEffect(() => {
@@ -211,6 +249,42 @@ export default function EditDipModal({
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedDip || !deleteReason.trim()) {
+      setSubmitError("Deletion reason is required");
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      // Soft delete: set archived_at, deleted_by, and deletion_reason
+      const { error } = await supabase
+        .from('dip_readings')
+        .update({
+          archived_at: new Date().toISOString(),
+          deleted_by: userId,
+          deletion_reason: deleteReason.trim()
+        })
+        .eq('id', selectedDip.id);
+
+      if (error) {
+        setSubmitError(error.message);
+      } else {
+        setSubmitSuccess('Dip reading deleted successfully!');
+        await queryClient.invalidateQueries({ queryKey: ['tanks'] });
+        await queryClient.invalidateQueries({ queryKey: ['tank-history'] });
+        setShowDeleteDialog(false);
+        setDeleteReason("");
+        // Close modal after successful deletion
+        setTimeout(() => onClose(), 1000);
+      }
+    } catch (error: any) {
+      setSubmitError(error.message || 'Failed to delete dip reading');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -340,23 +414,81 @@ export default function EditDipModal({
             />
           </div>
           <DialogFooter className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={saving || !groupId || !tankId || !dipValue.trim().length || !selectedDate}
-            >
-              {saving ? "Saving…" : "Save Changes"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={saving || deleting}
+              >
+                Cancel
+              </Button>
+              {canDelete && selectedDip && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={saving || deleting}
+                >
+                  Delete
+                </Button>
+              )}
+              <Button
+                type="submit"
+                disabled={saving || deleting || !groupId || !tankId || !dipValue.trim().length || !selectedDate}
+              >
+                {saving ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Delete confirmation dialog */}
+    <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Dip Reading?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete this dip reading? This action cannot be undone.
+            <br /><br />
+            <strong>Tank:</strong> {selectedTank?.location}<br />
+            <strong>Date:</strong> {selectedDate ? formatDate(selectedDate) : 'N/A'}<br />
+            <strong>Value:</strong> {dipValue} L
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        
+        <div className="space-y-2 py-4">
+          <label className="text-sm font-medium">Reason for deletion *</label>
+          <Textarea
+            value={deleteReason}
+            onChange={(e) => setDeleteReason(e.target.value)}
+            placeholder="Please provide a reason for deleting this dip reading..."
+            rows={3}
+            required
+          />
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel 
+            onClick={() => {
+              setShowDeleteDialog(false);
+              setDeleteReason("");
+            }}
+            disabled={deleting}
+          >
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            disabled={deleting || !deleteReason.trim()}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 } 

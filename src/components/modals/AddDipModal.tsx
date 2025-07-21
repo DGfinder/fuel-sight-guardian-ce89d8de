@@ -46,7 +46,7 @@ import type { Tables } from '@/types/supabase';
 import { cn } from "@/lib/utils";
 import { Z_INDEX } from '@/lib/z-index';
 
-import { schemas, type AddDipFormData } from '@/lib/validation';
+import { schemas, businessRules, type AddDipFormData } from '@/lib/validation';
 
 // Use centralized validation schema
 const dipReadingSchema = schemas.addDip;
@@ -87,6 +87,7 @@ export default function AddDipModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [safeFillError, setSafeFillError] = useState<string>("");
 
   /* ─────────── Derived collections ─────────────────────────────── */
   const tanksForGroup = useMemo(
@@ -199,11 +200,27 @@ export default function AddDipModal({
     }
   }, [open, initialTankId, initialGroupId, tanks]);
 
+  // Enhanced validation for safe fill level
+  useEffect(() => {
+    if (selectedTank && dipValue && !isNaN(Number(dipValue))) {
+      const validation = businessRules.validateDipReading(Number(dipValue), selectedTank.safe_level);
+      setSafeFillError(validation.valid ? "" : validation.error || "");
+    } else {
+      setSafeFillError("");
+    }
+  }, [dipValue, selectedTank]);
+
   /* ─────────── Submit handler ──────────────────────────────────── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
     setSubmitSuccess(null);
+    
+    // Validate against safe fill level first
+    if (safeFillError) {
+      setSubmitError(safeFillError);
+      return;
+    }
     
     // Comprehensive validation using Zod schema
     try {
@@ -436,7 +453,13 @@ export default function AddDipModal({
               onChange={e => setDipValue(e.target.value)}
               placeholder="Enter dip reading"
               required
+              className={safeFillError ? 'border-red-500' : ''}
             />
+            {safeFillError && (
+              <p className="text-xs text-red-600 mt-1 font-medium">
+                {safeFillError}
+              </p>
+            )}
           </div>
 
           {/* Live Safe-fill card */}
@@ -476,7 +499,7 @@ export default function AddDipModal({
             <Button
               type="submit"
               disabled={
-                saving || !groupId || !tankId || !dipValue.trim().length
+                saving || !groupId || !tankId || !dipValue.trim().length || !!safeFillError
               }
             >
               {saving ? "Saving…" : "Submit Dip Reading"}

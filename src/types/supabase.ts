@@ -75,6 +75,8 @@ export interface Database {
           notes: string | null
           created_by_name: string | null
           archived_at: string | null
+          deleted_by: string | null
+          deletion_reason: string | null
         }
         Insert: {
           id?: string
@@ -85,6 +87,8 @@ export interface Database {
           notes?: string | null
           created_by_name?: string | null
           archived_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
         }
         Update: {
           id?: string
@@ -95,6 +99,8 @@ export interface Database {
           notes?: string | null
           created_by_name?: string | null
           archived_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
         }
       }
       profiles: {
