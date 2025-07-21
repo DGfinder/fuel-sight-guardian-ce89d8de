@@ -14,8 +14,16 @@ export interface RecentDip {
   is_refill: boolean;
 }
 
-// Define TankGroup type
+// Define interfaces for our data
+interface Tank {
+  id: string;
+  location: string;
+  product_type: string;
+  group_id: string;
+}
+
 interface TankGroup {
+  id: string;
   name: string;
 }
 
@@ -73,7 +81,7 @@ export function useRecentDips(limit = 30) {
         }
       }
 
-      // Get tank and group info separately
+      // Get tank info separately (without the problematic nested select)
       const tankIds = [...new Set(rawData.map(r => r.tank_id))];
       const { data: tanksData, error: tanksError } = await supabase
         .from('fuel_tanks')
@@ -81,19 +89,35 @@ export function useRecentDips(limit = 30) {
           id,
           location,
           product_type,
-          group_id,
-          tank_groups (
-            name
-          )
+          group_id
         `)
         .in('id', tankIds);
 
       if (tanksError) throw tanksError;
 
-      // Create a lookup map for tank data
-      const tankMap = new Map<string, { id: string; location: string; product_type: string; group_id: string; tank_groups: TankGroup[] }>();
+      // Get group info separately 
+      const groupIds = [...new Set(tanksData?.map(t => t.group_id).filter(Boolean))];
+      let groupsData = [];
+      if (groupIds.length > 0) {
+        const { data: groups, error: groupsError } = await supabase
+          .from('tank_groups')
+          .select('id, name')
+          .in('id', groupIds);
+
+        if (!groupsError && groups) {
+          groupsData = groups;
+        }
+      }
+
+      // Create lookup maps
+      const tankMap = new Map<string, { id: string; location: string; product_type: string; group_id: string }>();
       tanksData?.forEach(tank => {
         tankMap.set(tank.id, tank);
+      });
+
+      const groupMap = new Map<string, { id: string; name: string }>();
+      groupsData.forEach(group => {
+        groupMap.set(group.id, group);
       });
 
       return rawData
@@ -109,7 +133,7 @@ export function useRecentDips(limit = 30) {
         })
         .map(reading => {
           const tank = tankMap.get(reading.tank_id);
-          const group = tank?.tank_groups && Array.isArray(tank.tank_groups) && tank.tank_groups.length > 0 ? tank.tank_groups[0] : undefined;
+          const group = tank?.group_id ? groupMap.get(tank.group_id) : undefined;
           
           const userId = reading.recorded_by;
           const fullName = userProfiles.get(userId);
