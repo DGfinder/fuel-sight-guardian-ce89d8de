@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,13 +43,37 @@ import type { Tank } from "@/types/fuel";
 export default function TanksPage() {
   const { tanks, isLoading, error, refreshTanks } = useTanks();
   const { openModal } = useTankModal();
+  const [searchParams] = useSearchParams();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [groupFilter, setGroupFilter] = useState('all');
+  const [daysToMinFilter, setDaysToMinFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
   const queryClient = useQueryClient();
+
+  // Initialize filters from URL parameters
+  useEffect(() => {
+    const urlStatus = searchParams.get('status');
+    const urlGroup = searchParams.get('group');
+    const urlDaysToMin = searchParams.get('daysToMin');
+    const urlSearch = searchParams.get('search');
+    
+    if (urlStatus && ['all', 'critical', 'low', 'normal', 'low-fuel'].includes(urlStatus)) {
+      setStatusFilter(urlStatus);
+    }
+    if (urlGroup) {
+      setGroupFilter(urlGroup);
+    }
+    if (urlDaysToMin && ['all', '2', '5', '7'].includes(urlDaysToMin)) {
+      setDaysToMinFilter(urlDaysToMin);
+    }
+    if (urlSearch) {
+      setSearchTerm(urlSearch);
+    }
+  }, [searchParams]);
 
   // Invalidate the sidebar's tank count when this page loads with the correct data
   useEffect(() => {
@@ -59,19 +84,32 @@ export default function TanksPage() {
 
   // Enhanced filtering and sorting logic
   const { filteredTanks, stats } = useMemo(() => {
-    if (!tanks) return { filteredTanks: [], stats: { total: 0, critical: 0, low: 0, normal: 0 } };
+    if (!tanks) return { filteredTanks: [], stats: { total: 0, critical: 0, low: 0, normal: 0, lowFuel: 0 } };
 
     const filtered = tanks.filter(tank => {
       const matchesSearch = tank.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            tank.group_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            tank.product_type?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStatus = statusFilter === 'all' || 
-                           getFuelStatus(tank.current_level_percent) === statusFilter;
+      // Enhanced status filtering with new 'low-fuel' option
+      let matchesStatus = true;
+      if (statusFilter === 'low-fuel') {
+        // Low-fuel includes both critical (≤10%) and low (10-20%) tanks
+        matchesStatus = tank.current_level_percent != null && tank.current_level_percent <= 20;
+      } else if (statusFilter !== 'all') {
+        matchesStatus = getFuelStatus(tank.current_level_percent) === statusFilter;
+      }
       
       const matchesGroup = groupFilter === 'all' || tank.group_name === groupFilter;
       
-      return matchesSearch && matchesStatus && matchesGroup;
+      // Days to minimum filter
+      let matchesDaysToMin = true;
+      if (daysToMinFilter !== 'all') {
+        const daysThreshold = parseInt(daysToMinFilter);
+        matchesDaysToMin = tank.days_to_min_level != null && tank.days_to_min_level <= daysThreshold;
+      }
+      
+      return matchesSearch && matchesStatus && matchesGroup && matchesDaysToMin;
     });
 
     // Sort tanks
@@ -95,11 +133,12 @@ export default function TanksPage() {
       total: tanks.length,
       critical: tanks.filter(t => getFuelStatus(t.current_level_percent) === 'critical').length,
       low: tanks.filter(t => getFuelStatus(t.current_level_percent) === 'low').length,
-      normal: tanks.filter(t => getFuelStatus(t.current_level_percent) === 'normal').length
+      normal: tanks.filter(t => getFuelStatus(t.current_level_percent) === 'normal').length,
+      lowFuel: tanks.filter(t => t.current_level_percent != null && t.current_level_percent <= 20).length
     };
 
     return { filteredTanks: filtered, stats };
-  }, [tanks, searchTerm, statusFilter, groupFilter, sortBy]);
+  }, [tanks, searchTerm, statusFilter, groupFilter, daysToMinFilter, sortBy]);
 
   const uniqueGroups = useMemo(() => {
     if (!tanks) return [];
@@ -303,9 +342,10 @@ export default function TanksPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="low-fuel">Low Fuel (≤20%)</SelectItem>
+                  <SelectItem value="critical">Critical (≤10%)</SelectItem>
+                  <SelectItem value="low">Low (10-20%)</SelectItem>
+                  <SelectItem value="normal">Normal (&gt;20%)</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -318,6 +358,18 @@ export default function TanksPage() {
                   {uniqueGroups.map(group => (
                     <SelectItem key={group} value={group}>{group}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={daysToMinFilter} onValueChange={setDaysToMinFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Days to Min" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Timeframes</SelectItem>
+                  <SelectItem value="2">≤ 2 Days</SelectItem>
+                  <SelectItem value="5">≤ 5 Days</SelectItem>
+                  <SelectItem value="7">≤ 7 Days</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -335,7 +387,7 @@ export default function TanksPage() {
             </div>
           </div>
           
-          {(searchTerm || statusFilter !== 'all' || groupFilter !== 'all') && (
+          {(searchTerm || statusFilter !== 'all' || groupFilter !== 'all' || daysToMinFilter !== 'all') && (
             <div className="mt-4 text-sm text-gray-600">
               Showing {filteredTanks.length} of {stats.total} tanks
             </div>
@@ -489,6 +541,7 @@ export default function TanksPage() {
               setSearchTerm('');
               setStatusFilter('all');
               setGroupFilter('all');
+              setDaysToMinFilter('all');
             }}
           >
             Clear Filters

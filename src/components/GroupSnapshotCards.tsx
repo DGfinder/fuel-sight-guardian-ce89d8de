@@ -32,6 +32,7 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
   const groupRoute = (name: string) => {
     const slug = name.toLowerCase().replace(/ /g, '-');
     switch (slug) {
+      case 'all-groups': return '/tanks'; // All Groups goes to tanks page
       case 'swan-transit': return '/swan-transit';
       case 'kalgoorlie': return '/kalgoorlie';
       case 'geraldton': return '/geraldton';

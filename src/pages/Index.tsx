@@ -39,7 +39,6 @@ export default function Index({ selectedGroup }: IndexProps) {
     };
   }, []);
 
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const navigate = useNavigate();
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
@@ -103,7 +102,23 @@ export default function Index({ selectedGroup }: IndexProps) {
   };
 
   const handleCardClick = (filter: string) => {
-    setSelectedFilter(filter === selectedFilter ? null : filter);
+    // Navigate to tanks page with appropriate filters
+    switch (filter) {
+      case 'low-tanks':
+        navigate('/tanks?status=low-fuel');
+        break;
+      case 'critical-days':
+        navigate('/tanks?daysToMin=2');
+        break;
+      case 'total-stock':
+      case 'total-ullage':
+      case 'avg-days':
+        // These cards navigate to general tanks view
+        navigate('/tanks');
+        break;
+      default:
+        navigate('/tanks');
+    }
   };
 
   const handleGroupClick = (groupId: string) => {
@@ -198,7 +213,7 @@ export default function Index({ selectedGroup }: IndexProps) {
           <KPICards
             tanks={displayTanks}
             onCardClick={handleCardClick}
-            selectedFilter={selectedFilter}
+            selectedFilter={null}
           />
         </div>
 
@@ -220,17 +235,6 @@ export default function Index({ selectedGroup }: IndexProps) {
             <h2 className="text-xl font-semibold text-gray-900">
               {selectedGroup ? 'Tank Status' : 'All Tank Status'}
             </h2>
-            {selectedFilter && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSelectedFilter(null)}
-                className="border-gray-300 hover:border-primary hover:text-primary"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Clear Filter
-              </Button>
-            )}
           </div>
           <TankStatusTable
             tanks={displayTanks}
