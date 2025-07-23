@@ -65,7 +65,7 @@ export const useTanks = () => {
         .from('fuel_tanks')
         .select(`
           id, location, product_type, safe_level, min_level, 
-          group_id, group_name, subgroup, address, vehicle, discharge, 
+          group_id, subgroup, address, vehicle, discharge, 
           bp_portal, delivery_window, afterhours_contact, 
           notes, serviced_on, serviced_by, latitude, longitude,
           created_at, updated_at
@@ -79,7 +79,22 @@ export const useTanks = () => {
       
       console.log(`[TANKS DEBUG] Successfully fetched ${baseData?.length || 0} tanks from base table`);
 
-      // Step 2: Get current levels from latest dip readings
+      // Step 2: Get group names from tank_groups table
+      const uniqueGroupIds = [...new Set(baseData?.map(t => t.group_id).filter(Boolean))];
+      const { data: groupData } = await supabase
+        .from('tank_groups')
+        .select('id, name')
+        .in('id', uniqueGroupIds);
+
+      // Create a map of group_id to group_name for fast lookup
+      const groupNameMap = new Map();
+      groupData?.forEach(group => {
+        groupNameMap.set(group.id, group.name);
+      });
+
+      console.log(`[TANKS DEBUG] Fetched ${groupData?.length || 0} group names for ${uniqueGroupIds.length} unique groups`);
+
+      // Step 3: Get current levels from latest dip readings
       const tankIds = baseData?.map(t => t.id) || [];
       const { data: latestReadings } = await supabase
         .from('dip_readings')
@@ -95,7 +110,7 @@ export const useTanks = () => {
         }
       });
 
-      // Step 3: Combine tank data with latest readings
+      // Step 4: Combine tank data with latest readings
       const tankData = baseData?.map(tank => {
         const latest = latestByTank.get(tank.id);
         const currentLevel = latest?.value || 0;
@@ -121,8 +136,8 @@ export const useTanks = () => {
           usable_capacity: Math.max(0, safeLevel - minLevel),
           ullage: Math.max(0, safeLevel - currentLevel),
           
-          // Group info with fallback
-          group_name: tank.group_name || 'Unknown Group',
+          // Group info with fallback - use the fetched group name
+          group_name: groupNameMap.get(tank.group_id) || 'Unknown Group',
           
           // Structured last_dip object
           last_dip: latest ? {
@@ -150,7 +165,7 @@ export const useTanks = () => {
         });
       }
 
-      // Step 4: Get all dip readings for analytics (last 30 days)
+      // Step 5: Get all dip readings for analytics (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
@@ -162,7 +177,7 @@ export const useTanks = () => {
 
       console.log(`[TANKS DEBUG] Fetched ${allReadings?.length || 0} readings for analytics from last 30 days`);
 
-      // Step 5: Calculate analytics for each tank
+      // Step 6: Calculate analytics for each tank
       const tanksWithAnalytics = (tankData || []).map(tank => {
         // Tank data is now consistent from base table (no normalization needed)
         
