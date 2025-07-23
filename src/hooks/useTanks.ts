@@ -57,8 +57,10 @@ export const useTanks = () => {
   const tanksQuery = useQuery({
     queryKey: ['tanks-with-analytics'],
     queryFn: async () => {
-      console.log('[TANKS DEBUG] Fetching tanks and calculating analytics...');
-      console.log('[TANKS DEBUG] Using simplified approach: base tables + frontend calculations');
+      console.log('[TANKS DEBUG] 🚀 START: Fetching tanks and calculating analytics...');
+      console.log('[TANKS DEBUG] 📋 Using simplified approach: base tables + frontend calculations');
+      
+      try {
       
       // Step 1: Get ALL tank data from fuel_tanks table (single source of truth)
       const { data: baseData, error: baseError } = await supabase
@@ -113,7 +115,7 @@ export const useTanks = () => {
       // Step 4: Combine tank data with latest readings
       const tankData = baseData?.map(tank => {
         const latest = latestByTank.get(tank.id);
-        const currentLevel = latest?.value || 0;
+        const currentLevel = latest?.value ?? null; // Use null instead of 0 for missing readings
         const safeLevel = tank.safe_level || 0;
         const minLevel = tank.min_level || 0;
         
@@ -121,9 +123,9 @@ export const useTanks = () => {
           ...tank,
           // Core fields with current readings
           current_level: currentLevel,
-          current_level_percent: safeLevel > minLevel 
+          current_level_percent: currentLevel !== null && safeLevel > minLevel 
             ? Math.round(((currentLevel - minLevel) / (safeLevel - minLevel)) * 100)
-            : 0,
+            : null, // Use null when no reading available
           last_dip_ts: latest?.created_at || null,
           last_dip_by: latest?.recorded_by || 'Unknown',
           
@@ -165,17 +167,17 @@ export const useTanks = () => {
         });
       }
 
-      // Step 5: Get all dip readings for analytics (last 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Step 5: Get all dip readings for analytics (last 7 days for rolling average)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
       const { data: allReadings } = await supabase
         .from('dip_readings')
         .select('tank_id, value, created_at')
-        .gte('created_at', thirtyDaysAgo.toISOString())
+        .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: true });
 
-      console.log(`[TANKS DEBUG] Fetched ${allReadings?.length || 0} readings for analytics from last 30 days`);
+      console.log(`[TANKS DEBUG] Fetched ${allReadings?.length || 0} readings for analytics from last 7 days`);
 
       // Step 6: Calculate analytics for each tank
       const tanksWithAnalytics = (tankData || []).map(tank => {
@@ -221,31 +223,33 @@ export const useTanks = () => {
           }
         }
 
-        // Calculate previous day usage
-        const prev_day_used = dailyConsumptions.length > 0 
-          ? Math.round(dailyConsumptions[dailyConsumptions.length - 1] || rolling_avg)
-          : rolling_avg;
+        // Calculate previous day usage (latest minus previous reading)
+        let prev_day_used = 0;
+        if (tankReadings.length >= 2) {
+          const latestReading = tankReadings[tankReadings.length - 1];
+          const previousReading = tankReadings[tankReadings.length - 2];
+          prev_day_used = latestReading.value - previousReading.value;
+        }
 
-        // Convert consumption values to negative to indicate fuel usage
+        // Convert rolling average to negative to indicate fuel usage
         // (User logic: negative = consumption, positive = refill)
         const rolling_avg_display = rolling_avg > 0 ? -rolling_avg : rolling_avg;
-        const prev_day_used_display = prev_day_used > 0 ? -prev_day_used : prev_day_used;
+        // prev_day_used already has correct sign from latest - previous calculation
 
         // Calculate days to minimum
-        const currentLevel = tank.current_level || 0;
+        const currentLevel = tank.current_level;
         const minLevel = tank.min_level || 0;
-        const availableFuel = Math.max(0, currentLevel - minLevel);
         
-        // Use absolute value of rolling_avg for days calculation (since it's now negative for display)
-        const days_to_min_level = rolling_avg > 0 
-          ? Math.round((availableFuel / rolling_avg) * 10) / 10
+        // Only calculate if we have a current level reading and positive consumption rate
+        const days_to_min_level = (currentLevel !== null && rolling_avg > 0) 
+          ? Math.round((Math.max(0, currentLevel - minLevel) / rolling_avg) * 10) / 10
           : null;
 
         return {
           ...tank,
           // ✅ Analytics calculated and included in tank data (negative = consumption, positive = refill)
           rolling_avg: rolling_avg_display,
-          prev_day_used: prev_day_used_display,
+          prev_day_used: prev_day_used,
           days_to_min_level,
         };
       });
