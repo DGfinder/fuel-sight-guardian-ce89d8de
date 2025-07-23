@@ -58,117 +58,99 @@ export const useTanks = () => {
     queryKey: ['tanks-with-analytics'],
     queryFn: async () => {
       console.log('[TANKS DEBUG] Fetching tanks and calculating analytics...');
-      console.log('[TANKS DEBUG] Using view: tanks_with_rolling_avg');
+      console.log('[TANKS DEBUG] Using simplified approach: base tables + frontend calculations');
       
-      // Step 1: Get tank data
-      let { data: tankData, error } = await supabase
-        .from('tanks_with_rolling_avg')
-        .select('*')
+      // Step 1: Get ALL tank data from fuel_tanks table (single source of truth)
+      const { data: baseData, error: baseError } = await supabase
+        .from('fuel_tanks')
+        .select(`
+          id, location, product_type, safe_level, min_level, 
+          group_id, group_name, subgroup, address, vehicle, discharge, 
+          bp_portal, delivery_window, afterhours_contact, 
+          notes, serviced_on, serviced_by, latitude, longitude,
+          created_at, updated_at
+        `)
         .order('location');
 
-      // If the view is broken (500 error), use base table
-      if (error && error.message?.includes('500')) {
-        console.log('[TANKS DEBUG] View failed with 500 error, using base table fallback...');
-        console.log('[TANKS DEBUG] Error details:', error);
-        
-        const { data: baseData, error: baseError } = await supabase
-          .from('fuel_tanks')
-          .select(`
-            id, location, product_type, safe_level, min_level, 
-            group_id, subgroup, address, vehicle, discharge, 
-            bp_portal, delivery_window, afterhours_contact, 
-            notes, serviced_on, serviced_by, latitude, longitude,
-            created_at, updated_at
-          `)
-          .order('location');
-
-        if (baseError) {
-          console.error('[TANKS DEBUG] Error fetching from base table:', baseError);
-          throw baseError;
-        }
-        
-        console.log(`[TANKS DEBUG] Fallback successful - fetched ${baseData?.length || 0} tanks from base table`);
-
-        // Get current levels from latest dip readings
-        const tankIds = baseData?.map(t => t.id) || [];
-        const { data: latestReadings } = await supabase
-          .from('dip_readings')
-          .select('tank_id, value, created_at')
-          .in('tank_id', tankIds)
-          .order('created_at', { ascending: false });
-
-        // Get latest reading per tank
-        const latestByTank = new Map();
-        latestReadings?.forEach(reading => {
-          if (!latestByTank.has(reading.tank_id)) {
-            latestByTank.set(reading.tank_id, reading);
-          }
-        });
-
-        // Combine tank data with latest readings and normalize field names
-        tankData = baseData?.map(tank => {
-          const latest = latestByTank.get(tank.id);
-          const currentLevel = latest?.value || 0;
-          const safeLevel = tank.safe_level || 0;
-          const minLevel = tank.min_level || 0;
-          
-          return {
-            ...tank,
-            // Core fields (ensure correct field names)
-            current_level: currentLevel,
-            current_level_percent: safeLevel > minLevel 
-              ? Math.round(((currentLevel - minLevel) / (safeLevel - minLevel)) * 100)
-              : 0,
-            last_dip_ts: latest?.created_at || null,
-            last_dip_by: latest?.recorded_by || 'Unknown',
-            
-            // Ensure correct field names (safe_level not safe_fill)
-            safe_level: safeLevel,
-            min_level: minLevel,
-            product_type: tank.product_type || 'Diesel',  // Ensure product_type not product
-            
-            // Calculated fields that frontend expects
-            usable_capacity: Math.max(0, safeLevel - minLevel),
-            ullage: Math.max(0, safeLevel - currentLevel),
-            
-            // Group info with fallback
-            group_name: tank.group_name || 'Unknown Group',
-            
-            // Structured last_dip object that frontend expects
-            last_dip: latest ? {
-              value: latest.value,
-              created_at: latest.created_at,
-              recorded_by: latest.recorded_by || 'Unknown'
-            } : null,
-            
-            // Analytics placeholders (will be calculated below)
-            rolling_avg: 0,
-            prev_day_used: 0,
-            days_to_min_level: null
-          };
-        }) || [];
+      if (baseError) {
+        console.error('[TANKS DEBUG] Error fetching tanks from base table:', baseError);
+        throw baseError;
       }
-
-      if (error && !error.message?.includes('500')) {
-        console.error('[TANKS DEBUG] Non-500 error fetching tanks:', error);
-        throw error;
-      }
-
-      const dataSource = error ? 'base_table_fallback' : 'view';
-      console.log(`[TANKS DEBUG] Successfully fetched ${tankData?.length || 0} tanks from ${dataSource}`);
       
-      // Log sample of fetched data structure
+      console.log(`[TANKS DEBUG] Successfully fetched ${baseData?.length || 0} tanks from base table`);
+
+      // Step 2: Get current levels from latest dip readings
+      const tankIds = baseData?.map(t => t.id) || [];
+      const { data: latestReadings } = await supabase
+        .from('dip_readings')
+        .select('tank_id, value, created_at, recorded_by')
+        .in('tank_id', tankIds)
+        .order('created_at', { ascending: false });
+
+      // Get latest reading per tank
+      const latestByTank = new Map();
+      latestReadings?.forEach(reading => {
+        if (!latestByTank.has(reading.tank_id)) {
+          latestByTank.set(reading.tank_id, reading);
+        }
+      });
+
+      // Step 3: Combine tank data with latest readings
+      const tankData = baseData?.map(tank => {
+        const latest = latestByTank.get(tank.id);
+        const currentLevel = latest?.value || 0;
+        const safeLevel = tank.safe_level || 0;
+        const minLevel = tank.min_level || 0;
+        
+        return {
+          ...tank,
+          // Core fields with current readings
+          current_level: currentLevel,
+          current_level_percent: safeLevel > minLevel 
+            ? Math.round(((currentLevel - minLevel) / (safeLevel - minLevel)) * 100)
+            : 0,
+          last_dip_ts: latest?.created_at || null,
+          last_dip_by: latest?.recorded_by || 'Unknown',
+          
+          // Ensure consistent field names
+          safe_level: safeLevel,
+          min_level: minLevel,
+          product_type: tank.product_type || 'Diesel',
+          
+          // Calculated fields
+          usable_capacity: Math.max(0, safeLevel - minLevel),
+          ullage: Math.max(0, safeLevel - currentLevel),
+          
+          // Group info with fallback
+          group_name: tank.group_name || 'Unknown Group',
+          
+          // Structured last_dip object
+          last_dip: latest ? {
+            value: latest.value,
+            created_at: latest.created_at,
+            recorded_by: latest.recorded_by || 'Unknown'
+          } : null,
+          
+          // Analytics placeholders (calculated below)
+          rolling_avg: 0,
+          prev_day_used: 0,
+          days_to_min_level: null
+        };
+      }) || [];
+
+      console.log(`[TANKS DEBUG] Combined tank data with current readings for ${tankData.length} tanks`);
+      
+      // Log sample of combined data structure
       if (tankData && tankData.length > 0) {
         console.log('[TANKS DEBUG] Sample tank data structure:', {
           firstTank: Object.keys(tankData[0]),
-          hasRollingAvg: 'rolling_avg' in tankData[0],
-          hasRollingAvgLpd: 'rolling_avg_lpd' in tankData[0],
+          hasCurrentLevel: 'current_level' in tankData[0],
           hasUsableCapacity: 'usable_capacity' in tankData[0],
-          hasUllage: 'ullage' in tankData[0]
+          hasLastDip: 'last_dip' in tankData[0]
         });
       }
 
-      // Step 2: Get all dip readings for analytics (last 30 days)
+      // Step 4: Get all dip readings for analytics (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
@@ -180,44 +162,9 @@ export const useTanks = () => {
 
       console.log(`[TANKS DEBUG] Fetched ${allReadings?.length || 0} readings for analytics from last 30 days`);
 
-      // Step 3: Calculate analytics for each tank and normalize data structure
+      // Step 5: Calculate analytics for each tank
       const tanksWithAnalytics = (tankData || []).map(tank => {
-        // Normalize field names if coming from view (handle multiple naming conventions)
-        const normalizedTank = {
-          ...tank,
-          // Handle field name variations for analytics
-          rolling_avg: tank.rolling_avg ?? tank.rolling_avg_lpd ?? 0,
-          
-          // Handle product type variations (some views use 'product' instead of 'product_type')
-          product_type: tank.product_type ?? tank.product ?? 'Diesel',
-          
-          // Handle capacity field variations (some views incorrectly use 'safe_fill')
-          safe_level: tank.safe_level ?? tank.safe_fill ?? 10000,
-          min_level: tank.min_level ?? tank.min_fill ?? 0,
-          
-          // Ensure required calculated fields exist (use normalized capacity values)
-          usable_capacity: tank.usable_capacity ?? Math.max(0, 
-            (tank.safe_level ?? tank.safe_fill ?? 10000) - (tank.min_level ?? tank.min_fill ?? 0)
-          ),
-          ullage: tank.ullage ?? Math.max(0, 
-            (tank.safe_level ?? tank.safe_fill ?? 10000) - (tank.current_level || 0)
-          ),
-          
-          // Ensure structured last_dip exists
-          last_dip: tank.last_dip ?? (tank.last_dip_ts ? {
-            value: tank.current_level || 0,
-            created_at: tank.last_dip_ts,
-            recorded_by: tank.last_dip_by || 'Unknown'
-          } : null)
-        };
-        
-        // Log field name inconsistencies for debugging
-        if (tank.safe_fill && !tank.safe_level) {
-          console.warn(`[TANKS DEBUG] Tank ${tank.location} using deprecated 'safe_fill' field name`);
-        }
-        if (tank.product && !tank.product_type) {
-          console.warn(`[TANKS DEBUG] Tank ${tank.location} using deprecated 'product' field name`);
-        }
+        // Tank data is now consistent from base table (no normalization needed)
         
         // Get readings for this tank
         const tankReadings = (allReadings || [])
@@ -264,20 +211,26 @@ export const useTanks = () => {
           ? Math.round(dailyConsumptions[dailyConsumptions.length - 1] || rolling_avg)
           : rolling_avg;
 
+        // Convert consumption values to negative to indicate fuel usage
+        // (User logic: negative = consumption, positive = refill)
+        const rolling_avg_display = rolling_avg > 0 ? -rolling_avg : rolling_avg;
+        const prev_day_used_display = prev_day_used > 0 ? -prev_day_used : prev_day_used;
+
         // Calculate days to minimum
         const currentLevel = tank.current_level || 0;
         const minLevel = tank.min_level || 0;
         const availableFuel = Math.max(0, currentLevel - minLevel);
         
+        // Use absolute value of rolling_avg for days calculation (since it's now negative for display)
         const days_to_min_level = rolling_avg > 0 
           ? Math.round((availableFuel / rolling_avg) * 10) / 10
           : null;
 
         return {
-          ...normalizedTank,
-          // ✅ Analytics calculated and included in tank data
-          rolling_avg,
-          prev_day_used,
+          ...tank,
+          // ✅ Analytics calculated and included in tank data (negative = consumption, positive = refill)
+          rolling_avg: rolling_avg_display,
+          prev_day_used: prev_day_used_display,
           days_to_min_level,
         };
       });
@@ -285,7 +238,7 @@ export const useTanks = () => {
       console.log(`[TANKS DEBUG] Calculated analytics for ${tanksWithAnalytics.length} tanks`);
       
       // Log analytics calculation summary
-      const analyticsValid = tanksWithAnalytics.filter(t => t.rolling_avg > 0).length;
+      const analyticsValid = tanksWithAnalytics.filter(t => t.rolling_avg !== 0).length;
       const hasCurrentLevel = tanksWithAnalytics.filter(t => t.current_level > 0).length;
       console.log(`[TANKS DEBUG] Analytics summary:`, {
         tanksWithValidAnalytics: analyticsValid,

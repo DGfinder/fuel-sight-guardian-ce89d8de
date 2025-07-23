@@ -16,19 +16,31 @@ export const handlers = [
     })
   }),
 
-  // Mock fuel tanks endpoint
-  http.get('*/rest/v1/tanks_with_rolling_avg', () => {
+  // Mock fuel tanks endpoint (updated for single source of truth)
+  http.get('*/rest/v1/fuel_tanks', () => {
     return HttpResponse.json([
       {
         id: 'tank-1',
-        tank_name: 'Test Tank 1',
         location: 'Test Location',
-        current_level: 1000,
-        capacity: 2000,
+        product_type: 'Diesel',
+        safe_level: 2000,
         min_level: 200,
-        status: 'Normal',
         group_id: 'group-1',
         group_name: 'Test Group',
+        subgroup: 'Test Subgroup',
+        address: 'Test Address',
+        vehicle: 'Test Vehicle',
+        discharge: 'Test Discharge',
+        bp_portal: 'Test Portal',
+        delivery_window: 'Business Hours',
+        afterhours_contact: 'Test Contact',
+        notes: 'Test Notes',
+        serviced_on: null,
+        serviced_by: null,
+        latitude: -31.9505,
+        longitude: 115.8605,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
       },
     ])
   }),

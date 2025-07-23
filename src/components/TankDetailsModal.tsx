@@ -75,16 +75,7 @@ interface TankDetailsModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// Define TankDetails type
-interface TankDetails {
-  address?: string;
-  vehicle?: string;
-  discharge?: string;
-  bp_portal?: string;
-  delivery_window?: string;
-  afterhours_contact?: string;
-  notes?: string;
-}
+// Tank details are now included in the Tank type from useTanks (single source of truth)
 
 // Main Component - No React.memo
 export function TankDetailsModal({
@@ -94,7 +85,7 @@ export function TankDetailsModal({
 }: TankDetailsModalProps) {
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
   const [isEditDipOpen, setIsEditDipOpen] = useState(false);
-  const [tankDetails, setTankDetails] = useState<TankDetails | null>(null);
+  // Tank details are now included in the tank prop from useTanks (single source of truth)
   // TODO: Re-enable mobile gesture support after fixing ref compatibility
   // const modalContentRef = useRef<HTMLDivElement>(null);
   // const { attachListeners } = useModalGestures(() => onOpenChange(false));
@@ -105,32 +96,6 @@ export function TankDetailsModal({
       setIsDipFormOpen(false);
     }
   }, [open]);
-
-  // Fetch tank details from fuel_tanks table
-  useEffect(() => {
-    const fetchTankDetails = async () => {
-      if (!tank?.id || !open) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('fuel_tanks')
-          .select('address, vehicle, discharge, bp_portal, delivery_window, afterhours_contact, notes')
-          .eq('id', tank.id)
-          .single();
-        
-        if (error) {
-          console.error('Error fetching tank details:', error);
-          return;
-        }
-        
-        setTankDetails(data);
-      } catch (err) {
-        console.error('Error fetching tank details:', err);
-      }
-    };
-
-    fetchTankDetails();
-  }, [tank?.id, open]);
 
   const {
     alerts,
@@ -762,19 +727,19 @@ export function TankDetailsModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <span className="text-sm text-gray-500">Address</span>
-                        <p className="font-medium">{tankDetails?.address || 'N/A'}</p>
+                        <p className="font-medium">{tank?.address || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Vehicle</span>
-                        <p className="font-medium">{tankDetails?.vehicle || 'N/A'}</p>
+                        <p className="font-medium">{tank?.vehicle || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Discharge</span>
-                        <p className="font-medium">{tankDetails?.discharge || 'N/A'}</p>
+                        <p className="font-medium">{tank?.discharge || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">BP Portal</span>
-                        <p className="font-medium">{tankDetails?.bp_portal || 'N/A'}</p>
+                        <p className="font-medium">{tank?.bp_portal || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Min Level</span>
@@ -782,11 +747,11 @@ export function TankDetailsModal({
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Delivery Window</span>
-                        <p className="font-medium">{tankDetails?.delivery_window || 'N/A'}</p>
+                        <p className="font-medium">{tank?.delivery_window || 'N/A'}</p>
                       </div>
                       <div className="md:col-span-2">
                         <span className="text-sm text-gray-500">Afterhours Contact</span>
-                        <p className="font-medium">{tankDetails?.afterhours_contact || 'N/A'}</p>
+                        <p className="font-medium">{tank?.afterhours_contact || 'N/A'}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -799,11 +764,10 @@ export function TankDetailsModal({
                   </CardHeader>
                   <CardContent>
                     <EditableNotesSection
-                      notes={tankDetails?.notes || ''}
+                      notes={tank?.notes || ''}
                       onSave={async (newNotes) => {
                         await supabase.from('fuel_tanks').update({ notes: newNotes }).eq('id', tank.id);
-                        // Update local state to reflect the change
-                        setTankDetails(prev => ({ ...prev, notes: newNotes }));
+                        // Notes will be updated on next refetch of useTanks
                       }}
                     />
                   </CardContent>
