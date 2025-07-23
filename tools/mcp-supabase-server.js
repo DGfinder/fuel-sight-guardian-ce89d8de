@@ -10,15 +10,46 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { createClient } from '@supabase/supabase-js';
 
+// Load environment variables from .env file if available
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const rootDir = join(__dirname, '..');
+
+// Load .env file from project root
+config({ path: join(rootDir, '.env') });
+
+// Get Supabase configuration from environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Error: SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required');
+  console.error('❌ Error: SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required');
+  console.error('📝 Please ensure your .env file exists in the project root with:');
+  console.error('   SUPABASE_URL=your_supabase_url');
+  console.error('   SUPABASE_ANON_KEY=your_supabase_anon_key');
+  console.error('💡 You can copy from .env.example if needed');
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+console.log('✅ MCP Supabase Server starting...');
+console.log(`🔗 Connecting to: ${SUPABASE_URL.substring(0, 30)}...`);
+console.log(`🔑 Using anon key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: false, // MCP server doesn't need session persistence
+    autoRefreshToken: false,
+  },
+  global: {
+    headers: {
+      'x-application-name': 'fuel-sight-guardian-mcp'
+    }
+  }
+});
 
 const server = new Server(
   {

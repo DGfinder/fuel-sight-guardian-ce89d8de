@@ -49,6 +49,15 @@ export default function Index({ selectedGroup }: IndexProps) {
   const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
   const { alerts, isLoading: alertsLoading } = useAlerts();
 
+  // Debug component state
+  console.log('[INDEX DEBUG] Component State:', {
+    tanksLoading,
+    tanksError: tanksError?.message,
+    tanksCount: tanks?.length || 0,
+    alertsLoading,
+    hasTanks: Array.isArray(tanks) && tanks.length > 0
+  });
+
   // Filter tanks based on selected group
   const filteredTanks = tanks?.filter(tank => {
     if (!selectedGroup) return true;

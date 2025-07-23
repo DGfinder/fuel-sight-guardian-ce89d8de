@@ -2,11 +2,9 @@
   "mcpServers": {
     "supabase": {
       "command": "node",
-      "args": ["./mcp-supabase-server.js"],
-      "env": {
-        "SUPABASE_URL": "https://wjzsdsvbtapriiuxzmih.supabase.co",
-        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqenNkc3ZidGFwcmlpdXh6bWloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxODA1NTIsImV4cCI6MjA2NDc1NjU1Mn0.T7W7zz5a3uZUoFKgUW7pFcLKbLc-8kNGxV5s0DPg-TY"
-      }
+      "args": ["./tools/mcp-supabase-server.js"],
+      "cwd": "/mnt/c/Users/Hayden/Downloads/fuel-sight-guardian-ce89d8de",
+      "env": {}
     }
   }
 }

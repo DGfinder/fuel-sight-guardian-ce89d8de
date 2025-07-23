@@ -309,16 +309,44 @@ export const useTanks = () => {
 
   console.log('[TANKS DEBUG] Tanks with analytics ready:', {
     totalTanks: tanks.length,
+    isArray: Array.isArray(tanks),
+    firstTankKeys: tanks[0] ? Object.keys(tanks[0]) : 'No tanks',
     sampleAnalytics: tanks.slice(0, 3).map((t: Tank) => ({
       location: t.location,
       currentLevel: t.current_level,
+      currentLevelPercent: t.current_level_percent,
+      safeLevel: t.safe_level,
       rollingAvg: t.rolling_avg,
       daysToMin: t.days_to_min_level,
-      prevDayUsed: t.prev_day_used
+      prevDayUsed: t.prev_day_used,
+      hasUsableCapacity: t.usable_capacity !== undefined,
+      hasUllage: t.ullage !== undefined
     }))
   });
 
+  // Additional debug: Check for empty or problematic data  
+  if (tanks.length === 0) {
+    console.error('[TANKS DEBUG] ❌ CRITICAL: No tanks returned from database!');
+  } else if (tanks.every(t => !t.location)) {
+    console.error('[TANKS DEBUG] ❌ CRITICAL: All tanks missing location field!');
+  } else if (tanks.every(t => t.current_level_percent === 0)) {
+    console.warn('[TANKS DEBUG] ⚠️ WARNING: All tanks showing 0% - percentage calculation issue');
+  } else {
+    console.log('[TANKS DEBUG] ✅ Data looks good - tanks have locations and percentages');
+  }
 
+
+
+  // Debug the query state
+  console.log('[TANKS DEBUG] Query State:', {
+    isLoading: tanksQuery.isLoading,
+    isFetching: tanksQuery.isFetching,
+    isError: tanksQuery.isError,
+    isPending: tanksQuery.isPending,
+    hasError: !!tanksQuery.error,
+    errorMessage: tanksQuery.error?.message,
+    dataLength: tanks.length
+  });
 
   return {
     tanks,
