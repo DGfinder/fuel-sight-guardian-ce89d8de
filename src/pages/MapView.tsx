@@ -57,7 +57,7 @@ const getIconForTank = (tank: { current_level_percent?: number | null }) => {
 };
 
 function MapView() {
-  const { tanks, isLoading } = useTanks();
+  const { tanks, isLoading, error } = useTanks();
   const { openModal } = useTankModal();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
@@ -206,6 +206,38 @@ function MapView() {
     const groups = tanks.map(tank => tank.group_name).filter(Boolean) as string[];
     return Array.from(new Set(groups)).sort();
   }, [tanks]);
+  
+  // Handle error state
+  if (error) {
+    // Safely extract error message from various error types
+    const errorMessage = (() => {
+      if (typeof error === 'string') return error;
+      if (error && typeof error === 'object') {
+        if ('message' in error && typeof error.message === 'string') return error.message;
+        if ('details' in error && typeof error.details === 'string') return error.details;
+        if ('code' in error) return `Database error (${error.code})`;
+      }
+      return 'Unable to load tank data. Please check your connection and try again.';
+    })();
+
+    return (
+      <Container className="py-4">
+        <Card>
+          <CardContent className="p-8 text-center space-y-4">
+            <AlertTriangle className="w-16 h-16 text-red-500 mx-auto" />
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Error loading map data</h3>
+              <p className="text-red-600 mt-1">{errorMessage}</p>
+            </div>
+            <Button onClick={() => window.location.reload()} variant="outline">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Reload Page
+            </Button>
+          </CardContent>
+        </Card>
+      </Container>
+    );
+  }
   
   if (isLoading) {
     return (

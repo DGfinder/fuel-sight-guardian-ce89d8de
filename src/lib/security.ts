@@ -54,12 +54,32 @@ export class SecurityManager {
       this.scanForSuspiciousContent();
     });
 
-    // Monitor console for security-related errors
+    // Monitor console for security-related errors, but avoid interfering with React errors
     const originalError = console.error;
     console.error = (...args) => {
-      this.analyzeConsoleError(args);
+      // Call original error first to ensure normal error logging works
       originalError.apply(console, args);
+      
+      // Only analyze if it looks like a security-related error
+      const firstArg = args[0];
+      const errorString = typeof firstArg === 'string' ? firstArg : String(firstArg);
+      
+      // Only monitor specific security-related patterns to avoid interfering with React errors
+      if (this.isSecurityRelatedError(errorString)) {
+        this.analyzeConsoleError(args);
+      }
     };
+  }
+
+  private isSecurityRelatedError(errorString: string): boolean {
+    const securityPatterns = [
+      'csp', 'content security policy', 'blocked uri', 'refused to execute',
+      'mixed content', 'certificate', 'ssl', 'tls', 'cors', 'cross-origin',
+      'xss', 'injection', 'script injection', 'unsafe-eval', 'unsafe-inline'
+    ];
+    
+    const lowerError = errorString.toLowerCase();
+    return securityPatterns.some(pattern => lowerError.includes(pattern));
   }
 
   private handleCSPViolation(event: SecurityPolicyViolationEvent): void {

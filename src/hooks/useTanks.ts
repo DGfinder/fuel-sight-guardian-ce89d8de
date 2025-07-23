@@ -120,7 +120,16 @@ export function useTanks() {
       }
 
       const { data, error } = await query.order('last_dip_ts', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        // Transform Supabase error to ensure it has a consistent message property
+        const transformedError = new Error(
+          error.message || 
+          error.details || 
+          `Database error: ${error.code || 'Unknown error'}`
+        );
+        transformedError.name = 'DatabaseError';
+        throw transformedError;
+      }
       
       let filteredData = data || [];
       
@@ -210,8 +219,11 @@ export function useTanks() {
     gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
     refetchOnWindowFocus: false, // Don't refetch on window focus to reduce load
     retry: (failureCount, error) => {
-      // Only retry on network errors, not on auth/permission errors
-      if (error?.message?.includes('permission') || error?.message?.includes('auth')) {
+      // Only retry on network errors, not on auth/permission/database errors
+      if (error?.message?.includes('permission') || 
+          error?.message?.includes('auth') ||
+          error?.name === 'DatabaseError' ||
+          error?.message?.includes('500')) {
         return false;
       }
       return failureCount < 2;
@@ -256,7 +268,16 @@ export function useTanks() {
       }
 
       const { data, error } = await query.order('last_dip_ts', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        // Transform Supabase error to ensure it has a consistent message property
+        const transformedError = new Error(
+          error.message || 
+          error.details || 
+          `Database error: ${error.code || 'Unknown error'}`
+        );
+        transformedError.name = 'DatabaseError';
+        throw transformedError;
+      }
       
       let filteredData = data || [];
       

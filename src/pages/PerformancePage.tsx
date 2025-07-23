@@ -19,7 +19,7 @@ interface GroupPerformance {
 }
 
 export default function PerformancePage() {
-  const { tanks, isLoading, refreshTanks, exportTanksToCSV } = useTanks();
+  const { tanks, isLoading, error, refreshTanks, exportTanksToCSV } = useTanks();
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('performance');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -172,6 +172,34 @@ export default function PerformancePage() {
     
     return filtered;
   }, [groupPerformanceData, selectedGroup, sortBy, sortDirection]);
+
+  // Handle error state
+  if (error) {
+    // Safely extract error message from various error types
+    const errorMessage = (() => {
+      if (typeof error === 'string') return error;
+      if (error && typeof error === 'object') {
+        if ('message' in error && typeof error.message === 'string') return error.message;
+        if ('details' in error && typeof error.details === 'string') return error.details;
+        if ('code' in error) return `Database error (${error.code})`;
+      }
+      return 'Unable to load performance data. Please check your connection and try again.';
+    })();
+
+    return (
+      <div className="p-6 text-center space-y-4">
+        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto" />
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Error loading performance data</h3>
+          <p className="text-red-600 mt-1">{errorMessage}</p>
+        </div>
+        <Button onClick={() => refreshTanks()} variant="outline">
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

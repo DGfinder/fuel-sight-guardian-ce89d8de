@@ -9,6 +9,7 @@ import '@/lib/auth-cleanup'; // Initialize auth cleanup utilities
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
+import { DatabaseErrorBoundary } from '@/components/ErrorBoundary/DatabaseErrorBoundary';
 import { useTankModal } from './contexts/TankModalContext';
 import { TankDetailsModal } from './components/TankDetailsModal';
 import { useGlobalModals } from './contexts/GlobalModalsContext';
@@ -118,8 +119,9 @@ const App = () => {
               <HashRedirector />
               <Toaster />
               <RealtimeErrorBoundary>
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
+                <DatabaseErrorBoundary fallbackMessage="Unable to load application data">
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
                     <Route 
                       path="/" 
                       element={
@@ -265,17 +267,20 @@ const App = () => {
                     } 
                   />
                     <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
+                    </Routes>
+                  </Suspense>
+                </DatabaseErrorBoundary>
               </RealtimeErrorBoundary>
             </BrowserRouter>
             <TankDetailsModal tank={selectedTank} open={open} onOpenChange={closeModal} />
-            <EditDipModal
-              isOpen={editDipOpen && !!editDipTank}
-              onClose={closeEditDip}
-              initialGroupId={editDipTank?.group_id || ''}
-              initialTankId={editDipTank?.id || ''}
-            />
+            {editDipOpen && editDipTank && (
+              <EditDipModal
+                isOpen={true}
+                onClose={closeEditDip}
+                initialGroupId={editDipTank.group_id || ''}
+                initialTankId={editDipTank.id || ''}
+              />
+            )}
             <AlertsDrawer
               open={alertsOpen}
               onOpenChange={closeAlerts}

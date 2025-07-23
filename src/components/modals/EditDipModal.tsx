@@ -65,7 +65,10 @@ export default function EditDipModal({
   initialGroupId = "",
   initialTankId = "",
 }: Props) {
-  console.log('EditDipModal rendered - isOpen:', isOpen, 'initialGroupId:', initialGroupId, 'initialTankId:', initialTankId);
+  // Debug logging only in development
+  if (process.env.NODE_ENV === 'development' && (initialGroupId || initialTankId)) {
+    console.log('EditDipModal rendered - isOpen:', isOpen, 'initialGroupId:', initialGroupId, 'initialTankId:', initialTankId);
+  }
   const { data: groups = [], isLoading: groupsLoading } = useTankGroups();
   const { tanks = [], isLoading: tanksLoading, error }  = useTanks();
   const queryClient = useQueryClient();
