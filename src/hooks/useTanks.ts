@@ -43,39 +43,39 @@ export interface Tank {
   usable_capacity?: number;
 }
 
-// Memoized tank data transformation function
+// Memoized tank data transformation function  
 const transformTankData = (rawTank: Record<string, unknown>): Tank => ({
   ...rawTank,
-  id: rawTank.id,
-  location: rawTank.location,
-  product_type: rawTank.product,
-  safe_level: rawTank.safe_fill,
-  min_level: rawTank.min_level,
-  group_id: rawTank.group_id,
-  group_name: rawTank.group_name,
-  subgroup: rawTank.subgroup,
-  current_level: rawTank.current_level,
-  current_level_percent: rawTank.current_level_percent_display || rawTank.current_level_percent,
-  rolling_avg: rawTank.rolling_avg_lpd,
-  days_to_min_level: rawTank.days_to_min_level,
-  usable_capacity: rawTank.usable_capacity,
-  prev_day_used: rawTank.prev_day_used,
-  serviced_on: rawTank.serviced_on,
-  serviced_by: rawTank.serviced_by,
-  address: rawTank.address,
-  vehicle: rawTank.vehicle,
-  discharge: rawTank.discharge,
-  bp_portal: rawTank.bp_portal,
-  delivery_window: rawTank.delivery_window,
-  afterhours_contact: rawTank.afterhours_contact,
-  notes: rawTank.notes,
-  latitude: rawTank.latitude,
-  longitude: rawTank.longitude,
+  id: rawTank.id as string,
+  location: rawTank.location as string,
+  product_type: rawTank.product_type as string, // Updated: simplified view uses product_type
+  safe_level: rawTank.safe_level as number, // Updated: simplified view uses safe_level
+  min_level: rawTank.min_level as number,
+  group_id: rawTank.group_id as string,
+  group_name: rawTank.group_name as string,
+  subgroup: rawTank.subgroup as string,
+  current_level: rawTank.current_level as number,
+  current_level_percent: rawTank.current_level_percent as number, // Updated: simplified calculation
+  rolling_avg: 0, // Default: will be calculated by frontend analytics hook
+  days_to_min_level: undefined, // Default: will be calculated by frontend analytics hook
+  usable_capacity: rawTank.usable_capacity as number,
+  prev_day_used: 0, // Default: will be calculated by frontend analytics hook
+  serviced_on: rawTank.serviced_on as string,
+  serviced_by: rawTank.serviced_by as string,
+  address: rawTank.address as string,
+  vehicle: rawTank.vehicle as string,
+  discharge: rawTank.discharge as string,
+  bp_portal: rawTank.bp_portal as string,
+  delivery_window: rawTank.delivery_window as string,
+  afterhours_contact: rawTank.afterhours_contact as string,
+  notes: rawTank.notes as string,
+  latitude: rawTank.latitude as number,
+  longitude: rawTank.longitude as number,
   last_dip: (rawTank.last_dip_ts && rawTank.current_level != null) 
     ? { 
-        value: rawTank.current_level, 
-        created_at: rawTank.last_dip_ts, 
-        recorded_by: 'Unknown' 
+        value: rawTank.current_level as number, 
+        created_at: rawTank.last_dip_ts as string, 
+        recorded_by: rawTank.last_dip_by as string || 'Unknown' 
       } 
     : null,
 });
@@ -100,14 +100,17 @@ export function useTanks() {
   const { data: tanks, isLoading, error } = useQuery<Tank[]>({
     queryKey,
     queryFn: async () => {
+      console.log('🔍 [TANKS DEBUG] Fetching tanks from simplified view...');
+      
       let query = supabase
-        .from('tanks_with_rolling_avg')
+        .from('tanks_basic_data') // Use our new simplified view
         .select('*');
 
       // RLS will handle security, but we can optimize the query for non-admin users
       if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups && userPermissions.accessibleGroups.length > 0) {
         const groupIds = userPermissions.accessibleGroups.map(g => g.id);
         query = query.in('group_id', groupIds);
+        console.log('🔍 [TANKS DEBUG] Applying group filter:', groupIds);
         
         // Additional client-side filtering for subgroup access
         // This provides defense-in-depth alongside RLS policies
@@ -121,6 +124,7 @@ export function useTanks() {
 
       const { data, error } = await query.order('last_dip_ts', { ascending: false });
       if (error) {
+        console.error('❌ [TANKS DEBUG] Error fetching tanks:', error);
         // Transform Supabase error to ensure it has a consistent message property
         const transformedError = new Error(
           error.message || 
@@ -130,6 +134,15 @@ export function useTanks() {
         transformedError.name = 'DatabaseError';
         throw transformedError;
       }
+      
+      console.log('✅ [TANKS DEBUG] Successfully fetched tanks:', {
+        count: data?.length || 0,
+        sampleTank: data?.[0] ? {
+          location: (data[0] as any).location,
+          current_level_percent: (data[0] as any).current_level_percent,
+          safe_level: (data[0] as any).safe_level
+        } : null
+      });
       
       let filteredData = data || [];
       
