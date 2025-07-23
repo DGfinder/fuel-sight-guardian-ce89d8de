@@ -337,16 +337,25 @@ export const useTanks = () => {
 
 
 
-  // Debug the query state
-  console.log('[TANKS DEBUG] Query State:', {
+  // Debug the query state - CRITICAL FOR LOADING ISSUE
+  console.log('🔴 [TANKS DEBUG] REACT QUERY STATE:', {
     isLoading: tanksQuery.isLoading,
     isFetching: tanksQuery.isFetching,
     isError: tanksQuery.isError,
     isPending: tanksQuery.isPending,
+    isSuccess: tanksQuery.isSuccess,
+    status: tanksQuery.status,
+    fetchStatus: tanksQuery.fetchStatus,
     hasError: !!tanksQuery.error,
     errorMessage: tanksQuery.error?.message,
-    dataLength: tanks.length
+    dataLength: tanks.length,
+    hasData: !!tanksQuery.data
   });
+
+  // CRITICAL: Check if isLoading is stuck
+  if (tanksQuery.isLoading && tanks.length > 0) {
+    console.error('🚨 [TANKS DEBUG] CRITICAL: isLoading=true but data exists! Query state stuck!');
+  }
 
   return {
     tanks,
