@@ -268,6 +268,19 @@ export const useTanks = () => {
     }))
   });
 
+  // DETAILED DEBUG: Show actual tank values
+  if (tanks.length > 0) {
+    const firstTank = tanks[0];
+    console.log('[TANKS DEBUG] First tank detailed values:', {
+      location: firstTank.location,
+      rolling_avg: firstTank.rolling_avg,
+      prev_day_used: firstTank.prev_day_used,
+      days_to_min_level: firstTank.days_to_min_level,
+      current_level: firstTank.current_level,
+      allProperties: Object.keys(firstTank)
+    });
+  }
+
   return {
     data: tanks,
     isLoading: tanksQuery.isLoading,
