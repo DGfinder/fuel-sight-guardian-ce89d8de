@@ -138,7 +138,7 @@ export function useGroupTankHistory({
       const userIds = [...new Set(data?.map(r => r.recorded_by).filter(Boolean))];
       
       // Fetch user profiles separately
-      let userProfiles = new Map<string, string>();
+      const userProfiles = new Map<string, string>();
       if (userIds.length > 0) {
         console.log(`Group Tank History: Looking up profiles for ${userIds.length} users:`, userIds);
         try {
@@ -304,7 +304,7 @@ export function useTankHistory({
       const userIds = [...new Set(data?.map(r => r.recorded_by).filter(Boolean))];
       
       // Fetch user profiles separately
-      let userProfiles = new Map<string, string>();
+      const userProfiles = new Map<string, string>();
       if (userIds.length > 0) {
         console.log(`Tank History: Looking up profiles for ${userIds.length} users:`, userIds);
         try {

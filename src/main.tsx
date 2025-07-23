@@ -24,7 +24,7 @@ securityManager.getSecurityMetrics();
 
 // Make performance monitor available globally for error reporting
 if (typeof window !== 'undefined') {
-  (window as any).performanceMonitor = performanceMonitor;
+  (window as Window & { performanceMonitor: typeof performanceMonitor }).performanceMonitor = performanceMonitor;
 }
 
 createRoot(document.getElementById("root")!).render(

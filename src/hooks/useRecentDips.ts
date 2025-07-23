@@ -54,7 +54,7 @@ export function useRecentDips(limit = 30) {
       const userIds = [...new Set(rawData.map(r => r.recorded_by).filter(Boolean))];
       
       // Fetch user profiles separately
-      let userProfiles = new Map<string, string>();
+      const userProfiles = new Map<string, string>();
       if (userIds.length > 0) {
         console.log(`Recent Dips: Looking up profiles for ${userIds.length} users:`, userIds);
         try {

@@ -377,7 +377,7 @@ class PerformanceMonitor {
   }
 
   private getConnectionType(): string {
-    // @ts-ignore
+    // @ts-expect-error - Navigator connection API not fully typed
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     return connection?.effectiveType || 'unknown';
   }

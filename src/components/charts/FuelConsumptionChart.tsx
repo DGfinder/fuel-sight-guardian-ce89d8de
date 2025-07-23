@@ -331,22 +331,22 @@ export function TankGauge({
       .endAngle(angle);
 
     const path = svg.append('path')
-      .attr('d', arc as any)
+      .attr('d', arc({ innerRadius: radius - 20, outerRadius: radius, startAngle: -Math.PI / 2, endAngle: angle }))
       .attr('transform', `translate(${centerX},${centerY})`)
       .attr('fill', colors[status]);
 
     if (animated) {
       const arcTween = (newAngle: number) => {
-        return (d: any) => {
+        return () => {
           const interpolate = d3.interpolate(-Math.PI / 2, newAngle);
           return (t: number) => {
             const currentAngle = interpolate(t);
-            return d3.arc()
-              .innerRadius(radius - 20)
-              .outerRadius(radius)
-              .startAngle(-Math.PI / 2)
-              .endAngle(currentAngle)
-              .call(this as any);
+            return d3.arc()({
+              innerRadius: radius - 20,
+              outerRadius: radius,
+              startAngle: -Math.PI / 2,
+              endAngle: currentAngle
+            });
           };
         };
       };
@@ -355,7 +355,7 @@ export function TankGauge({
         .transition()
         .duration(1500)
         .ease(d3.easeQuadOut)
-        .attrTween('d', arcTween(angle) as any);
+        .attrTween('d', arcTween(angle));
     }
 
     // Center text

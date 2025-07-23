@@ -537,7 +537,7 @@ async function main() {
         await listGSFDepotsSubgroups();
         break;
 
-      case 'create-user':
+      case 'create-user': {
         if (args.length < 2) {
           console.error('❌ Usage: create-user <email> <subgroup1> [subgroup2] [subgroup3]...');
           console.error('   Example: create-user user@example.com "GSFS Narrogin"');
@@ -551,6 +551,7 @@ async function main() {
           process.exit(1);
         }
         break;
+      }
 
       case 'check-user':
         if (args.length < 1) {
@@ -560,10 +561,11 @@ async function main() {
         await checkUserPermissions(args[0]);
         break;
 
-      case 'audit-log':
+      case 'audit-log': {
         const lines = args.length > 0 ? parseInt(args[0]) || 20 : 20;
         await viewAuditLog(lines);
         break;
+      }
 
       case 'audit-user':
         if (args.length < 1) {
@@ -573,7 +575,7 @@ async function main() {
         await generateUserAuditReport(args[0]);
         break;
 
-      case 'backup-user':
+      case 'backup-user': {
         if (args.length < 1) {
           console.error('❌ Usage: backup-user <email>');
           process.exit(1);
@@ -584,6 +586,7 @@ async function main() {
           process.exit(1);
         }
         break;
+      }
 
       case 'help':
       default:

@@ -41,7 +41,7 @@ test.describe('Accessibility Tests', () => {
     
     // Test Tab navigation
     await page.keyboard.press('Tab');
-    let focusedElement = await page.evaluate(() => document.activeElement?.tagName);
+    const focusedElement = await page.evaluate(() => document.activeElement?.tagName);
     expect(['A', 'BUTTON', 'INPUT']).toContain(focusedElement);
     
     // Test Enter key on tank card

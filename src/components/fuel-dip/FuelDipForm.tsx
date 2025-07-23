@@ -122,7 +122,7 @@ export function FuelDipForm({
   const [tanksLoading, setTanksLoading] = useState(false);
 
   // same-day dip handling
-  const [existingSameDayDip, setExistingSameDayDip] = useState<any>(null);
+  const [existingSameDayDip, setExistingSameDayDip] = useState<Tables<'fuel_dips'> | null>(null);
   const [showSameDayDialog, setShowSameDayDialog] = useState(false);
   const [safeFillError, setSafeFillError] = useState<string>("");
 
@@ -362,11 +362,11 @@ export function FuelDipForm({
       });
       
       reset();
-    } catch (error: any) {
+    } catch (error: unknown) {
       setLoading(false);
       toast({ 
         title: "Error", 
-        description: error.message || "Failed to submit dip reading", 
+        description: error instanceof Error ? error.message : "Failed to submit dip reading", 
         variant: "destructive" 
       });
     }

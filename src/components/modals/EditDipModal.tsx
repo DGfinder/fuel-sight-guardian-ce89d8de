@@ -281,8 +281,8 @@ export default function EditDipModal({
         // Close modal after successful deletion
         setTimeout(() => onClose(), 1000);
       }
-    } catch (error: any) {
-      setSubmitError(error.message || 'Failed to delete dip reading');
+    } catch (error: unknown) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to delete dip reading');
     } finally {
       setDeleting(false);
     }

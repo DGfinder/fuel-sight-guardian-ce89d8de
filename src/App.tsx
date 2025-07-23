@@ -89,7 +89,7 @@ const queryClient = new QueryClient({
 
 // Expose queryClient globally for debugging in development
 if (import.meta.env.DEV) {
-  (window as any).queryClient = queryClient;
+  (window as Window & { queryClient: typeof queryClient }).queryClient = queryClient;
 }
 
 function HashRedirector() {
