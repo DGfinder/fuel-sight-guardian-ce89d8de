@@ -145,10 +145,20 @@ export const useTanks = () => {
           .filter(r => r.tank_id === tank.id)
           .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
+        // DEBUG: Log tank reading info
+        if (tank.location === 'Alkimos' || tank.location === 'Beckenham' || tank.location === 'Beenyup') {
+          console.log(`[ANALYTICS DEBUG] Tank ${tank.location}:`, {
+            totalReadings: tankReadings.length,
+            firstReading: tankReadings[0],
+            lastReading: tankReadings[tankReadings.length - 1]
+          });
+        }
+
         // Calculate rolling average
         let totalConsumption = 0;
         let totalDays = 0;
         const dailyConsumptions: number[] = [];
+        let debugConsumptions: any[] = [];
 
         for (let i = 1; i < tankReadings.length; i++) {
           const older = tankReadings[i - 1];
@@ -156,6 +166,18 @@ export const useTanks = () => {
           
           const consumption = calculateConsumption(older, newer);
           const days = daysBetween(new Date(older.created_at), new Date(newer.created_at));
+          
+          // DEBUG: Log consumption calculations
+          if (tank.location === 'Alkimos' || tank.location === 'Beckenham' || tank.location === 'Beenyup') {
+            debugConsumptions.push({
+              olderValue: older.value,
+              newerValue: newer.value,
+              consumption,
+              days,
+              dailyRate: days > 0 ? consumption / days : 0,
+              included: days > 0 && consumption > 0
+            });
+          }
           
           if (days > 0 && consumption > 0) {
             const dailyRate = consumption / days;
@@ -165,7 +187,41 @@ export const useTanks = () => {
           }
         }
 
-        const rolling_avg = totalDays > 0 ? Math.round(totalConsumption / totalDays) : 0;
+        // DEBUG: Log final calculations
+        if (tank.location === 'Alkimos' || tank.location === 'Beckenham' || tank.location === 'Beenyup') {
+          console.log(`[ANALYTICS DEBUG] ${tank.location} calculations:`, {
+            debugConsumptions: debugConsumptions.slice(0, 3), // First 3 calculations
+            totalConsumption,
+            totalDays,
+            validConsumptions: dailyConsumptions.length
+          });
+        }
+
+        // If no valid consumption data, try alternative calculation
+        let rolling_avg = totalDays > 0 ? Math.round(totalConsumption / totalDays) : 0;
+        
+        // FALLBACK: If no consumption detected, estimate from overall level change
+        if (rolling_avg === 0 && tankReadings.length >= 2) {
+          const firstReading = tankReadings[0];
+          const lastReading = tankReadings[tankReadings.length - 1];
+          const totalChange = firstReading.value - lastReading.value;
+          const totalDaysSpan = daysBetween(new Date(firstReading.created_at), new Date(lastReading.created_at));
+          
+          if (totalDaysSpan > 0 && totalChange > 0) {
+            rolling_avg = Math.round(totalChange / totalDaysSpan);
+            
+            // DEBUG: Log fallback calculation
+            if (tank.location === 'Alkimos' || tank.location === 'Beckenham' || tank.location === 'Beenyup') {
+              console.log(`[ANALYTICS DEBUG] ${tank.location} FALLBACK calculation:`, {
+                firstValue: firstReading.value,
+                lastValue: lastReading.value,
+                totalChange,
+                totalDaysSpan,
+                fallbackAvg: rolling_avg
+              });
+            }
+          }
+        }
 
         // Calculate previous day usage
         const prev_day_used = dailyConsumptions.length > 0 
