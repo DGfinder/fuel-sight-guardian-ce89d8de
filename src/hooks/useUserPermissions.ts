@@ -1,27 +1,32 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { UserRole, UserPermissions } from '../types/auth';
 
-interface TankGroup {
-  id: string;
-  name: string;
+export interface UserPermissions {
+  role: string;
+  isAdmin: boolean;
+  accessibleGroups: Array<{
+    id: string;
+    name: string;
+    subgroups: string[];
+  }>;
 }
 
 export const useUserPermissions = () => {
-  return useQuery({
-    queryKey: ['userPermissions'],
-    queryFn: async (): Promise<UserPermissions> => {
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('🔍 [RBAC DEBUG] Fetching permissions for user:', user?.id);
+  return useQuery<UserPermissions>({
+    queryKey: ['user-permissions'],
+    queryFn: async () => {
+      console.log('🔍 [RBAC DEBUG] Fetching user permissions (no RLS)...');
       
+      const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
-        throw new Error('No authenticated user found');
+        console.log('❌ [RBAC DEBUG] No authenticated user');
+        throw new Error('No authenticated user');
       }
-      
+
+      console.log('👤 [RBAC DEBUG] Fetching permissions for user:', user.id);
+
       try {
-        console.log('📋 [RBAC DEBUG] Querying user_roles table...');
-        
-        // Get user role
+        // Step 1: Get user role (direct query, no RLS)
         const { data: roleData, error: roleError } = await supabase
           .from('user_roles')
           .select('role')
@@ -29,124 +34,105 @@ export const useUserPermissions = () => {
           .single();
 
         if (roleError) {
-          console.error('❌ [RBAC DEBUG] Error fetching user role:', roleError);
-          throw new Error(`Failed to fetch user role: ${roleError.message}`);
+          console.log('⚠️ [RBAC DEBUG] No role found, defaulting to viewer');
+          // Default to viewer role if no role found
+          return {
+            role: 'viewer',
+            isAdmin: false,
+            accessibleGroups: []
+          };
         }
 
-        const role = roleData?.role as UserRole || 'user';
+        const userRole = roleData.role;
+        const isAdmin = ['admin', 'manager'].includes(userRole);
 
-        // Get user's accessible groups (full group access)
-        const { data: groupData, error: groupError } = await supabase
-          .from('user_group_permissions')
-          .select(`
-            group_id,
-            tank_groups!group_id (
-              id,
-              name
-            )
-          `)
-          .eq('user_id', user.id);
+        console.log('✅ [RBAC DEBUG] User role fetched successfully:', userRole);
 
-        if (groupError) {
-          console.error('❌ [RBAC DEBUG] Error fetching user groups:', groupError);
-          throw new Error(`Failed to fetch user groups: ${groupError.message}`);
-        }
+        // Step 2: Get accessible groups
+        let accessibleGroups: any[] = [];
 
-        // Get user's accessible subgroups (subgroup-level access)
-        const { data: subgroupData, error: subgroupError } = await supabase
-          .from('user_subgroup_permissions')
-          .select(`
-            group_id,
-            subgroup_name,
-            tank_groups!inner (
-              id,
-              name
-            )
-          `)
-          .eq('user_id', user.id);
-
-        if (subgroupError) {
-          console.error('❌ [RBAC DEBUG] Error fetching user subgroups:', subgroupError);
-          throw new Error(`Failed to fetch user subgroups: ${subgroupError.message}`);
-        }
-
-        // Combine group and subgroup permissions
-        type AccessibleGroup = {
-          id: string;
-          name: string;
-          subgroups?: string[];
-        };
-        
-        // Add groups where user has full access
-        const fullAccessGroups: AccessibleGroup[] = groupData?.map(item => ({
-          id: item.group_id,
-          name: (item.tank_groups as unknown as TankGroup).name
-        })) || [];
-        
-        // Add groups where user has subgroup access
-        const subgroupAccessMap = new Map<string, AccessibleGroup>();
-        
-        subgroupData?.forEach(item => {
-          const groupId = item.group_id;
-          const groupName = (item.tank_groups as unknown as TankGroup).name;
-          const subgroupName = item.subgroup_name;
+        if (isAdmin) {
+          // Admins can access all groups
+          console.log('👑 [RBAC DEBUG] User is admin, fetching all groups');
           
-          if (!subgroupAccessMap.has(groupId)) {
-            subgroupAccessMap.set(groupId, {
-              id: groupId,
-              name: groupName,
-              subgroups: []
+          const { data: allGroups, error: groupsError } = await supabase
+            .from('tank_groups')
+            .select('id, name');
+
+          if (!groupsError && allGroups) {
+            accessibleGroups = allGroups.map(group => ({
+              id: group.id,
+              name: group.name,
+              subgroups: [] // Admins have access to all subgroups
+            }));
+          }
+        } else {
+          // Regular users: get their specific group permissions
+          console.log('👤 [RBAC DEBUG] User is regular user, fetching specific permissions');
+          
+          const { data: userGroups, error: userGroupsError } = await supabase
+            .from('user_group_permissions')
+            .select(`
+              group_id,
+              tank_groups!inner(id, name)
+            `)
+            .eq('user_id', user.id);
+
+          if (!userGroupsError && userGroups) {
+            // Get subgroup restrictions for each group
+            const { data: subgroupRestrictions } = await supabase
+              .from('user_subgroup_permissions')
+              .select('group_id, subgroup_name')
+              .eq('user_id', user.id);
+
+            const subgroupsByGroup = new Map();
+            subgroupRestrictions?.forEach(restriction => {
+              if (!subgroupsByGroup.has(restriction.group_id)) {
+                subgroupsByGroup.set(restriction.group_id, []);
+              }
+              subgroupsByGroup.get(restriction.group_id).push(restriction.subgroup_name);
             });
-          }
-          
-          subgroupAccessMap.get(groupId)!.subgroups!.push(subgroupName);
-        });
-        
-        // Combine both types of access
-        const accessibleGroups: AccessibleGroup[] = [];
-        
-        // First, add all full access groups
-        fullAccessGroups.forEach(group => {
-          accessibleGroups.push(group);
-        });
-        
-        // Then add subgroup access groups (only if not already have full access)
-        Array.from(subgroupAccessMap.values()).forEach(group => {
-          const existingGroup = accessibleGroups.find(g => g.id === group.id);
-          if (!existingGroup) {
-            // User only has subgroup access to this group
-            accessibleGroups.push(group);
-          }
-          // If user has both full and subgroup access, keep full access (more permissive)
-        });
 
-        console.log('✅ [RBAC DEBUG] Permissions loaded successfully:', { role, accessibleGroups });
+            accessibleGroups = userGroups.map(userGroup => ({
+              id: userGroup.group_id,
+              name: (userGroup as any).tank_groups.name,
+              subgroups: subgroupsByGroup.get(userGroup.group_id) || []
+            }));
+          }
+        }
+
+        console.log('🎯 [RBAC DEBUG] Final permissions calculated:', {
+          role: userRole,
+          isAdmin,
+          groupCount: accessibleGroups.length,
+          groups: accessibleGroups.map(g => g.name)
+        });
 
         return {
-          role,
-          accessibleGroups,
-          isAdmin: role === 'admin',
-          isManager: role === 'manager',
-          isPrivileged: ['admin', 'manager'].includes(role),
-          canManageUsers: ['admin', 'manager'].includes(role),
-          canManageGroups: ['admin', 'manager'].includes(role),
-          canViewAllTanks: ['admin', 'manager'].includes(role),
-          canEditAllTanks: ['admin', 'manager'].includes(role),
-          canDeleteTanks: role === 'admin',
-          canViewAllDips: ['admin', 'manager'].includes(role),
-          canEditAllDips: ['admin', 'manager'].includes(role),
-          canDeleteDips: role === 'admin',
-          canViewAllAlerts: ['admin', 'manager'].includes(role),
-          canAcknowledgeAlerts: ['admin', 'manager'].includes(role),
-          canManageAlerts: role === 'admin',
+          role: userRole,
+          isAdmin,
+          accessibleGroups
         };
+
       } catch (error) {
-        console.error('💥 [RBAC DEBUG] Critical error in useUserPermissions:', error);
-        throw error;
+        console.error('💥 [RBAC DEBUG] Error in permissions calculation:', error);
+        
+        // Fallback: return viewer permissions
+        return {
+          role: 'viewer',
+          isAdmin: false,
+          accessibleGroups: []
+        };
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 2,
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors
+      if (error?.message?.includes('No authenticated user')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 };
 
