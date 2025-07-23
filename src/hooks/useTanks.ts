@@ -28,7 +28,8 @@ export interface Tank {
   
   // ✅ WORKING ANALYTICS (calculated in frontend)
   rolling_avg: number;           // L/day - 7-day rolling average  
-  prev_day_used: number;         // L - fuel used yesterday
+  prev_day_used: number;         // L - fuel used yesterday (negative = consumption, positive = refill)
+  is_recent_refill: boolean;     // true if prev_day_used represents a refill
   days_to_min_level: number | null; // days - predicted days until minimum
   
   // Additional fields
@@ -225,10 +226,40 @@ export const useTanks = () => {
 
         // Calculate previous day usage (latest minus previous reading)
         let prev_day_used = 0;
+        let isRefill = false;
+        
         if (tankReadings.length >= 2) {
           const latestReading = tankReadings[tankReadings.length - 1];
           const previousReading = tankReadings[tankReadings.length - 2];
-          prev_day_used = latestReading.value - previousReading.value;
+          const rawDifference = latestReading.value - previousReading.value;
+          
+          // Business logic: Detect if this is likely a refill
+          // If the increase is >= 100L, it's likely a refill or top-up
+          const REFILL_THRESHOLD = 100;
+          isRefill = rawDifference >= REFILL_THRESHOLD;
+          
+          // Always preserve the actual raw difference
+          // Positive = refill/increase, Negative = consumption/decrease
+          prev_day_used = rawDifference;
+          
+          // Debug logging for Alkimos tank specifically
+          if (tank.location && tank.location.toLowerCase().includes('alkimos')) {
+            console.log(`[ALKIMOS DEBUG] Tank: ${tank.location}`);
+            console.log(`[ALKIMOS DEBUG] Total readings: ${tankReadings.length}`);
+            console.log(`[ALKIMOS DEBUG] Latest reading:`, {
+              value: latestReading.value,
+              date: latestReading.created_at,
+              isLatest: true
+            });
+            console.log(`[ALKIMOS DEBUG] Previous reading:`, {
+              value: previousReading.value,
+              date: previousReading.created_at,
+              isPrevious: true
+            });
+            console.log(`[ALKIMOS DEBUG] Raw calculation: ${latestReading.value} - ${previousReading.value} = ${rawDifference}`);
+            console.log(`[ALKIMOS DEBUG] Detected as refill: ${isRefill}`);
+            console.log(`[ALKIMOS DEBUG] Final prev_day_used: ${prev_day_used}`);
+          }
         }
 
         // Convert rolling average to negative to indicate fuel usage
@@ -250,6 +281,7 @@ export const useTanks = () => {
           // ✅ Analytics calculated and included in tank data (negative = consumption, positive = refill)
           rolling_avg: rolling_avg_display,
           prev_day_used: prev_day_used,
+          is_recent_refill: isRefill,
           days_to_min_level,
         };
       });
@@ -271,7 +303,12 @@ export const useTanks = () => {
       });
       
       return tanksWithAnalytics;
-    },
+      
+    } catch (error) {
+      console.error('[TANKS DEBUG] ❌ CRITICAL ERROR in useTanks:', error);
+      throw error;
+    }
+  },
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
