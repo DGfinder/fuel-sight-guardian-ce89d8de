@@ -114,13 +114,18 @@ export const useTanks = () => {
           
           return {
             ...tank,
-            // Core fields
+            // Core fields (ensure correct field names)
             current_level: currentLevel,
             current_level_percent: safeLevel > minLevel 
               ? Math.round(((currentLevel - minLevel) / (safeLevel - minLevel)) * 100)
               : 0,
             last_dip_ts: latest?.created_at || null,
             last_dip_by: latest?.recorded_by || 'Unknown',
+            
+            // Ensure correct field names (safe_level not safe_fill)
+            safe_level: safeLevel,
+            min_level: minLevel,
+            product_type: tank.product_type || 'Diesel',  // Ensure product_type not product
             
             // Calculated fields that frontend expects
             usable_capacity: Math.max(0, safeLevel - minLevel),
@@ -177,16 +182,26 @@ export const useTanks = () => {
 
       // Step 3: Calculate analytics for each tank and normalize data structure
       const tanksWithAnalytics = (tankData || []).map(tank => {
-        // Normalize field names if coming from view (handle both rolling_avg and rolling_avg_lpd)
+        // Normalize field names if coming from view (handle multiple naming conventions)
         const normalizedTank = {
           ...tank,
-          // Handle field name variations
+          // Handle field name variations for analytics
           rolling_avg: tank.rolling_avg ?? tank.rolling_avg_lpd ?? 0,
+          
+          // Handle product type variations (some views use 'product' instead of 'product_type')
           product_type: tank.product_type ?? tank.product ?? 'Diesel',
           
-          // Ensure required calculated fields exist
-          usable_capacity: tank.usable_capacity ?? Math.max(0, (tank.safe_level || 0) - (tank.min_level || 0)),
-          ullage: tank.ullage ?? Math.max(0, (tank.safe_level || 0) - (tank.current_level || 0)),
+          // Handle capacity field variations (some views incorrectly use 'safe_fill')
+          safe_level: tank.safe_level ?? tank.safe_fill ?? 10000,
+          min_level: tank.min_level ?? tank.min_fill ?? 0,
+          
+          // Ensure required calculated fields exist (use normalized capacity values)
+          usable_capacity: tank.usable_capacity ?? Math.max(0, 
+            (tank.safe_level ?? tank.safe_fill ?? 10000) - (tank.min_level ?? tank.min_fill ?? 0)
+          ),
+          ullage: tank.ullage ?? Math.max(0, 
+            (tank.safe_level ?? tank.safe_fill ?? 10000) - (tank.current_level || 0)
+          ),
           
           // Ensure structured last_dip exists
           last_dip: tank.last_dip ?? (tank.last_dip_ts ? {
@@ -195,6 +210,14 @@ export const useTanks = () => {
             recorded_by: tank.last_dip_by || 'Unknown'
           } : null)
         };
+        
+        // Log field name inconsistencies for debugging
+        if (tank.safe_fill && !tank.safe_level) {
+          console.warn(`[TANKS DEBUG] Tank ${tank.location} using deprecated 'safe_fill' field name`);
+        }
+        if (tank.product && !tank.product_type) {
+          console.warn(`[TANKS DEBUG] Tank ${tank.location} using deprecated 'product' field name`);
+        }
         
         // Get readings for this tank
         const tankReadings = (allReadings || [])
