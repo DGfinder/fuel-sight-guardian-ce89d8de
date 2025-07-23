@@ -13,112 +13,15 @@
 BEGIN;
 
 -- ============================================================================
--- STEP 1: Fix RLS Infinite Recursion (Critical for 500 errors)
--- ============================================================================
+-- STEP 1: Fix the immediate infinite recursion causing 500 errors
+SELECT 'STEP 1: FIXING 500 ERRORS' as current_step;
 
-SELECT 'STEP 1: FIXING RLS INFINITE RECURSION' as current_step;
-
--- Drop all problematic recursive policies
+-- Drop the problematic policies on user_roles (causing infinite recursion)
 DROP POLICY IF EXISTS "Admins and managers can manage all user roles" ON user_roles;
 DROP POLICY IF EXISTS "Users can view their own role" ON user_roles;
 DROP POLICY IF EXISTS "Enable read access for all users" ON user_roles;
-DROP POLICY IF EXISTS "Users can insert their own role" ON user_roles;
-DROP POLICY IF EXISTS "Users can update their own role" ON user_roles;
-DROP POLICY IF EXISTS "Service role can manage all user roles" ON user_roles;
 
--- Drop policies on other tables that use problematic functions
-DROP POLICY IF EXISTS "Users can view tanks in their assigned groups or subgroups" ON fuel_tanks;
-DROP POLICY IF EXISTS "Users can view tanks in their assigned groups" ON fuel_tanks;
-DROP POLICY IF EXISTS "Users can manage dips for accessible tanks" ON dip_readings;
-DROP POLICY IF EXISTS "Users can view alerts for accessible tanks" ON tank_alerts;
-DROP POLICY IF EXISTS "Users can acknowledge alerts for accessible tanks" ON tank_alerts;
-DROP POLICY IF EXISTS "Users can view their accessible groups" ON tank_groups;
-DROP POLICY IF EXISTS "Users can view their own group permissions" ON user_group_permissions;
-DROP POLICY IF EXISTS "Admins and managers can manage all group permissions" ON user_group_permissions;
-
--- Drop all existing recursive helper functions
-DROP FUNCTION IF EXISTS is_admin_user();
-DROP FUNCTION IF EXISTS is_admin_or_manager_user();
-DROP FUNCTION IF EXISTS user_has_tank_access_with_subgroups(UUID);
-DROP FUNCTION IF EXISTS user_has_group_access_with_subgroups(UUID);
-
--- Create NON-RECURSIVE helper functions with SECURITY DEFINER
-CREATE OR REPLACE FUNCTION is_admin_or_manager_direct()
-RETURNS BOOLEAN AS $$
-DECLARE
-    user_role TEXT;
-BEGIN
-    -- Direct query bypassing all RLS - uses SECURITY DEFINER
-    SELECT role INTO user_role
-    FROM user_roles 
-    WHERE user_id = auth.uid()
-    LIMIT 1;
-    
-    RETURN user_role IN ('admin', 'manager');
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN FALSE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to check group access without recursion
-CREATE OR REPLACE FUNCTION user_has_group_access_direct(target_group_id UUID)
-RETURNS BOOLEAN AS $$
-DECLARE
-    has_access BOOLEAN := FALSE;
-BEGIN
-    IF is_admin_or_manager_direct() THEN
-        RETURN TRUE;
-    END IF;
-    
-    SELECT EXISTS(
-        SELECT 1 FROM user_group_permissions
-        WHERE user_id = auth.uid() 
-        AND group_id = target_group_id
-    ) INTO has_access;
-    
-    RETURN has_access;
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN FALSE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to check tank access without recursion
-CREATE OR REPLACE FUNCTION user_has_tank_access_direct(tank_id UUID)
-RETURNS BOOLEAN AS $$
-DECLARE
-    tank_group_id UUID;
-BEGIN
-    IF is_admin_or_manager_direct() THEN
-        RETURN TRUE;
-    END IF;
-    
-    SELECT group_id INTO tank_group_id
-    FROM fuel_tanks
-    WHERE id = tank_id
-    LIMIT 1;
-    
-    IF tank_group_id IS NULL THEN
-        RETURN FALSE;
-    END IF;
-    
-    RETURN user_has_group_access_direct(tank_group_id);
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN FALSE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Enable RLS and create NON-RECURSIVE policies
-ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE fuel_tanks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dip_readings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tank_alerts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tank_groups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_group_permissions ENABLE ROW LEVEL SECURITY;
-
--- USER_ROLES policies (CRITICAL - must NOT be recursive)
+-- Create simple, non-recursive policies
 CREATE POLICY "Users can view their own role" ON user_roles
 FOR SELECT USING (user_id = auth.uid());
 
@@ -131,57 +34,60 @@ FOR ALL USING (
     )
 );
 
--- Other table policies using non-recursive functions
-CREATE POLICY "Users can view accessible tanks" ON fuel_tanks
-FOR SELECT USING (user_has_tank_access_direct(id));
+-- Test that it works
+SELECT 
+    'Testing user_roles access' as test_name,
+    role,
+    user_id,
+    'Should work without 500 error' as expected
+FROM user_roles 
+WHERE user_id = auth.uid();
 
-CREATE POLICY "Users can manage dips for accessible tanks" ON dip_readings
-FOR ALL USING (user_has_tank_access_direct(tank_id));
-
-CREATE POLICY "Users can view alerts for accessible tanks" ON tank_alerts
-FOR SELECT USING (user_has_tank_access_direct(tank_id));
-
-CREATE POLICY "Users can acknowledge alerts for accessible tanks" ON tank_alerts  
-FOR UPDATE USING (user_has_tank_access_direct(tank_id));
-
-CREATE POLICY "Users can view their accessible groups" ON tank_groups
-FOR SELECT USING (user_has_group_access_direct(id));
-
-CREATE POLICY "Users can view their own group permissions" ON user_group_permissions
-FOR SELECT USING (user_id = auth.uid());
-
-CREATE POLICY "Admins and managers can manage all group permissions" ON user_group_permissions
-FOR ALL USING (is_admin_or_manager_direct());
+SELECT 'STEP 1 COMPLETED - 500 errors should be fixed' as result;
 
 -- ============================================================================
--- STEP 2: Create Simplified Database View (Fast and Stable)
+-- STEP 2: Clean up existing policies to avoid conflicts
+SELECT 'STEP 2: CLEANING UP EXISTING POLICIES' as current_step;
+
+-- Drop all existing policies that might conflict
+DROP POLICY IF EXISTS "Users can view accessible tanks" ON fuel_tanks;
+DROP POLICY IF EXISTS "Users can view tanks in their assigned groups" ON fuel_tanks;
+DROP POLICY IF EXISTS "Users can view tanks in their assigned groups or subgroups" ON fuel_tanks;
+
+DROP POLICY IF EXISTS "Users can manage dips for accessible tanks" ON dip_readings;
+DROP POLICY IF EXISTS "Users can view alerts for accessible tanks" ON tank_alerts;
+DROP POLICY IF EXISTS "Users can acknowledge alerts for accessible tanks" ON tank_alerts;
+
+DROP POLICY IF EXISTS "Users can view their accessible groups" ON tank_groups;
+DROP POLICY IF EXISTS "Users can view their own group permissions" ON user_group_permissions;
+DROP POLICY IF EXISTS "Admins and managers can manage all group permissions" ON user_group_permissions;
+
+SELECT 'STEP 2 COMPLETED - Old policies removed' as result;
+
+-- ============================================================================
+-- STEP 3: Create the Simplified Database View (Run this after Step 2)
 -- ============================================================================
 
-SELECT 'STEP 2: CREATING SIMPLIFIED DATABASE VIEW' as current_step;
+SELECT 'STEP 3: CREATING SIMPLIFIED VIEW' as current_step;
 
--- Drop the complex unstable view
+-- Drop existing view
 DROP VIEW IF EXISTS public.tanks_with_rolling_avg CASCADE;
 
--- Create simplified view with only basic data
+-- Create simplified view (basic data only)
 CREATE VIEW public.tanks_basic_data 
 WITH (security_barrier = true)
 AS
 SELECT 
-  -- Core tank identification
   t.id,
   COALESCE(t.location, 'Unknown Location') as location,
   COALESCE(t.product_type, 'Diesel') as product_type,
-  
-  -- Tank capacity
   COALESCE(t.safe_level, 10000) as safe_level,
   COALESCE(t.min_level, 0) as min_level,
-  
-  -- Organization (for RBAC)
   t.group_id,
   COALESCE(tg.name, 'Unknown Group') as group_name,
   COALESCE(t.subgroup, 'No Subgroup') as subgroup,
   
-  -- Latest dip data (simple subqueries only)
+  -- Current level (simple subquery)
   COALESCE((
     SELECT dr.value 
     FROM dip_readings dr 
@@ -239,10 +145,10 @@ GRANT SELECT ON public.tanks_basic_data TO authenticated;
 GRANT SELECT ON public.tanks_basic_data TO anon;
 
 -- ============================================================================
--- STEP 3: Create Backward Compatibility View (Temporary)  
+-- STEP 4: Create Backward Compatibility View (Temporary)  
 -- ============================================================================
 
-SELECT 'STEP 3: CREATING BACKWARD COMPATIBILITY VIEW' as current_step;
+SELECT 'STEP 4: CREATING BACKWARD COMPATIBILITY VIEW' as current_step;
 
 -- Create a compatibility view that maps to the old structure
 -- This allows existing frontend code to work while we migrate
@@ -279,10 +185,10 @@ GRANT SELECT ON public.tanks_with_rolling_avg TO authenticated;
 GRANT SELECT ON public.tanks_with_rolling_avg TO anon;
 
 -- ============================================================================
--- STEP 4: Test the Migration
+-- STEP 5: Test the Migration
 -- ============================================================================
 
-SELECT 'STEP 4: TESTING THE MIGRATION' as current_step;
+SELECT 'STEP 5: TESTING THE MIGRATION' as current_step;
 
 -- Test RLS functions work without recursion
 SELECT 

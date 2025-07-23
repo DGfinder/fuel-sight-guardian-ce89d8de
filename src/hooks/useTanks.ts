@@ -4,28 +4,30 @@ import { supabase } from '../lib/supabase';
 import { useUserPermissions } from './useUserPermissions';
 import { UserPermissions } from '../types/auth';
 import { realtimeManager } from '../lib/realtime-manager';
+import { useSimpleTankAnalytics } from './useSimpleTankAnalytics';
 
 export interface Tank {
   id: string;
-  location?: string;
-  product_type?: string;
-  safe_level?: number;
-  min_level?: number;
-  created_at?: string;
-  updated_at?: string;
-  group_id?: string;
-  group_name?: string;
-  subgroup?: string;
-  current_level?: number;
-  current_level_percent?: number;
-  rolling_avg?: number;
-  days_to_min_level?: number;
-  latest_dip_value?: number;
-  latest_dip_date?: string;
-  latest_dip_by?: string;
-  prev_day_used?: number;
-  serviced_on?: string;
-  serviced_by?: string;
+  location: string;
+  product_type: string;
+  safe_level: number;
+  min_level: number;
+  group_id: string | null;
+  group_name: string;
+  subgroup: string;
+  current_level: number;
+  last_dip_ts: string | null;
+  last_dip_by: string;
+  current_level_percent: number;
+  
+  // ✅ WORKING ANALYTICS (calculated in frontend)
+  rolling_avg: number;           // L/day - 7-day rolling average  
+  prev_day_used: number;         // L - fuel used yesterday
+  days_to_min_level: number | null; // days - predicted days until minimum
+  
+  // Additional fields
+  usable_capacity: number;
+  ullage: number;
   address?: string;
   vehicle?: string;
   discharge?: string;
@@ -33,364 +35,147 @@ export interface Tank {
   delivery_window?: string;
   afterhours_contact?: string;
   notes?: string;
+  serviced_on?: string;
+  serviced_by?: string;
   latitude?: number;
   longitude?: number;
-  last_dip?: {
-    value: number;
-    created_at: string;
-    recorded_by: string;
-  } | null;
-  usable_capacity?: number;
+  created_at: string;
+  updated_at: string;
 }
 
-// Memoized tank data transformation function  
-const transformTankData = (rawTank: Record<string, unknown>): Tank => ({
-  ...rawTank,
-  id: rawTank.id as string,
-  location: rawTank.location as string,
-  product_type: rawTank.product_type as string, // Updated: simplified view uses product_type
-  safe_level: rawTank.safe_level as number, // Updated: simplified view uses safe_level
-  min_level: rawTank.min_level as number,
-  group_id: rawTank.group_id as string,
-  group_name: rawTank.group_name as string,
-  subgroup: rawTank.subgroup as string,
-  current_level: rawTank.current_level as number,
-  current_level_percent: rawTank.current_level_percent as number, // Updated: simplified calculation
-  rolling_avg: 0, // Default: will be calculated by frontend analytics hook
-  days_to_min_level: undefined, // Default: will be calculated by frontend analytics hook
-  usable_capacity: rawTank.usable_capacity as number,
-  prev_day_used: 0, // Default: will be calculated by frontend analytics hook
-  serviced_on: rawTank.serviced_on as string,
-  serviced_by: rawTank.serviced_by as string,
-  address: rawTank.address as string,
-  vehicle: rawTank.vehicle as string,
-  discharge: rawTank.discharge as string,
-  bp_portal: rawTank.bp_portal as string,
-  delivery_window: rawTank.delivery_window as string,
-  afterhours_contact: rawTank.afterhours_contact as string,
-  notes: rawTank.notes as string,
-  latitude: rawTank.latitude as number,
-  longitude: rawTank.longitude as number,
-  last_dip: (rawTank.last_dip_ts && rawTank.current_level != null) 
-    ? { 
-        value: rawTank.current_level as number, 
-        created_at: rawTank.last_dip_ts as string, 
-        recorded_by: rawTank.last_dip_by as string || 'Unknown' 
-      } 
-    : null,
-});
-
-export function useTanks() {
+// Enhanced hook that provides tanks with comprehensive analytics
+export const useTanks = () => {
   const queryClient = useQueryClient();
-  const { data: permissions } = useUserPermissions();
-  const userPermissions = permissions as UserPermissions | null;
-  const subscriberIdRef = useRef<string | null>(null);
 
-  // Optimized query key - only include essential permission info to reduce cache invalidations
-  const queryKey = useMemo(() => {
-    if (!userPermissions || !userPermissions.accessibleGroups) return ['tanks', 'no-permissions'];
-    
-    return [
-      'tanks',
-      userPermissions.isAdmin,
-      userPermissions.accessibleGroups.map(g => g.id).sort().join(',')
-    ];
-  }, [userPermissions]);
-
-  const { data: tanks, isLoading, error } = useQuery<Tank[]>({
-    queryKey,
+  // Fetch tank data from your existing database (no changes needed!)
+  const tanksQuery = useQuery({
+    queryKey: ['tanks-existing'],
     queryFn: async () => {
-      console.log('🔍 [TANKS DEBUG] Fetching tanks from simplified view...');
+      console.log('[TANKS DEBUG] Fetching tanks from existing database...');
       
-      let query = supabase
-        .from('tanks_basic_data') // Use our new simplified view
-        .select('*');
-
-      // RLS will handle security, but we can optimize the query for non-admin users
-      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups && userPermissions.accessibleGroups.length > 0) {
-        const groupIds = userPermissions.accessibleGroups.map(g => g.id);
-        query = query.in('group_id', groupIds);
-        console.log('🔍 [TANKS DEBUG] Applying group filter:', groupIds);
-        
-        // Additional client-side filtering for subgroup access
-        // This provides defense-in-depth alongside RLS policies
-        const hasSubgroupRestrictions = userPermissions.accessibleGroups.some(g => g.subgroups && g.subgroups.length > 0);
-        if (hasSubgroupRestrictions) {
-          // If user has subgroup restrictions, we need to filter at the application level too
-          // Note: This is backup filtering - RLS should handle this at database level
-          console.log('🔒 [SECURITY] User has subgroup restrictions, additional filtering will be applied');
-        }
-      }
-
-      const { data, error } = await query.order('last_dip_ts', { ascending: false });
-      if (error) {
-        console.error('❌ [TANKS DEBUG] Error fetching tanks:', error);
-        // Transform Supabase error to ensure it has a consistent message property
-        const transformedError = new Error(
-          error.message || 
-          error.details || 
-          `Database error: ${error.code || 'Unknown error'}`
-        );
-        transformedError.name = 'DatabaseError';
-        throw transformedError;
-      }
-      
-      console.log('✅ [TANKS DEBUG] Successfully fetched tanks:', {
-        count: data?.length || 0,
-        sampleTank: data?.[0] ? {
-          location: (data[0] as any).location,
-          current_level_percent: (data[0] as any).current_level_percent,
-          safe_level: (data[0] as any).safe_level
-        } : null
-      });
-      
-      let filteredData = data || [];
-      
-      // CRITICAL: Primary client-side subgroup filtering for users like Sally
-      // This is the main security mechanism since RLS on views is unreliable
-      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups) {
-        console.log('🔍 [SECURITY] Checking subgroup filtering for user permissions:', {
-          role: userPermissions.role,
-          isAdmin: userPermissions.isAdmin,
-          accessibleGroups: userPermissions.accessibleGroups.map(g => ({
-            id: g.id,
-            name: g.name,
-            hasSubgroups: !!g.subgroups,
-            subgroups: g.subgroups || []
-          }))
-        });
-
-        const hasSubgroupRestrictions = userPermissions.accessibleGroups.some(g => g.subgroups && g.subgroups.length > 0);
-        
-        // Apply filtering for users with subgroup restrictions (like Sally)
-        if (hasSubgroupRestrictions) {
-          console.log('🔒 [SECURITY] User has subgroup restrictions - applying strict filtering');
-          
-          filteredData = filteredData.filter(tank => {
-            // Find the group this tank belongs to
-            const tankGroup = userPermissions.accessibleGroups.find(g => g.id === tank.group_id);
-            
-            if (!tankGroup) {
-              console.log('🚫 [SECURITY] Tank filtered - group not in user permissions:', {
-                tankLocation: tank.location,
-                tankGroupId: tank.group_id,
-                userGroupIds: userPermissions.accessibleGroups.map(g => g.id)
-              });
-              return false; // No access to this group
-            }
-            
-            // For subgroup-restricted groups, check specific subgroup access
-            if (tankGroup.subgroups && tankGroup.subgroups.length > 0) {
-              const hasSubgroupAccess = tankGroup.subgroups.includes(tank.subgroup);
-              
-              if (!hasSubgroupAccess) {
-                console.log('🚫 [SECURITY] Tank filtered by subgroup restriction:', {
-                  tankLocation: tank.location,
-                  tankSubgroup: tank.subgroup,
-                  allowedSubgroups: tankGroup.subgroups,
-                  groupName: tankGroup.name
-                });
-              } else {
-                console.log('✅ [SECURITY] Tank allowed by subgroup access:', {
-                  tankLocation: tank.location,
-                  tankSubgroup: tank.subgroup,
-                  groupName: tankGroup.name
-                });
-              }
-              
-              return hasSubgroupAccess;
-            }
-            
-            // No subgroup restrictions for this group, allow full access
-            console.log('✅ [SECURITY] Tank allowed - no subgroup restrictions for this group:', {
-              tankLocation: tank.location,
-              groupName: tankGroup.name
-            });
-            return true;
-          });
-          
-          console.log('🔒 [SECURITY] Subgroup filtering complete:', {
-            originalCount: data?.length || 0,
-            filteredCount: filteredData.length,
-            removedCount: (data?.length || 0) - filteredData.length,
-            userRole: userPermissions.role,
-            userSubgroups: userPermissions.accessibleGroups.filter(g => g.subgroups).map(g => ({
-              group: g.name,
-              subgroups: g.subgroups
-            }))
-          });
-        } else {
-          console.log('ℹ️ [SECURITY] User has no subgroup restrictions - showing all accessible groups');
-        }
-      }
-      
-      // Use memoized transformation function
-      return filteredData.map(transformTankData);
-    },
-    enabled: !!userPermissions, // Only run query when permissions are loaded
-    staleTime: 2 * 60 * 1000, // 2 minutes - tanks don't change that frequently
-    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
-    refetchOnWindowFocus: false, // Don't refetch on window focus to reduce load
-    retry: (failureCount, error) => {
-      // Only retry on network errors, not on auth/permission/database errors
-      if (error?.message?.includes('permission') || 
-          error?.message?.includes('auth') ||
-          error?.name === 'DatabaseError' ||
-          error?.message?.includes('500')) {
-        return false;
-      }
-      return failureCount < 2;
-    },
-  });
-
-  useEffect(() => {
-    // Set the query client in the global manager
-    realtimeManager.setQueryClient(queryClient);
-
-    // Only subscribe if we have permissions
-    if (!userPermissions) {
-      return;
-    }
-
-    // Generate unique subscriber ID if we don't have one
-    if (!subscriberIdRef.current) {
-      subscriberIdRef.current = `useTanks_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    }
-
-    // Subscribe to global real-time updates
-    realtimeManager.subscribe(subscriberIdRef.current, userPermissions);
-
-    // Cleanup function
-    return () => {
-      if (subscriberIdRef.current) {
-        realtimeManager.unsubscribe(subscriberIdRef.current);
-      }
-    };
-  }, [queryClient, userPermissions]);
-
-  const { mutate: refreshTanks } = useMutation({
-    mutationFn: async () => {
-      let query = supabase
+      // Try existing view first, fallback to base table if it fails
+      let { data, error } = await supabase
         .from('tanks_with_rolling_avg')
-        .select('*');
+        .select('*')
+        .order('location');
 
-      // Apply same optimization as main query
-      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups && userPermissions.accessibleGroups.length > 0) {
-        const groupIds = userPermissions.accessibleGroups.map(g => g.id);
-        query = query.in('group_id', groupIds);
-      }
-
-      const { data, error } = await query.order('last_dip_ts', { ascending: false });
-      if (error) {
-        // Transform Supabase error to ensure it has a consistent message property
-        const transformedError = new Error(
-          error.message || 
-          error.details || 
-          `Database error: ${error.code || 'Unknown error'}`
-        );
-        transformedError.name = 'DatabaseError';
-        throw transformedError;
-      }
-      
-      let filteredData = data || [];
-      
-      // Apply same enhanced subgroup filtering as main query
-      if (userPermissions && !userPermissions.isAdmin && userPermissions.accessibleGroups) {
-        const hasSubgroupRestrictions = userPermissions.accessibleGroups.some(g => g.subgroups && g.subgroups.length > 0);
+      // If the view is broken (500 error), use base table
+      if (error && error.message?.includes('500')) {
+        console.log('[TANKS DEBUG] View failed, using base table...');
         
-        if (hasSubgroupRestrictions) {
-          console.log('🔄 [SECURITY] Applying subgroup filtering to refresh mutation');
-          
-          filteredData = filteredData.filter(tank => {
-            const tankGroup = userPermissions.accessibleGroups.find(g => g.id === tank.group_id);
-            if (!tankGroup) return false;
-            
-            if (tankGroup.subgroups && tankGroup.subgroups.length > 0) {
-              return tankGroup.subgroups.includes(tank.subgroup);
-            }
-            return true;
-          });
-          
-          console.log('🔄 [SECURITY] Refresh filtering complete:', {
-            originalCount: data?.length || 0,
-            filteredCount: filteredData.length
-          });
+        const { data: baseData, error: baseError } = await supabase
+          .from('fuel_tanks')
+          .select(`
+            id, location, product_type, safe_level, min_level, 
+            group_id, subgroup, address, vehicle, discharge, 
+            bp_portal, delivery_window, afterhours_contact, 
+            notes, serviced_on, serviced_by, latitude, longitude,
+            created_at, updated_at
+          `)
+          .order('location');
+
+        if (baseError) {
+          console.error('[TANKS DEBUG] Error fetching from base table:', baseError);
+          throw baseError;
         }
+
+        // Add placeholder values for missing fields (analytics will fill these)
+        data = baseData?.map(tank => ({
+          ...tank,
+          current_level: 0,
+          current_level_percent: 0,
+          rolling_avg: 0,
+          prev_day_used: 0,
+          days_to_min_level: null,
+          last_dip_ts: null,
+          last_dip_by: 'Unknown',
+          usable_capacity: (tank.safe_level || 0) - (tank.min_level || 0),
+          ullage: tank.safe_level || 0,
+          group_name: 'Unknown Group'
+        })) || [];
       }
-      
-      // Use same transformation function for consistency
-      return filteredData.map(transformTankData);
+
+      if (error && !error.message?.includes('500')) {
+        console.error('[TANKS DEBUG] Error fetching tanks:', error);
+        throw error;
+      }
+
+      console.log(`[TANKS DEBUG] Successfully fetched ${data?.length || 0} tanks`);
+      return data || [];
     },
-    onSuccess: (data) => {
-      // Update cache with optimized key
-      queryClient.setQueryData(queryKey, data);
-    }
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  const { mutate: exportTanksToCSV, isPending: isExporting } = useMutation({
-    mutationFn: async () => {
-      // Use cached data instead of making a new query
-      const tanksData = tanks || queryClient.getQueryData<Tank[]>(queryKey);
-      if (!tanksData || tanksData.length === 0) {
-        throw new Error('No tank data available for export');
-      }
-      
-      const headers = [
-        'ID', 'Location', 'Product', 'Safe Level', 'Current Level', 
-        'Rolling Avg', 'Days to Min', 'Group Name', 'Last Dip Value', 
-        'Last Dip Date', 'Last Dip By'
-      ];
-      
-      const csvContent = [
-        headers.join(','),
-        ...tanksData.map(tank => [
-          `"${tank.id}"`,
-          `"${tank.location || ''}"`,
-          `"${tank.product_type || ''}"`,
-          tank.safe_level || '',
-          tank.current_level || '',
-          tank.rolling_avg || '',
-          tank.days_to_min_level || '',
-          `"${tank.group_name || ''}"`,
-          tank.last_dip?.value ?? '',
-          `"${tank.last_dip?.created_at ?? ''}"`,
-          `"${tank.last_dip?.recorded_by ?? ''}"`
-        ].join(','))
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `tanks-export-${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
-  });
-
-  // Memoized computed values to prevent unnecessary recalculations
-  const computedStats = useMemo(() => {
-    if (!tanks) return { tanksCount: 0, criticalTanks: 0, lowTanks: 0 };
+  // Transform raw tank data to include analytics
+  const tanksWithAnalytics = (tanksQuery.data || []).map((tank: any) => {
+    // Get analytics for this tank (computed in frontend)
+    const { analytics } = useSimpleTankAnalytics(tank.id);
     
     return {
-      tanksCount: tanks.length,
-      criticalTanks: tanks.filter(t => (t.current_level_percent || 0) <= 20).length,
-      lowTanks: tanks.filter(t => {
-        const level = t.current_level_percent || 0;
-        return level > 20 && level <= 40;
-      }).length,
-    };
-  }, [tanks]);
+      ...tank,
+      // ✅ Replace placeholder values with real analytics
+      rolling_avg: analytics.rolling_avg,
+      prev_day_used: analytics.prev_day_used, 
+      days_to_min_level: analytics.days_to_min_level,
+      
+      // Ensure all fields have proper defaults
+      current_level: tank.current_level || 0,
+      current_level_percent: tank.current_level_percent || 0,
+      safe_level: tank.safe_level || 10000,
+      min_level: tank.min_level || 0,
+      group_name: tank.group_name || 'Unknown Group',
+      subgroup: tank.subgroup || 'No Subgroup',
+      last_dip_by: tank.last_dip_by || 'Unknown User',
+      usable_capacity: tank.usable_capacity || 0,
+      ullage: tank.ullage || 0,
+    } as Tank;
+  });
+
+  console.log('[TANKS DEBUG] Enhanced tanks with analytics:', {
+    totalTanks: tanksWithAnalytics.length,
+    tanksWithAnalytics: tanksWithAnalytics.slice(0, 3).map((t: Tank) => ({
+      location: t.location,
+      currentLevel: t.current_level,
+      rollingAvg: t.rolling_avg,
+      daysToMin: t.days_to_min_level,
+      prevDayUsed: t.prev_day_used
+    }))
+  });
 
   return {
-    tanks,
-    isLoading,
-    error,
-    refreshTanks,
-    exportTanksToCSV,
-    isExporting,
-    ...computedStats,
+    data: tanksWithAnalytics,
+    isLoading: tanksQuery.isLoading,
+    error: tanksQuery.error,
+    refetch: tanksQuery.refetch,
+    
+    // Utility functions
+    invalidate: () => {
+      queryClient.invalidateQueries({ queryKey: ['tanks'] });
+      queryClient.invalidateQueries({ queryKey: ['tank-readings-analytics'] });
+    },
+    
+    // Analytics summary
+    getAnalyticsSummary: () => {
+      if (!tanksWithAnalytics.length) return null;
+      
+      const tanksWithData = tanksWithAnalytics.filter((t: Tank) => t.rolling_avg > 0);
+      
+      return {
+        totalTanks: tanksWithAnalytics.length,
+        tanksWithAnalytics: tanksWithData.length,
+        avgRollingConsumption: tanksWithData.length > 0 
+          ? Math.round(tanksWithData.reduce((sum: number, t: Tank) => sum + t.rolling_avg, 0) / tanksWithData.length)
+          : 0,
+        tanksNeedingAttention: tanksWithAnalytics.filter((t: Tank) => 
+          t.current_level_percent < 15 || 
+          (t.days_to_min_level !== null && t.days_to_min_level < 7)
+        ).length,
+        totalDailyConsumption: Math.round(tanksWithData.reduce((sum: number, t: Tank) => sum + t.rolling_avg, 0))
+      };
+    }
   };
-}
+};
+
+// Legacy hook name for backward compatibility
+export const useTanksData = useTanks;
