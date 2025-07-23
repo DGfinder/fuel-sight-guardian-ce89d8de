@@ -1,10 +1,16 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useUserPermissions } from './useUserPermissions';
-import { UserPermissions } from '../types/auth';
-import { realtimeManager } from '../lib/realtime-manager';
-import { useSimpleTankAnalytics } from './useSimpleTankAnalytics';
+
+// Helper functions for analytics calculations
+const calculateConsumption = (olderReading: any, newerReading: any): number => {
+  if (!olderReading || !newerReading) return 0;
+  const consumption = olderReading.value - newerReading.value;
+  return Math.max(0, consumption);
+};
+
+const daysBetween = (date1: Date, date2: Date): number => {
+  return Math.abs((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
+};
 
 export interface Tank {
   id: string;
@@ -47,14 +53,14 @@ export interface Tank {
 export const useTanks = () => {
   const queryClient = useQueryClient();
 
-  // Fetch tank data from your existing database (no changes needed!)
+  // Fetch tank data from your existing database and calculate analytics
   const tanksQuery = useQuery({
-    queryKey: ['tanks-existing'],
+    queryKey: ['tanks-with-analytics'],
     queryFn: async () => {
-      console.log('[TANKS DEBUG] Fetching tanks from existing database...');
+      console.log('[TANKS DEBUG] Fetching tanks and calculating analytics...');
       
-      // Try existing view first, fallback to base table if it fails
-      let { data, error } = await supabase
+      // Step 1: Get tank data
+      let { data: tankData, error } = await supabase
         .from('tanks_with_rolling_avg')
         .select('*')
         .order('location');
@@ -79,20 +85,38 @@ export const useTanks = () => {
           throw baseError;
         }
 
-        // Add placeholder values for missing fields (analytics will fill these)
-        data = baseData?.map(tank => ({
-          ...tank,
-          current_level: 0,
-          current_level_percent: 0,
-          rolling_avg: 0,
-          prev_day_used: 0,
-          days_to_min_level: null,
-          last_dip_ts: null,
-          last_dip_by: 'Unknown',
-          usable_capacity: (tank.safe_level || 0) - (tank.min_level || 0),
-          ullage: tank.safe_level || 0,
-          group_name: 'Unknown Group'
-        })) || [];
+        // Get current levels from latest dip readings
+        const tankIds = baseData?.map(t => t.id) || [];
+        const { data: latestReadings } = await supabase
+          .from('dip_readings')
+          .select('tank_id, value, created_at')
+          .in('tank_id', tankIds)
+          .order('created_at', { ascending: false });
+
+        // Get latest reading per tank
+        const latestByTank = new Map();
+        latestReadings?.forEach(reading => {
+          if (!latestByTank.has(reading.tank_id)) {
+            latestByTank.set(reading.tank_id, reading);
+          }
+        });
+
+        // Combine tank data with latest readings
+        tankData = baseData?.map(tank => {
+          const latest = latestByTank.get(tank.id);
+          return {
+            ...tank,
+            current_level: latest?.value || 0,
+            current_level_percent: tank.safe_level > 0 
+              ? Math.round(((latest?.value || 0) / tank.safe_level) * 100)
+              : 0,
+            last_dip_ts: latest?.created_at || null,
+            last_dip_by: 'Unknown',
+            usable_capacity: (tank.safe_level || 0) - (tank.min_level || 0),
+            ullage: (tank.safe_level || 0) - (latest?.value || 0),
+            group_name: 'Unknown Group'
+          };
+        }) || [];
       }
 
       if (error && !error.message?.includes('500')) {
@@ -100,41 +124,86 @@ export const useTanks = () => {
         throw error;
       }
 
-      console.log(`[TANKS DEBUG] Successfully fetched ${data?.length || 0} tanks`);
-      return data || [];
+      console.log(`[TANKS DEBUG] Successfully fetched ${tankData?.length || 0} tanks`);
+
+      // Step 2: Get all dip readings for analytics (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: allReadings } = await supabase
+        .from('dip_readings')
+        .select('tank_id, value, created_at')
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: true });
+
+      console.log(`[TANKS DEBUG] Fetched ${allReadings?.length || 0} readings for analytics`);
+
+      // Step 3: Calculate analytics for each tank
+      const tanksWithAnalytics = (tankData || []).map(tank => {
+        // Get readings for this tank
+        const tankReadings = (allReadings || [])
+          .filter(r => r.tank_id === tank.id)
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+        // Calculate rolling average
+        let totalConsumption = 0;
+        let totalDays = 0;
+        const dailyConsumptions: number[] = [];
+
+        for (let i = 1; i < tankReadings.length; i++) {
+          const older = tankReadings[i - 1];
+          const newer = tankReadings[i];
+          
+          const consumption = calculateConsumption(older, newer);
+          const days = daysBetween(new Date(older.created_at), new Date(newer.created_at));
+          
+          if (days > 0 && consumption > 0) {
+            const dailyRate = consumption / days;
+            dailyConsumptions.push(dailyRate);
+            totalConsumption += consumption;
+            totalDays += days;
+          }
+        }
+
+        const rolling_avg = totalDays > 0 ? Math.round(totalConsumption / totalDays) : 0;
+
+        // Calculate previous day usage
+        const prev_day_used = dailyConsumptions.length > 0 
+          ? Math.round(dailyConsumptions[dailyConsumptions.length - 1] || rolling_avg)
+          : rolling_avg;
+
+        // Calculate days to minimum
+        const currentLevel = tank.current_level || 0;
+        const minLevel = tank.min_level || 0;
+        const availableFuel = Math.max(0, currentLevel - minLevel);
+        
+        const days_to_min_level = rolling_avg > 0 
+          ? Math.round((availableFuel / rolling_avg) * 10) / 10
+          : null;
+
+        return {
+          ...tank,
+          // ✅ Analytics calculated and included in tank data
+          rolling_avg,
+          prev_day_used,
+          days_to_min_level,
+        };
+      });
+
+      console.log(`[TANKS DEBUG] Calculated analytics for ${tanksWithAnalytics.length} tanks`);
+      
+      return tanksWithAnalytics;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  // Transform raw tank data to include analytics
-  const tanksWithAnalytics = (tanksQuery.data || []).map((tank: any) => {
-    // Get analytics for this tank (computed in frontend)
-    const { analytics } = useSimpleTankAnalytics(tank.id);
-    
-    return {
-      ...tank,
-      // ✅ Replace placeholder values with real analytics
-      rolling_avg: analytics.rolling_avg,
-      prev_day_used: analytics.prev_day_used, 
-      days_to_min_level: analytics.days_to_min_level,
-      
-      // Ensure all fields have proper defaults
-      current_level: tank.current_level || 0,
-      current_level_percent: tank.current_level_percent || 0,
-      safe_level: tank.safe_level || 10000,
-      min_level: tank.min_level || 0,
-      group_name: tank.group_name || 'Unknown Group',
-      subgroup: tank.subgroup || 'No Subgroup',
-      last_dip_by: tank.last_dip_by || 'Unknown User',
-      usable_capacity: tank.usable_capacity || 0,
-      ullage: tank.ullage || 0,
-    } as Tank;
-  });
+  // Data already includes calculated analytics
+  const tanks = tanksQuery.data || [];
 
-  console.log('[TANKS DEBUG] Enhanced tanks with analytics:', {
-    totalTanks: tanksWithAnalytics.length,
-    tanksWithAnalytics: tanksWithAnalytics.slice(0, 3).map((t: Tank) => ({
+  console.log('[TANKS DEBUG] Tanks with analytics ready:', {
+    totalTanks: tanks.length,
+    sampleAnalytics: tanks.slice(0, 3).map((t: Tank) => ({
       location: t.location,
       currentLevel: t.current_level,
       rollingAvg: t.rolling_avg,
@@ -144,30 +213,29 @@ export const useTanks = () => {
   });
 
   return {
-    data: tanksWithAnalytics,
+    data: tanks,
     isLoading: tanksQuery.isLoading,
     error: tanksQuery.error,
     refetch: tanksQuery.refetch,
     
     // Utility functions
     invalidate: () => {
-      queryClient.invalidateQueries({ queryKey: ['tanks'] });
-      queryClient.invalidateQueries({ queryKey: ['tank-readings-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['tanks-with-analytics'] });
     },
     
     // Analytics summary
     getAnalyticsSummary: () => {
-      if (!tanksWithAnalytics.length) return null;
+      if (!tanks.length) return null;
       
-      const tanksWithData = tanksWithAnalytics.filter((t: Tank) => t.rolling_avg > 0);
+      const tanksWithData = tanks.filter((t: Tank) => t.rolling_avg > 0);
       
       return {
-        totalTanks: tanksWithAnalytics.length,
+        totalTanks: tanks.length,
         tanksWithAnalytics: tanksWithData.length,
         avgRollingConsumption: tanksWithData.length > 0 
           ? Math.round(tanksWithData.reduce((sum: number, t: Tank) => sum + t.rolling_avg, 0) / tanksWithData.length)
           : 0,
-        tanksNeedingAttention: tanksWithAnalytics.filter((t: Tank) => 
+        tanksNeedingAttention: tanks.filter((t: Tank) => 
           t.current_level_percent < 15 || 
           (t.days_to_min_level !== null && t.days_to_min_level < 7)
         ).length,
