@@ -145,20 +145,10 @@ export const useTanks = () => {
           .filter(r => r.tank_id === tank.id)
           .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-        // DEBUG: Log tank reading info
-        if (tank.location === 'Alkimos' || tank.location === 'Beckenham' || tank.location === 'Beenyup') {
-          console.log(`[ANALYTICS DEBUG] Tank ${tank.location}:`, {
-            totalReadings: tankReadings.length,
-            firstReading: tankReadings[0],
-            lastReading: tankReadings[tankReadings.length - 1]
-          });
-        }
-
         // Calculate rolling average
         let totalConsumption = 0;
         let totalDays = 0;
         const dailyConsumptions: number[] = [];
-        let debugConsumptions: any[] = [];
 
         for (let i = 1; i < tankReadings.length; i++) {
           const older = tankReadings[i - 1];
@@ -167,34 +157,12 @@ export const useTanks = () => {
           const consumption = calculateConsumption(older, newer);
           const days = daysBetween(new Date(older.created_at), new Date(newer.created_at));
           
-          // DEBUG: Log consumption calculations
-          if (tank.location === 'Alkimos' || tank.location === 'Beckenham' || tank.location === 'Beenyup') {
-            debugConsumptions.push({
-              olderValue: older.value,
-              newerValue: newer.value,
-              consumption,
-              days,
-              dailyRate: days > 0 ? consumption / days : 0,
-              included: days > 0 && consumption > 0
-            });
-          }
-          
           if (days > 0 && consumption > 0) {
             const dailyRate = consumption / days;
             dailyConsumptions.push(dailyRate);
             totalConsumption += consumption;
             totalDays += days;
           }
-        }
-
-        // DEBUG: Log final calculations
-        if (tank.location === 'Alkimos' || tank.location === 'Beckenham' || tank.location === 'Beenyup') {
-          console.log(`[ANALYTICS DEBUG] ${tank.location} calculations:`, {
-            debugConsumptions: debugConsumptions.slice(0, 3), // First 3 calculations
-            totalConsumption,
-            totalDays,
-            validConsumptions: dailyConsumptions.length
-          });
         }
 
         // If no valid consumption data, try alternative calculation
@@ -209,17 +177,6 @@ export const useTanks = () => {
           
           if (totalDaysSpan > 0 && totalChange > 0) {
             rolling_avg = Math.round(totalChange / totalDaysSpan);
-            
-            // DEBUG: Log fallback calculation
-            if (tank.location === 'Alkimos' || tank.location === 'Beckenham' || tank.location === 'Beenyup') {
-              console.log(`[ANALYTICS DEBUG] ${tank.location} FALLBACK calculation:`, {
-                firstValue: firstReading.value,
-                lastValue: lastReading.value,
-                totalChange,
-                totalDaysSpan,
-                fallbackAvg: rolling_avg
-              });
-            }
           }
         }
 
@@ -268,21 +225,11 @@ export const useTanks = () => {
     }))
   });
 
-  // DETAILED DEBUG: Show actual tank values
-  if (tanks.length > 0) {
-    const firstTank = tanks[0];
-    console.log('[TANKS DEBUG] First tank detailed values:', {
-      location: firstTank.location,
-      rolling_avg: firstTank.rolling_avg,
-      prev_day_used: firstTank.prev_day_used,
-      days_to_min_level: firstTank.days_to_min_level,
-      current_level: firstTank.current_level,
-      allProperties: Object.keys(firstTank)
-    });
-  }
+
 
   return {
-    data: tanks,
+    tanks,
+    data: tanks,  // Keep for backward compatibility
     isLoading: tanksQuery.isLoading,
     error: tanksQuery.error,
     refetch: tanksQuery.refetch,
