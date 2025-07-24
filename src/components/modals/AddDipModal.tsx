@@ -311,13 +311,19 @@ export default function AddDipModal({
         setSubmitSuccess('Dip submitted successfully!');
         
         console.log('🔄 [DIP SUBMISSION] Invalidating queries...');
-        // Coordinate all query invalidations
+        // Coordinate all query invalidations with correct keys
         await Promise.all([
+          // Primary tank queries (both old and new keys for compatibility)
           queryClient.invalidateQueries({ queryKey: ['tanks'] }),
+          queryClient.invalidateQueries({ queryKey: ['tanks-with-analytics'] }),
+          // Related queries
           queryClient.invalidateQueries({ queryKey: ['tankHistory'] }),
-          queryClient.invalidateQueries({ queryKey: ['tankAlerts'] })
+          queryClient.invalidateQueries({ queryKey: ['tankAlerts'] }),
+          queryClient.invalidateQueries({ queryKey: ['dip_readings'] }),
+          // Force refetch of active queries
+          queryClient.refetchQueries({ queryKey: ['tanks-with-analytics'], type: 'active' })
         ]);
-        console.log('✅ [DIP SUBMISSION] Queries invalidated successfully');
+        console.log('✅ [DIP SUBMISSION] Queries invalidated and refetched successfully');
         
         resetForm();
         // Don't auto-close here, let useEffect handle it
