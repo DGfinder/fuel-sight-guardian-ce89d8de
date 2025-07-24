@@ -40,6 +40,10 @@ export const badgeVariants = cva(
           "border-fuel-normal text-fuel-normal bg-fuel-normal/10 hover:bg-fuel-normal/20",
         "fuel-unknown-outline":
           "border-fuel-unknown text-fuel-unknown bg-fuel-unknown/10 hover:bg-fuel-unknown/20",
+          
+        // Subtle variant for product types and other low-emphasis badges
+        subtle:
+          "border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100",
       },
       size: {
         default: "px-2.5 py-0.5 text-xs",

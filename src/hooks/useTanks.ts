@@ -94,13 +94,14 @@ export const useTanks = () => {
       });
 
 
-      // Step 3: Get current levels from latest dip readings
+      // Step 3: Get current levels from latest dip readings (optimized with limit)
       const tankIds = baseData?.map(t => t.id) || [];
       const { data: latestReadings } = await supabase
         .from('dip_readings')
         .select('tank_id, value, created_at, recorded_by')
         .in('tank_id', tankIds)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000); // Limit to most recent 1000 readings for performance
 
       // Get latest reading per tank
       const latestByTank = new Map();
@@ -154,25 +155,32 @@ export const useTanks = () => {
       }) || [];
 
 
-      // Step 5: Get all dip readings for analytics (last 7 days for rolling average)
+      // Step 5: Get dip readings for analytics (optimized query)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
       const { data: allReadings } = await supabase
         .from('dip_readings')
         .select('tank_id, value, created_at')
+        .in('tank_id', tankIds)
         .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .limit(500); // Limit analytics readings for better performance
 
 
-      // Step 6: Calculate analytics for each tank
+      // Step 6: Calculate analytics for each tank (optimized processing)
+      // Pre-group readings by tank_id for faster lookup
+      const readingsByTank = new Map();
+      (allReadings || []).forEach(reading => {
+        if (!readingsByTank.has(reading.tank_id)) {
+          readingsByTank.set(reading.tank_id, []);
+        }
+        readingsByTank.get(reading.tank_id).push(reading);
+      });
+      
       const tanksWithAnalytics = (tankData || []).map(tank => {
-        // Tank data is now consistent from base table (no normalization needed)
-        
-        // Get readings for this tank
-        const tankReadings = (allReadings || [])
-          .filter(r => r.tank_id === tank.id)
-          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        // Get pre-grouped readings for this tank (already time-ordered from query)
+        const tankReadings = readingsByTank.get(tank.id) || [];
 
         // Calculate rolling average
         let totalConsumption = 0;
@@ -279,8 +287,9 @@ export const useTanks = () => {
       throw error;
     }
   },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - longer cache for better performance
+    gcTime: 15 * 60 * 1000, // 15 minutes
+    refetchOnWindowFocus: false, // Prevent unnecessary refetches
   });
 
   // Data already includes calculated analytics
