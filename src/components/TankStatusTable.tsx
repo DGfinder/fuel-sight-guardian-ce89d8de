@@ -128,8 +128,10 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
                 : '—'}
             </span>
             <span>Prev Day Used (L):</span>
-            <span className="text-right">{typeof tank.prev_day_used === 'number' && tank.prev_day_used > 0
-              ? <span>{Math.round(tank.prev_day_used).toLocaleString()}</span>
+            <span className="text-right">{typeof tank.prev_day_used === 'number' && tank.prev_day_used !== 0
+              ? tank.is_recent_refill 
+                ? <span className="text-green-600">Refill ↗</span>
+                : <span className={tank.prev_day_used < 0 ? "text-red-600" : "text-green-600"}>{Math.round(tank.prev_day_used).toLocaleString()}</span>
               : '—'}</span>
             <span>Last Dip:</span>
             <span className="text-right">
@@ -211,7 +213,9 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
             </td>
             <td className="px-3 py-2 text-center">
               {typeof tank.prev_day_used === 'number' && tank.prev_day_used !== 0
-                ? <span className={tank.prev_day_used < 0 ? "text-red-600" : "text-green-600"}>{Math.round(tank.prev_day_used).toLocaleString()}</span>
+                ? tank.is_recent_refill 
+                  ? <span className="text-green-600">Refill ↗</span>
+                  : <span className={tank.prev_day_used < 0 ? "text-red-600" : "text-green-600"}>{Math.round(tank.prev_day_used).toLocaleString()}</span>
                 : '—'}
             </td>
             <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>
