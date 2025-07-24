@@ -28,7 +28,8 @@ import logo from "@/assets/logo.png";
 import { supabase } from '@/lib/supabase';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTanks } from "@/hooks/useTanks";
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { getActiveAlertsCount } from '@/lib/alertService';
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ALL_NAV_ITEMS = [
@@ -127,18 +128,16 @@ export const Sidebar: React.FC = () => {
   const { tanks, isLoading: tanksLoading } = useTanks();
   const queryClient = useQueryClient();
   
-  // Calculate counts from tanks array (respects RBAC since tanks are already filtered)
+  // Calculate tank count from tanks array (respects RBAC since tanks are already filtered)
   const tanksCount = tanks?.length || 0;
-  const criticalTanks = tanks?.filter(tank => {
-    const percent = tank.current_level_percent ?? 0;
-    return percent <= 10 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 1.5);
-  }).length || 0;
-  const lowTanks = tanks?.filter(tank => {
-    const percent = tank.current_level_percent ?? 0;
-    const isCritical = percent <= 10 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 1.5);
-    const isLow = percent <= 20 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 2.5);
-    return !isCritical && isLow; // Low but not critical
-  }).length || 0;
+  
+  // Get actual alert count from database
+  const { data: activeAlertCount = 0 } = useQuery({
+    queryKey: ['activeAlerts'],
+    queryFn: getActiveAlertsCount,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+  });
 
   const navItems = useMemo(() => {
     if (!permissions) return [];
@@ -422,9 +421,9 @@ export const Sidebar: React.FC = () => {
             >
               <AlertIcon className="w-5 h-5" />
               Alerts
-              {(criticalTanks || 0) + (lowTanks || 0) > 0 && (
+              {activeAlertCount > 0 && (
                 <span className="ml-2 bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
-                  {(criticalTanks || 0) + (lowTanks || 0)}
+                  {activeAlertCount}
                 </span>
               )}
             </Link>

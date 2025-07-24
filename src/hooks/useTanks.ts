@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { generateAlerts } from '../lib/alertService';
 
 // Helper functions for analytics calculations
 const calculateConsumption = (olderReading: any, newerReading: any): number => {
@@ -279,6 +280,14 @@ export const useTanks = () => {
         };
       });
 
+      
+      // Generate alerts asynchronously (non-blocking)
+      // This runs in the background and doesn't affect tank loading performance
+      if (tanksWithAnalytics.length > 0) {
+        generateAlerts(tanksWithAnalytics).catch(error => {
+          console.error('[ALERTS] Error generating alerts:', error);
+        });
+      }
       
       return tanksWithAnalytics;
       

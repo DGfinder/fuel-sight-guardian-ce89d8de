@@ -320,6 +320,7 @@ export default function AddDipModal({
           queryClient.invalidateQueries({ queryKey: ['tankHistory'] }),
           queryClient.invalidateQueries({ queryKey: ['tankAlerts'] }),
           queryClient.invalidateQueries({ queryKey: ['dip_readings'] }),
+          queryClient.invalidateQueries({ queryKey: ['activeAlerts'] }),
           // Force refetch of active queries
           queryClient.refetchQueries({ queryKey: ['tanks-with-analytics'], type: 'active' })
         ]);
