@@ -58,8 +58,7 @@ export const useTanks = () => {
   const tanksQuery = useQuery({
     queryKey: ['tanks-with-analytics'],
     queryFn: async () => {
-      console.log('[TANKS DEBUG] 🚀 START: Fetching tanks and calculating analytics...');
-      console.log('[TANKS DEBUG] 📋 Using simplified approach: base tables + frontend calculations');
+      // Fetching tanks with analytics
       
       try {
       
@@ -80,7 +79,6 @@ export const useTanks = () => {
         throw baseError;
       }
       
-      console.log(`[TANKS DEBUG] Successfully fetched ${baseData?.length || 0} tanks from base table`);
 
       // Step 2: Get group names from tank_groups table
       const uniqueGroupIds = [...new Set(baseData?.map(t => t.group_id).filter(Boolean))];
@@ -95,7 +93,6 @@ export const useTanks = () => {
         groupNameMap.set(group.id, group.name);
       });
 
-      console.log(`[TANKS DEBUG] Fetched ${groupData?.length || 0} group names for ${uniqueGroupIds.length} unique groups`);
 
       // Step 3: Get current levels from latest dip readings
       const tankIds = baseData?.map(t => t.id) || [];
@@ -156,17 +153,6 @@ export const useTanks = () => {
         };
       }) || [];
 
-      console.log(`[TANKS DEBUG] Combined tank data with current readings for ${tankData.length} tanks`);
-      
-      // Log sample of combined data structure
-      if (tankData && tankData.length > 0) {
-        console.log('[TANKS DEBUG] Sample tank data structure:', {
-          firstTank: Object.keys(tankData[0]),
-          hasCurrentLevel: 'current_level' in tankData[0],
-          hasUsableCapacity: 'usable_capacity' in tankData[0],
-          hasLastDip: 'last_dip' in tankData[0]
-        });
-      }
 
       // Step 5: Get all dip readings for analytics (last 7 days for rolling average)
       const sevenDaysAgo = new Date();
@@ -178,7 +164,6 @@ export const useTanks = () => {
         .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: true });
 
-      console.log(`[TANKS DEBUG] Fetched ${allReadings?.length || 0} readings for analytics from last 7 days`);
 
       // Step 6: Calculate analytics for each tank
       const tanksWithAnalytics = (tankData || []).map(tank => {
@@ -286,21 +271,6 @@ export const useTanks = () => {
         };
       });
 
-      console.log(`[TANKS DEBUG] Calculated analytics for ${tanksWithAnalytics.length} tanks`);
-      
-      // Log analytics calculation summary
-      const analyticsValid = tanksWithAnalytics.filter(t => t.rolling_avg !== 0).length;
-      const hasCurrentLevel = tanksWithAnalytics.filter(t => t.current_level > 0).length;
-      console.log(`[TANKS DEBUG] Analytics summary:`, {
-        tanksWithValidAnalytics: analyticsValid,
-        tanksWithCurrentLevel: hasCurrentLevel,
-        sampleTank: tanksWithAnalytics[0] ? {
-          location: tanksWithAnalytics[0].location,
-          currentLevel: tanksWithAnalytics[0].current_level,
-          rollingAvg: tanksWithAnalytics[0].rolling_avg,
-          daysToMin: tanksWithAnalytics[0].days_to_min_level
-        } : 'No tanks found'
-      });
       
       return tanksWithAnalytics;
       
@@ -316,55 +286,14 @@ export const useTanks = () => {
   // Data already includes calculated analytics
   const tanks = tanksQuery.data || [];
 
-  console.log('[TANKS DEBUG] Tanks with analytics ready:', {
-    totalTanks: tanks.length,
-    isArray: Array.isArray(tanks),
-    firstTankKeys: tanks[0] ? Object.keys(tanks[0]) : 'No tanks',
-    sampleAnalytics: tanks.slice(0, 3).map((t: Tank) => ({
-      location: t.location,
-      currentLevel: t.current_level,
-      currentLevelPercent: t.current_level_percent,
-      safeLevel: t.safe_level,
-      rollingAvg: t.rolling_avg,
-      daysToMin: t.days_to_min_level,
-      prevDayUsed: t.prev_day_used,
-      hasUsableCapacity: t.usable_capacity !== undefined,
-      hasUllage: t.ullage !== undefined
-    }))
-  });
 
-  // Additional debug: Check for empty or problematic data  
+  // Basic error checking
   if (tanks.length === 0) {
-    console.error('[TANKS DEBUG] ❌ CRITICAL: No tanks returned from database!');
-  } else if (tanks.every(t => !t.location)) {
-    console.error('[TANKS DEBUG] ❌ CRITICAL: All tanks missing location field!');
-  } else if (tanks.every(t => t.current_level_percent === 0)) {
-    console.warn('[TANKS DEBUG] ⚠️ WARNING: All tanks showing 0% - percentage calculation issue');
-  } else {
-    console.log('[TANKS DEBUG] ✅ Data looks good - tanks have locations and percentages');
+    console.error('[TANKS] No tanks returned from database');
   }
 
 
 
-  // Debug the query state - CRITICAL FOR LOADING ISSUE
-  console.log('🔴 [TANKS DEBUG] REACT QUERY STATE:', {
-    isLoading: tanksQuery.isLoading,
-    isFetching: tanksQuery.isFetching,
-    isError: tanksQuery.isError,
-    isPending: tanksQuery.isPending,
-    isSuccess: tanksQuery.isSuccess,
-    status: tanksQuery.status,
-    fetchStatus: tanksQuery.fetchStatus,
-    hasError: !!tanksQuery.error,
-    errorMessage: tanksQuery.error?.message,
-    dataLength: tanks.length,
-    hasData: !!tanksQuery.data
-  });
-
-  // CRITICAL: Check if isLoading is stuck
-  if (tanksQuery.isLoading && tanks.length > 0) {
-    console.error('🚨 [TANKS DEBUG] CRITICAL: isLoading=true but data exists! Query state stuck!');
-  }
 
   return {
     tanks,
