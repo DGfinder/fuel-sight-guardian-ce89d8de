@@ -31,8 +31,6 @@ import { useTanks } from "@/hooks/useTanks";
 import { useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from "@/components/ui/skeleton";
 
-// TankCount interface no longer needed - using data from useTanks hook
-
 const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
   { path: '/tanks', label: 'Tanks', icon: TankIcon, badge: 'totalTanks', group: null },
@@ -126,10 +124,21 @@ export const Sidebar: React.FC = () => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
-  const { tanks, tanksCount, criticalTanks, lowTanks, isLoading: tanksLoading } = useTanks();
+  const { tanks, isLoading: tanksLoading } = useTanks();
   const queryClient = useQueryClient();
-
-  // Using filtered counts from useTanks hook instead of separate query
+  
+  // Calculate counts from tanks array (respects RBAC since tanks are already filtered)
+  const tanksCount = tanks?.length || 0;
+  const criticalTanks = tanks?.filter(tank => {
+    const percent = tank.current_level_percent ?? 0;
+    return percent <= 10 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 1.5);
+  }).length || 0;
+  const lowTanks = tanks?.filter(tank => {
+    const percent = tank.current_level_percent ?? 0;
+    const isCritical = percent <= 10 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 1.5);
+    const isLow = percent <= 20 || (tank.days_to_min_level !== null && tank.days_to_min_level <= 2.5);
+    return !isCritical && isLow; // Low but not critical
+  }).length || 0;
 
   const navItems = useMemo(() => {
     if (!permissions) return [];
