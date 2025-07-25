@@ -14,8 +14,12 @@ const WEBHOOK_SECRET = process.env.GASBOT_WEBHOOK_SECRET || 'FSG-gasbot-webhook-
 
 // Transform Gasbot webhook data to our database format
 function transformGasbotLocationData(gasbotData) {
+  // Generate consistent location_guid based on location name (same logic as CSV import)
+  const locationName = gasbotData.LocationId;
+  const locationGuid = `location-${locationName.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+  
   return {
-    location_guid: `gasbot-${gasbotData.LocationId?.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`,
+    location_guid: locationGuid,
     customer_name: gasbotData.TenancyName || 'Unknown Customer',
     customer_guid: `customer-${gasbotData.TenancyName?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
     location_id: gasbotData.LocationId,
@@ -40,9 +44,13 @@ function transformGasbotLocationData(gasbotData) {
 }
 
 function transformGasbotAssetData(gasbotData, locationId) {
+  // Generate consistent asset_guid based on asset serial number
+  const assetSerial = gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber;
+  const assetGuid = `asset-${assetSerial.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+  
   return {
     location_id: locationId,
-    asset_guid: `gasbot-asset-${gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber}-${Date.now()}`,
+    asset_guid: assetGuid,
     asset_serial_number: gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber,
     asset_disabled: !gasbotData.DeviceOnline,
     asset_profile_guid: `profile-gasbot-tank`,

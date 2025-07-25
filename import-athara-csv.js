@@ -195,11 +195,15 @@ const csvData = [
 
 // Transform CSV data to database format
 function transformLocationData(csvRow) {
+  // Generate consistent location_guid based on location name, not device GUID
+  const locationName = csvRow["Asset: Serial Number"] || csvRow["Device: Serial Number"];
+  const locationGuid = `location-${locationName.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+  
   return {
-    location_guid: csvRow.GUID,
+    location_guid: locationGuid,
     customer_name: csvRow.Tenancy,
     customer_guid: csvRow["Tenancy Guid"],
-    location_id: csvRow["Asset: Serial Number"] || csvRow["Device: Serial Number"],
+    location_id: locationName,
     address1: '',
     address2: '',
     state: '',
@@ -220,9 +224,10 @@ function transformLocationData(csvRow) {
 }
 
 function transformAssetData(csvRow, locationId) {
+  // Use the device GUID for asset identification (this is correct for assets)
   return {
     location_id: locationId,
-    asset_guid: csvRow.GUID,
+    asset_guid: csvRow.GUID, // This is the device GUID - correct for assets
     asset_serial_number: csvRow["Asset: Serial Number"] || csvRow["Device: Serial Number"],
     asset_disabled: false,
     asset_profile_guid: `profile-${csvRow["Device: SKU"]}`,
