@@ -67,8 +67,17 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
   today,
   suppressNextRowClick
 }) => {
-  // Use the correctly calculated percent from the SQL view
-  const percent = typeof tank.current_level_percent === 'number' ? Math.round(tank.current_level_percent) : 0;
+  // Calculate percentage above minimum level (not total percentage)
+  const percent = useMemo(() => {
+    if (typeof tank.current_level !== 'number' || typeof tank.min_level !== 'number' || typeof tank.safe_level !== 'number') {
+      return 0;
+    }
+    const usableCapacity = tank.safe_level - tank.min_level;
+    const currentAboveMin = tank.current_level - tank.min_level;
+    
+    if (usableCapacity <= 0) return 0;
+    return Math.max(0, Math.round((currentAboveMin / usableCapacity) * 100));
+  }, [tank.current_level, tank.min_level, tank.safe_level]);
   const status = useMemo(() => {
     if (tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 2) return 'critical';
     if (tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 5) return 'low';
@@ -119,8 +128,10 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
                 : '—'}
             </span>
             <span>Prev Day Used (L):</span>
-            <span className="text-right">{typeof tank.prev_day_used === 'number' && tank.prev_day_used > 0
-              ? <span>{Math.round(tank.prev_day_used).toLocaleString()}</span>
+            <span className="text-right">{typeof tank.prev_day_used === 'number' && tank.prev_day_used !== 0
+              ? tank.is_recent_refill 
+                ? <span className="text-green-600">Refill ↗</span>
+                : <span>{Math.round(tank.prev_day_used).toLocaleString()}</span>
               : '—'}</span>
             <span>Last Dip:</span>
             <span className="text-right">
@@ -178,7 +189,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
               />
             </td>
             <td className="sticky left-[42px] z-10 bg-inherit px-3 py-2 font-bold">{tank.location}</td>
-            <td className="px-3 py-2 text-center"><Badge variant="secondary">{tank.product_type}</Badge></td>
+            <td className="px-3 py-2 text-center"><Badge variant="subtle">{tank.product_type}</Badge></td>
             <td className="px-3 py-2 text-center">
               <div className="flex flex-col items-center min-w-[100px]">
                 <span className="font-semibold text-gray-900 tabular-nums">{fmt(tank.current_level)} L</span>
@@ -196,13 +207,15 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
               {tank.days_to_min_level ?? '—'}
             </td>
             <td className="px-3 py-2 text-center">
-              {typeof rollingAvg === 'number' && rollingAvg > 0
-                ? <span className="text-gray-700">{Math.round(rollingAvg).toLocaleString()}</span>
+              {typeof rollingAvg === 'number' && rollingAvg !== 0
+                ? <span>{Math.round(rollingAvg).toLocaleString()}</span>
                 : '—'}
             </td>
             <td className="px-3 py-2 text-center">
-              {typeof tank.prev_day_used === 'number' && tank.prev_day_used > 0
-                ? <span className="text-gray-700">{Math.round(tank.prev_day_used).toLocaleString()}</span>
+              {typeof tank.prev_day_used === 'number' && tank.prev_day_used !== 0
+                ? tank.is_recent_refill 
+                  ? <span className="text-green-600">Refill ↗</span>
+                  : <span>{Math.round(tank.prev_day_used).toLocaleString()}</span>
                 : '—'}
             </td>
             <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>

@@ -38,16 +38,16 @@ export interface TankRow {
 
 export type Tank = TankRow;
 
-export type AlertType = 'critical' | 'low_level' | 'low_days';
+export type AlertType = 'low_fuel' | 'critical_fuel' | 'no_reading' | 'maintenance';
 
 export interface TankAlert {
   id: string;
   tank_id: string;
-  type: AlertType;
+  alert_type: AlertType;
   message: string;
   created_at: string;
-  updated_at: string;
   acknowledged_at: string | null;
+  acknowledged_by: string | null;
   snoozed_until: string | null;
   fuel_tanks: {
     id: string;

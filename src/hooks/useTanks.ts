@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { generateAlerts } from '../lib/alertService';
 
 // Helper functions for analytics calculations
 const calculateConsumption = (olderReading: any, newerReading: any): number => {
@@ -28,7 +29,8 @@ export interface Tank {
   
   // ✅ WORKING ANALYTICS (calculated in frontend)
   rolling_avg: number;           // L/day - 7-day rolling average  
-  prev_day_used: number;         // L - fuel used yesterday
+  prev_day_used: number;         // L - fuel used yesterday (negative = consumption, positive = refill)
+  is_recent_refill: boolean;     // true if prev_day_used represents a refill
   days_to_min_level: number | null; // days - predicted days until minimum
   
   // Additional fields
@@ -57,84 +59,129 @@ export const useTanks = () => {
   const tanksQuery = useQuery({
     queryKey: ['tanks-with-analytics'],
     queryFn: async () => {
-      // Step 1: Get tank data
-      let { data: tankData, error } = await supabase
-        .from('tanks_with_rolling_avg')
-        .select('*')
+      // Fetching tanks with analytics
+      
+      try {
+      
+      // Step 1: Get ALL tank data from fuel_tanks table (single source of truth)
+      const { data: baseData, error: baseError } = await supabase
+        .from('fuel_tanks')
+        .select(`
+          id, location, product_type, safe_level, min_level, 
+          group_id, subgroup, address, vehicle, discharge, 
+          bp_portal, delivery_window, afterhours_contact, 
+          notes, serviced_on, serviced_by, latitude, longitude,
+          created_at, updated_at
+        `)
         .order('location');
 
-      // If the view is broken (500 error), use base table
-      if (error && error.message?.includes('500')) {
-        
-        const { data: baseData, error: baseError } = await supabase
-          .from('fuel_tanks')
-          .select(`
-            id, location, product_type, safe_level, min_level, 
-            group_id, subgroup, address, vehicle, discharge, 
-            bp_portal, delivery_window, afterhours_contact, 
-            notes, serviced_on, serviced_by, latitude, longitude,
-            created_at, updated_at
-          `)
-          .order('location');
+      if (baseError) {
+        console.error('[TANKS DEBUG] Error fetching tanks from base table:', baseError);
+        throw baseError;
+      }
+      
 
-        if (baseError) {
-          throw baseError;
+      // Step 2: Get group names from tank_groups table
+      const uniqueGroupIds = [...new Set(baseData?.map(t => t.group_id).filter(Boolean))];
+      const { data: groupData } = await supabase
+        .from('tank_groups')
+        .select('id, name')
+        .in('id', uniqueGroupIds);
+
+      // Create a map of group_id to group_name for fast lookup
+      const groupNameMap = new Map();
+      groupData?.forEach(group => {
+        groupNameMap.set(group.id, group.name);
+      });
+
+
+      // Step 3: Get current levels from latest dip readings (optimized with limit)
+      const tankIds = baseData?.map(t => t.id) || [];
+      const { data: latestReadings } = await supabase
+        .from('dip_readings')
+        .select('tank_id, value, created_at, recorded_by')
+        .in('tank_id', tankIds)
+        .order('created_at', { ascending: false })
+        .limit(1000); // Limit to most recent 1000 readings for performance
+
+      // Get latest reading per tank
+      const latestByTank = new Map();
+      latestReadings?.forEach(reading => {
+        if (!latestByTank.has(reading.tank_id)) {
+          latestByTank.set(reading.tank_id, reading);
         }
+      });
 
-        // Get current levels from latest dip readings
-        const tankIds = baseData?.map(t => t.id) || [];
-        const { data: latestReadings } = await supabase
-          .from('dip_readings')
-          .select('tank_id, value, created_at')
-          .in('tank_id', tankIds)
-          .order('created_at', { ascending: false });
+      // Step 4: Combine tank data with latest readings
+      const tankData = baseData?.map(tank => {
+        const latest = latestByTank.get(tank.id);
+        const currentLevel = latest?.value ?? null; // Use null instead of 0 for missing readings
+        const safeLevel = tank.safe_level || 0;
+        const minLevel = tank.min_level || 0;
+        
+        return {
+          ...tank,
+          // Core fields with current readings
+          current_level: currentLevel,
+          current_level_percent: currentLevel !== null && safeLevel > minLevel 
+            ? Math.round(((currentLevel - minLevel) / (safeLevel - minLevel)) * 100)
+            : null, // Use null when no reading available
+          last_dip_ts: latest?.created_at || null,
+          last_dip_by: latest?.recorded_by || 'Unknown',
+          
+          // Ensure consistent field names
+          safe_level: safeLevel,
+          min_level: minLevel,
+          product_type: tank.product_type || 'Diesel',
+          
+          // Calculated fields
+          usable_capacity: Math.max(0, safeLevel - minLevel),
+          ullage: Math.max(0, safeLevel - currentLevel),
+          
+          // Group info with fallback - use the fetched group name
+          group_name: groupNameMap.get(tank.group_id) || 'Unknown Group',
+          
+          // Structured last_dip object
+          last_dip: latest ? {
+            value: latest.value,
+            created_at: latest.created_at,
+            recorded_by: latest.recorded_by || 'Unknown'
+          } : null,
+          
+          // Analytics placeholders (calculated below)
+          rolling_avg: 0,
+          prev_day_used: 0,
+          days_to_min_level: null
+        };
+      }) || [];
 
-        // Get latest reading per tank
-        const latestByTank = new Map();
-        latestReadings?.forEach(reading => {
-          if (!latestByTank.has(reading.tank_id)) {
-            latestByTank.set(reading.tank_id, reading);
-          }
-        });
 
-        // Combine tank data with latest readings
-        tankData = baseData?.map(tank => {
-          const latest = latestByTank.get(tank.id);
-          return {
-            ...tank,
-            current_level: latest?.value || 0,
-            current_level_percent: tank.safe_level > 0 
-              ? Math.round(((latest?.value || 0) / tank.safe_level) * 100)
-              : 0,
-            last_dip_ts: latest?.created_at || null,
-            last_dip_by: 'Unknown',
-            usable_capacity: (tank.safe_level || 0) - (tank.min_level || 0),
-            ullage: (tank.safe_level || 0) - (latest?.value || 0),
-            group_name: 'Unknown Group'
-          };
-        }) || [];
-      }
-
-      if (error && !error.message?.includes('500')) {
-        throw error;
-      }
-
-      // Step 2: Get all dip readings for analytics (last 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Step 5: Get dip readings for analytics (optimized query)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
       const { data: allReadings } = await supabase
         .from('dip_readings')
         .select('tank_id, value, created_at')
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: true });
+        .in('tank_id', tankIds)
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: true })
+        .limit(500); // Limit analytics readings for better performance
 
-      // Step 3: Calculate analytics for each tank
+
+      // Step 6: Calculate analytics for each tank (optimized processing)
+      // Pre-group readings by tank_id for faster lookup
+      const readingsByTank = new Map();
+      (allReadings || []).forEach(reading => {
+        if (!readingsByTank.has(reading.tank_id)) {
+          readingsByTank.set(reading.tank_id, []);
+        }
+        readingsByTank.get(reading.tank_id).push(reading);
+      });
+      
       const tanksWithAnalytics = (tankData || []).map(tank => {
-        // Get readings for this tank
-        const tankReadings = (allReadings || [])
-          .filter(r => r.tank_id === tank.id)
-          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        // Get pre-grouped readings for this tank (already time-ordered from query)
+        const tankReadings = readingsByTank.get(tank.id) || [];
 
         // Calculate rolling average
         let totalConsumption = 0;
@@ -171,37 +218,98 @@ export const useTanks = () => {
           }
         }
 
-        // Calculate previous day usage
-        const prev_day_used = dailyConsumptions.length > 0 
-          ? Math.round(dailyConsumptions[dailyConsumptions.length - 1] || rolling_avg)
-          : rolling_avg;
+        // Calculate previous day usage (latest minus previous reading)
+        let prev_day_used = 0;
+        let isRefill = false;
+        
+        if (tankReadings.length >= 2) {
+          const latestReading = tankReadings[tankReadings.length - 1];
+          const previousReading = tankReadings[tankReadings.length - 2];
+          const rawDifference = latestReading.value - previousReading.value;
+          
+          // Business logic: Detect if this is likely a refill
+          // If the increase is >= 100L, it's likely a refill or top-up
+          const REFILL_THRESHOLD = 100;
+          isRefill = rawDifference >= REFILL_THRESHOLD;
+          
+          // Always preserve the actual raw difference
+          // Positive = refill/increase, Negative = consumption/decrease
+          prev_day_used = rawDifference;
+          
+          // Debug logging for Alkimos tank specifically
+          if (tank.location && tank.location.toLowerCase().includes('alkimos')) {
+            console.log(`[ALKIMOS DEBUG] Tank: ${tank.location}`);
+            console.log(`[ALKIMOS DEBUG] Total readings: ${tankReadings.length}`);
+            console.log(`[ALKIMOS DEBUG] Latest reading:`, {
+              value: latestReading.value,
+              date: latestReading.created_at,
+              isLatest: true
+            });
+            console.log(`[ALKIMOS DEBUG] Previous reading:`, {
+              value: previousReading.value,
+              date: previousReading.created_at,
+              isPrevious: true
+            });
+            console.log(`[ALKIMOS DEBUG] Raw calculation: ${latestReading.value} - ${previousReading.value} = ${rawDifference}`);
+            console.log(`[ALKIMOS DEBUG] Detected as refill: ${isRefill}`);
+            console.log(`[ALKIMOS DEBUG] Final prev_day_used: ${prev_day_used}`);
+          }
+        }
+
+        // Convert rolling average to negative to indicate fuel usage
+        // (User logic: negative = consumption, positive = refill)
+        const rolling_avg_display = rolling_avg > 0 ? -rolling_avg : rolling_avg;
+        // prev_day_used already has correct sign from latest - previous calculation
 
         // Calculate days to minimum
-        const currentLevel = tank.current_level || 0;
+        const currentLevel = tank.current_level;
         const minLevel = tank.min_level || 0;
-        const availableFuel = Math.max(0, currentLevel - minLevel);
         
-        const days_to_min_level = rolling_avg > 0 
-          ? Math.round((availableFuel / rolling_avg) * 10) / 10
+        // Only calculate if we have a current level reading and positive consumption rate
+        const days_to_min_level = (currentLevel !== null && rolling_avg > 0) 
+          ? Math.round((Math.max(0, currentLevel - minLevel) / rolling_avg) * 10) / 10
           : null;
 
         return {
           ...tank,
-          // ✅ Analytics calculated and included in tank data
-          rolling_avg,
-          prev_day_used,
+          // ✅ Analytics calculated and included in tank data (negative = consumption, positive = refill)
+          rolling_avg: rolling_avg_display,
+          prev_day_used: prev_day_used,
+          is_recent_refill: isRefill,
           days_to_min_level,
         };
       });
+
+      
+      // Generate alerts asynchronously (non-blocking)
+      // This runs in the background and doesn't affect tank loading performance
+      if (tanksWithAnalytics.length > 0) {
+        generateAlerts(tanksWithAnalytics).catch(error => {
+          console.error('[ALERTS] Error generating alerts:', error);
+        });
+      }
       
       return tanksWithAnalytics;
-    },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+      
+    } catch (error) {
+      console.error('[TANKS DEBUG] ❌ CRITICAL ERROR in useTanks:', error);
+      throw error;
+    }
+  },
+    staleTime: 5 * 60 * 1000, // 5 minutes - longer cache for better performance
+    gcTime: 15 * 60 * 1000, // 15 minutes
+    refetchOnWindowFocus: false, // Prevent unnecessary refetches
   });
 
   // Data already includes calculated analytics
   const tanks = tanksQuery.data || [];
+
+
+  // Basic error checking
+  if (tanks.length === 0) {
+    console.error('[TANKS] No tanks returned from database');
+  }
+
 
 
 

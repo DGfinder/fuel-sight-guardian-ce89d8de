@@ -136,7 +136,13 @@ export default function AddDipModal({
   };
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data, error }) => {
+      console.log('🔐 [DIP MODAL] Auth state check:', { 
+        user: data?.user?.id, 
+        email: data?.user?.email,
+        role: data?.user?.role,
+        error: error?.message 
+      });
       setUserId(data?.user?.id || null);
     });
   }, []);
@@ -216,54 +222,128 @@ export default function AddDipModal({
     setSubmitError(null);
     setSubmitSuccess(null);
     
+    console.log('🚀 [DIP SUBMISSION] Starting submission process...');
+    console.log('📋 [DIP SUBMISSION] Form data:', {
+      groupId,
+      tankId,
+      dipValue,
+      dipDate: dipDate?.toISOString(),
+      userId,
+      userProfile: userProfile?.full_name
+    });
+    
     // Validate against safe fill level first
     if (safeFillError) {
+      console.error('❌ [DIP SUBMISSION] Safe fill validation failed:', safeFillError);
       setSubmitError(safeFillError);
       return;
     }
     
     // Comprehensive validation using Zod schema
     try {
-      const formData = dipReadingSchema.parse({
+      const rawFormData = {
         groupId,
         tankId,
         dipValue,
         dipDate,
+      };
+      console.log('🔍 [DIP SUBMISSION] Running Zod validation with raw data:', rawFormData);
+      console.log('🔍 [DIP SUBMISSION] Schema requirements:', {
+        groupId: 'string (UUID)',
+        tankId: 'string (UUID)', 
+        dipValue: 'string (decimal)',
+        dipDate: 'Date object'
       });
+      
+      const formData = dipReadingSchema.parse(rawFormData);
+      console.log('✅ [DIP SUBMISSION] Zod validation passed:', formData);
       
       setSaving(true);
       
-      const { error } = await supabase.from('dip_readings').insert({
+      const dipValueAsNumber = Number(formData.dipValue);
+      const insertData = {
         tank_id: formData.tankId,
-        value: Number(formData.dipValue),
+        value: Math.round(dipValueAsNumber), // Ensure integer for database schema
         created_at: formData.dipDate.toISOString(),
         recorded_by: userId,
         created_by_name: userProfile?.full_name || null,
         notes: null
+      };
+      
+      console.log('🔢 [DIP SUBMISSION] Type conversions:', {
+        originalDipValue: formData.dipValue,
+        asNumber: dipValueAsNumber,
+        asInteger: Math.round(dipValueAsNumber),
+        tankId: formData.tankId,
+        userId: userId,
+        dateISO: formData.dipDate.toISOString()
       });
+      
+      console.log('💾 [DIP SUBMISSION] Inserting to database:', insertData);
+      console.log('🔐 [DIP SUBMISSION] Authentication state:', {
+        userId: userId,
+        hasUserProfile: !!userProfile,
+        supabaseUrl: supabase.supabaseUrl,
+        supabaseKey: supabase.supabaseKey?.substring(0, 20) + '...'
+      });
+      
+      // Check network connectivity
+      if (!navigator.onLine) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+      
+      console.log('🌐 [DIP SUBMISSION] Network status: Online, attempting database insert...');
+      
+      const { data, error } = await supabase.from('dip_readings').insert(insertData).select();
+      
+      console.log('📥 [DIP SUBMISSION] Database response:', { data, error });
+      
       if (error) {
-        setSubmitError(error.message);
+        console.error('❌ [DIP SUBMISSION] Database error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        setSubmitError(`Database error: ${error.message}${error.details ? ` (${error.details})` : ''}`);
       } else {
+        console.log('✅ [DIP SUBMISSION] Successfully inserted dip reading:', data);
         setSubmitSuccess('Dip submitted successfully!');
-        // Coordinate all query invalidations
+        
+        console.log('🔄 [DIP SUBMISSION] Invalidating queries...');
+        // Coordinate all query invalidations with correct keys
         await Promise.all([
+          // Primary tank queries (both old and new keys for compatibility)
           queryClient.invalidateQueries({ queryKey: ['tanks'] }),
+          queryClient.invalidateQueries({ queryKey: ['tanks-with-analytics'] }),
+          // Related queries
           queryClient.invalidateQueries({ queryKey: ['tankHistory'] }),
-          queryClient.invalidateQueries({ queryKey: ['tankAlerts'] })
+          queryClient.invalidateQueries({ queryKey: ['tankAlerts'] }),
+          queryClient.invalidateQueries({ queryKey: ['dip_readings'] }),
+          queryClient.invalidateQueries({ queryKey: ['activeAlerts'] }),
+          // Force refetch of active queries
+          queryClient.refetchQueries({ queryKey: ['tanks-with-analytics'], type: 'active' })
         ]);
+        console.log('✅ [DIP SUBMISSION] Queries invalidated and refetched successfully');
+        
         resetForm();
         // Don't auto-close here, let useEffect handle it
       }
     } catch (validationError) {
+      console.error('❌ [DIP SUBMISSION] Validation error:', validationError);
+      
       // Handle validation errors from Zod schema
       if (validationError instanceof z.ZodError) {
         const errorMessage = validationError.errors.map(err => err.message).join(', ');
+        console.error('❌ [DIP SUBMISSION] Zod validation errors:', validationError.errors);
         setSubmitError(`Validation error: ${errorMessage}`);
       } else {
+        console.error('❌ [DIP SUBMISSION] Unexpected error:', validationError);
         setSubmitError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setSaving(false);
+      console.log('🏁 [DIP SUBMISSION] Submission process completed');
     }
   };
 

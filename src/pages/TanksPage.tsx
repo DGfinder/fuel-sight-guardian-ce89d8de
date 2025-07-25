@@ -44,6 +44,17 @@ export default function TanksPage() {
   const { tanks, isLoading, error, refreshTanks } = useTanks();
   const { openModal } = useTankModal();
   const [searchParams] = useSearchParams();
+
+  // Debug the tanks page state
+  console.log('[TANKSPAGE DEBUG] Page State:', {
+    isLoading,
+    hasError: !!error,
+    errorMessage: error?.message,
+    tanksCount: tanks?.length || 0,
+    tanksArray: Array.isArray(tanks),
+    firstTankLocation: tanks?.[0]?.location,
+    firstTankPercent: tanks?.[0]?.current_level_percent
+  });
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');

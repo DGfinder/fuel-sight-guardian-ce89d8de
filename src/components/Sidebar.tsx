@@ -29,10 +29,9 @@ import logo from "@/assets/logo.png";
 import { supabase } from '@/lib/supabase';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTanks } from "@/hooks/useTanks";
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { getActiveAlertsCount } from '@/lib/alertService';
 import { Skeleton } from "@/components/ui/skeleton";
-
-// TankCount interface no longer needed - using data from useTanks hook
 
 const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
@@ -128,10 +127,19 @@ export const Sidebar: React.FC = () => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
-  const { tanks, tanksCount, criticalTanks, lowTanks, isLoading: tanksLoading } = useTanks();
+  const { tanks, isLoading: tanksLoading } = useTanks();
   const queryClient = useQueryClient();
-
-  // Using filtered counts from useTanks hook instead of separate query
+  
+  // Calculate tank count from tanks array (respects RBAC since tanks are already filtered)
+  const tanksCount = tanks?.length || 0;
+  
+  // Get actual alert count from database
+  const { data: activeAlertCount = 0 } = useQuery({
+    queryKey: ['activeAlerts'],
+    queryFn: getActiveAlertsCount,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+  });
 
   const navItems = useMemo(() => {
     if (!permissions) return [];
@@ -415,9 +423,9 @@ export const Sidebar: React.FC = () => {
             >
               <AlertIcon className="w-5 h-5" />
               Alerts
-              {(criticalTanks || 0) + (lowTanks || 0) > 0 && (
+              {activeAlertCount > 0 && (
                 <span className="ml-2 bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
-                  {(criticalTanks || 0) + (lowTanks || 0)}
+                  {activeAlertCount}
                 </span>
               )}
             </Link>

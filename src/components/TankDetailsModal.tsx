@@ -1,15 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useModalGestures } from '@/hooks/useTouchGestures';
-import { SkeletonChart, SkeletonText, Skeleton } from '@/components/ui/skeleton';
+import React, { useState, useEffect, useMemo } from 'react';
+import { SkeletonChart } from '@/components/ui/skeleton';
 import {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,25 +19,16 @@ import {
   Clock,
   TrendingUp,
   Info,
-  Edit,
-  Flag,
   History,
-  X,
-  Phone,
   Droplets,
-  BellOff,
   AlertTriangle,
   Shield,
-  Zap,
   Activity,
-  Gauge,
   Calendar,
   MapPin,
-  Fuel,
   BarChart3,
   TrendingDown,
   FileText,
-  Settings,
   Timer,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -88,16 +75,7 @@ interface TankDetailsModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// Define TankDetails type
-interface TankDetails {
-  address?: string;
-  vehicle?: string;
-  discharge?: string;
-  bp_portal?: string;
-  delivery_window?: string;
-  afterhours_contact?: string;
-  notes?: string;
-}
+// Tank details are now included in the Tank type from useTanks (single source of truth)
 
 // Main Component - No React.memo
 export function TankDetailsModal({
@@ -107,7 +85,7 @@ export function TankDetailsModal({
 }: TankDetailsModalProps) {
   const [isDipFormOpen, setIsDipFormOpen] = useState(false);
   const [isEditDipOpen, setIsEditDipOpen] = useState(false);
-  const [tankDetails, setTankDetails] = useState<TankDetails | null>(null);
+  // Tank details are now included in the tank prop from useTanks (single source of truth)
   // TODO: Re-enable mobile gesture support after fixing ref compatibility
   // const modalContentRef = useRef<HTMLDivElement>(null);
   // const { attachListeners } = useModalGestures(() => onOpenChange(false));
@@ -119,42 +97,15 @@ export function TankDetailsModal({
     }
   }, [open]);
 
-  // Fetch tank details from fuel_tanks table
-  useEffect(() => {
-    const fetchTankDetails = async () => {
-      if (!tank?.id || !open) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('fuel_tanks')
-          .select('address, vehicle, discharge, bp_portal, delivery_window, afterhours_contact, notes')
-          .eq('id', tank.id)
-          .single();
-        
-        if (error) {
-          console.error('Error fetching tank details:', error);
-          return;
-        }
-        
-        setTankDetails(data);
-      } catch (err) {
-        console.error('Error fetching tank details:', err);
-      }
-    };
-
-    fetchTankDetails();
-  }, [tank?.id, open]);
-
   const {
     alerts,
     acknowledgeAlert,
     snoozeAlert,
     isLoading: alertsLoading,
-    error: alertsError,
   } = useTankAlerts(tank?.id);
 
   const dipHistoryQuery = useTankHistory({
-    tankId: tank?.id,
+    tankId: tank?.id || '',
     enabled: open && !!tank?.id,
     days: 30,
   });
@@ -387,8 +338,6 @@ export function TankDetailsModal({
   // Early return if no tank - must be after all hooks
   if (!tank) return null;
 
-  // -- Depot Notes Logic --
-  const depotNotes = 'No notes available.';
 
   // Get tank status based on current level
   const getTankStatus = () => {
@@ -401,12 +350,12 @@ export function TankDetailsModal({
     const daysToMin = tank.days_to_min_level;
     
     // Critical: ≤1.5 days OR ≤10% fuel
-    if (percentage <= 10 || (daysToMin !== null && daysToMin <= 1.5)) {
+    if (percentage <= 10 || (daysToMin !== null && daysToMin !== undefined && daysToMin <= 1.5)) {
       return { status: 'critical', color: 'red', percentage };
     }
     
     // Low: ≤2.5 days OR ≤20% fuel  
-    if (percentage <= 20 || (daysToMin !== null && daysToMin <= 2.5)) {
+    if (percentage <= 20 || (daysToMin !== null && daysToMin !== undefined && daysToMin <= 2.5)) {
       return { status: 'low', color: 'orange', percentage };
     }
     
@@ -451,59 +400,13 @@ export function TankDetailsModal({
     };
 
     return (
-      <Badge variant="outline" className={`${colorClasses[color]} font-medium capitalize`}>
+      <Badge variant="outline" className={`${colorClasses[color as keyof typeof colorClasses]} font-medium capitalize`}>
         {getStatusIcon()}
         <span className="ml-1">{status}</span>
       </Badge>
     );
   };
 
-  // Alerts rendering logic
-  const renderAlert = (alert: TankAlert) => {
-    const getAlertIcon = () => {
-      switch (alert.type) {
-        case 'critical':
-          return <AlertTriangle className="w-4 h-4 text-red-600" />;
-        case 'low_level':
-          return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
-        default:
-          return <Clock className="w-4 h-4 text-blue-600" />;
-      }
-    };
-
-    const getAlertColor = () => {
-      switch (alert.type) {
-        case 'critical':
-          return 'border-red-200 bg-red-50';
-        case 'low_level':
-          return 'border-yellow-200 bg-yellow-50';
-        default:
-          return 'border-blue-200 bg-blue-50';
-      }
-    };
-
-    return (
-      <div key={alert.id} className={`p-3 border rounded-lg ${getAlertColor()}`}>
-        <div className="flex items-start gap-2">
-          {getAlertIcon()}
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-900">{alert.message}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {format(new Date(alert.created_at), 'MMM d, HH:mm')}
-            </p>
-          </div>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" onClick={() => acknowledgeAlert(alert.id)}>
-              <CheckCircle className="w-3 h-3" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => snoozeAlert(alert.id)}>
-              <Clock className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <>
@@ -824,19 +727,19 @@ export function TankDetailsModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <span className="text-sm text-gray-500">Address</span>
-                        <p className="font-medium">{tankDetails?.address || 'N/A'}</p>
+                        <p className="font-medium">{tank?.address || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Vehicle</span>
-                        <p className="font-medium">{tankDetails?.vehicle || 'N/A'}</p>
+                        <p className="font-medium">{tank?.vehicle || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Discharge</span>
-                        <p className="font-medium">{tankDetails?.discharge || 'N/A'}</p>
+                        <p className="font-medium">{tank?.discharge || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">BP Portal</span>
-                        <p className="font-medium">{tankDetails?.bp_portal || 'N/A'}</p>
+                        <p className="font-medium">{tank?.bp_portal || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Min Level</span>
@@ -844,11 +747,11 @@ export function TankDetailsModal({
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Delivery Window</span>
-                        <p className="font-medium">{tankDetails?.delivery_window || 'N/A'}</p>
+                        <p className="font-medium">{tank?.delivery_window || 'N/A'}</p>
                       </div>
                       <div className="md:col-span-2">
                         <span className="text-sm text-gray-500">Afterhours Contact</span>
-                        <p className="font-medium">{tankDetails?.afterhours_contact || 'N/A'}</p>
+                        <p className="font-medium">{tank?.afterhours_contact || 'N/A'}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -861,11 +764,10 @@ export function TankDetailsModal({
                   </CardHeader>
                   <CardContent>
                     <EditableNotesSection
-                      notes={tankDetails?.notes || ''}
+                      notes={tank?.notes || ''}
                       onSave={async (newNotes) => {
                         await supabase.from('fuel_tanks').update({ notes: newNotes }).eq('id', tank.id);
-                        // Update local state to reflect the change
-                        setTankDetails(prev => ({ ...prev, notes: newNotes }));
+                        // Notes will be updated on next refetch of useTanks
                       }}
                     />
                   </CardContent>

@@ -177,20 +177,6 @@ export interface Database {
           created_at?: string
         }
       }
-      tanks_with_rolling_avg: {
-        Row: {
-          id: string
-          location: string
-          group_id: string
-          subgroup: string | null
-          safe_level: number
-          current_level: number
-          current_level_percent: number
-          min_level?: number | null
-        }
-        Insert: never
-        Update: never
-      }
     }
     Views: {
       [_ in never]: never
