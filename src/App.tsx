@@ -22,6 +22,7 @@ const Index = lazy(() => import("@/pages/Index"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const SwanTransit = lazy(() => import('@/pages/SwanTransit'));
 const Kalgoorlie = lazy(() => import('@/pages/Kalgoorlie'));
+const KalgoorlieBulkEntry = lazy(() => import('@/pages/KalgoorlieBulkEntry'));
 const Settings = lazy(() => import('@/pages/Settings'));
 const Login = lazy(() => import("@/pages/Login"));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
@@ -196,6 +197,13 @@ const App = () => {
                     <ProtectedRoute>
                       <RouteErrorBoundary routeName="Kalgoorlie" showHomeButton={true}>
                         <Kalgoorlie />
+                      </RouteErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/kalgoorlie/bulk-entry" element={
+                    <ProtectedRoute>
+                      <RouteErrorBoundary routeName="Kalgoorlie Bulk Entry" showHomeButton={true}>
+                        <KalgoorlieBulkEntry />
                       </RouteErrorBoundary>
                     </ProtectedRoute>
                   } />
