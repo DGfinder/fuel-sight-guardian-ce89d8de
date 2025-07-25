@@ -16,6 +16,8 @@ import { useGlobalModals } from './contexts/GlobalModalsContext';
 import EditDipModal from './components/modals/EditDipModal';
 import { AlertsDrawer } from './components/AlertsDrawer';
 import { Calendar } from './components/ui/calendar';
+import { AgbotModalProvider, useAgbotModal } from './contexts/AgbotModalContext';
+import AgbotDetailsModal from './components/AgbotDetailsModal';
 
 // Lazy load page components for better code splitting
 const Index = lazy(() => import("@/pages/Index"));
@@ -35,6 +37,7 @@ const HealthPage = lazy(() => import('@/pages/HealthPage'));
 const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
+const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -104,7 +107,7 @@ function HashRedirector() {
   return null;
 }
 
-const App = () => {
+function AppContent() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const { selectedTank, open, closeModal } = useTankModal();
   const { editDipOpen, editDipTank, closeEditDip, alertsOpen, closeAlerts } = useGlobalModals();
@@ -243,6 +246,18 @@ const App = () => {
                       </ProtectedRoute>
                     } 
                   />
+                  <Route 
+                    path="/agbot" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Agbot Monitoring" showHomeButton={true}>
+                          <Suspense fallback={<PageLoader />}>
+                            <AgbotPage />
+                          </Suspense>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
                   <Route path="/settings" element={
                     <ProtectedRoute>
                       <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
@@ -294,10 +309,19 @@ const App = () => {
               onOpenChange={closeAlerts}
               tanks={[]} // You may want to pass tanks from context or props
             />
+            <AgbotDetailsModal />
           </AppStateProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </>
+  );
+}
+
+const App = () => {
+  return (
+    <AgbotModalProvider>
+      <AppContent />
+    </AgbotModalProvider>
   );
 };
 

@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
-import { useTanks } from '@/hooks/useTanks';
+import { useMapData } from '@/hooks/useMapData';
 import { useTankModal } from '@/contexts/TankModalContext';
+import { useAgbotModal } from '@/contexts/AgbotModalContext';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container, Stack, Inline, ControlBar, StatusPanel } from '@/components/ui/layout';
 import { TankMapPopup } from '@/components/TankMapPopup';
-import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route } from 'lucide-react';
+import { AgbotMapPopup } from '@/components/AgbotMapPopup';
+import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route, Signal } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import L from 'leaflet';
@@ -23,45 +25,18 @@ import jsPDF from 'jspdf';
 
 import { semanticColors } from '@/lib/design-tokens';
 import { getFuelStatus, getFuelStatusText } from '@/components/ui/fuel-status';
+import { getIconForTank, getIconForAgbot } from '@/components/map/MapIcons';
 
-// Create simple tank icons without template literals
-const createTankIcon = (color: string) => {
-  return new L.Icon({
-    iconUrl: 'data:image/svg+xml;base64,' + btoa(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">' +
-      '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="' + color + '" stroke="#ffffff" stroke-width="2"/>' +
-      '<circle cx="12" cy="9" r="3" fill="#ffffff"/>' +
-      '</svg>'
-    ),
-    iconSize: [24, 36],
-    iconAnchor: [12, 36],
-    popupAnchor: [0, -36],
-  });
-};
-
-const TANK_ICONS = {
-  critical: createTankIcon(semanticColors.tankCritical),
-  low: createTankIcon(semanticColors.tankLow),
-  normal: createTankIcon(semanticColors.tankNormal),
-  default: createTankIcon(semanticColors.tankUnknown),
-};
-
-const getIconForTank = (tank: { current_level_percent?: number | null }) => {
-  const status = getFuelStatus(tank.current_level_percent);
-  switch (status) {
-    case 'critical': return TANK_ICONS.critical;
-    case 'low': return TANK_ICONS.low;
-    case 'normal': return TANK_ICONS.normal;
-    default: return TANK_ICONS.default;
-  }
-};
+// Icon logic moved to /src/components/map/MapIcons.ts
 
 function MapView() {
-  const { tanks, isLoading, error } = useTanks();
+  const { allItems, manualTanks, agbotDevices, counts, isLoading, error, refetch } = useMapData();
   const { openModal } = useTankModal();
+  const { openModalFromMap } = useAgbotModal();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedSource, setSelectedSource] = useState<string>('all'); // 'all', 'manual', 'agbot'
   const [showFilters, setShowFilters] = useState(false);
   const [mapStyle, setMapStyle] = useState('light');
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -94,38 +69,40 @@ function MapView() {
     if (!autoRefresh) return;
     
     const interval = setInterval(() => {
-      // Trigger refetch of tanks data
-      window.location.reload();
+      // Trigger refetch of both tank and agbot data
+      refetch();
     }, 30000); // Refresh every 30 seconds
     
     return () => clearInterval(interval);
-  }, [autoRefresh]);
+  }, [autoRefresh, refetch]);
   
   // Manual refresh handler
   const handleManualRefresh = () => {
-    window.location.reload();
+    refetch();
   };
   
-  // Export tanks as CSV
+  // Export items as CSV
   const exportToCSV = () => {
-    if (!filteredTanks.length) return;
+    if (!filteredItems.length) return;
     
     const headers = [
-      'Tank ID', 'Location', 'Group', 'Product Type', 'Current Level %', 
-      'Safe Level', 'Min Level', 'Latitude', 'Longitude', 'Last Reading Date'
+      'ID', 'Location', 'Group', 'Product Type', 'Source', 'Current Level %', 
+      'Safe Level', 'Min Level', 'Latitude', 'Longitude', 'Last Reading Date', 'Status'
     ];
     
-    const csvData = filteredTanks.map(tank => [
-      tank.id,
-      tank.location || '',
-      tank.group_name || '',
-      tank.product_type || '',
-      tank.current_level_percent?.toFixed(1) || '',
-      tank.safe_level || '',
-      tank.min_level || '',
-      tank.latitude || '',
-      tank.longitude || '',
-      tank.latest_dip_date ? new Date(tank.latest_dip_date).toLocaleDateString() : ''
+    const csvData = filteredItems.map(item => [
+      item.id,
+      item.location || '',
+      item.group_name || '',
+      item.product_type || '',
+      item.source,
+      item.current_level_percent?.toFixed(1) || '',
+      item.safe_level || '',
+      item.min_level || '',
+      item.latitude || '',
+      item.longitude || '',
+      item.latest_dip_date ? new Date(item.latest_dip_date).toLocaleDateString() : '',
+      item.source === 'agbot' ? (item.device_online ? 'Online' : 'Offline') : 'Manual'
     ]);
     
     const csvContent = [headers, ...csvData]
@@ -136,7 +113,7 @@ function MapView() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', 'tank-locations-' + new Date().toISOString().split('T')[0] + '.csv');
+    link.setAttribute('download', 'map-locations-' + new Date().toISOString().split('T')[0] + '.csv');
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -158,7 +135,7 @@ function MapView() {
       
       pdf.setFontSize(10);
       pdf.text('Generated on: ' + new Date().toLocaleDateString(), 20, 30);
-      pdf.text('Total tanks shown: ' + filteredTanks.length, 20, 40);
+      pdf.text('Total locations shown: ' + filteredItems.length + ' (' + counts.manual + ' tanks, ' + counts.agbot + ' agbot devices)', 20, 40);
       
       const imgWidth = 250;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
@@ -175,37 +152,54 @@ function MapView() {
     window.print();
   };
   
-  // Filter tanks based on search and filters
-  const filteredTanks = useMemo(() => {
-    if (!tanks) return [];
+  // Filter items based on search and filters
+  const filteredItems = useMemo(() => {
+    if (!allItems) return [];
     
-    return tanks.filter(tank => {
+    return allItems.filter(item => {
       // Search filter
-      if (searchTerm && !tank.location?.toLowerCase().includes(searchTerm.toLowerCase())) {
+      if (searchTerm && !item.location?.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false;
       }
       
       // Group filter
-      if (selectedGroup !== 'all' && tank.group_name !== selectedGroup) {
+      if (selectedGroup !== 'all' && item.group_name !== selectedGroup) {
+        return false;
+      }
+      
+      // Source filter (manual tanks vs agbot devices)
+      if (selectedSource !== 'all' && item.source !== selectedSource) {
         return false;
       }
       
       // Status filter
       if (selectedStatus !== 'all') {
-        const status = getFuelStatus(tank.current_level_percent);
-        if (selectedStatus !== status) return false;
+        if (item.source === 'manual') {
+          const status = getFuelStatus(item.current_level_percent);
+          if (selectedStatus !== status) return false;
+        } else if (item.source === 'agbot') {
+          // For agbot, map status differently
+          const percentage = item.current_level_percent;
+          let agbotStatus = 'unknown';
+          if (percentage !== null && percentage !== undefined) {
+            if (percentage <= 20) agbotStatus = 'critical';
+            else if (percentage <= 50) agbotStatus = 'low';
+            else agbotStatus = 'normal';
+          }
+          if (selectedStatus !== agbotStatus) return false;
+        }
       }
       
       return true;
     });
-  }, [tanks, searchTerm, selectedGroup, selectedStatus]);
+  }, [allItems, searchTerm, selectedGroup, selectedStatus, selectedSource]);
   
   // Get unique groups for filter dropdown
   const uniqueGroups = useMemo(() => {
-    if (!tanks) return [];
-    const groups = tanks.map(tank => tank.group_name).filter(Boolean) as string[];
+    if (!allItems) return [];
+    const groups = allItems.map(item => item.group_name).filter(Boolean) as string[];
     return Array.from(new Set(groups)).sort();
-  }, [tanks]);
+  }, [allItems]);
   
   // Handle error state
   if (error) {
@@ -257,9 +251,9 @@ function MapView() {
               {/* Header Info */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-xl font-bold">Tank Locations Map</h1>
+                  <h1 className="text-xl font-bold">Fuel Monitoring Map</h1>
                   <p className="text-sm text-gray-600">
-                    Showing {filteredTanks.length} of {tanks?.length || 0} tanks
+                    Showing {filteredItems.length} of {counts.total} locations ({counts.manual} tanks, {counts.agbot} agbot devices)
                   </p>
                 </div>
               </div>
@@ -310,6 +304,17 @@ function MapView() {
                   </SelectContent>
                 </Select>
                 
+                <Select value={selectedSource} onValueChange={setSelectedSource}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="manual">Tanks</SelectItem>
+                    <SelectItem value="agbot">Agbot</SelectItem>
+                  </SelectContent>
+                </Select>
+                
                 <Select value={mapStyle} onValueChange={setMapStyle}>
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="Map Style" />
@@ -331,18 +336,35 @@ function MapView() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-6">
-                <span className="font-medium">Status Legend:</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-red-500 rounded"></div>
-                  <span className="text-sm">Critical (&le;10%)</span>
+                <div className="flex items-center gap-4">
+                  <span className="font-medium">Manual Tanks:</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-red-600 rounded"></div>
+                    <span className="text-sm">Critical</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-orange-500 rounded"></div>
+                    <span className="text-sm">Low</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-green-600 rounded"></div>
+                    <span className="text-sm">Normal</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                  <span className="text-sm">Low (11-20%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-green-500 rounded"></div>
-                  <span className="text-sm">Normal (&gt;20%)</span>
+                <div className="flex items-center gap-4">
+                  <span className="font-medium">Agbot Devices:</span>
+                  <div className="flex items-center gap-2">
+                    <Signal className="w-4 h-4 text-red-600" />
+                    <span className="text-sm">Critical (&le;20%)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Signal className="w-4 h-4 text-orange-500" />
+                    <span className="text-sm">Low (&le;50%)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Signal className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">Good (&gt;50%)</span>
+                  </div>
                 </div>
               </div>
               
@@ -352,7 +374,7 @@ function MapView() {
                   size="sm"
                   onClick={exportToCSV}
                   className="h-8 text-sm whitespace-nowrap"
-                  disabled={!filteredTanks.length}
+                  disabled={!filteredItems.length}
                 >
                   <Download className="h-3 w-3 mr-1" />
                   CSV
@@ -418,19 +440,26 @@ function MapView() {
                 />
                 
                 <MarkerClusterGroup>
-                  {filteredTanks
-                    .filter(tank => tank.latitude && tank.longitude)
-                    .map(tank => (
+                  {filteredItems
+                    .filter(item => item.latitude && item.longitude)
+                    .map(item => (
                       <Marker
-                        key={tank.id}
-                        position={[tank.latitude!, tank.longitude!]}
-                        icon={getIconForTank(tank)}
+                        key={item.id}
+                        position={[item.latitude!, item.longitude!]}
+                        icon={item.source === 'manual' ? getIconForTank(item) : getIconForAgbot(item)}
                       >
                         <Popup>
-                          <TankMapPopup 
-                            tank={tank} 
-                            onViewDetails={openModal}
-                          />
+                          {item.source === 'manual' ? (
+                            <TankMapPopup 
+                              tank={item} 
+                              onViewDetails={openModal}
+                            />
+                          ) : (
+                            <AgbotMapPopup 
+                              agbot={item} 
+                              onViewDetails={openModalFromMap}
+                            />
+                          )}
                         </Popup>
                       </Marker>
                     ))

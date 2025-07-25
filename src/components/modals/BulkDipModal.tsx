@@ -64,9 +64,12 @@ export default function BulkDipModal({ open, onOpenChange, groupId, groupName }:
     
     let groupTanks = tanks.filter(t => t.group_id === groupId);
     
-    // If user has subgroup restrictions, filter by those
+    // Skip subgroup filtering for Kalgoorlie - one person manages all subgroups
+    const KALGOORLIE_GROUP_ID = '7e4d01d8-e2d7-4977-9cef-8046d7fbaf1d';
+    
+    // If user has subgroup restrictions AND this is not Kalgoorlie, filter by those
     const groupPermission = permissions?.accessibleGroups.find(g => g.id === groupId);
-    if (groupPermission && groupPermission.subgroups.length > 0) {
+    if (groupId !== KALGOORLIE_GROUP_ID && groupPermission && groupPermission.subgroups.length > 0) {
       groupTanks = groupTanks.filter(t => 
         t.subgroup && groupPermission.subgroups.includes(t.subgroup)
       );

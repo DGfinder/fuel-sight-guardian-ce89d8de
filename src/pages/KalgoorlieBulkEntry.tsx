@@ -44,22 +44,16 @@ export default function KalgoorlieBulkEntryPage() {
     fetchUserInfo();
   }, []);
 
-  // Filter tanks for Kalgoorlie group and user permissions
+  // Filter tanks for Kalgoorlie group (show all subgroups for Kalgoorlie users)
   const filteredTanks = useMemo(() => {
     if (!tanks) return [];
     
-    let kalgoorlieTanks = tanks.filter(t => t.group_name === KALGOORLIE_GROUP_NAME);
-    
-    // If user has subgroup restrictions, filter by those
-    const groupPermission = permissions?.accessibleGroups.find(g => g.name === KALGOORLIE_GROUP_NAME);
-    if (groupPermission && groupPermission.subgroups.length > 0) {
-      kalgoorlieTanks = kalgoorlieTanks.filter(t => 
-        t.subgroup && groupPermission.subgroups.includes(t.subgroup)
-      );
-    }
+    // For Kalgoorlie, show all tanks regardless of subgroup permissions
+    // One person manages all ~160 tanks across all subgroups
+    const kalgoorlieTanks = tanks.filter(t => t.group_name === KALGOORLIE_GROUP_NAME);
     
     return kalgoorlieTanks;
-  }, [tanks, permissions]);
+  }, [tanks]);
 
   // Group tanks by subgroup
   const tanksBySubgroup = useMemo(() => {
@@ -126,9 +120,12 @@ export default function KalgoorlieBulkEntryPage() {
                   Back to Dashboard
                 </Button>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Bulk Dip Entry</h1>
+                  <h1 className="text-3xl font-bold text-gray-900">Kalgoorlie Bulk Dip Entry</h1>
                   <p className="text-gray-600 mt-1">
-                    Quick entry for {totalTanks} tanks across {totalSubgroups} subgroups
+                    Excel-style workflow: {totalTanks} tanks organized across {totalSubgroups} subgroups
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Each subgroup below represents a section from your Excel sheet
                   </p>
                 </div>
               </div>
@@ -172,7 +169,8 @@ export default function KalgoorlieBulkEntryPage() {
             {totalSubgroups > 0 && (
               <Alert>
                 <AlertDescription>
-                  Complete dip readings for each subgroup below. Progress is saved automatically as you go.
+                  Complete dip readings for each subgroup below. Each subgroup represents a section from your Excel workflow.
+                  Progress is saved automatically as you go.
                   {completedSubgroups.size === totalSubgroups && (
                     <span className="text-green-600 font-medium ml-2">
                       All subgroups completed! 🎉
@@ -182,20 +180,61 @@ export default function KalgoorlieBulkEntryPage() {
               </Alert>
             )}
 
+            {/* Subgroup Overview */}
+            {totalSubgroups > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-white rounded-lg border">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{totalSubgroups}</div>
+                  <div className="text-sm text-muted-foreground">Subgroups</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{totalTanks}</div>
+                  <div className="text-sm text-muted-foreground">Total Tanks</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{completedSubgroups.size}</div>
+                  <div className="text-sm text-muted-foreground">Completed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">{totalSubgroups - completedSubgroups.size}</div>
+                  <div className="text-sm text-muted-foreground">Remaining</div>
+                </div>
+              </div>
+            )}
+
             {/* Subgroup Entry Cards */}
             <div className="space-y-6">
-              {Object.entries(tanksBySubgroup).map(([subgroup, subgroupTanks]) => (
-                <div key={subgroup} className={completedSubgroups.has(subgroup) ? 'opacity-75' : ''}>
-                  <SubgroupQuickEntry
-                    subgroup={subgroup}
-                    tanks={subgroupTanks}
-                    dipDate={dipDate}
-                    userId={userId}
-                    userProfile={userProfile}
-                    onSuccess={() => handleSubgroupSuccess(subgroup)}
-                  />
-                </div>
-              ))}
+              {Object.entries(tanksBySubgroup).map(([subgroup, subgroupTanks]) => {
+                const isCompleted = completedSubgroups.has(subgroup);
+                return (
+                  <div 
+                    key={subgroup} 
+                    className={`transition-all duration-200 ${
+                      isCompleted 
+                        ? 'opacity-75 transform scale-[0.98] border-l-4 border-green-500' 
+                        : 'border-l-4 border-blue-500'
+                    }`}
+                  >
+                    <div className="relative">
+                      {isCompleted && (
+                        <div className="absolute -top-2 -right-2 z-10">
+                          <div className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow-lg">
+                            ✓
+                          </div>
+                        </div>
+                      )}
+                      <SubgroupQuickEntry
+                        subgroup={subgroup}
+                        tanks={subgroupTanks}
+                        dipDate={dipDate}
+                        userId={userId}
+                        userProfile={userProfile}
+                        onSuccess={() => handleSubgroupSuccess(subgroup)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Empty State */}

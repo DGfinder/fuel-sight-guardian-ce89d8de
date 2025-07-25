@@ -57,8 +57,6 @@ export const useTanks = () => {
   const tanksQuery = useQuery({
     queryKey: ['tanks-with-analytics'],
     queryFn: async () => {
-      console.log('[TANKS DEBUG] Fetching tanks and calculating analytics...');
-      
       // Step 1: Get tank data
       let { data: tankData, error } = await supabase
         .from('tanks_with_rolling_avg')
@@ -67,7 +65,6 @@ export const useTanks = () => {
 
       // If the view is broken (500 error), use base table
       if (error && error.message?.includes('500')) {
-        console.log('[TANKS DEBUG] View failed, using base table...');
         
         const { data: baseData, error: baseError } = await supabase
           .from('fuel_tanks')
@@ -81,7 +78,6 @@ export const useTanks = () => {
           .order('location');
 
         if (baseError) {
-          console.error('[TANKS DEBUG] Error fetching from base table:', baseError);
           throw baseError;
         }
 
@@ -120,11 +116,8 @@ export const useTanks = () => {
       }
 
       if (error && !error.message?.includes('500')) {
-        console.error('[TANKS DEBUG] Error fetching tanks:', error);
         throw error;
       }
-
-      console.log(`[TANKS DEBUG] Successfully fetched ${tankData?.length || 0} tanks`);
 
       // Step 2: Get all dip readings for analytics (last 30 days)
       const thirtyDaysAgo = new Date();
@@ -135,8 +128,6 @@ export const useTanks = () => {
         .select('tank_id, value, created_at')
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: true });
-
-      console.log(`[TANKS DEBUG] Fetched ${allReadings?.length || 0} readings for analytics`);
 
       // Step 3: Calculate analytics for each tank
       const tanksWithAnalytics = (tankData || []).map(tank => {
@@ -202,8 +193,6 @@ export const useTanks = () => {
           days_to_min_level,
         };
       });
-
-      console.log(`[TANKS DEBUG] Calculated analytics for ${tanksWithAnalytics.length} tanks`);
       
       return tanksWithAnalytics;
     },
@@ -213,17 +202,6 @@ export const useTanks = () => {
 
   // Data already includes calculated analytics
   const tanks = tanksQuery.data || [];
-
-  console.log('[TANKS DEBUG] Tanks with analytics ready:', {
-    totalTanks: tanks.length,
-    sampleAnalytics: tanks.slice(0, 3).map((t: Tank) => ({
-      location: t.location,
-      currentLevel: t.current_level,
-      rollingAvg: t.rolling_avg,
-      daysToMin: t.days_to_min_level,
-      prevDayUsed: t.prev_day_used
-    }))
-  });
 
 
 

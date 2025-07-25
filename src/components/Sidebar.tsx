@@ -21,7 +21,8 @@ import {
   Building2Icon,
   TrendingUp,
   History,
-  Mail
+  Mail,
+  Signal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
@@ -37,6 +38,7 @@ const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
   { path: '/tanks', label: 'Tanks', icon: TankIcon, badge: 'totalTanks', group: null },
   { path: '/map', label: 'Map View', icon: MapPin, badge: null, group: null },
+  { path: '/agbot', label: 'Agbot Monitoring', icon: Signal, badge: null, group: null },
   { 
     path: '/swan-transit', 
     label: 'Swan Transit', 

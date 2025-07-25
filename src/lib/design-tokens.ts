@@ -308,6 +308,13 @@ export const semanticColors = {
   tankNormal: fuelStatusColors.normal[600],          // >2.5 days AND >20% fuel (no immediate concern)
   tankUnknown: fuelStatusColors.unknown[500],        // No data
   
+  // Agbot device status mapping (percentage-based)
+  agbotCritical: '#dc2626',                          // ≤20% fuel (urgent)
+  agbotLow: '#f59e0b',                              // 21-50% fuel (low)
+  agbotNormal: '#16a34a',                           // >50% fuel (good)
+  agbotOffline: '#64748b',                          // Device offline/no data
+  agbotOnline: '#22c55e',                           // Device online indicator
+  
   // Alert severity mapping
   alertCritical: alertColors.error[600],             // Critical alerts
   alertWarning: alertColors.warning[500],            // Warning alerts
