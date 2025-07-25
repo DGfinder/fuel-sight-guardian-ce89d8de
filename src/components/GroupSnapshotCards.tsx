@@ -48,7 +48,8 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
         const isSelected = selectedGroup === group.id;
         const criticalTanks = group.criticalTanks || 0;
         const lowTanks = Math.max(0, Math.floor(group.totalTanks * 0.2) - criticalTanks);
-        const totalVolume = group.totalTanks * 25000; // Mock calculation
+        // TODO: Calculate actual total volume from real tank capacities (safe_level + min_level)
+        // Cannot display volume without real tank capacity data - removed fake calculation
         
         return (
           <Card
@@ -120,8 +121,8 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
 
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Volume</p>
-                <p className="text-sm font-bold text-gray-700">
-                  {(totalVolume / 1000).toFixed(0)}K L
+                <p className="text-sm font-bold text-gray-400">
+                  Data unavailable
                 </p>
               </div>
               

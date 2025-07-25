@@ -5,8 +5,17 @@ const ATHARA_API_KEY = import.meta.env.VITE_ATHARA_API_KEY || '9PAUTYO9U7VZTXD40
 const ATHARA_BASE_URL = import.meta.env.VITE_ATHARA_BASE_URL || 'https://api.athara.com'; // TODO: Verify actual Athara API base URL
 
 // Development flags
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_AGBOT_DATA === 'true';
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_AGBOT_API_LOGGING !== 'false'; // Default to true
+
+// API Health Status
+export type AtharaAPIStatus = 'available' | 'unavailable' | 'error' | 'unknown';
+
+export interface AtharaAPIHealth {
+  status: AtharaAPIStatus;
+  lastSuccessfulCall: string | null;
+  lastError: string | null;
+  consecutiveFailures: number;
+}
 
 // API request configuration
 const ATHARA_REQUEST_CONFIG = {
@@ -181,84 +190,55 @@ export interface AgbotSyncResult {
   duration: number;
 }
 
-// Mock data for fallback/testing
-const getMockAtharaData = (): AtharaLocation => ({
-  id: "7840e8ab-48aa-4671-8108-45e30d200e6c",
-  customerName: "Great Southern Fuel Supplies",
-  customerGuid: "9d2a7cfa-530c-4048-b595-c1cb1cca61e3",
-  locationGuid: "f0ef812f-9c1c-4c62-ac85-4497e9ec3cff",
-  locationId: "Bruce Rock Diesel",
-  address1: "1 Johnson Street",
-  address2: "Bruce Rock",
-  state: "Western Australia",
-  postcode: "",
-  country: "Western Australia",
-  latestCalibratedFillPercentage: 56.36,
-  installationStatusLabel: "Installed",
-  installationStatus: 2,
-  locationStatusLabel: "Online",
-  locationStatus: 2,
-  latestTelemetryEpoch: Date.now() - (2 * 60 * 60 * 1000), // 2 hours ago
-  latestTelemetry: new Date(Date.now() - (2 * 60 * 60 * 1000)).toISOString(),
-  lat: -31.87491,
-  lng: 118.14936,
-  disabled: false,
-  assets: [{
-    assetGuid: "708cfc39-19cc-4808-abc9-cd32029f8e84",
-    assetSerialNumber: "Bruce Rock Diesel",
-    assetDisabled: false,
-    assetProfileGuid: "79d86490-cd44-46de-aec9-ceeac9e1ce10",
-    assetProfileName: "Bruce Rock Diesel",
-    deviceGuid: "c23009c9-ad68-4616-a020-b40267b69fc4",
-    deviceSerialNumber: "0000100002", // Fixed to match screenshot
-    deviceId: "867280066307927",
-    deviceSKUGuid: "82a483e4-e085-49df-8763-d4ef9c91db2e",
-    deviceSensorGuid: "d5897c30-f991-4d9a-b27d-47e2ce437366",
-    deviceState: 1,
-    deviceStateLabel: "Active",
-    helmetSerialNumber: null,
-    subscriptionId: "1nLp9UbUnxHwi841Z",
-    deviceSKUModel: 43111,
-    deviceSKUName: "Agbot Cellular 43111",
-    deviceModelLabel: "Nebula_Red",
-    deviceModel: 3,
-    deviceOnline: true,
-    deviceActivationDate: "2025-07-09T03:53:04+00:00",
-    deviceActivationEpoch: 1752033184000,
-    deviceLatestTelemetryEventTimestamp: new Date(Date.now() - (2 * 60 * 60 * 1000)).toISOString(),
-    deviceLatestTelemetryEventEpoch: Date.now() - (2 * 60 * 60 * 1000),
-    latestCalibratedFillPercentage: 56.36,
-    latestRawFillPercentage: 54.43,
-    latestTelemetryEventTimestamp: new Date(Date.now() - (2 * 60 * 60 * 1000)).toISOString(),
-    latestTelemetryEventEpoch: Date.now() - (2 * 60 * 60 * 1000),
-    latestCoordinationUpdateTimestamp: "2025-07-22T06:14:13.6335+00:00",
-    latestReportedLat: -31.874852,
-    latestReportedLng: 118.149362,
-    myriotaDetails: null
-  }]
-});
+// API Health Tracking (in-memory for now, could be moved to database)
+let apiHealthStatus: AtharaAPIHealth = {
+  status: 'unknown',
+  lastSuccessfulCall: null,
+  lastError: null,
+  consecutiveFailures: 0
+};
 
-// Fetch data from Athara API with fallback to mock data
-export async function fetchAtharaLocations(forceUseMockData?: boolean): Promise<AtharaLocation[]> {
-  const shouldUseMockData = forceUseMockData ?? USE_MOCK_DATA;
-  
-  // If explicitly requested to use mock data (for testing) or environment is set to use mock
-  if (shouldUseMockData) {
-    if (ENABLE_API_LOGGING) {
-      console.log('[ATHARA API] Using mock data (environment/parameter setting)');
+// Function to update API health status
+function updateAPIHealth(success: boolean, error?: string): void {
+  if (success) {
+    apiHealthStatus = {
+      status: 'available',
+      lastSuccessfulCall: new Date().toISOString(),
+      lastError: null,
+      consecutiveFailures: 0
+    };
+  } else {
+    apiHealthStatus = {
+      status: 'error',
+      lastSuccessfulCall: apiHealthStatus.lastSuccessfulCall,
+      lastError: error || 'Unknown error',
+      consecutiveFailures: apiHealthStatus.consecutiveFailures + 1
+    };
+    
+    // Mark as unavailable after multiple consecutive failures
+    if (apiHealthStatus.consecutiveFailures >= 3) {
+      apiHealthStatus.status = 'unavailable';
     }
-    return [getMockAtharaData()];
   }
+}
 
+// Get current API health status
+export function getAtharaAPIHealth(): AtharaAPIHealth {
+  return { ...apiHealthStatus };
+}
+
+// PRODUCTION SAFE: Fetch data from Athara API - NO MOCK DATA FALLBACKS
+export async function fetchAtharaLocations(): Promise<AtharaLocation[]> {
   // Validate API configuration before attempting call
   if (!ATHARA_API_KEY || ATHARA_API_KEY === 'your-api-key-here') {
-    console.warn('[ATHARA API] Invalid or missing API key, using mock data');
-    return [getMockAtharaData()];
+    const error = 'CRITICAL: Invalid or missing Athara API key. Check VITE_ATHARA_API_KEY environment variable.';
+    updateAPIHealth(false, error);
+    throw new Error(error);
   }
 
   try {
     if (ENABLE_API_LOGGING) {
-      console.log('[ATHARA API] Attempting to fetch real data from Athara API...');
+      console.log('[ATHARA API] Fetching data from Athara API...');
     }
     
     // Attempt real API call
@@ -266,22 +246,29 @@ export async function fetchAtharaLocations(forceUseMockData?: boolean): Promise<
     
     // Validate the response structure
     if (!Array.isArray(data)) {
-      throw new Error('Invalid response format: expected array of locations');
+      const error = 'Invalid Athara API response: expected array of locations';
+      updateAPIHealth(false, error);
+      throw new Error(error);
     }
+    
+    // Update health status on success
+    updateAPIHealth(true);
     
     if (ENABLE_API_LOGGING) {
       console.log(`[ATHARA API] Successfully fetched ${data.length} locations from Athara API`);
     }
+    
     return data;
     
   } catch (error) {
-    console.error('[ATHARA API] Real API call failed, falling back to mock data:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    updateAPIHealth(false, errorMessage);
     
-    // Fallback to mock data if API fails
-    if (ENABLE_API_LOGGING) {
-      console.log('[ATHARA API] Using mock data as fallback');
-    }
-    return [getMockAtharaData()];
+    console.error('[ATHARA API] CRITICAL: API call failed - NO MOCK DATA AVAILABLE:', error);
+    
+    // Re-throw the error instead of using mock data
+    // This forces the application to handle the error appropriately
+    throw new Error(`Athara API unavailable: ${errorMessage}`);
   }
 }
 
@@ -352,6 +339,10 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
     errors: [],
     duration: 0
   };
+  
+  console.log('\n' + '='.repeat(60));
+  console.log('🔄 AGBOT SYNC STARTED');
+  console.log('='.repeat(60));
 
   try {
     // Log sync start
@@ -365,15 +356,36 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
       .select()
       .single();
 
-    // Fetch data from Athara API (will try real API first, fallback to mock)
+    // Fetch data from Athara API - will throw error if API unavailable
     const atharaLocations = await fetchAtharaLocations();
     
-    if (ENABLE_API_LOGGING) {
-      console.log(`[AGBOT SYNC] Fetched ${atharaLocations.length} locations from Athara API`);
-    }
+    // Comprehensive logging of API response
+    console.log('\n📊 API RESPONSE ANALYSIS:');
+    console.log('-'.repeat(40));
+    console.log(`Total Locations Received: ${atharaLocations.length}`);
+    
+    let totalAssetsInResponse = 0;
+    const customerAssetCounts: Record<string, number> = {};
+    
+    atharaLocations.forEach((loc) => {
+      const assetCount = loc.assets?.length || 0;
+      totalAssetsInResponse += assetCount;
+      customerAssetCounts[loc.customerName] = (customerAssetCounts[loc.customerName] || 0) + assetCount;
+    });
+    
+    console.log(`Total Assets/Tanks in Response: ${totalAssetsInResponse}`);
+    console.log('\nAssets by Customer:');
+    Object.entries(customerAssetCounts).forEach(([customer, count]) => {
+      console.log(`  ${customer}: ${count} tanks`);
+    });
+    console.log('-'.repeat(40) + '\n');
 
     for (const atharaLocation of atharaLocations) {
       try {
+        console.log(`\n📍 Processing Location: ${atharaLocation.customerName} - ${atharaLocation.locationId}`);
+        console.log(`   GUID: ${atharaLocation.locationGuid}`);
+        console.log(`   Assets to process: ${atharaLocation.assets?.length || 0}`);
+        
         // Upsert location
         const locationData = transformLocationData(atharaLocation);
         const { data: location, error: locationError } = await supabase
@@ -386,16 +398,26 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
           .single();
 
         if (locationError) {
-          result.errors.push(`Location error: ${locationError.message}`);
+          const errorMsg = `Location error for ${atharaLocation.customerName}: ${locationError.message}`;
+          console.error(`   ❌ ${errorMsg}`);
+          result.errors.push(errorMsg);
+          console.log(`   ⚠️  Skipping ${atharaLocation.assets?.length || 0} assets due to location error`);
           continue;
         }
 
+        console.log(`   ✅ Location saved (ID: ${location.id})`);
         result.locationsProcessed++;
 
         // Process assets for this location
+        console.log(`   Processing ${atharaLocation.assets?.length || 0} assets...`);
+        let assetsSuccessful = 0;
+        let assetsFailed = 0;
+        
         for (const atharaAsset of atharaLocation.assets) {
           try {
             const assetData = transformAssetData(atharaAsset, location.id);
+            console.log(`      - Asset ${atharaAsset.deviceSerialNumber} (${atharaAsset.deviceOnline ? 'online' : 'offline'})`);
+            
             const { error: assetError } = await supabase
               .from('agbot_assets')
               .upsert(assetData, { 
@@ -404,10 +426,14 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
               });
 
             if (assetError) {
-              result.errors.push(`Asset error: ${assetError.message}`);
+              const errorMsg = `Asset ${atharaAsset.deviceSerialNumber} error: ${assetError.message}`;
+              console.error(`        ❌ ${errorMsg}`);
+              result.errors.push(errorMsg);
+              assetsFailed++;
               continue;
             }
 
+            assetsSuccessful++;
             result.assetsProcessed++;
 
             // Store historical reading
@@ -426,16 +452,47 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
               result.readingsProcessed++;
             }
           } catch (assetError) {
-            result.errors.push(`Asset processing error: ${assetError}`);
+            const errorMsg = `Asset processing error: ${assetError}`;
+            console.error(`        ❌ ${errorMsg}`);
+            result.errors.push(errorMsg);
+            assetsFailed++;
           }
         }
+        
+        console.log(`   📊 Assets Summary: ${assetsSuccessful} successful, ${assetsFailed} failed`);
+        
       } catch (locationError) {
-        result.errors.push(`Location processing error: ${locationError}`);
+        const errorMsg = `Location processing error for ${atharaLocation.customerName}: ${locationError}`;
+        console.error(`\n❌ ${errorMsg}`);
+        result.errors.push(errorMsg);
       }
     }
 
     result.success = result.errors.length === 0;
     result.duration = Date.now() - startTime;
+
+    // Final summary
+    console.log('\n' + '='.repeat(60));
+    console.log('📈 SYNC SUMMARY:');
+    console.log('-'.repeat(40));
+    console.log(`Status: ${result.success ? '✅ SUCCESS' : '⚠️  PARTIAL SUCCESS'}`);
+    console.log(`Duration: ${result.duration}ms`);
+    console.log(`\nProcessed:`);
+    console.log(`  Locations: ${result.locationsProcessed}/${atharaLocations.length}`);
+    console.log(`  Assets: ${result.assetsProcessed}/${totalAssetsInResponse}`);
+    console.log(`  Readings: ${result.readingsProcessed}`);
+    
+    if (result.errors.length > 0) {
+      console.log(`\n⚠️  Errors (${result.errors.length}):`);
+      result.errors.slice(0, 5).forEach((error, i) => {
+        console.log(`  ${i + 1}. ${error}`);
+      });
+      if (result.errors.length > 5) {
+        console.log(`  ... and ${result.errors.length - 5} more errors`);
+      }
+    }
+    
+    console.log('='.repeat(60) + '\n');
 
     // Update sync log
     if (syncLog) {
@@ -457,6 +514,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
   } catch (error) {
     result.errors.push(`Sync error: ${error}`);
     result.duration = Date.now() - startTime;
+    console.error('\n❌ SYNC FAILED:', error);
     return result;
   }
 }
@@ -464,27 +522,24 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
 // Test real API connectivity (for troubleshooting)
 export async function testAtharaAPIConnection(): Promise<{
   success: boolean;
-  usingMockData: boolean;
   responseTime: number;
   error?: string;
   dataCount?: number;
+  apiHealth: AtharaAPIHealth;
 }> {
   const startTime = Date.now();
   
   try {
-    // Force real API call (bypass mock data setting)
-    if (USE_MOCK_DATA) {
-      console.log('[ATHARA API TEST] Note: Environment is set to use mock data, but testing real API anyway');
-    }
+    console.log('[ATHARA API TEST] Testing connection to Athara API...');
     
     const data = await makeAtharaRequest('/locations');
     const responseTime = Date.now() - startTime;
     
     return {
       success: true,
-      usingMockData: false,
       responseTime,
-      dataCount: Array.isArray(data) ? data.length : 1
+      dataCount: Array.isArray(data) ? data.length : 1,
+      apiHealth: getAtharaAPIHealth()
     };
     
   } catch (error) {
@@ -493,15 +548,15 @@ export async function testAtharaAPIConnection(): Promise<{
     
     return {
       success: false,
-      usingMockData: true,
       responseTime,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      apiHealth: getAtharaAPIHealth()
     };
   }
 }
 
-// Force sync with real API data (for testing)
-export async function syncAgbotDataFromRealAPI(): Promise<AgbotSyncResult> {
+// Force immediate sync with Athara API (for manual/testing operations)
+export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
   const startTime = Date.now();
   const result: AgbotSyncResult = {
     success: false,
@@ -514,7 +569,7 @@ export async function syncAgbotDataFromRealAPI(): Promise<AgbotSyncResult> {
 
   try {
     if (ENABLE_API_LOGGING) {
-      console.log('[AGBOT SYNC] Forcing sync with real Athara API (bypassing mock data)');
+      console.log('[AGBOT SYNC] Initiating manual sync with Athara API');
     }
     
     // Test API connection first
@@ -529,18 +584,18 @@ export async function syncAgbotDataFromRealAPI(): Promise<AgbotSyncResult> {
     const { data: syncLog } = await supabase
       .from('agbot_sync_logs')
       .insert({
-        sync_type: 'real_api_test',
+        sync_type: 'manual_api_sync',
         sync_status: 'running',
         started_at: new Date().toISOString()
       })
       .select()
       .single();
 
-    // Force real API call (even if mock is set)
-    const atharaLocations = await fetchAtharaLocations(false); // false = don't use mock
+    // Fetch data from Athara API
+    const atharaLocations = await fetchAtharaLocations();
     
     if (ENABLE_API_LOGGING) {
-      console.log(`[AGBOT SYNC] Fetched ${atharaLocations.length} locations from real Athara API`);
+      console.log(`[AGBOT SYNC] Fetched ${atharaLocations.length} locations from Athara API`);
     }
 
     // Process locations (same logic as regular sync)
@@ -625,12 +680,12 @@ export async function syncAgbotDataFromRealAPI(): Promise<AgbotSyncResult> {
     }
 
     if (ENABLE_API_LOGGING) {
-      console.log('[AGBOT SYNC] Real API sync completed:', result);
+      console.log('[AGBOT SYNC] Manual API sync completed:', result);
     }
 
     return result;
   } catch (error) {
-    result.errors.push(`Real API sync error: ${error}`);
+    result.errors.push(`API sync error: ${error}`);
     result.duration = Date.now() - startTime;
     return result;
   }

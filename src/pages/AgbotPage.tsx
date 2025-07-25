@@ -18,12 +18,17 @@ import { AgbotModalProvider, useAgbotModal } from '@/contexts/AgbotModalContext'
 import AgbotLocationCard from '@/components/agbot/AgbotLocationCard';
 import AgbotTable from '@/components/agbot/AgbotTable';
 import AgbotDetailsModal from '@/components/AgbotDetailsModal';
+import { AgbotAPIHealthStatus } from '@/components/agbot/AgbotAPIHealthStatus';
+import { AgbotSystemMonitoring } from '@/components/agbot/AgbotSystemMonitoring';
+import { AgbotErrorBoundary } from '@/components/agbot/AgbotErrorBoundary';
+import { AgbotSyncDiagnostics } from '@/components/agbot/AgbotSyncDiagnostics';
 
 function AgbotPageContent() {
   const [searchFilter, setSearchFilter] = useState('');
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [lowFuelOnly, setLowFuelOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [showSystemMonitoring, setShowSystemMonitoring] = useState(false);
 
   // Load view preference from localStorage
   useEffect(() => {
@@ -69,12 +74,13 @@ function AgbotPageContent() {
     return (
       <AppLayout selectedGroup="" onGroupSelect={() => {}}>
         <div className="min-h-screen w-full bg-muted p-6">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load agbot data: {error.message}
-            </AlertDescription>
-          </Alert>
+          <div className="max-w-4xl mx-auto">
+            <AgbotErrorBoundary 
+              error={error} 
+              retry={() => window.location.reload()}
+              showTechnicalDetails={true}
+            />
+          </div>
         </div>
       </AppLayout>
     );
@@ -99,6 +105,19 @@ function AgbotPageContent() {
                 </div>
               </div>
               <div className="flex gap-2">
+                {/* API Health Status - Compact */}
+                <AgbotAPIHealthStatus showFullDetails={false} className="mr-2" />
+                
+                {/* System Monitoring Toggle */}
+                <Button
+                  variant={showSystemMonitoring ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowSystemMonitoring(!showSystemMonitoring)}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  System Health
+                </Button>
+                
                 {/* View Toggle */}
                 <div className="flex border rounded-lg bg-white">
                   <Button
@@ -128,6 +147,14 @@ function AgbotPageContent() {
                 </Button>
               </div>
             </div>
+
+            {/* System Monitoring Panel */}
+            {showSystemMonitoring && (
+              <>
+                <AgbotSystemMonitoring />
+                <AgbotSyncDiagnostics />
+              </>
+            )}
 
             {/* Summary Stats */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -284,11 +311,13 @@ function AgbotPageContent() {
               </div>
             )}
 
-            {/* Info Note */}
+            {/* Production Safety Info */}
             <Alert>
               <AlertDescription>
-                Agbot devices report fuel levels as percentages via cellular transmission. 
-                Data is automatically refreshed every 10 minutes (optimized for hourly cellular reports). This system is separate from manual dip readings.
+                <strong>Production Environment:</strong> Agbot devices report fuel levels as percentages via cellular transmission. 
+                Data is automatically refreshed every 10 minutes (optimized for hourly cellular reports). 
+                This system uses real Athara API data only - no mock/fake data is provided. 
+                If API is unavailable, no data will be displayed until connectivity is restored.
               </AlertDescription>
             </Alert>
           </div>

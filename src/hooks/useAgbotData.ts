@@ -5,11 +5,66 @@ import {
   getAgbotLocation, 
   syncAgbotData, 
   getAgbotSyncLogs,
+  getAtharaAPIHealth,
+  testAtharaAPIConnection,
   type AgbotLocation,
-  type AgbotSyncResult 
+  type AgbotSyncResult,
+  type AtharaAPIHealth
 } from '@/services/agbot-api';
 
-// Hook to get all agbot locations
+// Combined health and data status
+export interface AgbotSystemStatus {
+  data: AgbotLocation[];
+  apiHealth: AtharaAPIHealth;
+  lastSyncTime: string | null;
+  dataAge: number; // minutes since last sync
+  hasData: boolean;
+  isStale: boolean; // data is >60 minutes old
+  isHealthy: boolean; // API is working
+  needsAttention: boolean; // requires manual intervention
+}
+
+// Hook to get Athara API health status
+export function useAtharaAPIHealth() {
+  return useQuery({
+    queryKey: ['athara-api-health'],
+    queryFn: getAtharaAPIHealth,
+    refetchInterval: 60 * 1000, // Check every minute
+    staleTime: 30 * 1000, // 30 seconds stale time
+  });
+}
+
+// Hook to test API connectivity
+export function useAtharaAPITest() {
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: testAtharaAPIConnection,
+    onSuccess: (result) => {
+      if (result.success) {
+        toast({
+          title: "API Connection Test",
+          description: `✅ Athara API is available (${result.responseTime}ms response time)`,
+        });
+      } else {
+        toast({
+          title: "API Connection Test Failed",
+          description: `❌ ${result.error}`,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "API Test Error",
+        description: `Failed to test API: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// Enhanced hook to get all agbot locations with health context
 export function useAgbotLocations() {
   return useQuery({
     queryKey: ['agbot-locations'],
@@ -17,6 +72,14 @@ export function useAgbotLocations() {
     refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes for hourly cellular data
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes cache time
+    retry: (failureCount, error) => {
+      // Don't retry if it's a configuration error
+      if (error.message.includes('Invalid or missing Athara API key')) {
+        return false;
+      }
+      // Retry up to 3 times for other errors
+      return failureCount < 3;
+    },
   });
 }
 
