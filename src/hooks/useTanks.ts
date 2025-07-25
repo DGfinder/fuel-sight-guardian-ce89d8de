@@ -62,6 +62,12 @@ export const useTanks = () => {
       // Fetching tanks with analytics
       
       try {
+        // Step 0: Check authentication before making queries
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) {
+          console.log('[TANKS DEBUG] No authenticated user - skipping query');
+          return []; // Return empty array instead of throwing error to prevent console spam
+        }
       
       // Step 1: Get ALL tank data from fuel_tanks table (single source of truth)
       const { data: baseData, error: baseError } = await supabase
@@ -299,15 +305,21 @@ export const useTanks = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes - longer cache for better performance
     gcTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false, // Prevent unnecessary refetches
+    retry: (failureCount, error) => {
+      // Don't retry auth-related failures to prevent spam
+      if (error?.message?.includes('No authenticated user')) {
+        return false;
+      }
+      return failureCount < 3;
+    }
   });
 
   // Data already includes calculated analytics
   const tanks = tanksQuery.data || [];
 
-
-  // Basic error checking
-  if (tanks.length === 0) {
-    console.error('[TANKS] No tanks returned from database');
+  // Only log error if we're authenticated and have a real error (avoid spam during auth loading)
+  if (tanks.length === 0 && !tanksQuery.isLoading && tanksQuery.error && tanksQuery.error.message !== 'No authenticated user') {
+    console.error('[TANKS] No tanks returned from database after authentication:', tanksQuery.error);
   }
 
 
