@@ -39,7 +39,8 @@
       "WebFetch(domain:www.npmjs.com)",
       "Bash(timeout 10 npm run dev)",
       "Bash(timeout 10s npm run dev)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
