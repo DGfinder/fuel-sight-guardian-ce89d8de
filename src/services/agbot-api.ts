@@ -1018,3 +1018,295 @@ export async function getAgbotSystemSummary(): Promise<{
     systemEfficiencyScore: Number(systemEfficiencyScore.toFixed(1))
   };
 }
+
+// CSV Import functionality for Athara Dashboard exports
+
+export interface AgbotCSVImportResult {
+  success: boolean;
+  locationsImported: number;
+  assetsImported: number;
+  readingsImported: number;
+  errors: string[];
+  duration: number;
+}
+
+// Transform CSV row data to database location format
+function transformCSVLocationData(csvRow: any) {
+  // Parse date strings and handle empty values
+  const parseDate = (dateStr: string) => {
+    if (!dateStr || dateStr.trim() === '') return null;
+    try {
+      // Handle format: "25/07/2025, 12:00:00 pm"
+      const [datePart, timePart] = dateStr.split(', ');
+      if (!datePart || !timePart) return null;
+      
+      const [day, month, year] = datePart.split('/');
+      const [time, period] = timePart.split(' ');
+      const [hours, minutes, seconds] = time.split(':');
+      
+      let hour24 = parseInt(hours);
+      if (period?.toLowerCase() === 'pm' && hour24 !== 12) hour24 += 12;
+      if (period?.toLowerCase() === 'am' && hour24 === 12) hour24 = 0;
+      
+      const isoDate = new Date(
+        parseInt(year), 
+        parseInt(month) - 1, 
+        parseInt(day), 
+        hour24, 
+        parseInt(minutes), 
+        parseInt(seconds || '0')
+      ).toISOString();
+      
+      return isoDate;
+    } catch (e) {
+      console.warn('Failed to parse date:', dateStr, e);
+      return null;
+    }
+  };
+
+  // Generate a unique location_guid from location ID
+  const locationGuid = `csv-import-${csvRow.locationId.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`;
+
+  return {
+    location_guid: locationGuid,
+    customer_name: csvRow.tenancy || 'Unknown Customer',
+    customer_guid: `customer-${csvRow.tenancy?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
+    location_id: csvRow.locationId,
+    address1: csvRow.streetAddress || '',
+    address2: '',
+    state: csvRow.state || '',
+    postcode: '',
+    country: 'Australia', // Default for Athara data
+    latest_calibrated_fill_percentage: parseFloat(csvRow.locationLevel) || 0,
+    installation_status: csvRow.locationStatus?.toLowerCase() === 'installed' ? 1 : 0,
+    installation_status_label: csvRow.locationStatus || 'Unknown',
+    location_status: csvRow.locationStatus?.toLowerCase() === 'installed' ? 1 : 0,
+    location_status_label: csvRow.locationStatus || 'Unknown',
+    latest_telemetry_epoch: Date.now(),
+    latest_telemetry: parseDate(csvRow.lastSeen) || new Date().toISOString(),
+    lat: null, // Not available in CSV
+    lng: null, // Not available in CSV
+    disabled: csvRow.assetDisabled?.toLowerCase() === 'yes',
+    raw_data: csvRow // Store complete CSV row for reference
+  };
+}
+
+// Transform CSV row data to database asset format
+function transformCSVAssetData(csvRow: any, locationId: string) {
+  const parseDate = (dateStr: string) => {
+    if (!dateStr || dateStr.trim() === '') return null;
+    try {
+      const [datePart, timePart] = dateStr.split(', ');
+      if (!datePart || !timePart) return null;
+      
+      const [day, month, year] = datePart.split('/');
+      const [time, period] = timePart.split(' ');
+      const [hours, minutes, seconds] = time.split(':');
+      
+      let hour24 = parseInt(hours);
+      if (period?.toLowerCase() === 'pm' && hour24 !== 12) hour24 += 12;
+      if (period?.toLowerCase() === 'am' && hour24 === 12) hour24 = 0;
+      
+      return new Date(
+        parseInt(year), 
+        parseInt(month) - 1, 
+        parseInt(day), 
+        hour24, 
+        parseInt(minutes), 
+        parseInt(seconds || '0')
+      ).toISOString();
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Generate unique asset_guid from asset serial number
+  const assetGuid = `csv-asset-${csvRow.assetSerialNumber?.replace(/\s+/g, '-') || 'unknown'}-${Date.now()}`;
+
+  return {
+    location_id: locationId,
+    asset_guid: assetGuid,
+    asset_serial_number: csvRow.assetSerialNumber || '',
+    asset_disabled: csvRow.assetDisabled?.toLowerCase() === 'yes',
+    asset_profile_guid: `profile-${csvRow.assetProfile?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
+    asset_profile_name: csvRow.assetProfile || '',
+    device_guid: `device-${csvRow.deviceSerialNumber?.replace(/\s+/g, '-') || 'unknown'}-${Date.now()}`,
+    device_serial_number: csvRow.deviceSerialNumber || '',
+    device_id: csvRow.deviceId || '',
+    device_sku_guid: `sku-${csvRow.deviceSku || 'unknown'}`,
+    device_sku_model: parseInt(csvRow.deviceSku) || 0,
+    device_sku_name: csvRow.deviceModel || '',
+    device_model_label: csvRow.deviceModel || '',
+    device_model: parseInt(csvRow.deviceSku) || 0,
+    device_online: csvRow.deviceOnline?.toLowerCase() === 'yes',
+    device_activation_date: parseDate(csvRow.deviceActivation),
+    device_activation_epoch: parseDate(csvRow.deviceActivation) ? 
+      new Date(parseDate(csvRow.deviceActivation)!).getTime() : null,
+    latest_calibrated_fill_percentage: parseFloat(csvRow.locationLevel) || 0,
+    latest_raw_fill_percentage: parseFloat(csvRow.rawTelemetries) || parseFloat(csvRow.locationLevel) || 0,
+    latest_telemetry_event_timestamp: parseDate(csvRow.deviceLastSeen) || parseDate(csvRow.assetLastSeen),
+    latest_telemetry_event_epoch: parseDate(csvRow.deviceLastSeen) ? 
+      new Date(parseDate(csvRow.deviceLastSeen)!).getTime() : Date.now(),
+    latest_reported_lat: null, // Not available in CSV
+    latest_reported_lng: null, // Not available in CSV
+    subscription_id: csvRow.deviceSubscription || '',
+    raw_data: csvRow // Store complete CSV row for reference
+  };
+}
+
+// Import Agbot data from CSV
+export async function importAgbotFromCSV(csvRows: any[]): Promise<AgbotCSVImportResult> {
+  const startTime = Date.now();
+  const result: AgbotCSVImportResult = {
+    success: false,
+    locationsImported: 0,
+    assetsImported: 0,
+    readingsImported: 0,
+    errors: [],
+    duration: 0
+  };
+
+  console.log('\n' + '='.repeat(60));
+  console.log('📁 AGBOT CSV IMPORT STARTED');
+  console.log('='.repeat(60));
+  console.log(`Processing ${csvRows.length} CSV rows...`);
+
+  try {
+    // Log import start
+    const { data: syncLog } = await supabase
+      .from('agbot_sync_logs')
+      .insert({
+        sync_type: 'csv_import',
+        sync_status: 'running',
+        started_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    // Process each CSV row
+    for (let i = 0; i < csvRows.length; i++) {
+      const csvRow = csvRows[i];
+      
+      try {
+        console.log(`\n📍 Processing Row ${i + 1}: ${csvRow.locationId}`);
+        
+        // Transform and upsert location
+        const locationData = transformCSVLocationData(csvRow);
+        const { data: location, error: locationError } = await supabase
+          .from('agbot_locations')
+          .upsert(locationData, { 
+            onConflict: 'location_guid',
+            ignoreDuplicates: false 
+          })
+          .select()
+          .single();
+
+        if (locationError) {
+          const errorMsg = `Location error for ${csvRow.locationId}: ${locationError.message}`;
+          console.error(`   ❌ ${errorMsg}`);
+          result.errors.push(errorMsg);
+          continue;
+        }
+
+        console.log(`   ✅ Location imported (ID: ${location.id})`);
+        result.locationsImported++;
+
+        // Transform and upsert asset
+        const assetData = transformCSVAssetData(csvRow, location.id);
+        const { data: asset, error: assetError } = await supabase
+          .from('agbot_assets')
+          .upsert(assetData, { 
+            onConflict: 'asset_guid',
+            ignoreDuplicates: false 
+          })
+          .select()
+          .single();
+
+        if (assetError) {
+          const errorMsg = `Asset error for ${csvRow.assetSerialNumber}: ${assetError.message}`;
+          console.error(`   ❌ ${errorMsg}`);
+          result.errors.push(errorMsg);
+          continue;
+        }
+
+        console.log(`   ✅ Asset imported (${csvRow.assetSerialNumber})`);
+        result.assetsImported++;
+
+        // Create historical reading entry
+        const readingData = {
+          asset_id: asset.id, // Use the actual asset ID from database
+          calibrated_fill_percentage: parseFloat(csvRow.locationLevel) || 0,
+          raw_fill_percentage: parseFloat(csvRow.rawTelemetries) || parseFloat(csvRow.locationLevel) || 0,
+          reading_timestamp: assetData.latest_telemetry_event_timestamp || new Date().toISOString(),
+          device_online: csvRow.deviceOnline?.toLowerCase() === 'yes',
+          telemetry_epoch: assetData.latest_telemetry_event_epoch || Date.now()
+        };
+
+        const { error: readingError } = await supabase
+          .from('agbot_readings_history')
+          .insert(readingData);
+
+        if (!readingError) {
+          result.readingsImported++;
+          console.log(`   ✅ Reading imported (${csvRow.locationLevel}%)`);
+        } else {
+          console.warn(`   ⚠️  Reading error: ${readingError.message}`);
+        }
+
+      } catch (rowError) {
+        const errorMsg = `Row ${i + 1} processing error: ${rowError}`;
+        console.error(`   ❌ ${errorMsg}`);
+        result.errors.push(errorMsg);
+      }
+    }
+
+    result.success = result.locationsImported > 0;
+    result.duration = Date.now() - startTime;
+
+    // Final summary
+    console.log('\n' + '='.repeat(60));
+    console.log('📊 CSV IMPORT SUMMARY:');
+    console.log('-'.repeat(40));
+    console.log(`Status: ${result.success ? '✅ SUCCESS' : '⚠️  PARTIAL SUCCESS'}`);
+    console.log(`Duration: ${result.duration}ms`);
+    console.log(`\nImported:`);
+    console.log(`  Locations: ${result.locationsImported}/${csvRows.length}`);
+    console.log(`  Assets: ${result.assetsImported}/${csvRows.length}`);
+    console.log(`  Readings: ${result.readingsImported}/${csvRows.length}`);
+    
+    if (result.errors.length > 0) {
+      console.log(`\n⚠️  Errors (${result.errors.length}):`);
+      result.errors.slice(0, 5).forEach((error, i) => {
+        console.log(`  ${i + 1}. ${error}`);
+      });
+      if (result.errors.length > 5) {
+        console.log(`  ... and ${result.errors.length - 5} more errors`);
+      }
+    }
+    
+    console.log('='.repeat(60) + '\n');
+
+    // Update sync log
+    if (syncLog) {
+      await supabase
+        .from('agbot_sync_logs')
+        .update({
+          sync_status: result.success ? 'success' : 'partial',
+          locations_processed: result.locationsImported,
+          assets_processed: result.assetsImported,
+          readings_processed: result.readingsImported,
+          error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
+          sync_duration_ms: result.duration,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', syncLog.id);
+    }
+
+    return result;
+  } catch (error) {
+    result.errors.push(`CSV import error: ${error}`);
+    result.duration = Date.now() - startTime;
+    console.error('\n❌ CSV IMPORT FAILED:', error);
+    return result;
+  }
+}

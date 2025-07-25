@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List } from 'lucide-react';
+import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,9 @@ import { AgbotAPIHealthStatus } from '@/components/agbot/AgbotAPIHealthStatus';
 import { AgbotSystemMonitoring } from '@/components/agbot/AgbotSystemMonitoring';
 import { AgbotErrorBoundary } from '@/components/agbot/AgbotErrorBoundary';
 import { AgbotSyncDiagnostics } from '@/components/agbot/AgbotSyncDiagnostics';
+import AgbotCSVImportModal, { type AgbotCSVRow } from '@/components/AgbotCSVImportModal';
+import { importAgbotFromCSV } from '@/services/agbot-api';
+import { useToast } from '@/hooks/use-toast';
 
 function AgbotPageContent() {
   const [searchFilter, setSearchFilter] = useState('');
@@ -29,6 +32,8 @@ function AgbotPageContent() {
   const [lowFuelOnly, setLowFuelOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [showSystemMonitoring, setShowSystemMonitoring] = useState(false);
+  const [showCSVImport, setShowCSVImport] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Load view preference from localStorage
   useEffect(() => {
@@ -52,9 +57,41 @@ function AgbotPageContent() {
 
   const summary = useAgbotSummary();
   const syncMutation = useAgbotSync();
+  const { toast } = useToast();
 
   const handleSync = () => {
     syncMutation.mutate();
+  };
+
+  const handleCSVImport = async (csvData: AgbotCSVRow[]) => {
+    setIsImporting(true);
+    try {
+      const result = await importAgbotFromCSV(csvData);
+      
+      if (result.success) {
+        toast({
+          title: 'CSV Import Successful',
+          description: `Imported ${result.locationsImported} locations and ${result.assetsImported} assets in ${result.duration}ms`,
+        });
+        
+        // Refresh the data
+        window.location.reload(); // Simple refresh - could be optimized with query invalidation
+      } else {
+        toast({
+          title: 'CSV Import Partially Successful',
+          description: `Imported ${result.locationsImported} locations with ${result.errors.length} errors. Check console for details.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'CSV Import Failed',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   if (isLoading) {
@@ -137,6 +174,15 @@ function AgbotPageContent() {
                     <List className="h-4 w-4" />
                   </Button>
                 </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCSVImport(true)}
+                  disabled={isImporting}
+                  className="flex items-center gap-2"
+                >
+                  <Upload className={`h-4 w-4 ${isImporting ? 'animate-spin' : ''}`} />
+                  {isImporting ? 'Importing...' : 'Import CSV'}
+                </Button>
                 <Button
                   onClick={handleSync}
                   disabled={syncMutation.isPending}
@@ -326,6 +372,13 @@ function AgbotPageContent() {
       
       {/* Agbot Details Modal */}
       <AgbotDetailsModal />
+      
+      {/* CSV Import Modal */}
+      <AgbotCSVImportModal
+        open={showCSVImport}
+        onOpenChange={setShowCSVImport}
+        onImport={handleCSVImport}
+      />
     </AppLayout>
   );
 }
