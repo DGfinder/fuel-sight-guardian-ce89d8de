@@ -1,8 +1,17 @@
 import { supabase } from '@/lib/supabase';
 
-// Athara API configuration - with environment variable support
-const ATHARA_API_KEY = import.meta.env.VITE_ATHARA_API_KEY || '9PAUTYO9U7VZTXD40T62VNB7KJOZQZ10C8M1';
-const ATHARA_BASE_URL = import.meta.env.VITE_ATHARA_BASE_URL || 'https://api.athara.com'; // TODO: Verify actual Athara API base URL
+// Athara/Gasbot API configuration - with environment variable support
+// 
+// 🔍 IMPORTANT DISCOVERY: Gasbot uses WEBHOOK/PUSH model, not REST API pull model
+// - Gasbot dashboard "API Integration" = webhook where THEY call YOUR endpoint
+// - Not a traditional REST API for us to query
+// - They push data TO external systems on schedule (hourly/daily)
+// - CSV import is the recommended approach for now (already working with 11 tanks)
+//
+// For webhook integration in future: Set up endpoint for Gasbot to POST tank data to us
+const ATHARA_API_KEY = import.meta.env.VITE_ATHARA_API_KEY || '3FCZF4JI9JM5TKPIJZIFZE1UOAOMKLUAL5BG';
+const ATHARA_API_SECRET = import.meta.env.VITE_ATHARA_API_SECRET || '7RPYMX82GD3X9RERLF982KH0GDN9H1GBFAZ9R84JWR';
+const ATHARA_BASE_URL = import.meta.env.VITE_ATHARA_BASE_URL || 'https://dashboard2-production.prod.gasbot.io';
 
 // Development flags
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_AGBOT_API_LOGGING !== 'false'; // Default to true
@@ -31,7 +40,8 @@ async function makeAtharaRequest(endpoint: string, options: RequestInit = {}): P
   const requestOptions: RequestInit = {
     ...options,
     headers: {
-      'Authorization': `Bearer ${ATHARA_API_KEY}`,
+      'X-API-Key': ATHARA_API_KEY,
+      'X-API-Secret': ATHARA_API_SECRET,
       'Content-Type': 'application/json',
       ...options.headers,
     },
@@ -232,6 +242,12 @@ export async function fetchAtharaLocations(): Promise<AtharaLocation[]> {
   // Validate API configuration before attempting call
   if (!ATHARA_API_KEY || ATHARA_API_KEY === 'your-api-key-here') {
     const error = 'CRITICAL: Invalid or missing Athara API key. Check VITE_ATHARA_API_KEY environment variable.';
+    updateAPIHealth(false, error);
+    throw new Error(error);
+  }
+  
+  if (!ATHARA_API_SECRET || ATHARA_API_SECRET === 'your-api-secret-here') {
+    const error = 'CRITICAL: Invalid or missing Athara API secret. Check VITE_ATHARA_API_SECRET environment variable.';
     updateAPIHealth(false, error);
     throw new Error(error);
   }

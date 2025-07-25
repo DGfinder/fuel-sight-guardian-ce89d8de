@@ -58,6 +58,7 @@ export const useTanks = () => {
   // Fetch tank data from your existing database and calculate analytics
   const tanksQuery = useQuery({
     queryKey: ['tanks-with-analytics'],
+    enabled: true, // We'll handle auth checks inside the queryFn
     queryFn: async () => {
       // Fetching tanks with analytics
       
