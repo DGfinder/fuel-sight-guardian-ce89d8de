@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { supabase } from '@/lib/supabase';
+import { safeReactKey, safeStringProperty } from '@/lib/typeGuards';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTanks } from "@/hooks/useTanks";
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -185,9 +186,9 @@ export const Sidebar: React.FC = () => {
       return accessibleGroups.has(item.group);
     }).map((item, index) => ({
       ...item,
-      badge: item.badge === 'totalTanks' ? (typeof tanksCount === 'number' ? tanksCount : null) : null,
-      // Ensure unique key for React rendering
-      _key: item.path || `nav-item-${index}`
+      badge: item.badge === 'totalTanks' ? (typeof tanksCount === 'number' && tanksCount >= 0 ? tanksCount : null) : null,
+      // Ensure unique key for React rendering with safe conversion
+      _key: safeReactKey(item.path, `nav-item-${index}`)
     }));
   }, [permissions, tanksCount]);
 
@@ -343,7 +344,7 @@ export const Sidebar: React.FC = () => {
               const hasActiveChild = children?.some(child => child.path === location.pathname);
 
               return (
-                <li key={_key || path || `item-${label}`}>
+                <li key={safeReactKey(_key, safeReactKey(path, `item-${safeStringProperty(item, 'label', 'unknown')}`))}>
                   {hasChildren ? (
                     // Parent item with children
                     <>
@@ -382,7 +383,7 @@ export const Sidebar: React.FC = () => {
                       {isExpanded && (
                         <ul className="ml-4 mt-1 space-y-1">
                           {children.map((child, childIndex) => (
-                            <li key={child.path || `child-${childIndex}-${child.label}`}>
+                            <li key={safeReactKey(child.path, `child-${childIndex}-${safeStringProperty(child, 'label', 'unknown')}`)}>
                               <Link
                                 to={child.path}
                                 className={cn(

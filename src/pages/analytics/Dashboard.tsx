@@ -2,6 +2,7 @@ import React from 'react';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { safeStringProperty } from '@/lib/typeGuards';
 import { 
   BarChart3, 
   Shield, 
@@ -34,7 +35,7 @@ export function Dashboard() {
     };
 
     const allowedRoles = permissionMap[permission] || [];
-    const userRole = String(permissions.role || '');
+    const userRole = safeStringProperty(permissions, 'role', '');
     return allowedRoles.includes(userRole);
   };
 
@@ -134,7 +135,7 @@ export function Dashboard() {
             <h1 className="text-3xl font-bold text-gray-900">Fleet Analytics Dashboard</h1>
             <p className="text-gray-600 mt-1">
               Welcome back, {user?.email?.split('@')[0] || 'User'}. 
-              Role: <span className="font-medium capitalize">{String(permissions?.role || 'Loading...')}</span>
+              Role: <span className="font-medium capitalize">{safeStringProperty(permissions, 'role', 'Loading...')}</span>
             </p>
           </div>
           <div className="flex items-center space-x-2 text-sm text-gray-500">
