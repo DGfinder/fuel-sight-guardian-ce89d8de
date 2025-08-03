@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
+import { safeStringify } from '../../lib/typeGuards';
 
 interface MyobUploadModalProps {
   isOpen: boolean;
@@ -111,10 +112,10 @@ export function MyobUploadModal({ isOpen, onClose, carrier }: MyobUploadModalPro
         try {
           const delivery: ProcessedDelivery = {
             delivery_date: parseDate(row[0]),
-            bill_of_lading: String(row[1] || ''),
-            location: String(row[2] || ''),
-            customer: String(row[3] || ''),
-            product: String(row[4] || ''),
+            bill_of_lading: safeStringify(row[1] || ''),
+            location: safeStringify(row[2] || ''),
+            customer: safeStringify(row[3] || ''),
+            product: safeStringify(row[4] || ''),
             volume_litres: parseVolume(row[5])
           };
           
@@ -185,7 +186,7 @@ export function MyobUploadModal({ isOpen, onClose, carrier }: MyobUploadModalPro
     }
     
     // Handle string dates
-    const dateStr = String(dateValue);
+    const dateStr = safeStringify(dateValue);
     
     // Try different date formats
     const formats = [
@@ -240,7 +241,7 @@ export function MyobUploadModal({ isOpen, onClose, carrier }: MyobUploadModalPro
     }
     
     // Convert to string and remove commas
-    const volumeStr = String(volumeValue).replace(/,/g, '');
+    const volumeStr = safeStringify(volumeValue).replace(/,/g, '');
     
     // Handle negative values (adjustments)
     const isNegative = volumeStr.includes('-');

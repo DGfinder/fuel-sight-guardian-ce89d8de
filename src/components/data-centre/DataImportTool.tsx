@@ -20,6 +20,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import Papa from 'papaparse';
+import { safeStringify } from '../../lib/typeGuards';
 
 interface ImportStats {
   totalRecords: number;
@@ -252,8 +253,8 @@ export function DataImportTool({ className }: DataImportToolProps) {
     }
   };
 
-  const parseVolume = (volumeStr: string): number => {
-    const cleaned = String(volumeStr).replace(/[,\"]/g, '');
+  const parseVolume = (volumeStr: any): number => {
+    const cleaned = safeStringify(volumeStr).replace(/[,\"]/g, '');
     return parseFloat(cleaned) || 0;
   };
 
