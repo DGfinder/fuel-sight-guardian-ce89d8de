@@ -22,7 +22,8 @@ import {
   TrendingUp,
   History,
   Mail,
-  Signal
+  Signal,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
@@ -154,6 +155,18 @@ export const Sidebar: React.FC = () => {
         icon: TrendingUp,
         badge: null,
         group: null
+      });
+    }
+
+    // Add analytics for admin, manager, and compliance_manager roles
+    if (permissions.isAdmin || permissions.role === 'manager' || permissions.role === 'compliance_manager') {
+      allItems.push({
+        path: 'analytics-app', // Special identifier for external app
+        label: 'Fleet Analytics',
+        icon: BarChart3,
+        badge: null,
+        group: null,
+        external: true // Mark as external app
       });
     }
 
@@ -313,11 +326,19 @@ export const Sidebar: React.FC = () => {
           {/* Nav Links */}
           <ul className="flex flex-col gap-1">
             {navItems.map((item) => {
-              const { path, label, icon: Icon, badge, children } = item;
+              const { path, label, icon: Icon, badge, children, external } = item;
               const hasChildren = children && children.length > 0;
               const isExpanded = expandedGroups.has(label);
               const isActive = location.pathname === path;
               const hasActiveChild = children?.some(child => child.path === location.pathname);
+
+              const handleNavigation = (e: React.MouseEvent) => {
+                if (external && path === 'analytics-app') {
+                  e.preventDefault();
+                  // Open analytics app (tries 3001, falls back to 3002)
+                  window.open('http://localhost:3002', '_blank');
+                }
+              };
 
               return (
                 <li key={path}>
@@ -333,14 +354,27 @@ export const Sidebar: React.FC = () => {
                             : "hover:bg-gray-800 text-gray-300"
                         )}
                       >
-                        <Link
-                          to={path}
-                          className="flex items-center gap-3 flex-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Icon className="w-5 h-5" />
-                          <span>{label}</span>
-                        </Link>
+                        {external ? (
+                          <div
+                            className="flex items-center gap-3 flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleNavigation(e);
+                            }}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span>{label}</span>
+                          </div>
+                        ) : (
+                          <Link
+                            to={path}
+                            className="flex items-center gap-3 flex-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span>{label}</span>
+                          </Link>
+                        )}
                         <div className="flex items-center gap-2">
                           {badge !== null && (
                             <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
@@ -379,25 +413,45 @@ export const Sidebar: React.FC = () => {
                     </>
                   ) : (
                     // Regular item without children
-                    <Link
-                      to={path}
-                      className={cn(
-                        "flex items-center justify-between p-2 rounded-lg transition-colors",
-                        isActive
-                          ? "bg-blue-600 text-white"
-                          : "hover:bg-gray-800 text-gray-300"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className="w-5 h-5" />
-                        <span>{label}</span>
+                    external ? (
+                      <div
+                        onClick={handleNavigation}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer",
+                          "hover:bg-gray-800 text-gray-300"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="w-5 h-5" />
+                          <span>{label}</span>
+                        </div>
+                        {badge !== null && (
+                          <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
+                            {badge}
+                          </span>
+                        )}
                       </div>
-                      {badge !== null && (
-                        <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
-                          {badge}
-                        </span>
-                      )}
-                    </Link>
+                    ) : (
+                      <Link
+                        to={path}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-lg transition-colors",
+                          isActive
+                            ? "bg-blue-600 text-white"
+                            : "hover:bg-gray-800 text-gray-300"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="w-5 h-5" />
+                          <span>{label}</span>
+                        </div>
+                        {badge !== null && (
+                          <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
+                            {badge}
+                          </span>
+                        )}
+                      </Link>
+                    )
                   )}
                 </li>
               );

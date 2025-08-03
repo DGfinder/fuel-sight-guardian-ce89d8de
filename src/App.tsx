@@ -38,6 +38,7 @@ const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
+const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -181,6 +182,21 @@ function AppContent() {
                             onGroupSelect={setSelectedGroup}
                           >
                             <PerformancePage />
+                          </AppLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/analytics" 
+                    element={
+                      <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
+                        <RouteErrorBoundary routeName="Analytics" showHomeButton={true}>
+                          <AppLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <AnalyticsPage />
                           </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>

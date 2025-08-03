@@ -1,0 +1,374 @@
+event_id,vehicle,detection_time,event_type,detected_event_type,eventDetectionType,confirmationState,classification,confirmation,fleet,guardian_unit
+2402565655,1HKM376,6/2/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2402632099,1HKM376,6/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2402766465,1EZR895,6/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2402897916,1HKM376,6/7/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2402928357,1GNQ950,6/7/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2402928364,1GNQ950,6/7/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2402959814,1CZD562,6/8/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2402937487,1HKM376,6/8/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2402929406,1EZR895,6/8/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2403077078,QUADADDIC,6/9/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010474
+2403016415,MD8410,6/9/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2403080423,1EZR895,6/10/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2403263518,1HKM376,6/13/2023,fatigue,distraction,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2403322563,1HKM376,6/14/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2403318534,1HKM376,6/14/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2403318546,1HKM376,6/14/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2403391991,1CZD562,6/15/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2403461400,1EMK901,6/16/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010790
+2403617118,1CKR094,6/19/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010795
+2403609501,1ETO041,6/19/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010891
+2403680584,1CZD562,6/20/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2403840968,1HQO889,6/22/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013780
+2403841008,1HQO889,6/22/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013780
+2403935295,1HKM376,6/23/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2403931387,1HKM376,6/23/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2404074737,1CKR094,6/26/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010795
+2404074442,1CKR094,6/26/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010795
+2404149784,MD8410,6/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2404149777,MD8410,6/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2404149542,MD8410,6/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2404149369,MD8410,6/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2404147117,1CZD562,6/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2404139826,1CZD562,6/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2404520533,NR9922,7/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010942
+2404516226,1EZR895,7/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2404516122,1EZR895,7/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2404515750,1EZR895,7/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2404514351,1EZR895,7/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2404598648,1HOO182,7/4/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00014241
+2404578971,1HKM376,7/4/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2404723833,1CZD562,7/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2404723549,1CZD562,7/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2404722775,1DVN300,7/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010821
+2404722705,1DVN300,7/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010821
+2404722689,1DVN300,7/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010821
+2404722667,1DVN300,7/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010821
+2404712448,1HKM376,7/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2404709804,1EMK901,7/6/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010790
+2404790234,1EZR895,7/7/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2404971457,1EZR895,7/10/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2404970567,1HKM377,7/10/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002627
+2404936843,1EZR895,7/10/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2405121914,1HKM376,7/12/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405121919,1GNQ950,7/12/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2405121936,1HKM376,7/12/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405121207,1GNQ950,7/12/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2405115264,1EEO065,7/12/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00014032
+2405181128,1HKM376,7/13/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405179268,1HKM376,7/13/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405246098,1HKM376,7/14/2023,fatigue,distraction,distraction,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405355950,1HKM376,7/16/2023,fatigue,distraction,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405353705,1HKM376,7/16/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405426015,1EZR895,7/17/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2405506394,1HKM377,7/18/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002627
+2405489989,NR9922,7/18/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010942
+2405580552,1HKM376,7/19/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405554743,1HKM376,7/19/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405859135,1CKR093,7/24/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010744
+2405858743,1CKR093,7/24/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010744
+2405975578,1HKM376,7/25/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2405974961,1HKM376,7/25/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2406034634,1GNQ950,7/26/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2406119184,1CKC133,7/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2406118550,1CKC133,7/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2406114276,1CKC133,7/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2406160787,NR9922,7/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010942
+2406160778,NR9922,7/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010942
+2406369778,1HKM376,7/31/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2406363484,1CVU378,7/31/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010796
+2406363626,1CVU378,7/31/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010796
+2406363713,1CVU378,7/31/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010796
+2406339902,1CZD562,7/31/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2406339911,1CZD562,7/31/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010668
+2406438848,CGG5600,8/1/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011798
+2406438835,CGG5600,8/1/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011798
+2406527024,1HKM376,8/2/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2406572561,1EZR895,8/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2406804927,1HLK502,8/7/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00001816
+2406804819,1HLK502,8/7/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00001816
+2406922029,1HKM376,8/8/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002698
+2406963610,1EZR895,8/9/2023,fatigue,fatigue,distraction,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2407041246,1EZR895,8/10/2023,fatigue,fatigue,distraction,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2407364745,1EZR895,8/15/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2407778271,1EZR895,8/21/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2407763309,1CVU378,8/21/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010796
+2407829856,1EZA118,8/22/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010752
+2408251514,1ECE505,8/28/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00009434
+2408232133,1DBC760,8/28/2023,fatigue,fatigue,fatigue,verified,microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002689
+2408289377,1EZR895,8/29/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2408288834,1EZR895,8/29/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2409255304,813494,9/11/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2409245287,813494,9/11/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2409241515,813494,9/11/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2409241539,813494,9/11/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2409238404,1EZR895,9/11/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010798
+2409279495,1CVU378,9/11/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010796
+2409528818,TRI ONE,9/15/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00008855
+2409735937,1EWE819,9/18/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2409716252,1CKC133,9/18/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2410329138,1EWE819,9/26/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2410313643,1HUT976,9/26/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011083
+2410954053,1CVU378,10/4/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010796
+2411583966,1CKC133,10/13/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2411583733,1CKC133,10/13/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2411751735,1HLK502,10/16/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00001816
+2411813567,1HXX939,10/17/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2411813575,1HXX939,10/17/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2411813579,1HXX939,10/17/2023,fatigue,fatigue,distraction,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2411813586,1HXX939,10/17/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2411813602,1HXX939,10/17/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2412080967,1EMK901,10/20/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010790
+2412328384,TRI TWO,10/24/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010356
+2412747821,1EWE819,10/30/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2412866520,1CKC133,10/31/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2412944586,1HQO889,11/1/2023,fatigue,distraction,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013780
+2413098112,MD8410,11/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2413082797,1EXV411,11/3/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1001229-S00007647
+2413533785,1CKC133,11/9/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2413783745,1HXX550,11/13/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00008866
+2413778511,1CKC133,11/13/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2413926207,QUADADDIC,11/15/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010474
+2414279092,1HLK502,11/20/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00001816
+2414369447,1HQO889,11/21/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013780
+2414807275,TRI ONE,11/27/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00008855
+2414889980,1HXX939,11/28/2023,fatigue,distraction,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2414885419,1HXX939,11/28/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2415042981,1CKC133,11/30/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2415036339,1CKC133,11/30/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2415117547,1HXX939,12/1/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2415117563,1HXX939,12/1/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2415472371,1CVU378,12/6/2023,fatigue,fatigue,distraction,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010796
+2415529014,MD8410,12/7/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2416553883,1GJQ464,12/21/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00009439
+2416808315,1GDJ946,12/26/2023,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2417307489,1GJQ464,1/4/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00009439
+2417378956,TRI TWO,1/5/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011038
+2417634233,1GNQ950,1/8/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2417634225,1GNQ950,1/8/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2417963396,1EXM998,1/14/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011118
+2418211358,1GNQ950,1/17/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2418211353,1GNQ950,1/17/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2418211395,1GNQ950,1/17/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2418529904,1HCR815,1/22/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002622
+2419627649,MD8410,2/6/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2419600189,1EZA118,2/6/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010752
+2420072022,1GNQ950,2/12/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420072599,1GNQ950,2/12/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420224237,1GNQ950,2/13/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420224242,1GNQ950,2/13/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420229774,1GNQ950,2/13/2024,fatigue,glance away,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420224148,1GNQ950,2/14/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420224140,1GNQ950,2/14/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420402074,1GDJ946,2/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2420400393,1GNQ950,2/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420400440,1GNQ950,2/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420400433,1GNQ950,2/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420400418,1GNQ950,2/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420400410,1GNQ950,2/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00013423
+2420376900,1CKC133,2/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00010367
+2420559176,1HXX550,2/19/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00008866
+2420649787,1HTP065,2/20/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2421150029,1HKM377,2/27/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002627
+2421339240,MD8410,2/29/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2421339238,MD8410,2/29/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2421339237,MD8410,2/29/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2421681071,1GDJ946,3/5/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2421885520,1GAH752,3/8/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00029959
+2421879257,1HCR815,3/8/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002622
+2422079126,MD8410,3/11/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2422068171,1EXM998,3/11/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011118
+2422068170,1EXM998,3/11/2024,fatigue,distraction,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011118
+2423121557,1ETO041,3/26/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010891
+2423372519,1ECE510,3/29/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00007725
+2423368108,1ECE510,3/29/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00007725
+2423367213,1ECE510,3/29/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00007725
+2423367065,1ECE510,3/29/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00007725
+2423600373,1HXX939,4/2/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2424001082,1ECE510,4/8/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00007725
+2424080181,1ECE510,4/9/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00007725
+2424570727,1ECE510,4/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P04025-S00007725
+2424562857,1GDJ946,4/16/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2425067568,1HXX939,4/23/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011943
+2425283458,1GNQ950,4/25/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2425283472,1GNQ950,4/25/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2425229519,1IBL610,4/25/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011804
+2425225306,1EXV409,4/25/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010794
+2425282068,1ETO041,4/26/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010891
+2425461116,TRI TWO,4/29/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011038
+2426778158,1HXK305,5/17/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00009812
+2427143051,1HTP065,5/22/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2427876265,1HEL581,6/1/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1001229-S00007174
+2428068986,1IFJ910,6/4/2024,fatigue,fatigue,fatigue,verified,microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011780
+2428051567,1EMK901,6/4/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010790
+2428450310,1DIU566,6/10/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011861
+2428707542,1IFJ910,6/13/2024,fatigue,fatigue,fatigue,verified,microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011780
+2429436391,1HQO889,6/24/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013780
+2429436293,1HQO889,6/24/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013780
+2430433289,1HTP065,7/8/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2431433646,1EWE819,7/22/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2432455689,MD8410,8/5/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2432455672,MD8410,8/5/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2432455493,MD8410,8/5/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2432678700,1ECE509,8/8/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00050024
+2432775125,1DBC759,8/9/2024,fatigue,distraction,distraction,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2432776126,1HJQ543,8/9/2024,fatigue,fatigue,fatigue,verified,microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002036
+2433643899,MD8410,8/21/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2433638698,MD8410,8/21/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2433638662,MD8410,8/21/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2433635123,1DBC759,8/21/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2433605138,MD8410,8/21/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2433704786,1CYD754,8/22/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00009052
+2433968885,1CYD754,8/26/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00009052
+2433960965,1EHW174,8/26/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00049035
+2434316462,1GNQ950,8/30/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2434289468,1ECE509,8/30/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00050024
+2434609331,1GDJ946,9/3/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2435042407,1GQX113,9/9/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00051419
+2435712403,1ECE507,9/18/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2435879506,1ECE507,9/20/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2436116989,1ECE507,9/24/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2436304906,1DBC759,9/26/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2436743703,1ECE507,10/2/2024,fatigue,fatigue,fatigue,verified,drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2437264323,CGG5600,10/9/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011798
+2437428010,1ECE507,10/11/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2437958777,1ECE507,10/18/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2437941913,1ECE507,10/18/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2438492082,1HXX550,10/25/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00008866
+2438466003,1ECE507,10/25/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2438698496,1EWE819,10/28/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2439119384,1GCE176,11/3/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010875
+2439301786,1ICO466,11/5/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011904
+2439746580,1DBC759,11/11/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2439822067,1GQX113,11/12/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00051419
+2439985165,1DBC759,11/13/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2440088905,1ECE507,11/15/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2440277754,1HXX550,11/18/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00008866
+2440251212,1HQO889,11/18/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013780
+2440367913,1GNQ950,11/19/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2440367925,1GNQ950,11/19/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2440367929,1GNQ950,11/19/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2440367933,1GNQ950,11/19/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2440367938,1GNQ950,11/19/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2440813808,1CKR093,11/25/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010744
+2440813803,1CKR093,11/25/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010744
+2441446691,1DBC759,12/2/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2441453173,1DJL008,12/3/2024,fatigue,distraction,distraction,verified,fatigue - yawning,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011046
+2441442212,1HTP065,12/3/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2441544971,1HLK502,12/4/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00001816
+2441539734,1ECE507,12/4/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2441535610,1ECE507,12/4/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2441718181,1DBC759,12/5/2024,fatigue,distraction,distraction,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2441718194,1DBC759,12/5/2024,fatigue,distraction,distraction,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2442031617,1GAQ158,12/10/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00049129
+2442205018,1HTP065,12/12/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2442281174,1HTP065,12/13/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2442477745,1GAQ158,12/16/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00049129
+2442567250,1HQO889,12/17/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013780
+2442664030,1HXK305,12/18/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00009812
+2443826781,1CKR094,12/20/2024,fatigue,fatigue,fatigue,expired,fatigue - expired,expired,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010795
+2442958986,1GAQ158,12/22/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00049129
+2443032764,MD8410,12/23/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2443032489,MD8410,12/23/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2443032210,1HTP065,12/23/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2443433282,Triquad 2,12/30/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00049584
+2443433261,Triquad 2,12/30/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00049584
+2443418332,1EWE819,12/30/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2443416776,1EWE819,12/30/2024,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2443406805,1EWE819,12/30/2024,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2443579772,1IEL224,1/2/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011922
+2443762024,1GDJ946,1/5/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2443827304,1ECE509,1/6/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00050024
+2444508458,1HJQ543,1/15/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002036
+2444936096,219140,1/21/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057208
+2445386681,1GAQ158,1/27/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00049129
+2445437453,1HTP065,1/28/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2447987110,GNG894A,2/28/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013858
+2447921711,1GCE176,2/27/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010875
+2447610828,TRI ONE,2/24/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00008855
+2447011096,1EWE819,2/17/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010869
+2447000573,1GDJ946,2/17/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2446567967,1HSH225,2/11/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011139
+2446397836,1IEL224,2/9/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011922
+2446274214,1GJQ464,2/7/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00051737
+2446270379,1GDJ946,2/7/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2446239697,1GDJ946,2/7/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2446187284,1CMC714,2/6/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011023
+2451450375,1DVN300,4/14/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010821
+2451202097,MD8410,4/10/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2450951262,1GNQ950,4/7/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2450649844,1GMQ115,4/3/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010892
+2450596452,1GNQ950,4/2/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2450596484,1GNQ950,4/1/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2450378546,1GNQ950,3/31/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011947
+2450016581,1ECE509,3/26/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00050024
+2449721803,219140,3/22/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057208
+2449630981,1ECE509,3/21/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00050024
+2449549936,1ECE509,3/20/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00050024
+2449369138,1ECE507,3/18/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2449268633,1ECE507,3/17/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2448602274,1ECE509,3/8/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00050024
+2448600374,1HJQ543,3/8/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00002036
+2448468600,1HTP065,3/6/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011047
+2448467462,1ECE507,3/6/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2448465431,1ECE507,3/6/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00057158
+2453592743,1ECH116,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00008922
+2453592439,1HXX552,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010680
+2453590287,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453590506,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453587299,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453586210,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453586216,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453585282,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453585270,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453576326,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453574786,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453574570,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453574511,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453573457,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453573309,MD8410,5/14/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453505468,MD8410,5/13/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453493308,MD8410,5/13/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453493287,MD8410,5/13/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2453492687,MD8410,5/13/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2452923228,1DBC759,5/5/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011087
+2452892586,1ECE509,5/5/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00050024
+2452459444,204738,4/28/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00055569
+2452404189,1CMC714,4/28/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011023
+2452403032,MD8410,4/28/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2452401754,1GDJ946,4/28/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2452234616,MD8410,4/25/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2451735801,MD8410,4/17/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011129
+2451572407,1DJL008,4/15/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00011046
+2456489720,GNG894A,6/24/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00013858
+2455901978,1GMQ115,6/16/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010892
+2455691995,1GCE176,6/12/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010875
+2455434154,1HEL581,6/9/2025,fatigue,distraction,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00048884
+2455427549,1CYD754,6/9/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00009052
+2455249720,1GFN535,6/6/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010741
+2454981580,1ETO041,6/3/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010891
+2454686386,1GDJ946,5/29/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010824
+2454581914,1HLK502,5/28/2025,fatigue,fatigue,fatigue,verified,fatigue - drowsiness,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00001816
+2454477369,1GFN535,5/27/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010741
+2454451781,1GCE176,5/26/2025,fatigue,fatigue,fatigue,verified,fatigue - microsleep,verified,(CS) Stevemacs Bulk Fuel Haulage,P1002260-S00010875
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
