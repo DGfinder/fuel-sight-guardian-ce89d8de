@@ -42,6 +42,8 @@ const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
 const DataCentrePage = lazy(() => import('@/pages/DataCentrePage'));
 const GuardianDashboard = lazy(() => import('@/pages/GuardianDashboard'));
 const CaptivePaymentsDashboard = lazy(() => import('@/pages/CaptivePaymentsDashboard'));
+const SMBDashboard = lazy(() => import('@/pages/SMBDashboard'));
+const GSFDashboard = lazy(() => import('@/pages/GSFDashboard'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -205,6 +207,26 @@ function AppContent() {
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Captive Payments" showHomeButton={true}>
                           <CaptivePaymentsDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/captive-payments/smb" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="SMB Analytics" showHomeButton={true}>
+                          <SMBDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/captive-payments/gsf" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="GSF Analytics" showHomeButton={true}>
+                          <GSFDashboard />
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 

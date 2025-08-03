@@ -1,0 +1,414 @@
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Search,
+  Filter,
+  Download,
+  Calendar,
+  Truck,
+  Building,
+  User,
+  Package,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
+
+interface BOLDelivery {
+  bolNumber: string;
+  carrier: 'SMB' | 'GSF';
+  terminal: string;
+  customer: string;
+  product: string;
+  quantity: number;
+  deliveryDate: string;
+  driverName: string;
+  vehicleId: string;
+}
+
+interface BOLDeliveryTableProps {
+  deliveries: BOLDelivery[];
+  title?: string;
+  showFilters?: boolean;
+}
+
+const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
+  deliveries,
+  title = "BOL Delivery Records",
+  showFilters = true
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [carrierFilter, setCarrierFilter] = useState('all');
+  const [terminalFilter, setTerminalFilter] = useState('all');
+  const [productFilter, setProductFilter] = useState('all');
+  const [dateSort, setDateSort] = useState<'asc' | 'desc' | null>('desc');
+  const [volumeSort, setVolumeSort] = useState<'asc' | 'desc' | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Get unique values for filters
+  const terminals = useMemo(() => 
+    [...new Set(deliveries.map(d => d.terminal))].sort(), [deliveries]);
+  const products = useMemo(() => 
+    [...new Set(deliveries.map(d => d.product))].sort(), [deliveries]);
+
+  // Filter and sort data
+  const filteredAndSortedDeliveries = useMemo(() => {
+    let filtered = deliveries.filter(delivery => {
+      const matchesSearch = !searchTerm || 
+        delivery.bolNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        delivery.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        delivery.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        delivery.vehicleId.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCarrier = carrierFilter === 'all' || delivery.carrier === carrierFilter;
+      const matchesTerminal = terminalFilter === 'all' || delivery.terminal === terminalFilter;
+      const matchesProduct = productFilter === 'all' || delivery.product === productFilter;
+
+      return matchesSearch && matchesCarrier && matchesTerminal && matchesProduct;
+    });
+
+    // Apply sorting
+    if (dateSort) {
+      filtered.sort((a, b) => {
+        const dateA = new Date(a.deliveryDate).getTime();
+        const dateB = new Date(b.deliveryDate).getTime();
+        return dateSort === 'asc' ? dateA - dateB : dateB - dateA;
+      });
+    } else if (volumeSort) {
+      filtered.sort((a, b) => {
+        return volumeSort === 'asc' ? a.quantity - b.quantity : b.quantity - a.quantity;
+      });
+    }
+
+    return filtered;
+  }, [deliveries, searchTerm, carrierFilter, terminalFilter, productFilter, dateSort, volumeSort]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSortedDeliveries.length / itemsPerPage);
+  const paginatedDeliveries = filteredAndSortedDeliveries.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handleSort = (column: 'date' | 'volume') => {
+    if (column === 'date') {
+      setDateSort(dateSort === 'asc' ? 'desc' : 'asc');
+      setVolumeSort(null);
+    } else {
+      setVolumeSort(volumeSort === 'asc' ? 'desc' : 'asc');
+      setDateSort(null);
+    }
+    setCurrentPage(1);
+  };
+
+  const handleExport = () => {
+    const csvData = filteredAndSortedDeliveries.map(delivery => ({
+      'BOL Number': delivery.bolNumber,
+      'Carrier': delivery.carrier,
+      'Terminal': delivery.terminal,
+      'Customer': delivery.customer,
+      'Product': delivery.product,
+      'Quantity (L)': delivery.quantity,
+      'Delivery Date': delivery.deliveryDate,
+      'Driver': delivery.driverName,
+      'Vehicle': delivery.vehicleId
+    }));
+    
+    console.log('Exporting BOL delivery data:', csvData);
+    // In real implementation, this would trigger actual CSV export
+  };
+
+  const getCarrierColor = (carrier: string) => {
+    switch (carrier) {
+      case 'SMB': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'GSF': return 'bg-green-100 text-green-700 border-green-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setCarrierFilter('all');
+    setTerminalFilter('all');
+    setProductFilter('all');
+    setDateSort('desc');
+    setVolumeSort(null);
+    setCurrentPage(1);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              {title}
+            </CardTitle>
+            <CardDescription>
+              {filteredAndSortedDeliveries.length} of {deliveries.length} deliveries
+              {searchTerm && ` matching "${searchTerm}"`}
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
+        </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search BOL, customer, driver..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Carrier Filter */}
+            <Select value={carrierFilter} onValueChange={setCarrierFilter}>
+              <SelectTrigger>
+                <Truck className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="All Carriers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Carriers</SelectItem>
+                <SelectItem value="SMB">SMB (Stevemacs)</SelectItem>
+                <SelectItem value="GSF">GSF (Great Southern Fuels)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Terminal Filter */}
+            <Select value={terminalFilter} onValueChange={setTerminalFilter}>
+              <SelectTrigger>
+                <Building className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="All Terminals" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Terminals</SelectItem>
+                {terminals.map(terminal => (
+                  <SelectItem key={terminal} value={terminal}>{terminal}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Product Filter */}
+            <Select value={productFilter} onValueChange={setProductFilter}>
+              <SelectTrigger>
+                <Package className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="All Products" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Products</SelectItem>
+                {products.map(product => (
+                  <SelectItem key={product} value={product}>{product}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Reset Filters */}
+            <Button variant="outline" onClick={resetFilters} className="w-full">
+              <Filter className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+          </div>
+        )}
+      </CardHeader>
+
+      <CardContent>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>BOL Number</TableHead>
+                <TableHead>Carrier</TableHead>
+                <TableHead>Route</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead className="text-right">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleSort('volume')}
+                    className="font-medium"
+                  >
+                    Quantity (L)
+                    <ArrowUpDown className="ml-1 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleSort('date')}
+                    className="font-medium"
+                  >
+                    Date
+                    <ArrowUpDown className="ml-1 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>Driver & Vehicle</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedDeliveries.map((delivery) => (
+                <TableRow key={delivery.bolNumber}>
+                  <TableCell className="font-mono font-medium">
+                    {delivery.bolNumber}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={getCarrierColor(delivery.carrier)}>
+                      {delivery.carrier}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div className="font-medium">{delivery.terminal}</div>
+                      <div className="text-gray-500">→ {delivery.customer}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {delivery.product}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    <span className={delivery.quantity < 0 ? 'text-red-600' : 'text-green-600'}>
+                      {delivery.quantity > 0 ? '+' : ''}{delivery.quantity.toLocaleString()}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1 text-sm">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(delivery.deliveryDate).toLocaleDateString()}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div className="flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        {delivery.driverName}
+                      </div>
+                      <div className="text-gray-500 text-xs">
+                        {delivery.vehicleId}
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between space-x-2 py-4">
+            <div className="flex items-center space-x-2">
+              <p className="text-sm font-medium">Rows per page</p>
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 20, 30, 50, 100].map((pageSize) => (
+                    <SelectItem key={pageSize} value={pageSize.toString()}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">
+              {filteredAndSortedDeliveries.length}
+            </div>
+            <div className="text-sm text-gray-500">Total BOLs</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {filteredAndSortedDeliveries
+                .reduce((sum, d) => sum + Math.max(0, d.quantity), 0)
+                .toLocaleString()}L
+            </div>
+            <div className="text-sm text-gray-500">Total Volume</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-orange-600">
+              {filteredAndSortedDeliveries.filter(d => d.carrier === 'SMB').length}
+            </div>
+            <div className="text-sm text-gray-500">SMB Deliveries</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {filteredAndSortedDeliveries.filter(d => d.carrier === 'GSF').length}
+            </div>
+            <div className="text-sm text-gray-500">GSF Deliveries</div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default BOLDeliveryTable;

@@ -12,7 +12,9 @@ import {
   Home,
   ArrowLeft,
   Settings,
-  LogOut
+  LogOut,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
@@ -37,7 +39,11 @@ const DATA_CENTRE_NAV_ITEMS = [
     path: '/data-centre/captive-payments', 
     label: 'Captive Payments', 
     icon: CreditCard,
-    permission: 'view_myob_deliveries'
+    permission: 'view_myob_deliveries',
+    children: [
+      { path: '/data-centre/captive-payments/smb', label: 'SMB Analytics', icon: CreditCard },
+      { path: '/data-centre/captive-payments/gsf', label: 'GSF Analytics', icon: CreditCard }
+    ]
   },
   { 
     path: '/data-centre/safety', 
@@ -71,6 +77,7 @@ export default function DataCentreSidebar() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const { data: permissions } = useUserPermissions();
   const queryClient = useQueryClient();
 
@@ -91,6 +98,18 @@ export default function DataCentreSidebar() {
   }, [location.pathname, isMobile]);
 
   const handleToggle = () => setOpen((prev) => !prev);
+
+  const toggleExpanded = (itemPath: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemPath)) {
+        newSet.delete(itemPath);
+      } else {
+        newSet.add(itemPath);
+      }
+      return newSet;
+    });
+  };
 
   const handleLogout = async () => {
     try {
@@ -186,10 +205,12 @@ export default function DataCentreSidebar() {
           {/* Nav Links */}
           <ul className="flex flex-col gap-1">
             {visibleNavItems.map((item) => {
-              const { path, label, icon: Icon, exact, coming_soon } = item;
+              const { path, label, icon: Icon, exact, coming_soon, children } = item;
               const isActive = exact 
                 ? location.pathname === path 
                 : location.pathname.startsWith(path) && location.pathname !== '/data-centre';
+              const isExpanded = expandedItems.has(path);
+              const hasActiveChild = children?.some(child => location.pathname === child.path);
 
               return (
                 <li key={path}>
@@ -203,7 +224,63 @@ export default function DataCentreSidebar() {
                         Soon
                       </span>
                     </div>
+                  ) : children ? (
+                    // Item with children
+                    <>
+                      <div className="flex items-center justify-between">
+                        <Link
+                          to={path}
+                          className={cn(
+                            "flex items-center gap-3 p-2 rounded-lg transition-colors flex-1",
+                            isActive || hasActiveChild
+                              ? "bg-blue-600 text-white"
+                              : "hover:bg-gray-700 text-gray-300"
+                          )}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{label}</span>
+                        </Link>
+                        <button
+                          onClick={() => toggleExpanded(path)}
+                          className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            isActive || hasActiveChild
+                              ? "text-white hover:bg-blue-700"
+                              : "text-gray-300 hover:bg-gray-700"
+                          )}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Child items */}
+                      {isExpanded && (
+                        <ul className="ml-6 mt-1 space-y-1">
+                          {children.map((child) => (
+                            <li key={child.path}>
+                              <Link
+                                to={child.path}
+                                className={cn(
+                                  "flex items-center gap-3 p-2 rounded-lg transition-colors",
+                                  location.pathname === child.path
+                                    ? "bg-blue-500 text-white"
+                                    : "hover:bg-gray-700 text-gray-300"
+                                )}
+                              >
+                                <child.icon className="w-4 h-4" />
+                                <span className="text-sm">{child.label}</span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
                   ) : (
+                    // Regular item without children
                     <Link
                       to={path}
                       className={cn(
