@@ -1,10 +1,8 @@
 import { QueryClient } from '@tanstack/react-query';
 
-// Lytx API Configuration
-const LYTX_API_KEY = 'diCeZd54DgkVzV2aPumlLG1qcZflO0GS'; // GSF API Key
-const LYTX_POD = '05'; // Default pod - may need adjustment
-const LYTX_LOCATION = 'sd'; // Default location
-const LYTX_BASE_URL = `https://api.${LYTX_POD}.${LYTX_LOCATION}.lytx.com`;
+// Lytx Video API Configuration - Updated to use environment variables and correct Video API endpoints
+const LYTX_API_KEY = import.meta.env.VITE_LYTX_API_KEY;
+const LYTX_BASE_URL = import.meta.env.VITE_LYTX_BASE_URL || 'https://lytx-api.prod7.lv.lytx.com/video';
 
 // API Response Types based on Lytx documentation
 export interface LytxApiResponse<T> {
@@ -289,9 +287,9 @@ class LytxApiClient {
     }
   }
 
-  // Update API configuration (for pod discovery)
-  updateConfiguration(pod: string, location: string = 'sd') {
-    this.baseUrl = `https://api.${pod}.${location}.lytx.com`;
+  // Update API configuration (for different environments)
+  updateConfiguration(environment: string = 'prod7', location: string = 'lv') {
+    this.baseUrl = `https://lytx-api.${environment}.${location}.lytx.com/video`;
   }
 
   // Get current configuration

@@ -18,6 +18,7 @@ import { Calendar } from './components/ui/calendar';
 import { AgbotModalProvider, useAgbotModal } from './contexts/AgbotModalContext';
 import AgbotDetailsModal from './components/AgbotDetailsModal';
 import AppLayout from '@/components/AppLayout';
+import DataCentreLayout from '@/components/DataCentreLayout';
 
 // Lazy load page components for better code splitting
 const Index = lazy(() => import("@/pages/Index"));
@@ -196,7 +197,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Data Centre" showHomeButton={true}>
-                          <DataCentrePage />
+                          <DataCentreLayout>
+                            <DataCentrePage />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -206,7 +209,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Guardian Compliance" showHomeButton={true}>
-                          <GuardianDashboard />
+                          <DataCentreLayout>
+                            <GuardianDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -216,7 +221,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Captive Payments" showHomeButton={true}>
-                          <CaptivePaymentsDashboard />
+                          <DataCentreLayout>
+                            <CaptivePaymentsDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -226,7 +233,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="SMB Analytics" showHomeButton={true}>
-                          <SMBDashboard />
+                          <DataCentreLayout>
+                            <SMBDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -236,7 +245,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="GSF Analytics" showHomeButton={true}>
-                          <GSFDashboard />
+                          <DataCentreLayout>
+                            <GSFDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -247,7 +258,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="LYTX Safety Dashboard" showHomeButton={true}>
-                          <LYTXSafetyDashboard />
+                          <DataCentreLayout>
+                            <LYTXSafetyDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -257,7 +270,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Stevemacs Safety Analytics" showHomeButton={true}>
-                          <StevemacsSafetyDashboard />
+                          <DataCentreLayout>
+                            <StevemacsSafetyDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -267,7 +282,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="GSF Safety Analytics" showHomeButton={true}>
-                          <GSFSafetyDashboard />
+                          <DataCentreLayout>
+                            <GSFSafetyDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -278,7 +295,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Fleet Management" showHomeButton={true}>
-                          <FleetDashboard />
+                          <DataCentreLayout>
+                            <FleetDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -288,7 +307,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Vehicle Database" showHomeButton={true}>
-                          <VehicleDatabase />
+                          <DataCentreLayout>
+                            <VehicleDatabase />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -298,7 +319,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Stevemacs Fleet Analytics" showHomeButton={true}>
-                          <StevemacsFleetDashboard />
+                          <DataCentreLayout>
+                            <StevemacsFleetDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -308,7 +331,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="GSF Fleet Analytics" showHomeButton={true}>
-                          <GSFFleetDashboard />
+                          <DataCentreLayout>
+                            <GSFFleetDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -318,7 +343,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Maintenance & Asset Management" showHomeButton={true}>
-                          <MaintenanceDashboard />
+                          <DataCentreLayout>
+                            <MaintenanceDashboard />
+                          </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 

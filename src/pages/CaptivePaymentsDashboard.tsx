@@ -15,7 +15,7 @@ import {
   FileText,
   AlertCircle
 } from 'lucide-react';
-import DataCentreLayout from '@/components/DataCentreLayout';
+import { Link } from 'react-router-dom';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
 import DeliveryTrendCharts from '@/components/DeliveryTrendCharts';
 
@@ -220,8 +220,7 @@ const CaptivePaymentsDashboard = () => {
   const volumeChangePercent = ((volumeChange / previousMonth.totalVolume) * 100).toFixed(1);
 
   return (
-    <DataCentreLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
@@ -545,8 +544,7 @@ const CaptivePaymentsDashboard = () => {
         title="Detailed BOL Delivery Records"
         showFilters={true}
       />
-      </div>
-    </DataCentreLayout>
+    </div>
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,11 @@ import {
   Calendar,
   BarChart3,
   Download,
-  ArrowLeft
+  ArrowLeft,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import DataCentreLayout from '@/components/DataCentreLayout';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
 import {
   LineChart,
@@ -34,6 +35,7 @@ import {
   Cell,
   ComposedChart
 } from 'recharts';
+import { loadGSFData, ProcessedCaptiveData, formatVolume } from '@/services/captivePaymentsDataProcessor';
 
 // GSF-specific data
 const gsfData = {
@@ -109,6 +111,29 @@ const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
 
 const GSFDashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('current');
+  const [showVolumeView, setShowVolumeView] = useState(false);
+  const [realData, setRealData] = useState<ProcessedCaptiveData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load real CSV data
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await loadGSFData();
+        setRealData(data);
+      } catch (err) {
+        setError('Failed to load GSF data');
+        console.error('Error loading GSF data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const handleExportData = () => {
     const exportData = {
@@ -121,8 +146,7 @@ const GSFDashboard = () => {
   };
 
   return (
-    <DataCentreLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
           <div>
@@ -149,7 +173,7 @@ const GSFDashboard = () => {
               </Badge>
               <Badge variant="outline" className="text-blue-600 border-blue-200">
                 <Package className="w-4 h-4 mr-1" />
-                {gsfData.performance.deliveries.toLocaleString()} BOLs/month
+                {realData ? `${realData.totalDeliveries.toLocaleString()} BOLs Total` : `${gsfData.performance.deliveries.toLocaleString()} BOLs/month`}
               </Badge>
             </div>
           </div>
@@ -158,9 +182,9 @@ const GSFDashboard = () => {
               <Download className="w-4 h-4 mr-2" />
               Export GSF Report
             </Button>
-            <Badge variant="secondary" className="text-green-700 bg-green-100">
+            <Badge variant="secondary" className="text-blue-700 bg-blue-100">
               <BarChart3 className="w-4 h-4 mr-1" />
-              {gsfData.performance.efficiency}% Efficiency
+              {realData ? `${realData.totalVolumeMegaLitres.toFixed(1)} ML Total` : `${(gsfData.performance.volume / 1000000).toFixed(1)} ML`}
             </Badge>
           </div>
         </div>
@@ -176,7 +200,7 @@ const GSFDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-900">
-                {gsfData.performance.deliveries.toLocaleString()}
+                {realData ? realData.totalDeliveries.toLocaleString() : gsfData.performance.deliveries.toLocaleString()}
               </div>
               <p className="text-xs text-red-600 flex items-center mt-1">
                 <TrendingDown className="w-3 h-3 mr-1" />
@@ -185,17 +209,17 @@ const GSFDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-2 border-blue-200 bg-blue-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Volume</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-blue-800">Total Volume Delivered</CardTitle>
+              <Package className="h-5 w-5 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {gsfData.performance.volume.toLocaleString()} L
+              <div className="text-3xl font-bold text-blue-900">
+                {realData ? `${realData.totalVolumeMegaLitres.toFixed(1)} ML` : `${(gsfData.performance.volume / 1000000).toFixed(1)} ML`}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Avg: {gsfData.performance.averageVolume.toLocaleString()} L per BOL
+              <p className="text-xs text-blue-600">
+                {realData ? `${realData.totalVolumeLitres.toLocaleString()} litres total` : `Avg: ${gsfData.performance.averageVolume.toLocaleString()} L per BOL`}
               </p>
             </CardContent>
           </Card>
@@ -217,15 +241,15 @@ const GSFDashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Regional Coverage</CardTitle>
-              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Customer Base</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                3
+              <div className="text-2xl font-bold text-purple-600">
+                {realData ? realData.uniqueCustomers : gsfData.topCustomers.length}
               </div>
               <p className="text-xs text-muted-foreground">
-                Perth Metro, SW, Regional WA
+                {realData ? `${realData.terminals.length} terminals` : 'Perth Metro, SW, Regional WA'}
               </p>
             </CardContent>
           </Card>
@@ -233,30 +257,81 @@ const GSFDashboard = () => {
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Monthly Performance Trend */}
+          {/* Monthly Volume Analytics */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                GSF Monthly Performance Trend
-              </CardTitle>
-              <CardDescription>
-                Delivery count and efficiency over time
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    GSF Monthly Volume Analytics
+                  </CardTitle>
+                  <CardDescription>
+                    {showVolumeView ? 'Monthly delivery volumes in megalitres' : 'Monthly delivery count trends'}
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowVolumeView(!showVolumeView)}
+                  className="flex items-center gap-2"
+                >
+                  {showVolumeView ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                  {showVolumeView ? 'Volume (ML)' : 'Deliveries'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={gsfData.monthlyTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar yAxisId="left" dataKey="deliveries" fill="#10b981" name="Deliveries" />
-                  <Line yAxisId="right" type="monotone" dataKey="efficiency" stroke="#3b82f6" strokeWidth={3} name="Efficiency %" />
-                </ComposedChart>
-              </ResponsiveContainer>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading GSF data...</p>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <div className="text-center">
+                    <p className="text-sm text-red-600 mb-2">{error}</p>
+                    <p className="text-xs text-muted-foreground">Falling back to mock data</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={realData?.monthlyData || gsfData.monthlyTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis yAxisId="left" />
+                    {showVolumeView && <YAxis yAxisId="right" orientation="right" />}
+                    <Tooltip 
+                      formatter={(value: number, name: string) => {
+                        if (name === 'Volume (ML)') {
+                          return [`${value.toFixed(2)} ML`, name];
+                        }
+                        return [value.toLocaleString(), name];
+                      }}
+                    />
+                    <Legend />
+                    <Bar 
+                      yAxisId="left" 
+                      dataKey="deliveries" 
+                      fill="#10b981" 
+                      name="Deliveries" 
+                      opacity={showVolumeView ? 0.6 : 1}
+                    />
+                    {showVolumeView && (
+                      <Line 
+                        yAxisId="right" 
+                        type="monotone" 
+                        dataKey="volumeMegaLitres" 
+                        stroke="#3b82f6" 
+                        strokeWidth={3} 
+                        name="Volume (ML)" 
+                      />
+                    )}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -435,8 +510,7 @@ const GSFDashboard = () => {
           title="Recent GSF Deliveries"
           showFilters={false}
         />
-      </div>
-    </DataCentreLayout>
+    </div>
   );
 };
 
