@@ -2,9 +2,8 @@ import React, { useState, useEffect, Suspense, lazy } from "react";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppStateProvider } from "@/contexts/AppStateContext";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
-import { UnifiedLayout } from "@/components/layouts/UnifiedLayout";
 import '@/lib/auth-cleanup'; // Initialize auth cleanup utilities
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
@@ -38,13 +37,7 @@ const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
-// Data Centre components
-const DataCentrePage = lazy(() => import('@/pages/DataCentrePage'));
-const DataCentreDashboard = lazy(() => import('@/pages/data-centre/DataCentreDashboard'));
-const GuardianPage = lazy(() => import('@/pages/data-centre/GuardianPage'));
-const DeliveryPage = lazy(() => import('@/pages/data-centre/DeliveryPage'));
-const ImportPage = lazy(() => import('@/pages/data-centre/ImportPage'));
-const ReportsPage = lazy(() => import('@/pages/data-centre/ReportsPage'));
+// Data Centre redirect (removed - redirects to fuel dips app)
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -193,81 +186,14 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
-                  {/* Data Centre Routes */}
+                  {/* Data Centre Redirect */}
                   <Route 
                     path="/data-centre" 
-                    element={
-                      <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
-                        <RouteErrorBoundary routeName="Data Centre Dashboard" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <DataCentreDashboard />
-                          </UnifiedLayout>
-                        </RouteErrorBoundary>
-                      </ProtectedRoute>
-                    } 
+                    element={<Navigate to="/" replace />}
                   />
                   <Route 
-                    path="/data-centre/guardian" 
-                    element={
-                      <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
-                        <RouteErrorBoundary routeName="Guardian Compliance" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <GuardianPage />
-                          </UnifiedLayout>
-                        </RouteErrorBoundary>
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/data-centre/deliveries" 
-                    element={
-                      <ProtectedRoute requiredRole={["admin", "manager"]}>
-                        <RouteErrorBoundary routeName="Delivery Analytics" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <DeliveryPage />
-                          </UnifiedLayout>
-                        </RouteErrorBoundary>
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/data-centre/import" 
-                    element={
-                      <ProtectedRoute requiredRole={["admin", "manager"]}>
-                        <RouteErrorBoundary routeName="Data Import" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <ImportPage />
-                          </UnifiedLayout>
-                        </RouteErrorBoundary>
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/data-centre/reports" 
-                    element={
-                      <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
-                        <RouteErrorBoundary routeName="Reports" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <ReportsPage />
-                          </UnifiedLayout>
-                        </RouteErrorBoundary>
-                      </ProtectedRoute>
-                    } 
+                    path="/data-centre/*" 
+                    element={<Navigate to="/" replace />}
                   />
                   <Route 
                     path="/swan-transit" 
