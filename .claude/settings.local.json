@@ -43,7 +43,9 @@
       "Bash(git add:*)",
       "Bash(cut:*)",
       "Bash(git config:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)"
     ],
     "deny": []
   }

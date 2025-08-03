@@ -300,7 +300,17 @@ const GSFDashboard = () => {
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={realData?.monthlyData || gsfData.monthlyTrends}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
+                    <XAxis 
+                      dataKey="month"
+                      tickFormatter={(value, index) => {
+                        const data = realData?.monthlyData || gsfData.monthlyTrends;
+                        const dataPoint = data[index];
+                        return dataPoint?.year ? `${value} ${dataPoint.year}` : value;
+                      }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
                     <YAxis yAxisId="left" />
                     {showVolumeView && <YAxis yAxisId="right" orientation="right" />}
                     <Tooltip 
@@ -309,6 +319,13 @@ const GSFDashboard = () => {
                           return [`${value.toFixed(2)} ML`, name];
                         }
                         return [value.toLocaleString(), name];
+                      }}
+                      labelFormatter={(label, payload) => {
+                        if (payload && payload[0] && payload[0].payload) {
+                          const data = payload[0].payload;
+                          return `${label} ${data.year || ''}`;
+                        }
+                        return label;
                       }}
                     />
                     <Legend />

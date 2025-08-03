@@ -222,15 +222,15 @@ const SMBDashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fleet Utilization</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Data Coverage</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {smbData.fleetMetrics.averageUtilization}%
+              <div className="text-2xl font-bold text-purple-600">
+                {realData ? `${realData.dateRange.monthsCovered} months` : '20+ months'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {smbData.fleetMetrics.activeVehicles}/{smbData.fleetMetrics.totalVehicles} vehicles active
+                {realData ? `${realData.dateRange.startDate} - ${realData.dateRange.endDate}` : 'Sept 2023 - May 2025'}
               </p>
             </CardContent>
           </Card>
@@ -245,7 +245,7 @@ const SMBDashboard = () => {
                 {realData ? realData.uniqueCustomers : smbData.topCustomers.length}
               </div>
               <p className="text-xs text-muted-foreground">
-                {realData ? `${realData.terminals.length} terminals` : `${smbData.fleetMetrics.maintenanceAlerts} maintenance alerts`}
+                {realData ? `${realData.terminals.length} terminals served` : 'Active delivery locations'}
               </p>
             </CardContent>
           </Card>
@@ -296,7 +296,17 @@ const SMBDashboard = () => {
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={realData?.monthlyData || smbData.monthlyTrends}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
+                    <XAxis 
+                      dataKey="month"
+                      tickFormatter={(value, index) => {
+                        const data = realData?.monthlyData || smbData.monthlyTrends;
+                        const dataPoint = data[index];
+                        return dataPoint?.year ? `${value} ${dataPoint.year}` : value;
+                      }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
                     <YAxis yAxisId="left" />
                     {showVolumeView && <YAxis yAxisId="right" orientation="right" />}
                     <Tooltip 
@@ -305,6 +315,13 @@ const SMBDashboard = () => {
                           return [`${value.toFixed(2)} ML`, name];
                         }
                         return [value.toLocaleString(), name];
+                      }}
+                      labelFormatter={(label, payload) => {
+                        if (payload && payload[0] && payload[0].payload) {
+                          const data = payload[0].payload;
+                          return `${label} ${data.year || ''}`;
+                        }
+                        return label;
                       }}
                     />
                     <Legend />
@@ -346,33 +363,64 @@ const SMBDashboard = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={smbData.terminalPerformance}
+                    data={realData?.terminalAnalysis || smbData.terminalPerformance}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ terminal, percentage }) => `${terminal.split(' ')[0]} ${percentage}%`}
+                    label={({ terminal, percentage }) => `${terminal.split(' ')[0]} ${percentage.toFixed(1)}%`}
                     outerRadius={80}
                     fill="#8884d8"
-                    dataKey="volume"
+                    dataKey={realData ? "volumeLitres" : "volume"}
                   >
-                    {smbData.terminalPerformance.map((entry, index) => (
+                    {(realData?.terminalAnalysis || smbData.terminalPerformance).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value: number) => [value.toLocaleString() + ' L', 'Volume']} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="grid grid-cols-1 gap-2 mt-4">
-                {smbData.terminalPerformance.map((terminal, index) => (
-                  <div key={terminal.terminal} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <span className="text-sm font-medium">{terminal.terminal}</span>
+              <div className="space-y-3 mt-4">
+                {(realData?.terminalAnalysis || smbData.terminalPerformance).map((terminal, index) => (
+                  <div key={terminal.terminal} className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <span className="font-medium text-gray-900">{terminal.terminal}</span>
+                      </div>
+                      <span className="font-semibold text-blue-600">{terminal.percentage.toFixed(1)}%</span>
                     </div>
-                    <span className="text-sm text-gray-500">{terminal.deliveries} BOLs</span>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">BOLs</div>
+                        <div className="font-medium">{terminal.deliveries.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Volume (ML)</div>
+                        <div className="font-medium">
+                          {((realData ? terminal.volumeLitres : terminal.volume) / 1000000).toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Avg/BOL</div>
+                        <div className="font-medium">
+                          {((realData ? terminal.volumeLitres : terminal.volume) / terminal.deliveries).toFixed(0)} L
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full" 
+                          style={{ 
+                            width: `${terminal.percentage}%`,
+                            backgroundColor: COLORS[index % COLORS.length]
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -394,21 +442,49 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {smbData.productMix.map((product, index) => (
-                  <div key={product.product} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <div>
-                        <div className="font-medium">{product.product}</div>
-                        <div className="text-sm text-gray-500">{product.deliveries} deliveries</div>
+                {(realData?.productMix || smbData.productMix).map((product, index) => (
+                  <div key={product.product} className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <div className="font-medium text-gray-900">{product.product}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-lg text-blue-600">{product.percentage.toFixed(1)}%</div>
+                        <div className="text-xs text-gray-500">of total volume</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{product.percentage}%</div>
-                      <div className="text-sm text-gray-500">{product.volume.toLocaleString()} L</div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">Deliveries</div>
+                        <div className="font-medium">{product.deliveries.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Volume (ML)</div>
+                        <div className="font-medium">
+                          {((realData ? product.volumeLitres : product.volume) / 1000000).toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Avg/BOL</div>
+                        <div className="font-medium">
+                          {((realData ? product.volumeLitres : product.volume) / product.deliveries).toFixed(0)} L
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full" 
+                          style={{ 
+                            width: `${product.percentage}%`,
+                            backgroundColor: COLORS[index % COLORS.length]
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -427,21 +503,45 @@ const SMBDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {smbData.topCustomers.map((customer, index) => (
-                  <div key={customer.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
-                        {index + 1}
+              <div className="space-y-4">
+                {(realData?.topCustomers || smbData.topCustomers).map((customer, index) => (
+                  <div key={customer.name} className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
+                          {index + 1}
+                        </div>
+                        <div className="font-medium text-gray-900">{customer.name}</div>
                       </div>
-                      <div>
-                        <div className="font-medium">{customer.name}</div>
-                        <div className="text-sm text-gray-500">Avg: {customer.avgVolume.toLocaleString()} L/delivery</div>
+                      <div className="text-right">
+                        <div className="font-semibold text-blue-600">{customer.deliveries} BOLs</div>
+                        {realData && (
+                          <div className="text-xs text-gray-500">
+                            {((customer.deliveries / realData.totalDeliveries) * 100).toFixed(1)}% of total
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{customer.deliveries} BOLs</div>
-                      <div className="text-sm text-gray-500">{customer.volume.toLocaleString()} L</div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">Volume</div>
+                        <div className="font-medium">
+                          {realData ? customer.volumeMegaLitres.toFixed(2) : (customer.volume / 1000000).toFixed(2)} ML
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Avg/BOL</div>
+                        <div className="font-medium">
+                          {realData 
+                            ? (customer.volumeLitres / customer.deliveries).toFixed(0) 
+                            : customer.avgVolume.toLocaleString()
+                          } L
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Total Litres</div>
+                        <div className="font-medium">{(realData ? customer.volumeLitres : customer.volume).toLocaleString()}</div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -452,7 +552,23 @@ const SMBDashboard = () => {
 
         {/* Recent SMB Deliveries */}
         <BOLDeliveryTable 
-          deliveries={smbData.recentDeliveries}
+          deliveries={realData ? 
+            realData.rawRecords
+              .slice(-20) // Get last 20 deliveries
+              .reverse() // Most recent first
+              .map((record, index) => ({
+                bolNumber: record.billOfLading || `BOL-${new Date(record.date).getFullYear()}-${String(index + 1).padStart(6, '0')}`,
+                carrier: 'SMB',
+                terminal: record.location,
+                customer: record.customer,
+                product: record.product,
+                quantity: record.volume,
+                deliveryDate: record.date,
+                driverName: 'N/A', // Not available in CSV data
+                vehicleId: 'N/A'   // Not available in CSV data
+              }))
+            : smbData.recentDeliveries
+          }
           title="Recent SMB Deliveries"
           showFilters={false}
         />
