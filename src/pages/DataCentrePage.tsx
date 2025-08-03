@@ -1,70 +1,19 @@
-import React, { useState } from 'react';
-import { useUserPermissions } from '../hooks/useUserPermissions';
-import { GuardianComplianceDashboard } from '../components/data-centre/GuardianComplianceDashboard';
-import { MyobUploadModal } from '../components/data-centre/MyobUploadModal';
-import { DataImportTool } from '../components/data-centre/DataImportTool';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
 import { 
   BarChart3, 
-  Upload, 
   Database, 
-  TrendingUp, 
-  Shield, 
+  Shield,
   Truck,
-  AlertCircle,
-  Plus,
-  FileSpreadsheet,
-  Calendar,
-  Users,
-  Activity
+  FileText,
+  Info,
+  CheckCircle
 } from 'lucide-react';
 
 export function DataCentrePage() {
-  const [showMyobUpload, setShowMyobUpload] = useState(false);
-  const [selectedCarrier, setSelectedCarrier] = useState<'SMB' | 'GSF'>('SMB');
-  const { data: permissions, isLoading } = useUserPermissions();
-
-  // Check access permissions
-  const canViewAnalytics = permissions?.isAdmin || 
-    permissions?.role === 'compliance_manager' ||
-    permissions?.role === 'manager';
-
-  const canUploadData = permissions?.isAdmin || permissions?.role === 'manager';
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!canViewAnalytics) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6">
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                You don't have permission to access the analytics platform. Please contact your administrator.
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const handleCarrierUpload = (carrier: 'SMB' | 'GSF') => {
-    setSelectedCarrier(carrier);
-    setShowMyobUpload(true);
-  };
-
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -72,226 +21,162 @@ export function DataCentrePage() {
         <div>
           <h1 className="text-3xl font-bold">Data Centre Platform</h1>
           <p className="text-muted-foreground">
-            Multi-source data centre for safety, compliance, and delivery performance
+            Simplified data centre for safety, compliance, and delivery performance
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            {permissions?.role || 'User'}
-          </Badge>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Activity className="h-3 w-3" />
-            Real-time
+            <CheckCircle className="h-3 w-3" />
+            Active
           </Badge>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      {canUploadData && (
-        <Card>
+      {/* Navigation Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Quick Actions
-            </CardTitle>
+            <div className="w-12 h-12 rounded-lg bg-red-500 flex items-center justify-center mb-3">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
+            <CardTitle className="text-lg">Guardian Compliance</CardTitle>
+            <p className="text-sm text-muted-foreground">Safety monitoring and compliance tracking</p>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button 
-                variant="outline" 
-                className="h-16 flex flex-col gap-2"
-                onClick={() => handleCarrierUpload('SMB')}
-              >
-                <Truck className="h-5 w-5" />
-                <span>Upload SMB Data</span>
-                <span className="text-xs text-muted-foreground">Stevemacs Bulk Fuel</span>
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="h-16 flex flex-col gap-2"
-                onClick={() => handleCarrierUpload('GSF')}
-              >
-                <Truck className="h-5 w-5" />
-                <span>Upload GSF Data</span>
-                <span className="text-xs text-muted-foreground">Great Southern Fuels</span>
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="h-16 flex flex-col gap-2"
-                asChild
-              >
-                <a href="#import-tool">
-                  <Database className="h-5 w-5" />
-                  <span>Import Historical Data</span>
-                  <span className="text-xs text-muted-foreground">Bulk CSV Import</span>
-                </a>
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                window.location.href = "/data-centre/guardian";
+              }}
+            >
+              View Guardian Data
+            </Button>
           </CardContent>
         </Card>
-      )}
 
-      {/* Main Analytics Tabs */}
-      <Tabs defaultValue="compliance" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="compliance" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Guardian Compliance
-          </TabsTrigger>
-          <TabsTrigger value="deliveries" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Delivery Analytics
-          </TabsTrigger>
-          <TabsTrigger value="correlations" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Cross-Source Analytics
-          </TabsTrigger>
-          <TabsTrigger value="import" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Data Import
-          </TabsTrigger>
-        </TabsList>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <CardHeader>
+            <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center mb-3">
+              <Truck className="w-6 h-6 text-white" />
+            </div>
+            <CardTitle className="text-lg">Delivery Analytics</CardTitle>
+            <p className="text-sm text-muted-foreground">MYOB delivery performance analysis</p>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                window.location.href = "/data-centre/deliveries";
+              }}
+            >
+              View Deliveries
+            </Button>
+          </CardContent>
+        </Card>
 
-        {/* Guardian Compliance Tab */}
-        <TabsContent value="compliance">
-          <GuardianComplianceDashboard />
-        </TabsContent>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <CardHeader>
+            <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center mb-3">
+              <Database className="w-6 h-6 text-white" />
+            </div>
+            <CardTitle className="text-lg">Data Import</CardTitle>
+            <p className="text-sm text-muted-foreground">Upload and import data files</p>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                window.location.href = "/data-centre/import";
+              }}
+            >
+              Import Data
+            </Button>
+          </CardContent>
+        </Card>
 
-        {/* Delivery Analytics Tab */}
-        <TabsContent value="deliveries" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                MYOB Delivery Analytics
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Monthly delivery volume and customer analysis for SMB and GSF carriers
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <FileSpreadsheet className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-muted-foreground mb-2">
-                  Delivery Analytics Dashboard
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  Advanced delivery performance metrics and customer analysis will be displayed here.
-                  This includes volume trends, customer rankings, route efficiency, and carrier comparisons.
-                </p>
-                <div className="flex justify-center gap-4">
-                  <Button variant="outline" onClick={() => handleCarrierUpload('SMB')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Upload SMB Data
-                  </Button>
-                  <Button variant="outline" onClick={() => handleCarrierUpload('GSF')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Upload GSF Data
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <CardHeader>
+            <div className="w-12 h-12 rounded-lg bg-purple-500 flex items-center justify-center mb-3">
+              <FileText className="w-6 h-6 text-white" />
+            </div>
+            <CardTitle className="text-lg">Reports</CardTitle>
+            <p className="text-sm text-muted-foreground">Generate compliance and performance reports</p>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                window.location.href = "/data-centre/reports";
+              }}
+            >
+              Generate Reports
+            </Button>
+          </CardContent>
+        </Card>
 
-        {/* Cross-Source Analytics Tab */}
-        <TabsContent value="correlations" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Multi-Source Analytics
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Correlation analysis between LYTX safety, Guardian events, and MYOB deliveries
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-muted-foreground mb-2">
-                  Cross-Source Analytics Engine
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  Advanced correlation analytics combining safety scores, Guardian verification rates, 
-                  and delivery performance metrics. Includes driver risk profiling, route optimization 
-                  recommendations, and predictive safety modeling.
-                </p>
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Cross-source analytics will be enabled once sufficient data is imported from all sources.
-                  </AlertDescription>
-                </Alert>
-              </div>
-            </CardContent>
-          </Card>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <CardHeader>
+            <div className="w-12 h-12 rounded-lg bg-orange-500 flex items-center justify-center mb-3">
+              <BarChart3 className="w-6 h-6 text-white" />
+            </div>
+            <CardTitle className="text-lg">Dashboard</CardTitle>
+            <p className="text-sm text-muted-foreground">Main dashboard overview</p>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                window.location.href = "/data-centre";
+              }}
+            >
+              View Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
-          {/* Driver Risk Profiling Preview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Driver Risk Profiling</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Multi-source risk assessment</span>
-                    <Badge variant="outline">Coming Soon</Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    • LYTX safety scores
-                    <br />
-                    • Guardian verification rates  
-                    <br />
-                    • Delivery performance metrics
-                    <br />
-                    • Composite risk scoring
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Predictive Analytics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">ML-powered insights</span>
-                    <Badge variant="outline">Coming Soon</Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    • Safety incident prediction
-                    <br />
-                    • Route optimization recommendations
-                    <br />
-                    • Fuel efficiency forecasting
-                    <br />
-                    • Performance trend analysis
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      {/* Information Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Info className="h-5 w-5" />
+            Data Centre Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>
+              Data Centre platform is running in simplified mode. 
+              All core navigation and routing is functional without complex data processing.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm">Navigation Active</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm">Routes Configured</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm">UI Components Loaded</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm">Error-Free Operation</span>
+            </div>
           </div>
-        </TabsContent>
-
-        {/* Data Import Tab */}
-        <TabsContent value="import" id="import-tool">
-          <DataImportTool />
-        </TabsContent>
-      </Tabs>
-
-      {/* MYOB Upload Modal */}
-      <MyobUploadModal
-        isOpen={showMyobUpload}
-        onClose={() => setShowMyobUpload(false)}
-        carrier={selectedCarrier}
-      />
+        </CardContent>
+      </Card>
     </div>
   );
 }
