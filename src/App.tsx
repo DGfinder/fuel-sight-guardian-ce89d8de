@@ -17,6 +17,7 @@ import { AlertsDrawer } from './components/AlertsDrawer';
 import { Calendar } from './components/ui/calendar';
 import { AgbotModalProvider, useAgbotModal } from './contexts/AgbotModalContext';
 import AgbotDetailsModal from './components/AgbotDetailsModal';
+import AppLayout from '@/components/AppLayout';
 
 // Lazy load page components for better code splitting
 const Index = lazy(() => import("@/pages/Index"));
@@ -131,7 +132,9 @@ function AppContent() {
                       element={
                         <ProtectedRoute>
                           <RouteErrorBoundary routeName="Dashboard" showHomeButton={false}>
-                            <Index selectedGroup={selectedGroup} />
+                            <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                              <Index selectedGroup={selectedGroup} />
+                            </AppLayout>
                           </RouteErrorBoundary>
                         </ProtectedRoute>
                       } 
@@ -141,7 +144,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Tanks" showHomeButton={true}>
-                          <TanksPage />
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <TanksPage />
+                          </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -151,7 +156,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Map View" showHomeButton={true}>
-                          <MapView />
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <MapView />
+                          </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -161,7 +168,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute requiredRole="admin">
                         <RouteErrorBoundary routeName="Performance" showHomeButton={true}>
-                          <PerformancePage />
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <PerformancePage />
+                          </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -225,7 +234,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Dip History" showHomeButton={true}>
-                          <DipHistoryPage />
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <DipHistoryPage />
+                          </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -244,12 +255,16 @@ function AppContent() {
                   />
                   <Route path="/settings" element={
                     <ProtectedRoute>
-                      <Settings />
+                      <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                        <Settings />
+                      </AppLayout>
                     </ProtectedRoute>
                   } />
                   <Route path="/settings/health" element={
                     <ProtectedRoute>
-                      <HealthPage />
+                      <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                        <HealthPage />
+                      </AppLayout>
                     </ProtectedRoute>
                   } />
                   <Route path="/login" element={<Login />} />
@@ -259,7 +274,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Alerts" showHomeButton={true}>
-                          <AlertsPage />
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <AlertsPage />
+                          </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
