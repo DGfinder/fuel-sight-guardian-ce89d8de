@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
-import AppLayout from "@/components/AppLayout";
+import { UnifiedLayout } from "@/components/layouts/UnifiedLayout";
 import '@/lib/auth-cleanup'; // Initialize auth cleanup utilities
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
@@ -39,6 +39,11 @@ const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
+const AnalyticsDashboard = lazy(() => import('@/pages/analytics/Dashboard'));
+const GuardianPage = lazy(() => import('@/pages/analytics/GuardianPage'));
+const DeliveryPage = lazy(() => import('@/pages/analytics/DeliveryPage'));
+const ImportPage = lazy(() => import('@/pages/analytics/ImportPage'));
+const ReportsPage = lazy(() => import('@/pages/analytics/ReportsPage'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -132,12 +137,12 @@ function AppContent() {
                       element={
                         <ProtectedRoute>
                           <RouteErrorBoundary routeName="Dashboard" showHomeButton={false}>
-                            <AppLayout 
+                            <UnifiedLayout 
                               selectedGroup={selectedGroup}
                               onGroupSelect={setSelectedGroup}
                             >
                               <Index selectedGroup={selectedGroup} />
-                            </AppLayout>
+                            </UnifiedLayout>
                           </RouteErrorBoundary>
                         </ProtectedRoute>
                       } 
@@ -147,12 +152,12 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Tanks" showHomeButton={true}>
-                          <AppLayout 
+                          <UnifiedLayout 
                             selectedGroup={selectedGroup}
                             onGroupSelect={setSelectedGroup}
                           >
                             <TanksPage />
-                          </AppLayout>
+                          </UnifiedLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -162,12 +167,12 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Map View" showHomeButton={true}>
-                          <AppLayout 
+                          <UnifiedLayout 
                             selectedGroup={selectedGroup}
                             onGroupSelect={setSelectedGroup}
                           >
                             <MapView />
-                          </AppLayout>
+                          </UnifiedLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -177,27 +182,88 @@ function AppContent() {
                     element={
                       <ProtectedRoute requiredRole="admin">
                         <RouteErrorBoundary routeName="Performance" showHomeButton={true}>
-                          <AppLayout 
+                          <UnifiedLayout 
                             selectedGroup={selectedGroup}
                             onGroupSelect={setSelectedGroup}
                           >
                             <PerformancePage />
-                          </AppLayout>
+                          </UnifiedLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  {/* Analytics Routes */}
+                  <Route 
+                    path="/analytics" 
+                    element={
+                      <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
+                        <RouteErrorBoundary routeName="Analytics Dashboard" showHomeButton={true}>
+                          <UnifiedLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <AnalyticsDashboard />
+                          </UnifiedLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />
                   <Route 
-                    path="/analytics" 
+                    path="/analytics/guardian" 
                     element={
                       <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
-                        <RouteErrorBoundary routeName="Analytics" showHomeButton={true}>
-                          <AppLayout 
+                        <RouteErrorBoundary routeName="Guardian Compliance" showHomeButton={true}>
+                          <UnifiedLayout 
                             selectedGroup={selectedGroup}
                             onGroupSelect={setSelectedGroup}
                           >
-                            <AnalyticsPage />
-                          </AppLayout>
+                            <GuardianPage />
+                          </UnifiedLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/analytics/deliveries" 
+                    element={
+                      <ProtectedRoute requiredRole={["admin", "manager"]}>
+                        <RouteErrorBoundary routeName="Delivery Analytics" showHomeButton={true}>
+                          <UnifiedLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <DeliveryPage />
+                          </UnifiedLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/analytics/import" 
+                    element={
+                      <ProtectedRoute requiredRole={["admin", "manager"]}>
+                        <RouteErrorBoundary routeName="Data Import" showHomeButton={true}>
+                          <UnifiedLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <ImportPage />
+                          </UnifiedLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/analytics/reports" 
+                    element={
+                      <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
+                        <RouteErrorBoundary routeName="Reports" showHomeButton={true}>
+                          <UnifiedLayout 
+                            selectedGroup={selectedGroup}
+                            onGroupSelect={setSelectedGroup}
+                          >
+                            <ReportsPage />
+                          </UnifiedLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -252,12 +318,12 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Dip History" showHomeButton={true}>
-                          <AppLayout 
+                          <UnifiedLayout 
                             selectedGroup={selectedGroup}
                             onGroupSelect={setSelectedGroup}
                           >
                             <DipHistoryPage />
-                          </AppLayout>
+                          </UnifiedLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -276,16 +342,16 @@ function AppContent() {
                   />
                   <Route path="/settings" element={
                     <ProtectedRoute>
-                      <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                      <UnifiedLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
                         <Settings />
-                      </AppLayout>
+                      </UnifiedLayout>
                     </ProtectedRoute>
                   } />
                   <Route path="/settings/health" element={
                     <ProtectedRoute>
-                      <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                      <UnifiedLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
                         <HealthPage />
-                      </AppLayout>
+                      </UnifiedLayout>
                     </ProtectedRoute>
                   } />
                   <Route path="/login" element={<Login />} />
@@ -295,12 +361,12 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Alerts" showHomeButton={true}>
-                          <AppLayout 
+                          <UnifiedLayout 
                             selectedGroup={selectedGroup}
                             onGroupSelect={setSelectedGroup}
                           >
                             <AlertsPage />
-                          </AppLayout>
+                          </UnifiedLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
