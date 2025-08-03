@@ -128,7 +128,7 @@ export function Dashboard() {
             <h1 className="text-3xl font-bold text-gray-900">Fleet Analytics Dashboard</h1>
             <p className="text-gray-600 mt-1">
               Welcome back, {user?.email?.split('@')[0] || 'User'}. 
-              Role: <span className="font-medium capitalize">{permissions?.role}</span>
+              Role: <span className="font-medium capitalize">{permissions?.role || 'Loading...'}</span>
             </p>
           </div>
           <div className="flex items-center space-x-2 text-sm text-gray-500">
@@ -141,7 +141,7 @@ export function Dashboard() {
       {/* Statistics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
-          <Card key={index}>
+          <Card key={`stat-${index}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
               <div className={`p-2 rounded-md ${stat.bgColor}`}>
@@ -167,7 +167,7 @@ export function Dashboard() {
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {filteredActions.map((action, index) => (
-            <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card key={`action-${index}`} className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader>
                 <div className={`w-12 h-12 rounded-lg ${action.color} flex items-center justify-center mb-3`}>
                   <action.icon className="w-6 h-6 text-white" />
