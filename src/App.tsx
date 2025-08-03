@@ -38,12 +38,13 @@ const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
-const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
-const AnalyticsDashboard = lazy(() => import('@/pages/analytics/Dashboard'));
-const GuardianPage = lazy(() => import('@/pages/analytics/GuardianPage'));
-const DeliveryPage = lazy(() => import('@/pages/analytics/DeliveryPage'));
-const ImportPage = lazy(() => import('@/pages/analytics/ImportPage'));
-const ReportsPage = lazy(() => import('@/pages/analytics/ReportsPage'));
+// Analytics components temporarily disabled for minimal setup
+// const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
+// const AnalyticsDashboard = lazy(() => import('@/pages/analytics/Dashboard'));
+// const GuardianPage = lazy(() => import('@/pages/analytics/GuardianPage'));
+// const DeliveryPage = lazy(() => import('@/pages/analytics/DeliveryPage'));
+// const ImportPage = lazy(() => import('@/pages/analytics/ImportPage'));
+// const ReportsPage = lazy(() => import('@/pages/analytics/ReportsPage'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -192,8 +193,8 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
-                  {/* Analytics Routes */}
-                  <Route 
+                  {/* Analytics Routes - TEMPORARILY DISABLED for minimal setup */}
+                  {/* <Route 
                     path="/analytics" 
                     element={
                       <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
@@ -267,7 +268,7 @@ function AppContent() {
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
-                  />
+                  /> */}
                   <Route 
                     path="/swan-transit" 
                     element={

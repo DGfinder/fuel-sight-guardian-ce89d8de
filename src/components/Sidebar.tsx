@@ -159,16 +159,16 @@ export const Sidebar: React.FC = () => {
       });
     }
 
-    // Add analytics for admin, manager, and compliance_manager roles
-    if (permissions.isAdmin || permissions.role === 'manager' || permissions.role === 'compliance_manager') {
-      allItems.push({
-        path: '/analytics',
-        label: 'Fleet Analytics',
-        icon: BarChart3,
-        badge: null,
-        group: null
-      });
-    }
+    // Add analytics for admin, manager, and compliance_manager roles - TEMPORARILY DISABLED
+    // if (permissions.isAdmin || permissions.role === 'manager' || permissions.role === 'compliance_manager') {
+    //   allItems.push({
+    //     path: '/analytics',
+    //     label: 'Fleet Analytics',
+    //     icon: BarChart3,
+    //     badge: null,
+    //     group: null
+    //   });
+    // }
 
     // Safely handle permissions.accessibleGroups with validation
     const accessibleGroups = new Set();
