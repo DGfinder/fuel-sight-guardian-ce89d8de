@@ -35,7 +35,7 @@ export const useUserPermissions = () => {
 
         if (roleError) {
           console.log('⚠️ [RBAC DEBUG] No role found, defaulting to viewer');
-          // Default to viewer role if no role found
+          // Default to clean viewer role if no role found
           return {
             role: 'viewer',
             isAdmin: false,
@@ -108,16 +108,25 @@ export const useUserPermissions = () => {
           groups: accessibleGroups.map(g => g.name)
         });
 
-        return {
-          role: userRole,
-          isAdmin,
-          accessibleGroups
+        // Ensure clean, serializable object structure
+        const cleanPermissions = {
+          role: String(userRole || 'viewer'),
+          isAdmin: Boolean(isAdmin),
+          accessibleGroups: Array.isArray(accessibleGroups) ? 
+            accessibleGroups.map(group => ({
+              id: String(group.id || ''),
+              name: String(group.name || ''),
+              subgroups: Array.isArray(group.subgroups) ? 
+                group.subgroups.map(sub => String(sub)) : []
+            })) : []
         };
+
+        return cleanPermissions;
 
       } catch (error) {
         console.error('💥 [RBAC DEBUG] Error in permissions calculation:', error);
         
-        // Fallback: return viewer permissions
+        // Fallback: return clean viewer permissions
         return {
           role: 'viewer',
           isAdmin: false,

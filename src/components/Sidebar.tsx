@@ -169,14 +169,25 @@ export const Sidebar: React.FC = () => {
       });
     }
 
-    const accessibleGroups = new Set(permissions.accessibleGroups.map(g => g.name));
+    // Safely handle permissions.accessibleGroups with validation
+    const accessibleGroups = new Set();
+    if (permissions.accessibleGroups && Array.isArray(permissions.accessibleGroups)) {
+      permissions.accessibleGroups.forEach(group => {
+        if (group && typeof group === 'object' && group.name && typeof group.name === 'string') {
+          accessibleGroups.add(group.name);
+        }
+      });
+    }
+
     return allItems.filter(item => {
       if (permissions.isAdmin) return true;
       if (!item.group) return true;
       return accessibleGroups.has(item.group);
-    }).map(item => ({
+    }).map((item, index) => ({
       ...item,
-      badge: item.badge === 'totalTanks' ? tanksCount : null
+      badge: item.badge === 'totalTanks' ? (typeof tanksCount === 'number' ? tanksCount : null) : null,
+      // Ensure unique key for React rendering
+      _key: item.path || `nav-item-${index}`
     }));
   }, [permissions, tanksCount]);
 
@@ -325,14 +336,14 @@ export const Sidebar: React.FC = () => {
           {/* Nav Links */}
           <ul className="flex flex-col gap-1">
             {navItems.map((item) => {
-              const { path, label, icon: Icon, badge, children } = item;
+              const { path, label, icon: Icon, badge, children, _key } = item;
               const hasChildren = children && children.length > 0;
               const isExpanded = expandedGroups.has(label);
               const isActive = location.pathname === path;
               const hasActiveChild = children?.some(child => child.path === location.pathname);
 
               return (
-                <li key={path}>
+                <li key={_key || path || `item-${label}`}>
                   {hasChildren ? (
                     // Parent item with children
                     <>
@@ -354,7 +365,7 @@ export const Sidebar: React.FC = () => {
                           <span>{label}</span>
                         </Link>
                         <div className="flex items-center gap-2">
-                          {badge !== null && (
+                          {badge !== null && typeof badge === 'number' && (
                             <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
                               {badge}
                             </span>
@@ -370,8 +381,8 @@ export const Sidebar: React.FC = () => {
                       {/* Child items */}
                       {isExpanded && (
                         <ul className="ml-4 mt-1 space-y-1">
-                          {children.map((child) => (
-                            <li key={child.path}>
+                          {children.map((child, childIndex) => (
+                            <li key={child.path || `child-${childIndex}-${child.label}`}>
                               <Link
                                 to={child.path}
                                 className={cn(
@@ -404,7 +415,7 @@ export const Sidebar: React.FC = () => {
                         <Icon className="w-5 h-5" />
                         <span>{label}</span>
                       </div>
-                      {badge !== null && (
+                      {badge !== null && typeof badge === 'number' && (
                         <span className="bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
                           {badge}
                         </span>
@@ -435,7 +446,7 @@ export const Sidebar: React.FC = () => {
             >
               <AlertIcon className="w-5 h-5" />
               Alerts
-              {activeAlertCount > 0 && (
+              {typeof activeAlertCount === 'number' && activeAlertCount > 0 && (
                 <span className="ml-2 bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
                   {activeAlertCount}
                 </span>

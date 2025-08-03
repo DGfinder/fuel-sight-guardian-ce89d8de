@@ -21,8 +21,8 @@ export function Dashboard() {
   const user = { email: 'user@example.com' };
   
   const checkPermission = (permission: string): boolean => {
-    if (!permissions) return false;
-    if (permissions.isAdmin) return true;
+    if (!permissions || typeof permissions !== 'object') return false;
+    if (permissions.isAdmin === true) return true;
 
     const permissionMap: Record<string, string[]> = {
       'view_guardian': ['admin', 'manager', 'compliance_manager'],
@@ -34,7 +34,8 @@ export function Dashboard() {
     };
 
     const allowedRoles = permissionMap[permission] || [];
-    return allowedRoles.includes(permissions.role);
+    const userRole = String(permissions.role || '');
+    return allowedRoles.includes(userRole);
   };
 
   if (isLoading) {
@@ -115,9 +116,14 @@ export function Dashboard() {
     }
   ];
 
-  const filteredActions = quickActions.filter(action => 
-    !action.permission || checkPermission(action.permission)
-  );
+  const filteredActions = quickActions.filter(action => {
+    try {
+      return !action.permission || checkPermission(action.permission);
+    } catch (error) {
+      console.error('Error checking permission for action:', action.title, error);
+      return false;
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -128,7 +134,7 @@ export function Dashboard() {
             <h1 className="text-3xl font-bold text-gray-900">Fleet Analytics Dashboard</h1>
             <p className="text-gray-600 mt-1">
               Welcome back, {user?.email?.split('@')[0] || 'User'}. 
-              Role: <span className="font-medium capitalize">{permissions?.role || 'Loading...'}</span>
+              Role: <span className="font-medium capitalize">{String(permissions?.role || 'Loading...')}</span>
             </p>
           </div>
           <div className="flex items-center space-x-2 text-sm text-gray-500">
