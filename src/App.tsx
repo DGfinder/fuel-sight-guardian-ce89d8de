@@ -131,12 +131,7 @@ function AppContent() {
                       element={
                         <ProtectedRoute>
                           <RouteErrorBoundary routeName="Dashboard" showHomeButton={false}>
-                            <UnifiedLayout 
-                              selectedGroup={selectedGroup}
-                              onGroupSelect={setSelectedGroup}
-                            >
-                              <Index selectedGroup={selectedGroup} />
-                            </UnifiedLayout>
+                            <Index selectedGroup={selectedGroup} />
                           </RouteErrorBoundary>
                         </ProtectedRoute>
                       } 
@@ -146,12 +141,7 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Tanks" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <TanksPage />
-                          </UnifiedLayout>
+                          <TanksPage />
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -161,12 +151,7 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Map View" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <MapView />
-                          </UnifiedLayout>
+                          <MapView />
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -176,12 +161,7 @@ function AppContent() {
                     element={
                       <ProtectedRoute requiredRole="admin">
                         <RouteErrorBoundary routeName="Performance" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <PerformancePage />
-                          </UnifiedLayout>
+                          <PerformancePage />
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -245,12 +225,7 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Dip History" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <DipHistoryPage />
-                          </UnifiedLayout>
+                          <DipHistoryPage />
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
@@ -269,16 +244,12 @@ function AppContent() {
                   />
                   <Route path="/settings" element={
                     <ProtectedRoute>
-                      <UnifiedLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
-                        <Settings />
-                      </UnifiedLayout>
+                      <Settings />
                     </ProtectedRoute>
                   } />
                   <Route path="/settings/health" element={
                     <ProtectedRoute>
-                      <UnifiedLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
-                        <HealthPage />
-                      </UnifiedLayout>
+                      <HealthPage />
                     </ProtectedRoute>
                   } />
                   <Route path="/login" element={<Login />} />
@@ -288,12 +259,7 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Alerts" showHomeButton={true}>
-                          <UnifiedLayout 
-                            selectedGroup={selectedGroup}
-                            onGroupSelect={setSelectedGroup}
-                          >
-                            <AlertsPage />
-                          </UnifiedLayout>
+                          <AlertsPage />
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
