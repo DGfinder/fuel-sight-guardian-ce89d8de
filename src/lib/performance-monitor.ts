@@ -387,7 +387,7 @@ class PerformanceMonitor {
     // For now, we'll just log it and store in localStorage for demo
     
     if (import.meta.env.DEV) {
-      console.log('Performance Analytics:', data);
+      console.log('Performance Analytics:', JSON.stringify(data));
     }
 
     // Store in localStorage (in production, send to analytics service)

@@ -247,16 +247,16 @@ export const useTanks = () => {
           if (tank.location && tank.location.toLowerCase().includes('alkimos')) {
             console.log(`[ALKIMOS DEBUG] Tank: ${tank.location}`);
             console.log(`[ALKIMOS DEBUG] Total readings: ${tankReadings.length}`);
-            console.log(`[ALKIMOS DEBUG] Latest reading:`, {
+            console.log(`[ALKIMOS DEBUG] Latest reading: ${JSON.stringify({
               value: latestReading.value,
               date: latestReading.created_at,
               isLatest: true
-            });
-            console.log(`[ALKIMOS DEBUG] Previous reading:`, {
+            })}`);
+            console.log(`[ALKIMOS DEBUG] Previous reading: ${JSON.stringify({
               value: previousReading.value,
               date: previousReading.created_at,
               isPrevious: true
-            });
+            })}`);
             console.log(`[ALKIMOS DEBUG] Raw calculation: ${latestReading.value} - ${previousReading.value} = ${rawDifference}`);
             console.log(`[ALKIMOS DEBUG] Detected as refill: ${isRefill}`);
             console.log(`[ALKIMOS DEBUG] Final prev_day_used: ${prev_day_used}`);
