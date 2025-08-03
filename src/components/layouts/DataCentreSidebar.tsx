@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { safeReactKey, safeStringify } from '@/lib/typeGuards';
 import logo from '@/assets/logo.png';
 import { 
   Menu, 
@@ -61,8 +62,8 @@ export function DataCentreSidebar({ onBackToFuel }: DataCentreSidebarProps) {
   ];
 
   const checkPermission = (permission: string): boolean => {
-    if (!permissions) return false;
-    if (permissions.isAdmin) return true;
+    if (!permissions || typeof permissions !== 'object') return false;
+    if (permissions.isAdmin === true) return true;
 
     const permissionMap: Record<string, string[]> = {
       'view_guardian': ['admin', 'manager', 'compliance_manager'],
@@ -74,12 +75,18 @@ export function DataCentreSidebar({ onBackToFuel }: DataCentreSidebarProps) {
     };
 
     const allowedRoles = permissionMap[permission] || [];
-    return allowedRoles.includes(permissions.role);
+    const userRole = safeStringify(permissions.role);
+    return allowedRoles.includes(userRole);
   };
 
-  const filteredNavigation = navigation.filter(item => 
-    !item.permission || checkPermission(item.permission)
-  );
+  const filteredNavigation = navigation.filter(item => {
+    // Validate item structure
+    if (!item || typeof item !== 'object') return false;
+    if (typeof item.name !== 'string' || typeof item.href !== 'string') return false;
+    
+    // Check permissions
+    return !item.permission || checkPermission(item.permission);
+  });
 
   if (isLoading) {
     return (
@@ -149,27 +156,35 @@ export function DataCentreSidebar({ onBackToFuel }: DataCentreSidebarProps) {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-            {filteredNavigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors",
-                  item.current
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                )}
-                onClick={() => setSidebarOpen(false)}
-              >
-                <item.icon
+            {filteredNavigation.map((item, index) => {
+              const itemKey = safeReactKey(item?.name, `nav-item-${index}`);
+              const itemName = safeStringify(item?.name || 'Unknown');
+              const itemHref = safeStringify(item?.href || '/data-centre');
+              
+              return (
+                <Link
+                  key={itemKey}
+                  to={itemHref}
                   className={cn(
-                    "mr-3 flex-shrink-0 h-5 w-5",
-                    item.current ? "text-white" : "text-gray-400 group-hover:text-white"
+                    "group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors",
+                    item?.current
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
                   )}
-                />
-                {item.name}
-              </Link>
-            ))}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  {item?.icon && (
+                    <item.icon
+                      className={cn(
+                        "mr-3 flex-shrink-0 h-5 w-5",
+                        item?.current ? "text-white" : "text-gray-400 group-hover:text-white"
+                      )}
+                    />
+                  )}
+                  {itemName}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* User info */}
@@ -183,7 +198,7 @@ export function DataCentreSidebar({ onBackToFuel }: DataCentreSidebarProps) {
                   Analytics User
                 </p>
                 <p className="text-xs text-gray-300 capitalize">
-                  {permissions?.role || 'Loading...'}
+                  {safeStringify(permissions?.role) || 'Loading...'}
                 </p>
               </div>
             </div>

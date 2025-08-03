@@ -142,6 +142,25 @@ export const useUserPermissions = () => {
       }
       return failureCount < 2;
     },
+    // Add cache validation to prevent malformed data
+    select: (data) => {
+      // Validate and clean the permissions data
+      if (!data || typeof data !== 'object') {
+        console.warn('⚠️ [RBAC DEBUG] Invalid permissions data, resetting to viewer');
+        return {
+          role: 'viewer',
+          isAdmin: false,
+          accessibleGroups: []
+        };
+      }
+      
+      // Ensure all properties are properly typed
+      return {
+        role: typeof data.role === 'string' ? data.role : 'viewer',
+        isAdmin: Boolean(data.isAdmin),
+        accessibleGroups: Array.isArray(data.accessibleGroups) ? data.accessibleGroups : []
+      };
+    },
   });
 };
 
