@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppMode } from '@/hooks/useAppMode';
 import Sidebar from '@/components/Sidebar';
-import { AnalyticsSidebar } from './AnalyticsSidebar';
+import { DataCentreSidebar } from './DataCentreSidebar';
 
 interface UnifiedLayoutProps {
   children: React.ReactNode;
@@ -11,7 +11,7 @@ interface UnifiedLayoutProps {
 }
 
 export function UnifiedLayout({ children, selectedGroup, onGroupSelect }: UnifiedLayoutProps) {
-  const { mode, isAnalyticsMode } = useAppMode();
+  const { mode, isDataCentreMode } = useAppMode();
   const navigate = useNavigate();
 
   const handleBackToFuel = () => {
@@ -20,8 +20,8 @@ export function UnifiedLayout({ children, selectedGroup, onGroupSelect }: Unifie
 
   return (
     <div className="flex min-h-screen w-full bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-      {isAnalyticsMode ? (
-        <AnalyticsSidebar onBackToFuel={handleBackToFuel} />
+      {isDataCentreMode ? (
+        <DataCentreSidebar onBackToFuel={handleBackToFuel} />
       ) : (
         <Sidebar />
       )}

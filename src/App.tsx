@@ -38,13 +38,13 @@ const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
-// Analytics components temporarily disabled for minimal setup
-// const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
-// const AnalyticsDashboard = lazy(() => import('@/pages/analytics/Dashboard'));
-// const GuardianPage = lazy(() => import('@/pages/analytics/GuardianPage'));
-// const DeliveryPage = lazy(() => import('@/pages/analytics/DeliveryPage'));
-// const ImportPage = lazy(() => import('@/pages/analytics/ImportPage'));
-// const ReportsPage = lazy(() => import('@/pages/analytics/ReportsPage'));
+// Data Centre components
+const DataCentrePage = lazy(() => import('@/pages/DataCentrePage'));
+const DataCentreDashboard = lazy(() => import('@/pages/data-centre/DataCentreDashboard'));
+const GuardianPage = lazy(() => import('@/pages/data-centre/GuardianPage'));
+const DeliveryPage = lazy(() => import('@/pages/data-centre/DeliveryPage'));
+const ImportPage = lazy(() => import('@/pages/data-centre/ImportPage'));
+const ReportsPage = lazy(() => import('@/pages/data-centre/ReportsPage'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -193,24 +193,24 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
-                  {/* Analytics Routes - TEMPORARILY DISABLED for minimal setup */}
-                  {/* <Route 
-                    path="/analytics" 
+                  {/* Data Centre Routes */}
+                  <Route 
+                    path="/data-centre" 
                     element={
                       <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
-                        <RouteErrorBoundary routeName="Analytics Dashboard" showHomeButton={true}>
+                        <RouteErrorBoundary routeName="Data Centre Dashboard" showHomeButton={true}>
                           <UnifiedLayout 
                             selectedGroup={selectedGroup}
                             onGroupSelect={setSelectedGroup}
                           >
-                            <AnalyticsDashboard />
+                            <DataCentreDashboard />
                           </UnifiedLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />
                   <Route 
-                    path="/analytics/guardian" 
+                    path="/data-centre/guardian" 
                     element={
                       <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
                         <RouteErrorBoundary routeName="Guardian Compliance" showHomeButton={true}>
@@ -225,7 +225,7 @@ function AppContent() {
                     } 
                   />
                   <Route 
-                    path="/analytics/deliveries" 
+                    path="/data-centre/deliveries" 
                     element={
                       <ProtectedRoute requiredRole={["admin", "manager"]}>
                         <RouteErrorBoundary routeName="Delivery Analytics" showHomeButton={true}>
@@ -240,7 +240,7 @@ function AppContent() {
                     } 
                   />
                   <Route 
-                    path="/analytics/import" 
+                    path="/data-centre/import" 
                     element={
                       <ProtectedRoute requiredRole={["admin", "manager"]}>
                         <RouteErrorBoundary routeName="Data Import" showHomeButton={true}>
@@ -255,7 +255,7 @@ function AppContent() {
                     } 
                   />
                   <Route 
-                    path="/analytics/reports" 
+                    path="/data-centre/reports" 
                     element={
                       <ProtectedRoute requiredRole={["admin", "manager", "compliance_manager"]}>
                         <RouteErrorBoundary routeName="Reports" showHomeButton={true}>
@@ -268,7 +268,7 @@ function AppContent() {
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
-                  /> */}
+                  />
                   <Route 
                     path="/swan-transit" 
                     element={

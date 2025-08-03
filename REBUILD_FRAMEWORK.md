@@ -1,11 +1,13 @@
-# Analytics Rebuild Framework
+# Data Centre Rebuild Framework
 
 ## Current Status
-✅ **Phase 1 Complete**: Minimal setup established
-- Analytics routes temporarily disabled in App.tsx (lines 195-270)
-- Analytics navigation removed from Sidebar.tsx
+✅ **Phase 1 Complete**: Naming conflicts resolved
+- Analytics system renamed to "Data Centre" to avoid conflicts with existing fuel analytics
+- All routes updated from `/analytics/*` to `/data-centre/*` 
+- All components renamed (AnalyticsDashboard → DataCentreDashboard, etc.)
+- Navigation updated to "Data Centre" in both sidebars
 - All type guard utilities remain in place (`src/lib/typeGuards.ts`)
-- Core application running without React object conversion errors
+- Core application building and running successfully
 
 ## Type Safety Patterns
 
@@ -52,10 +54,11 @@ const roleString = safeStringProperty(permissions, 'role', 'user');
 2. Test after each addition
 3. Use defensive programming for all data handling
 
-## Files to Re-enable (when ready)
-- `src/App.tsx` lines 195-270 (Analytics routes)
-- `src/components/Sidebar.tsx` lines 163-171 (Analytics navigation)
-- Individual analytics components (rebuild with type safety)
+## Current File Structure
+- `src/App.tsx` lines 196-271 (Data Centre routes) ✅ **Active**
+- `src/components/Sidebar.tsx` lines 162-171 (Data Centre navigation) ✅ **Active**
+- `src/pages/data-centre/` directory with renamed components ✅ **Active**
+- `src/components/data-centre/` directory with renamed components ✅ **Active**
 
 ## Test Commands
 ```bash

@@ -1,29 +1,29 @@
 import { useLocation } from 'react-router-dom';
 
-export type AppMode = 'fuel' | 'analytics';
+export type AppMode = 'fuel' | 'data-centre';
 
 /**
  * Hook to detect and manage the current application mode
- * Returns 'analytics' for routes starting with /analytics
+ * Returns 'data-centre' for routes starting with /data-centre
  * Returns 'fuel' for all other routes
  */
 export function useAppMode(): {
   mode: AppMode;
-  isAnalyticsMode: boolean;
+  isDataCentreMode: boolean;
   isFuelMode: boolean;
-  switchToAnalytics: () => string;
+  switchToDataCentre: () => string;
   switchToFuel: () => string;
 } {
   const location = useLocation();
   
-  const isAnalyticsMode = location.pathname.startsWith('/analytics');
-  const mode: AppMode = isAnalyticsMode ? 'analytics' : 'fuel';
+  const isDataCentreMode = location.pathname.startsWith('/data-centre');
+  const mode: AppMode = isDataCentreMode ? 'data-centre' : 'fuel';
   
   return {
     mode,
-    isAnalyticsMode,
-    isFuelMode: !isAnalyticsMode,
-    switchToAnalytics: () => '/analytics',
+    isDataCentreMode,
+    isFuelMode: !isDataCentreMode,
+    switchToDataCentre: () => '/data-centre',
     switchToFuel: () => '/'
   };
 }
