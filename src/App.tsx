@@ -38,7 +38,10 @@ const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
-// Data Centre redirect (removed - redirects to fuel dips app)
+// Data Centre Analytics Platform
+const DataCentrePage = lazy(() => import('@/pages/DataCentrePage'));
+const GuardianDashboard = lazy(() => import('@/pages/GuardianDashboard'));
+const CaptivePaymentsDashboard = lazy(() => import('@/pages/CaptivePaymentsDashboard'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -175,14 +178,36 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
-                  {/* Data Centre Redirect */}
+                  {/* Data Centre Analytics Platform */}
                   <Route 
                     path="/data-centre" 
-                    element={<Navigate to="/" replace />}
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Data Centre" showHomeButton={true}>
+                          <DataCentrePage />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
                   />
                   <Route 
-                    path="/data-centre/*" 
-                    element={<Navigate to="/" replace />}
+                    path="/data-centre/guardian" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Guardian Compliance" showHomeButton={true}>
+                          <GuardianDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/captive-payments" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Captive Payments" showHomeButton={true}>
+                          <CaptivePaymentsDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
                   />
                   <Route 
                     path="/swan-transit" 

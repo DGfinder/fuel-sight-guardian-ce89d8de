@@ -284,20 +284,9 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  // Debug logging
-  console.log('🔍 [SIDEBAR DEBUG] Render state:', {
-    permissionsLoading,
-    tanksLoading,
-    permissions: !!permissions,
-    navItemsCount: navItems.length
-  });
-
   if (permissionsLoading || tanksLoading) {
-    console.log('📊 [SIDEBAR DEBUG] Showing skeleton loader');
     return <SidebarSkeleton />;
   }
-  
-  console.log('✅ [SIDEBAR DEBUG] Rendering full sidebar with', navItems.length, 'nav items');
   
   return (
     <>
