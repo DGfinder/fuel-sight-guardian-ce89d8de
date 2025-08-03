@@ -10,7 +10,8 @@ import {
   TrendingUp,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  BarChart3
 } from 'lucide-react';
 
 export function GuardianPage() {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGuardianMonthlyMetrics, useGenerateComplianceReport, useGuardianComplianceReport } from '../../hooks/useGuardianAnalytics';
 import { useUserPermissions } from '../../hooks/useUserPermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { safeReactKey, safeStringify } from '../../lib/typeGuards';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -221,15 +222,28 @@ export function GuardianComplianceDashboard({ className }: GuardianComplianceDas
             </CardHeader>
             <CardContent>
               <div className="space-y-1">
-                {monthlyMetrics.top_vehicles.slice(0, 3).map((vehicle, index) => (
-                  <div key={vehicle} className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{vehicle}</span>
-                    <Badge variant="outline" className="text-xs">
-                      #{index + 1}
-                    </Badge>
-                  </div>
-                ))}
-                {monthlyMetrics.top_vehicles.length === 0 && (
+                {Array.isArray(monthlyMetrics.top_vehicles) && monthlyMetrics.top_vehicles.slice(0, 3).map((vehicle, index) => {
+                  // Handle both string and object formats for vehicles
+                  const vehicleKey = safeReactKey(
+                    typeof vehicle === 'object' && vehicle !== null 
+                      ? vehicle.id || vehicle.name || vehicle.vehicle_id 
+                      : vehicle,
+                    `vehicle-${index}`
+                  );
+                  const vehicleDisplay = typeof vehicle === 'object' && vehicle !== null 
+                    ? vehicle.name || vehicle.id || vehicle.vehicle_id || safeStringify(vehicle)
+                    : safeStringify(vehicle);
+                  
+                  return (
+                    <div key={vehicleKey} className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{vehicleDisplay}</span>
+                      <Badge variant="outline" className="text-xs">
+                        #{index + 1}
+                      </Badge>
+                    </div>
+                  );
+                })}
+                {(!monthlyMetrics.top_vehicles || monthlyMetrics.top_vehicles.length === 0) && (
                   <p className="text-sm text-muted-foreground">No events this month</p>
                 )}
               </div>
@@ -252,11 +266,23 @@ export function GuardianComplianceDashboard({ className }: GuardianComplianceDas
                       <span className="text-sm font-medium">Calibration Issues</span>
                     </div>
                     <div className="space-y-1">
-                      {monthlyMetrics.calibration_issues.slice(0, 2).map(vehicle => (
-                        <Badge key={vehicle} variant="outline" className="text-xs">
-                          {vehicle}
-                        </Badge>
-                      ))}
+                      {Array.isArray(monthlyMetrics.calibration_issues) && monthlyMetrics.calibration_issues.slice(0, 2).map((vehicle, index) => {
+                        const vehicleKey = safeReactKey(
+                          typeof vehicle === 'object' && vehicle !== null 
+                            ? vehicle.id || vehicle.name || vehicle.vehicle_id 
+                            : vehicle,
+                          `calibration-${index}`
+                        );
+                        const vehicleDisplay = typeof vehicle === 'object' && vehicle !== null 
+                          ? vehicle.name || vehicle.id || vehicle.vehicle_id || safeStringify(vehicle)
+                          : safeStringify(vehicle);
+                        
+                        return (
+                          <Badge key={vehicleKey} variant="outline" className="text-xs">
+                            {vehicleDisplay}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   </>
                 ) : (
