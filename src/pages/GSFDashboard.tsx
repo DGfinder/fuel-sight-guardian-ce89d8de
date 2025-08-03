@@ -226,15 +226,15 @@ const GSFDashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fleet Utilization</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Data Coverage</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {gsfData.fleetMetrics.averageUtilization}%
+              <div className="text-2xl font-bold text-purple-600">
+                {realData ? `${realData.dateRange.monthsCovered} months` : '20+ months'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {gsfData.fleetMetrics.activeVehicles}/{gsfData.fleetMetrics.totalVehicles} vehicles active
+                {realData ? `${realData.dateRange.startDate} - ${realData.dateRange.endDate}` : 'Sept 2023 - May 2025'}
               </p>
             </CardContent>
           </Card>
@@ -249,7 +249,7 @@ const GSFDashboard = () => {
                 {realData ? realData.uniqueCustomers : gsfData.topCustomers.length}
               </div>
               <p className="text-xs text-muted-foreground">
-                {realData ? `${realData.terminals.length} terminals` : 'Perth Metro, SW, Regional WA'}
+                {realData ? `${realData.terminals.length} terminals served` : 'Active delivery locations'}
               </p>
             </CardContent>
           </Card>
@@ -414,31 +414,47 @@ const GSFDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {gsfData.terminalPerformance.map((terminal, index) => (
-                  <div key={terminal.terminal} className="space-y-2">
-                    <div className="flex items-center justify-between">
+              <div className="space-y-3">
+                {(realData?.terminalAnalysis || gsfData.terminalPerformance).map((terminal, index) => (
+                  <div key={terminal.terminal} className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div 
                           className="w-3 h-3 rounded-full" 
                           style={{ backgroundColor: COLORS[index % COLORS.length] }}
                         />
-                        <span className="font-medium">{terminal.terminal}</span>
+                        <span className="font-medium text-gray-900">{terminal.terminal}</span>
                       </div>
-                      <span className="text-sm font-semibold">{terminal.percentage}%</span>
+                      <span className="font-semibold text-green-600">{terminal.percentage.toFixed(1)}%</span>
                     </div>
-                    <div className="flex justify-between text-sm text-gray-600">
-                      <span>{terminal.deliveries} BOLs</span>
-                      <span>{terminal.volume.toLocaleString()} L</span>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">BOLs</div>
+                        <div className="font-medium">{terminal.deliveries.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Volume (ML)</div>
+                        <div className="font-medium">
+                          {((realData ? terminal.volumeLitres : terminal.volume) / 1000000).toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Avg/BOL</div>
+                        <div className="font-medium">
+                          {((realData ? terminal.volumeLitres : terminal.volume) / terminal.deliveries).toFixed(0)} L
+                        </div>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="h-2 rounded-full" 
-                        style={{ 
-                          width: `${terminal.percentage}%`,
-                          backgroundColor: COLORS[index % COLORS.length]
-                        }}
-                      />
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full" 
+                          style={{ 
+                            width: `${terminal.percentage}%`,
+                            backgroundColor: COLORS[index % COLORS.length]
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -457,21 +473,45 @@ const GSFDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {gsfData.topCustomers.map((customer, index) => (
-                  <div key={customer.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center text-xs font-medium text-green-700 dark:text-green-300">
-                        {index + 1}
+              <div className="space-y-4">
+                {(realData?.topCustomers || gsfData.topCustomers).map((customer, index) => (
+                  <div key={customer.name} className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center text-xs font-medium text-green-700 dark:text-green-300">
+                          {index + 1}
+                        </div>
+                        <div className="font-medium text-gray-900">{customer.name}</div>
                       </div>
-                      <div>
-                        <div className="font-medium">{customer.name}</div>
-                        <div className="text-sm text-gray-500">Avg: {customer.avgVolume.toLocaleString()} L/delivery</div>
+                      <div className="text-right">
+                        <div className="font-semibold text-green-600">{customer.deliveries} BOLs</div>
+                        {realData && (
+                          <div className="text-xs text-gray-500">
+                            {((customer.deliveries / realData.totalDeliveries) * 100).toFixed(1)}% of total
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{customer.deliveries} BOLs</div>
-                      <div className="text-sm text-gray-500">{customer.volume.toLocaleString()} L</div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">Volume</div>
+                        <div className="font-medium">
+                          {realData ? customer.volumeMegaLitres.toFixed(2) : (customer.volume / 1000000).toFixed(2)} ML
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Avg/BOL</div>
+                        <div className="font-medium">
+                          {realData 
+                            ? (customer.volumeLitres / customer.deliveries).toFixed(0) 
+                            : customer.avgVolume.toLocaleString()
+                          } L
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Total Litres</div>
+                        <div className="font-medium">{(realData ? customer.volumeLitres : customer.volume).toLocaleString()}</div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -523,7 +563,23 @@ const GSFDashboard = () => {
 
         {/* Recent GSF Deliveries */}
         <BOLDeliveryTable 
-          deliveries={gsfData.recentDeliveries}
+          deliveries={realData ? 
+            realData.rawRecords
+              .slice(-20) // Get last 20 deliveries
+              .reverse() // Most recent first
+              .map((record, index) => ({
+                bolNumber: record.billOfLading || `BOL-${new Date(record.date).getFullYear()}-${String(index + 1).padStart(6, '0')}`,
+                carrier: 'GSF',
+                terminal: record.location,
+                customer: record.customer,
+                product: record.product,
+                quantity: record.volume,
+                deliveryDate: record.date,
+                driverName: 'N/A', // Not available in CSV data
+                vehicleId: 'N/A'   // Not available in CSV data
+              }))
+            : gsfData.recentDeliveries
+          }
           title="Recent GSF Deliveries"
           showFilters={false}
         />

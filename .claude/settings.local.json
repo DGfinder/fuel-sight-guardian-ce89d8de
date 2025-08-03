@@ -45,7 +45,8 @@
       "Bash(git config:*)",
       "Bash(git commit:*)",
       "Bash(tail:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(head:*)"
     ],
     "deny": []
   }
