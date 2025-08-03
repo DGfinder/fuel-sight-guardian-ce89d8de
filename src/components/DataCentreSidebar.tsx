@@ -46,10 +46,14 @@ const DATA_CENTRE_NAV_ITEMS = [
     ]
   },
   { 
-    path: '/data-centre/safety', 
+    path: '/data-centre/lytx-safety', 
     label: 'LYTX Safety', 
     icon: AlertTriangle,
-    permission: 'view_lytx_events'
+    permission: 'view_lytx_events',
+    children: [
+      { path: '/data-centre/lytx-safety/stevemacs', label: 'Stevemacs Safety', icon: AlertTriangle },
+      { path: '/data-centre/lytx-safety/gsf', label: 'GSF Safety', icon: AlertTriangle }
+    ]
   },
   { 
     path: '/data-centre/import', 
@@ -65,10 +69,15 @@ const DATA_CENTRE_NAV_ITEMS = [
   },
   { 
     path: '/data-centre/fleet', 
-    label: 'Fleet Analytics', 
+    label: 'Fleet Management', 
     icon: TrendingUp,
     permission: 'view_analytics_dashboard',
-    coming_soon: true
+    children: [
+      { path: '/data-centre/fleet/database', label: 'Vehicle Database', icon: TrendingUp },
+      { path: '/data-centre/fleet/stevemacs', label: 'Stevemacs Fleet', icon: TrendingUp },
+      { path: '/data-centre/fleet/gsf', label: 'GSF Fleet', icon: TrendingUp },
+      { path: '/data-centre/fleet/maintenance', label: 'Maintenance & Assets', icon: TrendingUp }
+    ]
   }
 ];
 

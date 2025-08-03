@@ -44,6 +44,16 @@ const GuardianDashboard = lazy(() => import('@/pages/GuardianDashboard'));
 const CaptivePaymentsDashboard = lazy(() => import('@/pages/CaptivePaymentsDashboard'));
 const SMBDashboard = lazy(() => import('@/pages/SMBDashboard'));
 const GSFDashboard = lazy(() => import('@/pages/GSFDashboard'));
+// LYTX Safety Analytics Platform
+const LYTXSafetyDashboard = lazy(() => import('@/pages/LYTXSafetyDashboard'));
+const StevemacsSafetyDashboard = lazy(() => import('@/pages/StevemacsSafetyDashboard'));
+const GSFSafetyDashboard = lazy(() => import('@/pages/GSFSafetyDashboard'));
+// Fleet Management Platform
+const FleetDashboard = lazy(() => import('@/pages/FleetDashboard'));
+const VehicleDatabase = lazy(() => import('@/pages/VehicleDatabase'));
+const StevemacsFleetDashboard = lazy(() => import('@/pages/StevemacsFleetDashboard'));
+const GSFFleetDashboard = lazy(() => import('@/pages/GSFFleetDashboard'));
+const MaintenanceDashboard = lazy(() => import('@/pages/MaintenanceDashboard'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -227,6 +237,88 @@ function AppContent() {
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="GSF Analytics" showHomeButton={true}>
                           <GSFDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  {/* LYTX Safety Analytics Routes */}
+                  <Route 
+                    path="/data-centre/lytx-safety" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="LYTX Safety Dashboard" showHomeButton={true}>
+                          <LYTXSafetyDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/lytx-safety/stevemacs" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Stevemacs Safety Analytics" showHomeButton={true}>
+                          <StevemacsSafetyDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/lytx-safety/gsf" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="GSF Safety Analytics" showHomeButton={true}>
+                          <GSFSafetyDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  {/* Fleet Management Routes */}
+                  <Route 
+                    path="/data-centre/fleet" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Fleet Management" showHomeButton={true}>
+                          <FleetDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/fleet/database" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Vehicle Database" showHomeButton={true}>
+                          <VehicleDatabase />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/fleet/stevemacs" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Stevemacs Fleet Analytics" showHomeButton={true}>
+                          <StevemacsFleetDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/fleet/gsf" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="GSF Fleet Analytics" showHomeButton={true}>
+                          <GSFFleetDashboard />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/fleet/maintenance" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Maintenance & Asset Management" showHomeButton={true}>
+                          <MaintenanceDashboard />
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
