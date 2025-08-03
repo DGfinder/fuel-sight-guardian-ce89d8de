@@ -41,7 +41,9 @@
       "Bash(timeout 10s npm run dev)",
       "Bash(npm uninstall:*)",
       "Bash(git add:*)",
-      "Bash(cut:*)"
+      "Bash(cut:*)",
+      "Bash(git config:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
