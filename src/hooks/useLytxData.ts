@@ -270,10 +270,31 @@ export const useLytxCarrierEvents = (
     endDate: dateRange.endDate
   });
 
+  // Debug logging for carrier filtering
+  console.log('useLytxCarrierEvents - Raw API Response:', {
+    totalEvents: eventsQuery.data?.events.length || 0,
+    requestedCarrier: carrier,
+    sampleEvents: eventsQuery.data?.events.slice(0, 5).map(e => ({
+      eventId: e.eventId,
+      group: e.group,
+      carrier: e.carrier,
+      driver: e.driver
+    }))
+  });
+
   // Filter events by carrier after transformation
   const carrierEvents = eventsQuery.data?.events.filter(
     event => event.carrier === carrier
   ) || [];
+
+  console.log('useLytxCarrierEvents - Filtered Results:', {
+    requestedCarrier: carrier,
+    filteredCount: carrierEvents.length,
+    carrierBreakdown: eventsQuery.data?.events.reduce((acc, event) => {
+      acc[event.carrier] = (acc[event.carrier] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)
+  });
 
   const carrierMetrics = carrierEvents.length > 0 ? 
     lytxDataTransformer.getEventSummary(carrierEvents) : null;

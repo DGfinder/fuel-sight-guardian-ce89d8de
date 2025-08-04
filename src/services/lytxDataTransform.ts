@@ -109,11 +109,30 @@ export class LytxDataTransformer {
   private determineCarrier(groupName: string): 'Stevemacs' | 'Great Southern Fuels' {
     const groupLower = groupName.toLowerCase();
     
+    console.log('determineCarrier - analyzing group:', groupName, 'lowercased:', groupLower);
+    
+    // Check for Stevemacs indicators
     if (groupLower.includes('stevemacs') || groupLower.includes('smb') || groupLower.includes('kewdale')) {
+      console.log('determineCarrier - matched Stevemacs for:', groupName);
       return 'Stevemacs';
     }
     
-    // Default to GSF since we're using GSF's API key
+    // Check for GSF indicators - be more specific
+    if (groupLower.includes('gsf') || 
+        groupLower.includes('great southern') || 
+        groupLower.includes('southern fuels') ||
+        groupLower.includes('geraldton') ||
+        groupLower.includes('kalgoorlie') ||
+        groupLower.includes('narrogin') ||
+        groupLower.includes('albany') ||
+        groupLower.includes('bunbury') ||
+        groupLower.includes('fremantle')) {
+      console.log('determineCarrier - matched GSF for:', groupName);
+      return 'Great Southern Fuels';
+    }
+    
+    // If no specific match, default to GSF since we're using GSF's API key
+    console.log('determineCarrier - defaulting to GSF for:', groupName);
     return 'Great Southern Fuels';
   }
 
@@ -220,7 +239,19 @@ export class LytxDataTransformer {
 
   // Transform multiple events
   transformSafetyEvents(lytxEvents: LytxSafetyEvent[]): LYTXEvent[] {
-    return lytxEvents.map(event => this.transformSafetyEvent(event));
+    console.log('transformSafetyEvents - Processing', lytxEvents.length, 'events');
+    
+    const transformed = lytxEvents.map(event => this.transformSafetyEvent(event));
+    
+    // Log carrier breakdown after transformation
+    const carrierBreakdown = transformed.reduce((acc, event) => {
+      acc[event.carrier] = (acc[event.carrier] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    console.log('transformSafetyEvents - Carrier breakdown:', carrierBreakdown);
+    
+    return transformed;
   }
 
   // Filter events by date range
