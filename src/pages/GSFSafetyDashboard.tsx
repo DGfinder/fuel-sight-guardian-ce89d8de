@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, AlertTriangle, TrendingUp, Users, Award, MapPin, Truck, BarChart3, Calendar, Clock, Target, Shield, Settings, RefreshCw, Download, Filter, Search, Loader2, WifiOff } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, ComposedChart, Area, AreaChart } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Area, AreaChart } from 'recharts';
 import { useLytxCarrierEvents, useLytxDashboardData } from '@/hooks/useLytxData';
 import { lytxDataTransformer, LYTXEvent } from '@/services/lytxDataTransform';
 import DateRangeFilter from '@/components/DateRangeFilter';
@@ -538,14 +538,14 @@ const GSFSafetyDashboard: React.FC = () => {
             Event Status Distribution
           </h3>
           <ResponsiveContainer width="100%" height={250}>
-            <RechartsPieChart>
+            <PieChart>
               <Tooltip />
-              <RechartsPieChart data={statusData} cx="50%" cy="50%" outerRadius={80}>
+              <Pie data={statusData} cx="50%" cy="50%" outerRadius={80} dataKey="value">
                 {statusData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
-              </RechartsPieChart>
-            </ResponsiveContainer>
+              </Pie>
+            </PieChart>
           </ResponsiveContainer>
           <div className="mt-4 grid grid-cols-2 gap-2">
             {statusData.map((status) => (
