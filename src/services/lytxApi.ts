@@ -109,16 +109,40 @@ class LytxApiClient {
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<LytxApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
-    
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...this.defaultHeaders,
-          ...options.headers
-        }
-      });
+      // Use proxy in production, direct API in development
+      const useProxy = typeof window !== 'undefined' && 
+                      !window.location.hostname.includes('localhost') && 
+                      !window.location.hostname.includes('127.0.0.1') &&
+                      !window.location.hostname.includes('192.168.');
+      
+      let response: Response;
+      
+      if (useProxy) {
+        // Use Vercel serverless function proxy
+        response = await fetch('/api/lytx-proxy', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endpoint,
+            method: options.method || 'GET',
+            headers: options.headers,
+            ...(options.body && { body: options.body })
+          })
+        });
+      } else {
+        // Direct API call for local development
+        const url = `${this.baseUrl}${endpoint}`;
+        response = await fetch(url, {
+          ...options,
+          headers: {
+            ...this.defaultHeaders,
+            ...options.headers
+          }
+        });
+      }
 
       if (!response.ok) {
         await this.handleApiError(response);
