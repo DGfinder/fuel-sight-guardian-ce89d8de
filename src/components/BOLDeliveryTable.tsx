@@ -378,9 +378,9 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
               )}
             </TableBody>
           </Table>
-        </div>
+          </div>
 
-        {/* Pagination */}
+          {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between space-x-2 py-4">
             <div className="flex items-center space-x-2">
@@ -470,7 +470,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
             <div className="text-sm text-gray-500">CSV Records</div>
           </div>
         </div>
-          </div>
+          )
         )}
       </CardContent>
     </Card>
