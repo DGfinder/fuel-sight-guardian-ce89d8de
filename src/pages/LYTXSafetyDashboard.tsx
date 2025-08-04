@@ -131,7 +131,23 @@ const LYTXSafetyDashboard: React.FC = () => {
   const dashboardData = useLytxDashboardData(apiDateRange);
 
   // Use API data or fallback to mock data
-  const allEvents = dashboardData.events.data?.events || mockLYTXEvents;
+  const allEvents = useMemo(() => {
+    console.log('Dashboard events data:', dashboardData.events.data);
+    
+    // Handle different possible data structures
+    let events = mockLYTXEvents; // Default fallback
+    
+    if (dashboardData.events.data?.events && Array.isArray(dashboardData.events.data.events)) {
+      events = dashboardData.events.data.events;
+    } else if (dashboardData.events.data && Array.isArray(dashboardData.events.data)) {
+      events = dashboardData.events.data;
+    } else if (dashboardData.events.isSuccess && dashboardData.events.data) {
+      console.warn('Unexpected events data structure:', dashboardData.events.data);
+    }
+    
+    console.log('Final events array:', events, 'Length:', events?.length);
+    return Array.isArray(events) ? events : mockLYTXEvents;
+  }, [dashboardData.events.data, dashboardData.events.isSuccess]);
 
   // Filter events based on selected carrier
   const filteredEvents = useMemo(() => {

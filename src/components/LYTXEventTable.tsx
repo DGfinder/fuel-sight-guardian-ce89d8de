@@ -594,7 +594,7 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredEvents.map((event) => (
+            {Array.isArray(filteredEvents) ? filteredEvents.map((event) => (
               <tr 
                 key={event.eventId} 
                 className={`hover:bg-gray-50 ${event.excluded ? 'bg-red-50' : ''}`}
@@ -693,7 +693,15 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
                   </div>
                 </td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan={5} className="p-4 text-center text-gray-500">
+                  {filteredEvents === null || filteredEvents === undefined ? 
+                    'Loading events...' : 
+                    'No events data available (invalid format)'}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
