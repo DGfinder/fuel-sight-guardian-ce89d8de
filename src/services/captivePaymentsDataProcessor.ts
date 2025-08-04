@@ -71,12 +71,75 @@ export function parseVolume(volumeStr: string): number {
 }
 
 /**
- * Parse date string handling multiple formats:
- * - M/D/YYYY (early data): 9/1/2023, 11/6/2023
- * - D/M/YY (later data): 29/05/25, 15/03/24
- * - DD.MM.YYYY (June 2025 data): 21.05.2025, 30.05.2025
+ * Smart format detection for date strings
+ * Analyzes patterns to determine if data uses Australian (dd/mm/yyyy) or US (mm/dd/yyyy) format
  */
-export function parseDeliveryDate(dateStr: string): Date {
+export function detectDateFormat(dateStrings: string[]): 'australian' | 'us' | 'european' | 'unknown' {
+  let australianScore = 0;
+  let usScore = 0;
+  let europeanScore = 0;
+  let totalAnalyzed = 0;
+  
+  // Analyze up to 50 date samples for format detection
+  const samplesToAnalyze = Math.min(50, dateStrings.length);
+  
+  for (let i = 0; i < samplesToAnalyze; i++) {
+    const dateStr = dateStrings[i].trim();
+    
+    // Skip empty dates
+    if (!dateStr) continue;
+    
+    // European format detection (DD.MM.YYYY)
+    if (dateStr.includes('.')) {
+      europeanScore += 10;
+      totalAnalyzed++;
+      continue;
+    }
+    
+    // Analyze slash-separated dates
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const first = parseInt(parts[0]);
+        const second = parseInt(parts[1]);
+        
+        // If first number > 12, must be day (Australian format)
+        if (first > 12) {
+          australianScore += 10;
+        }
+        // If second number > 12, must be month in first position (US format)
+        else if (second > 12) {
+          usScore += 10;
+        }
+        // If both <= 12, check for other patterns
+        else {
+          // Slight preference for Australian since that's our expected format
+          australianScore += 1;
+        }
+        totalAnalyzed++;
+      }
+    }
+  }
+  
+  if (totalAnalyzed === 0) return 'unknown';
+  
+  if (europeanScore > australianScore && europeanScore > usScore) {
+    return 'european';
+  } else if (australianScore >= usScore) {
+    return 'australian';
+  } else {
+    return 'us';
+  }
+}
+
+/**
+ * Parse date string handling multiple formats with smart detection:
+ * - DD/MM/YYYY (Australian format): 15/10/2021, 1/09/2023
+ * - MM/DD/YYYY (US format): 9/1/2023, 11/6/2023
+ * - DD.MM.YYYY (European format): 21.05.2025, 30.05.2025
+ * - DD/MM/YY (2-digit year): 29/05/25, 15/03/24
+ */
+export function parseDeliveryDate(dateStr: string, detectedFormat?: 'australian' | 'us' | 'european'): Date {
   if (!dateStr || dateStr.trim() === '') {
     console.warn('Empty date string provided');
     return new Date();
@@ -107,24 +170,36 @@ export function parseDeliveryDate(dateStr: string): Date {
     }
   }
 
-  // Handle M/D/YYYY format (like 9/1/2023)
+  // Handle slash-separated dates with smart format detection
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmedDate)) {
-    try {
-      return parse(trimmedDate, 'M/d/yyyy', new Date());
-    } catch (error) {
-      console.warn(`Failed to parse M/D/YYYY date: ${trimmedDate}`, error);
+    const formats = detectedFormat === 'us' 
+      ? ['M/d/yyyy', 'd/M/yyyy'] // Try US first if detected
+      : ['d/M/yyyy', 'M/d/yyyy']; // Default: Try Australian first
+    
+    for (const format of formats) {
+      try {
+        const parsed = parse(trimmedDate, format, new Date());
+        // Validate the parsed date makes sense (reasonable range)
+        if (parsed.getFullYear() >= 2020 && parsed.getFullYear() <= 2030) {
+          return parsed;
+        }
+      } catch (error) {
+        // Continue to next format
+      }
     }
+    
+    console.warn(`Failed to parse date with detected format (${detectedFormat || 'australian'}): ${trimmedDate}`);
   }
 
-  // Additional fallback attempts for other variations
+  // Additional fallback attempts for other variations (Australian format prioritized)
   const fallbackFormats = [
-    'MM/dd/yyyy',  // 09/01/2023
-    'd/M/yyyy',    // 29/5/2023
-    'dd/MM/yyyy',  // 29/05/2023
-    'M/d/yy',      // 9/1/23
-    'MM/dd/yy',    // 09/01/23
-    'dd.MM.yyyy',  // 21.05.2025 alternative
-    'd.M.yy',      // 21.5.25
+    'dd/MM/yyyy',  // 29/05/2023 (Australian with leading zeros)
+    'd/M/yyyy',    // 29/5/2023 (Australian without leading zeros)
+    'MM/dd/yyyy',  // 09/01/2023 (US format)
+    'M/d/yy',      // 9/1/23 (US format 2-digit year)
+    'MM/dd/yy',    // 09/01/23 (US format 2-digit year)
+    'dd.MM.yyyy',  // 21.05.2025 (European dot notation)
+    'd.M.yy',      // 21.5.25 (European dot notation 2-digit year)
   ];
 
   for (const format of fallbackFormats) {
@@ -140,8 +215,12 @@ export function parseDeliveryDate(dateStr: string): Date {
     }
   }
 
-  console.warn(`Could not parse date with any format: ${dateStr}`);
-  return new Date(); // Return current date as last resort
+  console.warn(`Could not parse date with any format: "${dateStr}". Tried Australian dd/mm/yyyy, US mm/dd/yyyy, and ${fallbackFormats.length} other formats.`);
+  
+  // Return a clearly invalid date instead of current date to make issues more visible
+  const invalidDate = new Date('1900-01-01');
+  console.error(`Returning fallback date for invalid input: ${dateStr}`);
+  return invalidDate;
 }
 
 /**
@@ -176,8 +255,37 @@ export function processCSVData(csvText: string, debugMode: boolean = false, maxR
   let validRecords = 0;
   let dateParseErrors = 0;
   
+  // Chronological validation tracking
+  let lastValidDate: Date | null = null;
+  let chronologyWarnings = 0;
+  let dateFormatDetected: string | null = null;
+  let smartFormatDetected: 'australian' | 'us' | 'european' | 'unknown' | null = null;
+  
   // Performance tracking
   const startTime = Date.now();
+  
+  // Smart format detection - analyze first 100 lines to detect date format
+  if (debugMode) {
+    const dateStringsForAnalysis: string[] = [];
+    for (let i = 0; i < Math.min(lines.length, 100); i++) {
+      const line = lines[i].trim();
+      if (line && line.includes(',')) {
+        const fields = parseCSVLine(line);
+        if (fields.length >= 1 && fields[0].trim()) {
+          const dateField = fields[0].trim().replace(/"/g, '');
+          if (dateField && /\d/.test(dateField) && !dateField.toLowerCase().includes('date')) {
+            dateStringsForAnalysis.push(dateField);
+          }
+        }
+      }
+    }
+    
+    if (dateStringsForAnalysis.length > 0) {
+      smartFormatDetected = detectDateFormat(dateStringsForAnalysis);
+      console.log(`🧺 Smart format detection: ${smartFormatDetected} (analyzed ${dateStringsForAnalysis.length} samples)`);
+      console.log(`   Sample dates: ${dateStringsForAnalysis.slice(0, 5).join(', ')}`);
+    }
+  }
   
   if (debugMode) {
     console.log(`🔍 Processing CSV with ${lines.length} total lines`);
@@ -254,6 +362,47 @@ export function processCSVData(csvText: string, debugMode: boolean = false, maxR
       continue;
     }
     
+    // Parse and validate the date for chronological order
+    let parsedDate: Date;
+    try {
+      parsedDate = parseDeliveryDate(dateField, smartFormatDetected || undefined);
+      
+      // Validate the parsed date isn't clearly wrong (like year 1900)
+      if (parsedDate.getFullYear() < 2020) {
+        if (debugMode) console.log(`❌ Suspicious date at line ${i + 1}: "${dateField}" → ${parsedDate.toISOString()}`);
+        dateParseErrors++;
+        skippedLines++;
+        continue;
+      }
+      
+      // Chronological validation (data should be sorted chronologically)
+      if (lastValidDate && parsedDate < lastValidDate) {
+        chronologyWarnings++;
+        if (debugMode && chronologyWarnings <= 5) {
+          console.log(`⚠️  Chronology warning at line ${i + 1}: ${parsedDate.toLocaleDateString()} comes after ${lastValidDate.toLocaleDateString()}`);
+        }
+      } else {
+        lastValidDate = parsedDate;
+      }
+      
+      // Detect date format for logging
+      if (!dateFormatDetected && validRecords === 0) {
+        if (dateField.includes('.')) {
+          dateFormatDetected = 'DD.MM.YYYY (European)';
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateField)) {
+          dateFormatDetected = smartFormatDetected === 'us' ? 'MM/DD/YYYY (US)' : 'DD/MM/YYYY (Australian)';
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{2}$/.test(dateField)) {
+          dateFormatDetected = smartFormatDetected === 'us' ? 'MM/DD/YY (US)' : 'DD/MM/YY (Australian)';
+        }
+      }
+      
+    } catch (error) {
+      if (debugMode) console.log(`❌ Date parsing failed at line ${i + 1}: "${dateField}"`);
+      dateParseErrors++;
+      skippedLines++;
+      continue;
+    }
+    
     // Parse and validate volume
     const volumeStr = fields[5].trim();
     const volume = parseVolume(volumeStr);
@@ -302,22 +451,39 @@ export function processCSVData(csvText: string, debugMode: boolean = false, maxR
     console.log(`   Valid records: ${validRecords}`);
     console.log(`   Skipped lines: ${skippedLines}`);
     console.log(`   Date parse errors: ${dateParseErrors}`);
+    console.log(`   Chronology warnings: ${chronologyWarnings}`);
+    console.log(`   Date format detected: ${dateFormatDetected || 'Unknown'}`);
+    console.log(`   Smart format: ${smartFormatDetected || 'Not detected'}`);
     console.log(`   Success rate: ${((validRecords / lines.length) * 100).toFixed(1)}%`);
     console.log(`   Processing time: ${processingTime}ms`);
     console.log(`   Records per second: ${Math.round(validRecords / (processingTime / 1000))}`);
     
     if (finalRecords.length > 0) {
       const sampleRecord = finalRecords[0];
-      console.log(`   Sample record:`, sampleRecord);
+      const lastRecord = finalRecords[finalRecords.length - 1];
+      console.log(`   First record:`, sampleRecord);
+      console.log(`   Last record:`, lastRecord);
       
-      // Test date parsing for first record
+      // Test date parsing for first and last records
       try {
-        const parsedDate = parseDeliveryDate(sampleRecord.date);
-        console.log(`   Sample date parsing: "${sampleRecord.date}" → ${parsedDate.toISOString()}`);
+        const firstDate = parseDeliveryDate(sampleRecord.date, smartFormatDetected || undefined);
+        const lastDate = parseDeliveryDate(lastRecord.date, smartFormatDetected || undefined);
+        console.log(`   Date range: ${firstDate.toLocaleDateString()} → ${lastDate.toLocaleDateString()}`);
+        console.log(`   Chronological span: ${Math.round((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24))} days`);
+        
+        // Validate chronological order
+        if (firstDate > lastDate) {
+          console.warn(`   ⚠️  WARNING: First date (${firstDate.toLocaleDateString()}) is after last date (${lastDate.toLocaleDateString()}). Data may not be chronologically sorted or date format may be incorrect.`);
+        }
       } catch (error) {
-        console.log(`   Sample date parsing failed:`, error);
+        console.log(`   Date range calculation failed:`, error);
       }
     }
+  }
+  
+  // Final validation: warn if too many chronology issues
+  if (chronologyWarnings > validRecords * 0.1) {
+    console.warn(`⚠️  High chronology warning rate: ${chronologyWarnings}/${validRecords} records (${(chronologyWarnings/validRecords*100).toFixed(1)}%). Data may not be properly sorted or date format may be incorrect.`);
   }
   
   return finalRecords;
