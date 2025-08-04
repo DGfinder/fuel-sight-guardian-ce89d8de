@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Shield, 
@@ -13,8 +13,33 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import DataCentreLayout from '@/components/DataCentreLayout';
+import { useVehicles } from '@/hooks/useVehicles';
 
 const DataCentrePage = () => {
+  const { data: vehicles = [], isLoading } = useVehicles();
+  
+  const fleetStats = useMemo(() => {
+    if (vehicles.length === 0) {
+      return {
+        totalVehicles: 0,
+        averageEfficiency: 0,
+        activeVehicles: 0,
+        averageSafetyScore: 0
+      };
+    }
+    
+    const activeVehicles = vehicles.filter(v => v.status === 'Active').length;
+    const averageEfficiency = vehicles.reduce((sum, v) => sum + v.fuel_efficiency, 0) / vehicles.length;
+    const averageSafetyScore = vehicles.reduce((sum, v) => sum + v.safety_score, 0) / vehicles.length;
+    
+    return {
+      totalVehicles: vehicles.length,
+      averageEfficiency: Math.round(averageEfficiency * 10) / 10,
+      activeVehicles,
+      averageSafetyScore: Math.round(averageSafetyScore * 10) / 10
+    };
+  }, [vehicles]);
+
   const analyticsCards = [
     {
       title: 'Guardian Compliance',
@@ -66,9 +91,12 @@ const DataCentrePage = () => {
       description: 'Comprehensive fleet performance and risk optimization',
       icon: TrendingUp,
       href: '/data-centre/fleet',
-      metrics: { vehicles: '45', efficiency: '94%' },
+      metrics: { 
+        vehicles: fleetStats.totalVehicles.toString(), 
+        efficiency: `${fleetStats.averageEfficiency} km/L`
+      },
       color: 'bg-teal-500',
-      available: false
+      available: true
     }
   ];
 
@@ -208,8 +236,12 @@ const DataCentrePage = () => {
               <div className="flex items-center">
                 <AlertTriangle className="w-8 h-8 text-orange-500 mr-3" />
                 <div>
-                  <p className="text-2xl font-bold">8.2/10</p>
-                  <p className="text-gray-600 text-sm">Safety Score</p>
+                  {isLoading ? (
+                    <p className="text-2xl font-bold text-gray-400">Loading...</p>
+                  ) : (
+                    <p className="text-2xl font-bold">{fleetStats.averageSafetyScore}/10</p>
+                  )}
+                  <p className="text-gray-600 text-sm">Avg Safety Score</p>
                 </div>
               </div>
             </CardContent>
@@ -219,13 +251,64 @@ const DataCentrePage = () => {
               <div className="flex items-center">
                 <TrendingUp className="w-8 h-8 text-teal-500 mr-3" />
                 <div>
-                  <p className="text-2xl font-bold">94%</p>
-                  <p className="text-gray-600 text-sm">Fleet Efficiency</p>
+                  {isLoading ? (
+                    <p className="text-2xl font-bold text-gray-400">Loading...</p>
+                  ) : (
+                    <p className="text-2xl font-bold">{fleetStats.totalVehicles}</p>
+                  )}
+                  <p className="text-gray-600 text-sm">Total Vehicles</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+        
+        {/* Additional Fleet Insights */}
+        {!isLoading && vehicles.length > 0 && (
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">{fleetStats.activeVehicles}</p>
+                    <p className="text-gray-600 text-sm">Active Vehicles</p>
+                  </div>
+                  <div className="text-green-500">
+                    {Math.round((fleetStats.activeVehicles / fleetStats.totalVehicles) * 100)}%
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">{fleetStats.averageEfficiency} km/L</p>
+                    <p className="text-gray-600 text-sm">Avg Fuel Efficiency</p>
+                  </div>
+                  <div className="text-blue-500">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {vehicles.filter(v => v.fleet === 'Stevemacs').length} / {vehicles.filter(v => v.fleet === 'Great Southern Fuels').length}
+                    </p>
+                    <p className="text-gray-600 text-sm">Stevemacs / GSF</p>
+                  </div>
+                  <div className="text-purple-500">
+                    <Users className="w-4 h-4" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </DataCentreLayout>
   );

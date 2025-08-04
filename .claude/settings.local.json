@@ -47,7 +47,8 @@
       "Bash(tail:*)",
       "Bash(wc:*)",
       "Bash(head:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "WebFetch(domain:fuel-sight-guardian-ce89d8de.vercel.app)"
     ],
     "deny": []
   }
