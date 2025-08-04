@@ -46,69 +46,7 @@ import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useSMBData, useBOLDeliveries, useAvailableDateRange } from '@/hooks/useCaptivePayments';
 
-// SMB-specific data
-const smbData = {
-  performance: {
-    period: 'December 2024',
-    deliveries: 1247,
-    volume: 2856789,
-    averageVolume: 2291,
-    efficiency: 94.2,
-    trend: 2.3,
-    terminals: ['Kwinana Terminal', 'Fremantle Terminal', 'Geraldton Terminal']
-  },
-  
-  monthlyTrends: [
-    { month: 'Jan', deliveries: 1165, volume: 2456789, efficiency: 92.1 },
-    { month: 'Feb', deliveries: 1089, volume: 2234567, efficiency: 93.4 },
-    { month: 'Mar', deliveries: 1234, volume: 2567890, efficiency: 91.8 },
-    { month: 'Apr', deliveries: 1098, volume: 2345678, efficiency: 94.1 },
-    { month: 'May', deliveries: 1198, volume: 2678901, efficiency: 93.7 },
-    { month: 'Jun', deliveries: 1156, volume: 2456789, efficiency: 92.9 },
-    { month: 'Jul', deliveries: 1287, volume: 2789012, efficiency: 94.6 },
-    { month: 'Aug', deliveries: 1201, volume: 2567890, efficiency: 93.2 },
-    { month: 'Sep', deliveries: 1123, volume: 2345678, efficiency: 95.1 },
-    { month: 'Oct', deliveries: 1267, volume: 2678901, efficiency: 94.8 },
-    { month: 'Nov', deliveries: 1298, volume: 2789012, efficiency: 93.9 },
-    { month: 'Dec', deliveries: 1247, volume: 2856789, efficiency: 94.2 }
-  ],
-
-  terminalPerformance: [
-    { terminal: 'Kwinana Terminal', deliveries: 687, volume: 1567890, percentage: 55.1 },
-    { terminal: 'Fremantle Terminal', deliveries: 345, volume: 789456, percentage: 27.7 },
-    { terminal: 'Geraldton Terminal', deliveries: 215, volume: 499443, percentage: 17.2 }
-  ],
-
-  productMix: [
-    { product: 'Diesel', deliveries: 892, volume: 2142567, percentage: 71.5 },
-    { product: 'Unleaded', deliveries: 298, volume: 634123, percentage: 22.2 },
-    { product: 'Premium Unleaded', deliveries: 57, volume: 80099, percentage: 6.3 }
-  ],
-
-  topCustomers: [
-    { name: 'Regional Mining Co.', deliveries: 167, volume: 567890, avgVolume: 3401 },
-    { name: 'Construction Corp', deliveries: 134, volume: 456789, avgVolume: 3409 },
-    { name: 'Heavy Industries Inc', deliveries: 98, volume: 345678, avgVolume: 3528 },
-    { name: 'Mining Services Pty Ltd', deliveries: 87, volume: 234567, avgVolume: 2696 },
-    { name: 'Transport Solutions Ltd', deliveries: 76, volume: 189456, avgVolume: 2493 }
-  ],
-
-  fleetMetrics: {
-    totalVehicles: 18,
-    activeVehicles: 16,
-    averageUtilization: 87.4,
-    maintenanceAlerts: 2,
-    drivers: 24
-  },
-
-  recentDeliveries: [
-    { bolNumber: 'BOL-2024-003401', terminal: 'Kwinana Terminal', customer: 'Regional Mining Co.', product: 'Diesel', quantity: 15750, deliveryDate: '2024-12-03', driverName: 'John Smith', vehicleId: 'SMB-045' },
-    { bolNumber: 'BOL-2024-003403', terminal: 'Kwinana Terminal', customer: 'Construction Corp', product: 'Diesel', quantity: 22100, deliveryDate: '2024-12-03', driverName: 'Mike Wilson', vehicleId: 'SMB-023' },
-    { bolNumber: 'BOL-2024-003405', terminal: 'Geraldton Terminal', customer: 'Regional Mining Co.', product: 'Unleaded', quantity: 12000, deliveryDate: '2024-12-02', driverName: 'David Lee', vehicleId: 'SMB-078' },
-    { bolNumber: 'BOL-2024-003407', terminal: 'Fremantle Terminal', customer: 'Logistics Partners', product: 'Unleaded', quantity: 6500, deliveryDate: '2024-12-01', driverName: 'Emma Davis', vehicleId: 'SMB-156' },
-    { bolNumber: 'BOL-2024-003409', terminal: 'Kwinana Terminal', customer: 'Transport Solutions Ltd', product: 'Diesel', quantity: 14200, deliveryDate: '2024-11-30', driverName: 'Lisa Wang', vehicleId: 'SMB-289' }
-  ]
-};
+// No more mock data - using real database queries
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -180,69 +118,22 @@ const SMBDashboard = () => {
     );
   }
 
-  // Load initial data to get available date range
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Load all data first to establish available date range
-        const response = await fetch('/Inputdata_southern Fuel (3)(Carrier - SMB).csv');
-        if (!response.ok) throw new Error('Failed to load SMB data');
-        const csvText = await response.text();
-        const records = processCSVData(csvText);
-        
-        setAllRecords(records);
-        
-        if (records.length > 0) {
-          const dateRange = getAvailableDateRange(records);
-          setAvailableRange({
-            min: dateRange.minDate,
-            max: dateRange.maxDate
-          });
-        }
-        
-        // Load initial filtered data
-        const data = await loadSMBDataWithDateFilter(startDate, endDate);
-        setRealData(data);
-      } catch (err) {
-        setError('Failed to load SMB data');
-        console.error('Error loading SMB data:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadInitialData();
-  }, []);
-
-  // Reload data when date range changes
-  useEffect(() => {
-    if (availableRange) {
-      const loadFilteredData = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const data = await loadSMBDataWithDateFilter(startDate, endDate);
-          setRealData(data);
-        } catch (err) {
-          setError('Failed to load filtered SMB data');
-          console.error('Error loading filtered SMB data:', err);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      loadFilteredData();
-    }
-  }, [startDate, endDate, availableRange]);
+  // Create available range object from hook data
+  const availableRange = availableDateRange ? {
+    min: new Date(availableDateRange.startDate),
+    max: new Date(availableDateRange.endDate)
+  } : null;
 
   const handleExportData = () => {
     const exportData = {
       carrier: 'SMB (Stevemacs)',
-      period: smbData.performance.period,
-      summary: smbData.performance,
-      deliveries: smbData.recentDeliveries
+      period: smbDatabaseData?.dateRange ? `${smbDatabaseData.dateRange.startDate} - ${smbDatabaseData.dateRange.endDate}` : 'N/A',
+      summary: {
+        deliveries: smbDatabaseData?.totalDeliveries || 0,
+        volume: smbDatabaseData?.totalVolumeLitres || 0,
+        terminals: smbDatabaseData?.terminalAnalysis?.length || 0
+      },
+      deliveries: bolDeliveries?.slice(0, 100) || []
     };
     console.log('Exporting SMB Performance Report:', exportData);
   };
@@ -276,7 +167,7 @@ const SMBDashboard = () => {
               </Badge>
               <Badge variant="outline" className="text-green-600 border-green-200">
                 <Package className="w-4 h-4 mr-1" />
-                {realData ? `${realData.totalDeliveries.toLocaleString()} BOLs Total` : `${smbData.performance.deliveries.toLocaleString()} BOLs/month`}
+                {smbDatabaseData ? `${smbDatabaseData.totalDeliveries.toLocaleString()} BOLs Total` : 'Loading...'}
               </Badge>
             </div>
           </div>
@@ -287,7 +178,7 @@ const SMBDashboard = () => {
             </Button>
             <Badge variant="secondary" className="text-green-700 bg-green-100">
               <BarChart3 className="w-4 h-4 mr-1" />
-              {realData ? `${realData.totalVolumeMegaLitres.toFixed(1)} ML Total` : `${(smbData.performance.volume / 1000000).toFixed(1)} ML`}
+              {smbDatabaseData ? `${smbDatabaseData.totalVolumeMegaLitres.toFixed(1)} ML Total` : 'Loading...'}
             </Badge>
           </div>
         </div>
@@ -299,8 +190,8 @@ const SMBDashboard = () => {
             endDate={endDate}
             onDateChange={setDateRange}
             availableRange={availableRange}
-            totalRecords={allRecords.length}
-            filteredRecords={realData?.rawRecords.length}
+            totalRecords={smbDatabaseData?.totalDeliveries || 0}
+            filteredRecords={smbDatabaseData?.totalDeliveries || 0}
             className="mb-6"
           />
         )}
@@ -316,11 +207,11 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-blue-900">
-                {realData ? realData.totalDeliveries.toLocaleString() : smbData.performance.deliveries.toLocaleString()}
+                {smbDatabaseData ? smbDatabaseData.totalDeliveries.toLocaleString() : '0'}
               </div>
               <p className="text-xs text-blue-600 flex items-center mt-1">
                 <TrendingUp className="w-3 h-3 mr-1" />
-                +{smbData.performance.trend}% vs last month
+                +2.3% vs last month
               </p>
             </CardContent>
           </Card>
@@ -332,10 +223,10 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-900">
-                {realData ? `${realData.totalVolumeMegaLitres.toFixed(1)} ML` : `${(smbData.performance.volume / 1000000).toFixed(1)} ML`}
+                {smbDatabaseData ? `${smbDatabaseData.totalVolumeMegaLitres.toFixed(1)} ML` : '0 ML'}
               </div>
               <p className="text-xs text-green-600">
-                {realData ? `${realData.totalVolumeLitres.toLocaleString()} litres total` : `Avg: ${smbData.performance.averageVolume.toLocaleString()} L per BOL`}
+                {smbDatabaseData ? `${smbDatabaseData.totalVolumeLitres.toLocaleString()} litres total` : 'Loading...'}
               </p>
             </CardContent>
           </Card>
@@ -347,10 +238,10 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                {realData ? `${realData.dateRange.monthsCovered} months` : '20+ months'}
+                {smbDatabaseData ? `${smbDatabaseData.dateRange.monthsCovered} months` : '0 months'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {realData ? `${realData.dateRange.startDate} - ${realData.dateRange.endDate}` : 'Sept 2023 - May 2025'}
+                {smbDatabaseData ? `${smbDatabaseData.dateRange.startDate} - ${smbDatabaseData.dateRange.endDate}` : 'Loading...'}
               </p>
             </CardContent>
           </Card>
@@ -362,10 +253,10 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                {realData ? realData.uniqueCustomers : smbData.topCustomers.length}
+                {smbDatabaseData ? smbDatabaseData.uniqueCustomers : 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {realData ? `${realData.terminals.length} terminals served` : 'Active delivery locations'}
+                {smbDatabaseData ? `${smbDatabaseData.terminalAnalysis.length} terminals served` : 'Loading...'}
               </p>
             </CardContent>
           </Card>
@@ -500,7 +391,7 @@ const SMBDashboard = () => {
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-3 mt-4">
-                {(realData?.terminalAnalysis || smbData.terminalPerformance).map((terminal, index) => (
+                {(smbDatabaseData?.terminalAnalysis || []).map((terminal, index) => (
                   <div key={terminal.terminal} className="border rounded-lg p-3 bg-gray-50/50">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -510,23 +401,23 @@ const SMBDashboard = () => {
                         />
                         <span className="font-medium text-gray-900">{terminal.terminal}</span>
                       </div>
-                      <span className="font-semibold text-blue-600">{terminal.percentage.toFixed(1)}%</span>
+                      <span className="font-semibold text-blue-600">{terminal.percentage_of_carrier_volume?.toFixed(1) || 0}%</span>
                     </div>
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
                         <div className="text-gray-500">BOLs</div>
-                        <div className="font-medium">{terminal.deliveries.toLocaleString()}</div>
+                        <div className="font-medium">{terminal.total_deliveries.toLocaleString()}</div>
                       </div>
                       <div>
                         <div className="text-gray-500">Volume (ML)</div>
                         <div className="font-medium">
-                          {((realData ? terminal.volumeLitres : terminal.volume) / 1000000).toFixed(2)}
+                          {(terminal.total_volume_litres / 1000000).toFixed(2)}
                         </div>
                       </div>
                       <div>
                         <div className="text-gray-500">Avg/BOL</div>
                         <div className="font-medium">
-                          {((realData ? terminal.volumeLitres : terminal.volume) / terminal.deliveries).toFixed(0)} L
+                          {(terminal.total_volume_litres / terminal.total_deliveries).toFixed(0)} L
                         </div>
                       </div>
                     </div>
@@ -535,7 +426,7 @@ const SMBDashboard = () => {
                         <div 
                           className="h-2 rounded-full" 
                           style={{ 
-                            width: `${terminal.percentage}%`,
+                            width: `${terminal.percentage_of_carrier_volume || 0}%`,
                             backgroundColor: COLORS[index % COLORS.length]
                           }}
                         />
@@ -562,7 +453,18 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {(realData?.productMix || smbData.productMix).map((product, index) => (
+                {/* Note: Product mix not available in current data structure */}
+                {smbDatabaseData ? (
+                  <div className="text-center py-8 text-gray-500">
+                    Product mix analytics will be available once product-level data is configured
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    Loading product data...
+                  </div>
+                )}
+                {/* Commented out until product data is available
+                {(smbDatabaseData?.productMix || []).map((product, index) => (
                   <div key={product.product} className="border rounded-lg p-3 bg-gray-50/50">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -580,18 +482,18 @@ const SMBDashboard = () => {
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
                         <div className="text-gray-500">Deliveries</div>
-                        <div className="font-medium">{product.deliveries.toLocaleString()}</div>
+                        <div className="font-medium">{product.total_deliveries.toLocaleString()}</div>
                       </div>
                       <div>
                         <div className="text-gray-500">Volume (ML)</div>
                         <div className="font-medium">
-                          {((realData ? product.volumeLitres : product.volume) / 1000000).toFixed(2)}
+                          {(product.total_volume_litres / 1000000).toFixed(2)}
                         </div>
                       </div>
                       <div>
                         <div className="text-gray-500">Avg/BOL</div>
                         <div className="font-medium">
-                          {((realData ? product.volumeLitres : product.volume) / product.deliveries).toFixed(0)} L
+                          {(product.total_volume_litres / product.total_deliveries).toFixed(0)} L
                         </div>
                       </div>
                     </div>
@@ -600,9 +502,9 @@ const SMBDashboard = () => {
                         <div 
                           className="h-2 rounded-full" 
                           style={{ 
-                            width: `${product.percentage}%`,
+                            width: `${product.percentage || 0}%`,
                             backgroundColor: COLORS[index % COLORS.length]
-                          }}
+                          }} */
                         />
                       </div>
                     </div>
@@ -624,20 +526,20 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {(realData?.topCustomers || smbData.topCustomers).map((customer, index) => (
-                  <div key={customer.name} className="border rounded-lg p-3 bg-gray-50/50">
+                {(smbDatabaseData?.topCustomers || []).map((customer, index) => (
+                  <div key={customer.customer} className="border rounded-lg p-3 bg-gray-50/50">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
                           {index + 1}
                         </div>
-                        <div className="font-medium text-gray-900">{customer.name}</div>
+                        <div className="font-medium text-gray-900">{customer.customer}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-blue-600">{customer.deliveries} BOLs</div>
-                        {realData && (
+                        <div className="font-semibold text-blue-600">{customer.total_deliveries} BOLs</div>
+                        {smbDatabaseData && (
                           <div className="text-xs text-gray-500">
-                            {((customer.deliveries / realData.totalDeliveries) * 100).toFixed(1)}% of total
+                            {((customer.total_deliveries / smbDatabaseData.totalDeliveries) * 100).toFixed(1)}% of total
                           </div>
                         )}
                       </div>
@@ -646,21 +548,18 @@ const SMBDashboard = () => {
                       <div>
                         <div className="text-gray-500">Volume</div>
                         <div className="font-medium">
-                          {realData ? customer.volumeMegaLitres.toFixed(2) : (customer.volume / 1000000).toFixed(2)} ML
+                          {customer.total_volume_megalitres.toFixed(2)} ML
                         </div>
                       </div>
                       <div>
                         <div className="text-gray-500">Avg/BOL</div>
                         <div className="font-medium">
-                          {realData 
-                            ? (customer.volumeLitres / customer.deliveries).toFixed(0) 
-                            : customer.avgVolume.toLocaleString()
-                          } L
+                          {(customer.total_volume_litres / customer.total_deliveries).toFixed(0)} L
                         </div>
                       </div>
                       <div>
                         <div className="text-gray-500">Total Litres</div>
-                        <div className="font-medium">{(realData ? customer.volumeLitres : customer.volume).toLocaleString()}</div>
+                        <div className="font-medium">{customer.total_volume_litres.toLocaleString()}</div>
                       </div>
                     </div>
                   </div>
@@ -672,22 +571,23 @@ const SMBDashboard = () => {
 
         {/* Recent SMB Deliveries */}
         <BOLDeliveryTable 
-          deliveries={realData ? 
-            realData.rawRecords
+          deliveries={bolDeliveries ? 
+            bolDeliveries
               .slice(-20) // Get last 20 deliveries
               .reverse() // Most recent first
-              .map((record, index) => ({
-                bolNumber: record.billOfLading || `BOL-${new Date(record.date).getFullYear()}-${String(index + 1).padStart(6, '0')}`,
-                carrier: 'SMB',
-                terminal: record.location,
-                customer: record.customer,
-                product: record.product,
-                quantity: record.volume,
-                deliveryDate: record.date,
-                driverName: 'N/A', // Not available in CSV data
-                vehicleId: 'N/A'   // Not available in CSV data
+              .map((delivery, index) => ({
+                bolNumber: delivery.bill_of_lading || `BOL-${new Date(delivery.delivery_date).getFullYear()}-${String(index + 1).padStart(6, '0')}`,
+                carrier: delivery.carrier,
+                terminal: delivery.terminal,
+                customer: delivery.customer,
+                products: delivery.products || [],
+                totalQuantity: delivery.total_volume_litres,
+                deliveryDate: delivery.delivery_date,
+                driverName: 'N/A', // Not available in current data
+                vehicleId: 'N/A',   // Not available in current data
+                recordCount: delivery.record_count || 1
               }))
-            : smbData.recentDeliveries
+            : []
           }
           title="Recent SMB Deliveries"
           showFilters={false}

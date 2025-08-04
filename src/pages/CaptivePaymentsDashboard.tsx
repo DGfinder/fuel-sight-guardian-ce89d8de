@@ -19,15 +19,17 @@ import { Link } from 'react-router-dom';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
 import DeliveryTrendCharts from '@/components/DeliveryTrendCharts';
 import CompactDateFilter from '@/components/CompactDateFilter';
-import { 
-  loadCombinedCaptiveDataWithDateFilter,
-  getAvailableDateRange,
-  ProcessedCaptiveData,
-  processCSVData,
-  groupRecordsByBOL
-} from '@/services/captivePaymentsDataProcessor';
+import { ProcessedCaptiveData } from '@/services/captivePaymentsDataProcessor';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { 
+  useCombinedData, 
+  useSMBData, 
+  useGSFData, 
+  useBOLDeliveries, 
+  useAvailableDateRange,
+  useCaptivePaymentsSummary 
+} from '@/hooks/useCaptivePayments';
 
 // Production dashboard - all data sourced from real CSV files
 
@@ -37,14 +39,17 @@ const CaptivePaymentsDashboard = () => {
   
   const [selectedCarrier, setSelectedCarrier] = useState('all');
   
-  // Real data state
-  const [combinedData, setCombinedData] = useState<ProcessedCaptiveData | null>(null);
-  const [smbData, setSmbData] = useState<ProcessedCaptiveData | null>(null);
-  const [gsfData, setGsfData] = useState<ProcessedCaptiveData | null>(null);
-  const [allRecords, setAllRecords] = useState<any[]>([]);
-  const [availableRange, setAvailableRange] = useState<{min: Date; max: Date} | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Database hooks for real data
+  const filters = { startDate, endDate };
+  const { data: combinedData, isLoading: combinedLoading, error: combinedError } = useCombinedData(filters);
+  const { data: smbData, isLoading: smbLoading } = useSMBData(filters);
+  const { data: gsfData, isLoading: gsfLoading } = useGSFData(filters);
+  const { data: bolDeliveries } = useBOLDeliveries(filters);
+  const { data: availableDateRange } = useAvailableDateRange();
+  
+  // Consolidated loading and error states
+  const isLoading = combinedLoading || smbLoading || gsfLoading;
+  const error = combinedError ? String(combinedError) : null;
 
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
@@ -87,79 +92,13 @@ const CaptivePaymentsDashboard = () => {
     );
   }
 
-  // Load initial data to get available date range
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Load all records from both carriers to establish available date range
-        const [smbResponse, gsfResponse] = await Promise.all([
-          fetch('/Inputdata_southern Fuel (3)(Carrier - SMB).csv'),
-          fetch('/Inputdata_southern Fuel (3)(Carrier - GSF).csv')
-        ]);
-        
-        if (!smbResponse.ok || !gsfResponse.ok) {
-          throw new Error('Failed to load captive payments data');
-        }
-        
-        const [smbCsvText, gsfCsvText] = await Promise.all([
-          smbResponse.text(),
-          gsfResponse.text()
-        ]);
-        
-        const smbRecords = processCSVData(smbCsvText);
-        const gsfRecords = processCSVData(gsfCsvText);
-        const allRecordsData = [...smbRecords, ...gsfRecords];
-        
-        setAllRecords(allRecordsData);
-        
-        if (allRecordsData.length > 0) {
-          const dateRange = getAvailableDateRange(allRecordsData);
-          setAvailableRange({
-            min: dateRange.minDate,
-            max: dateRange.maxDate
-          });
-        }
-        
-        // Load initial filtered data
-        const filteredData = await loadCombinedCaptiveDataWithDateFilter(startDate, endDate);
-        setCombinedData(filteredData.combinedData);
-        setSmbData(filteredData.smbData);
-        setGsfData(filteredData.gsfData);
-      } catch (err) {
-        setError('Failed to load captive payments data');
-        console.error('Error loading captive payments data:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Create available range object from hook data
+  const availableRange = availableDateRange ? {
+    min: new Date(availableDateRange.startDate),
+    max: new Date(availableDateRange.endDate)
+  } : null;
 
-    loadInitialData();
-  }, []);
-
-  // Reload data when date range changes
-  useEffect(() => {
-    if (availableRange) {
-      const loadFilteredData = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const filteredData = await loadCombinedCaptiveDataWithDateFilter(startDate, endDate);
-          setCombinedData(filteredData.combinedData);
-          setSmbData(filteredData.smbData);
-          setGsfData(filteredData.gsfData);
-        } catch (err) {
-          setError('Failed to load filtered captive payments data');
-          console.error('Error loading filtered captive payments data:', err);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      loadFilteredData();
-    }
-  }, [startDate, endDate, availableRange]);
+  // Data automatically updates when date range changes via hooks
 
   const handleExportData = () => {
     if (!combinedData) {
@@ -215,11 +154,7 @@ const CaptivePaymentsDashboard = () => {
         // In production, would implement actual file processing
         alert(`File "${file.name}" uploaded successfully. Processing ${file.size} bytes...`);
         
-        // Reload data after upload
-        const filteredData = await loadCombinedCaptiveDataWithDateFilter(startDate, endDate);
-        setCombinedData(filteredData.combinedData);
-        setSmbData(filteredData.smbData);
-        setGsfData(filteredData.gsfData);
+        // Data will automatically refresh via hooks
       } catch (err) {
         setError('Failed to process uploaded file');
         console.error('Upload error:', err);
@@ -243,14 +178,14 @@ const CaptivePaymentsDashboard = () => {
   const previousMonthData = combinedData?.monthlyData?.slice(-2)[0];
   
   const deliveryChange = currentMonthData && previousMonthData ? 
-    currentMonthData.deliveries - previousMonthData.deliveries : 0;
+    currentMonthData.total_deliveries - previousMonthData.total_deliveries : 0;
   const volumeChange = currentMonthData && previousMonthData ? 
-    currentMonthData.volumeLitres - previousMonthData.volumeLitres : 0;
+    currentMonthData.total_volume_litres - previousMonthData.total_volume_litres : 0;
   
-  const deliveryChangePercent = previousMonthData?.deliveries ? 
-    ((deliveryChange / previousMonthData.deliveries) * 100).toFixed(1) : '0.0';
-  const volumeChangePercent = previousMonthData?.volumeLitres ? 
-    ((volumeChange / previousMonthData.volumeLitres) * 100).toFixed(1) : '0.0';
+  const deliveryChangePercent = previousMonthData?.total_deliveries ? 
+    ((deliveryChange / previousMonthData.total_deliveries) * 100).toFixed(1) : '0.0';
+  const volumeChangePercent = previousMonthData?.total_volume_litres ? 
+    ((volumeChange / previousMonthData.total_volume_litres) * 100).toFixed(1) : '0.0';
 
   return (
     <div className="space-y-6">
@@ -297,8 +232,8 @@ const CaptivePaymentsDashboard = () => {
           endDate={endDate}
           onDateChange={setDateRange}
           availableRange={availableRange}
-          totalRecords={allRecords.length}
-          filteredRecords={combinedData?.rawRecords.length}
+          totalRecords={combinedData?.totalDeliveries || 0}
+          filteredRecords={combinedData?.totalDeliveries || 0}
           className="mb-6"
         />
       )}
@@ -557,19 +492,19 @@ const CaptivePaymentsDashboard = () => {
                 ))
               ) : combinedData ? (
                 combinedData.topCustomers.slice(0, 5).map((customer, index) => (
-                  <div key={customer.name} className="flex items-center justify-between">
+                  <div key={customer.customer} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
                         {index + 1}
                       </div>
                       <div>
-                        <div className="font-medium">{customer.name}</div>
+                        <div className="font-medium">{customer.customer}</div>
                         <div className="text-xs text-gray-500">Top Customer</div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold">{customer.deliveries} BOLs</div>
-                      <div className="text-sm text-gray-500">{customer.volumeLitres.toLocaleString()} L</div>
+                      <div className="font-semibold">{customer.total_deliveries} BOLs</div>
+                      <div className="text-sm text-gray-500">{customer.total_volume_litres.toLocaleString()} L</div>
                     </div>
                   </div>
                 ))
@@ -603,28 +538,28 @@ const CaptivePaymentsDashboard = () => {
                     <div className="animate-pulse bg-gray-200 h-3 w-40 rounded"></div>
                   </div>
                 ))
-              ) : combinedData ? (
-                combinedData.rawRecords.slice(-5).reverse().map((record, index) => (
-                  <div key={`${record.billOfLading}-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
+              ) : bolDeliveries ? (
+                bolDeliveries.slice(-5).reverse().map((delivery, index) => (
+                  <div key={`${delivery.bill_of_lading}-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                       <div className="font-medium flex items-center gap-2">
-                        {record.billOfLading || `BOL-${index + 1}`}
+                        {delivery.bill_of_lading || `BOL-${index + 1}`}
                         <Badge variant="outline" className="text-blue-600 border-blue-200">
-                          Combined
+                          {delivery.carrier}
                         </Badge>
                       </div>
                       <div className="text-sm text-gray-500">
-                        {record.location} → {record.customer}
+                        {delivery.terminal} → {delivery.customer}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {record.product} • {record.volume > 0 ? '+' : ''}{record.volume.toLocaleString()} L
+                        {delivery.products?.join(', ')} • {delivery.total_volume_litres > 0 ? '+' : ''}{delivery.total_volume_litres.toLocaleString()} L
                       </div>
                       <div className="text-xs text-gray-400">
-                        {record.date}
+                        {delivery.delivery_date}
                       </div>
                     </div>
                     <div className="text-right">
-                      {record.volume < 0 && (
+                      {delivery.total_volume_litres < 0 && (
                         <Badge variant="outline" className="text-red-600 border-red-200">
                           Return
                         </Badge>
@@ -656,13 +591,13 @@ const CaptivePaymentsDashboard = () => {
         {combinedData && combinedData.monthlyData.length > 0 ? (
           <DeliveryTrendCharts 
             monthlyData={combinedData.monthlyData.map(month => ({
-              month: month.month,
-              smbDeliveries: smbData?.monthlyData.find(m => m.month === month.month)?.deliveries || 0,
-              gsfDeliveries: gsfData?.monthlyData.find(m => m.month === month.month)?.deliveries || 0,
-              totalDeliveries: month.deliveries,
-              smbVolume: smbData?.monthlyData.find(m => m.month === month.month)?.volumeLitres || 0,
-              gsfVolume: gsfData?.monthlyData.find(m => m.month === month.month)?.volumeLitres || 0,
-              totalVolume: month.volumeLitres
+              month: month.month_name,
+              smbDeliveries: smbData?.monthlyData.find(m => m.month_name === month.month_name)?.total_deliveries || 0,
+              gsfDeliveries: gsfData?.monthlyData.find(m => m.month_name === month.month_name)?.total_deliveries || 0,
+              totalDeliveries: month.total_deliveries,
+              smbVolume: smbData?.monthlyData.find(m => m.month_name === month.month_name)?.total_volume_litres || 0,
+              gsfVolume: gsfData?.monthlyData.find(m => m.month_name === month.month_name)?.total_volume_litres || 0,
+              totalVolume: month.total_volume_litres
             }))}
             currentMonth={{
               totalDeliveries: combinedData.totalDeliveries,
@@ -679,10 +614,21 @@ const CaptivePaymentsDashboard = () => {
       </div>
 
       {/* Detailed BOL Delivery Analysis Table */}
-      {combinedData ? (
+      {bolDeliveries ? (
         <BOLDeliveryTable 
-          deliveries={groupRecordsByBOL(combinedData.rawRecords.slice(0, 1000), 'Combined')}
-          title={`BOL Delivery Records (showing first 1,000 records grouped by BOL of ${combinedData.totalDeliveries.toLocaleString()} total deliveries)`}
+          deliveries={bolDeliveries.slice(0, 1000).map(delivery => ({
+            bolNumber: delivery.bill_of_lading,
+            carrier: delivery.carrier,
+            terminal: delivery.terminal,
+            customer: delivery.customer,
+            products: delivery.products || [],
+            totalQuantity: delivery.total_volume_litres,
+            deliveryDate: delivery.delivery_date,
+            driverName: 'N/A',
+            vehicleId: 'N/A',
+            recordCount: delivery.record_count || 1
+          }))}
+          title={`BOL Delivery Records (showing first 1,000 of ${combinedData?.totalDeliveries?.toLocaleString() || 0} total deliveries)`}
           showFilters={true}
         />
       ) : (
