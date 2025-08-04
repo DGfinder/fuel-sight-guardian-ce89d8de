@@ -44,13 +44,13 @@ export default function AgbotDetailsModal() {
   const { selectedLocation, open, closeModal } = useAgbotModal();
   const { data: analytics, isLoading: analyticsLoading } = useAgbotLocationAnalytics(selectedLocation);
   
-  if (!selectedLocation) return null;
-
-  const mainAsset = selectedLocation.assets?.[0];
-  const allAssets = selectedLocation.assets || [];
-  const isOnline = selectedLocation.location_status === 2 && (mainAsset?.device_online ?? false);
-  const percentage = selectedLocation.latest_calibrated_fill_percentage ?? mainAsset?.latest_calibrated_fill_percentage;
+  const mainAsset = selectedLocation?.assets?.[0];
+  const allAssets = selectedLocation?.assets || [];
+  const isOnline = selectedLocation?.location_status === 2 && (mainAsset?.device_online ?? false);
+  const percentage = selectedLocation?.latest_calibrated_fill_percentage ?? mainAsset?.latest_calibrated_fill_percentage;
   const percentageColor = usePercentageColor(percentage);
+
+  if (!selectedLocation) return null;
 
   return (
     <Dialog open={open} onOpenChange={closeModal}>

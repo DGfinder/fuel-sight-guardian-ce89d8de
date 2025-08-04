@@ -72,7 +72,7 @@ export default function CSVImportModal({ open, onOpenChange, onImport, tanks }: 
         continue; // Skip malformed rows
       }
 
-      const rowData: any = {};
+      const rowData: Record<string, string> = {};
       headers.forEach((header, index) => {
         rowData[header] = values[index];
       });
@@ -162,7 +162,7 @@ export default function CSVImportModal({ open, onOpenChange, onImport, tanks }: 
     } finally {
       setIsProcessing(false);
     }
-  }, [tanks, toast]);
+  }, [tanks, toast, validateCSVData]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

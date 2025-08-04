@@ -188,7 +188,7 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
 
   // Filter and search events
   const filteredEvents = useMemo(() => {
-    let filtered = events.filter(event => {
+    const filtered = events.filter(event => {
       const matchesSearch = event.eventId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           event.driver.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           event.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||

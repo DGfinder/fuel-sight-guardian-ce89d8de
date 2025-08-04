@@ -272,7 +272,7 @@ export default function AgbotCSVImportModal({ open, onOpenChange, onImport }: Ag
     } finally {
       setIsProcessing(false);
     }
-  }, [toast]);
+  }, [toast, parseCSV]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

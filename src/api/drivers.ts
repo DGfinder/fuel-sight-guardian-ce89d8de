@@ -405,7 +405,7 @@ export async function getDriverAssignmentHistory(driverId: string) {
     .order('assigned_at', { ascending: false });
   
   if (error) throw error;
-  return data as (DriverAssignment & { vehicle: any })[];
+  return data as (DriverAssignment & { vehicle: { rego: string; make?: string; model?: string } })[];
 }
 
 // Utility functions

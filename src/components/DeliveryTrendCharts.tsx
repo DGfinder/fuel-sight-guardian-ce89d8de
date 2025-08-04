@@ -57,12 +57,12 @@ const DeliveryTrendCharts: React.FC<DeliveryTrendChartsProps> = ({
   const volumeTrend = lastThreeMonths[2].totalVolume - lastThreeMonths[0].totalVolume;
 
   // Custom tooltip for better data presentation
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{name: string; value: number; color: string; dataKey: string}>; label?: string }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-4 border rounded-lg shadow-lg">
           <p className="font-semibold text-gray-900">{`${label} 2024`}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index: number) => (
             <p key={index} style={{ color: entry.color }} className="text-sm">
               {`${entry.name}: ${entry.value.toLocaleString()}`}
               {entry.dataKey.includes('Volume') && ' L'}
