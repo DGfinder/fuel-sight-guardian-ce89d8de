@@ -469,6 +469,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
               <div className="text-sm text-gray-500">CSV Records</div>
             </div>
           </div>
+          </div>
         )}
       </CardContent>
     </Card>

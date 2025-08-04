@@ -57,7 +57,8 @@
       "Bash(VITE_SUPABASE_URL=\"https://wjzsdsvbtapriiuxzmih.supabase.co\" SUPABASE_SERVICE_ROLE_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqenNkc3ZidGFwcmlpdXh6bWloIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTE4MDU1MiwiZXhwIjoyMDY0NzU2NTUyfQ.c6HZBGuXBz-RHXwFasOmJ8A_e0oRkt6vy-hNFDidCKo\" npx tsx tools/test-data.ts)",
       "Bash(VITE_SUPABASE_URL=\"https://wjzsdsvbtapriiuxzmih.supabase.co\" SUPABASE_SERVICE_ROLE_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqenNkc3ZidGFwcmlpdXh6bWloIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTE4MDU1MiwiZXhwIjoyMDY0NzU2NTUyfQ.c6HZBGuXBz-RHXwFasOmJ8A_e0oRkt6vy-hNFDidCKo\" npx tsx tools/disable-rls-temporarily.ts)",
       "Bash(timeout 30 npm run build)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm ci:*)"
     ],
     "deny": []
   }
