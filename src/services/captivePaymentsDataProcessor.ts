@@ -161,17 +161,23 @@ export function extractTerminal(location: string): string {
 }
 
 /**
- * Process raw CSV data into structured format
+ * Process raw CSV data into structured format with performance optimizations
  * Handles Australian d/m/y date format and various CSV structures
+ * Optimized for large datasets (50K+ records)
  */
-export function processCSVData(csvText: string, debugMode: boolean = false): CaptivePaymentRecord[] {
+export function processCSVData(csvText: string, debugMode: boolean = false, maxRecords?: number): CaptivePaymentRecord[] {
   const lines = csvText.split('\n');
-  const records: CaptivePaymentRecord[] = [];
+  // Performance optimization: pre-allocate array if we know the size
+  const records: CaptivePaymentRecord[] = maxRecords ? new Array(maxRecords) : [];
+  let recordIndex = 0;
   let headerFound = false;
   let headerRowIndex = -1;
   let skippedLines = 0;
   let validRecords = 0;
   let dateParseErrors = 0;
+  
+  // Performance tracking
+  const startTime = Date.now();
   
   if (debugMode) {
     console.log(`🔍 Processing CSV with ${lines.length} total lines`);
@@ -258,19 +264,36 @@ export function processCSVData(csvText: string, debugMode: boolean = false): Cap
       continue;
     }
     
-    // Create the record
+    // Performance optimization: stop processing if we've reached max records
+    if (maxRecords && recordIndex >= maxRecords) {
+      if (debugMode) console.log(`🛑 Reached maximum record limit: ${maxRecords}`);
+      break;
+    }
+    
+    // Create the record with minimal string operations
     const record: CaptivePaymentRecord = {
       date: dateField,
-      billOfLading: fields[1].trim().replace(/"/g, ''),
-      location: fields[2].trim().replace(/"/g, ''),
-      customer: fields[3].trim().replace(/"/g, ''),
-      product: fields[4].trim().replace(/"/g, ''),
+      billOfLading: fields[1].replace(/"/g, '').trim(),
+      location: fields[2].replace(/"/g, '').trim(),
+      customer: fields[3].replace(/"/g, '').trim(),
+      product: fields[4].replace(/"/g, '').trim(),
       volume: volume
     };
     
-    records.push(record);
+    if (maxRecords) {
+      records[recordIndex] = record;
+    } else {
+      records.push(record);
+    }
+    recordIndex++;
     validRecords++;
   }
+  
+  const endTime = Date.now();
+  const processingTime = endTime - startTime;
+  
+  // Trim array if we pre-allocated but didn't fill it completely
+  const finalRecords = maxRecords ? records.slice(0, recordIndex) : records;
   
   if (debugMode) {
     console.log(`📊 CSV Processing Summary:`);
@@ -280,9 +303,11 @@ export function processCSVData(csvText: string, debugMode: boolean = false): Cap
     console.log(`   Skipped lines: ${skippedLines}`);
     console.log(`   Date parse errors: ${dateParseErrors}`);
     console.log(`   Success rate: ${((validRecords / lines.length) * 100).toFixed(1)}%`);
+    console.log(`   Processing time: ${processingTime}ms`);
+    console.log(`   Records per second: ${Math.round(validRecords / (processingTime / 1000))}`);
     
-    if (records.length > 0) {
-      const sampleRecord = records[0];
+    if (finalRecords.length > 0) {
+      const sampleRecord = finalRecords[0];
       console.log(`   Sample record:`, sampleRecord);
       
       // Test date parsing for first record
@@ -295,7 +320,7 @@ export function processCSVData(csvText: string, debugMode: boolean = false): Cap
     }
   }
   
-  return records;
+  return finalRecords;
 }
 
 /**
@@ -367,10 +392,11 @@ export function generateMonthlyData(records: CaptivePaymentRecord[]): MonthlyVol
 }
 
 /**
- * Process CSV data into comprehensive analytics structure
+ * Process CSV data into comprehensive analytics structure with performance optimizations
+ * Optimized for large datasets (50K+ records)
  */
-export function processCaptivePaymentsData(csvText: string): ProcessedCaptiveData {
-  const rawRecords = processCSVData(csvText);
+export function processCaptivePaymentsData(csvText: string, maxRecords?: number): ProcessedCaptiveData {
+  const rawRecords = processCSVData(csvText, false, maxRecords);
   const monthlyData = generateMonthlyData(rawRecords);
   
   // Calculate totals (using absolute values for volume calculations)

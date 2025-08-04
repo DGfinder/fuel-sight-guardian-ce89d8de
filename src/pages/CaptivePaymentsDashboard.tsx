@@ -18,7 +18,7 @@ import {
 import { Link } from 'react-router-dom';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
 import DeliveryTrendCharts from '@/components/DeliveryTrendCharts';
-import DateRangeFilter from '@/components/DateRangeFilter';
+import CompactDateFilter from '@/components/CompactDateFilter';
 import { 
   loadCombinedCaptiveDataWithDateFilter,
   getAvailableDateRange,
@@ -247,9 +247,9 @@ const CaptivePaymentsDashboard = () => {
         </div>
       </div>
 
-      {/* Date Range Filter */}
+      {/* Date Range Filter - Compact Version */}
       {availableRange && (
-        <DateRangeFilter
+        <CompactDateFilter
           startDate={startDate}
           endDate={endDate}
           onDateChange={setDateRange}
