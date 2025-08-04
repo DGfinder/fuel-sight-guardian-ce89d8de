@@ -69,7 +69,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
   const terminals = useMemo(() => 
     [...new Set(deliveries.map(d => d.terminal))].sort(), [deliveries]);
   const products = useMemo(() => 
-    [...new Set(deliveries.flatMap(d => d.products))].sort(), [deliveries]); // Flatten products arrays
+    [...new Set(deliveries.flatMap(d => d.products || []))].sort(), [deliveries]); // Flatten products arrays with null safety
 
   // Filter and sort data
   const filteredAndSortedDeliveries = useMemo(() => {
@@ -79,11 +79,11 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
         delivery.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
         delivery.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         delivery.vehicleId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        delivery.products.some(p => p.toLowerCase().includes(searchTerm.toLowerCase()));
+        (delivery.products || []).some(p => p.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesCarrier = carrierFilter === 'all' || delivery.carrier === carrierFilter;
       const matchesTerminal = terminalFilter === 'all' || delivery.terminal === terminalFilter;
-      const matchesProduct = productFilter === 'all' || delivery.products.includes(productFilter);
+      const matchesProduct = productFilter === 'all' || (delivery.products || []).includes(productFilter);
 
       return matchesSearch && matchesCarrier && matchesTerminal && matchesProduct;
     });
@@ -128,7 +128,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
       'Carrier': delivery.carrier,
       'Terminal': delivery.terminal,
       'Customer': delivery.customer,
-      'Products': delivery.products.join(', '), // Join multiple products
+      'Products': (delivery.products || []).join(', '), // Join multiple products with null safety
       'Total Quantity (L)': delivery.totalQuantity,
       'Delivery Date': delivery.deliveryDate,
       'Driver': delivery.driverName,
@@ -303,7 +303,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {delivery.products.map((product, index) => (
+                      {(delivery.products || []).map((product, index) => (
                         <Badge key={index} variant="outline" className="text-xs">
                           {product}
                         </Badge>

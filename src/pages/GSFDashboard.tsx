@@ -15,7 +15,8 @@ import {
   Download,
   ArrowLeft,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
@@ -45,6 +46,7 @@ import {
   processCSVData
 } from '@/services/captivePaymentsDataProcessor';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 // GSF-specific data
 const gsfData = {
@@ -119,6 +121,9 @@ const gsfData = {
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
 
 const GSFDashboard = () => {
+  // Permission check - require view_myob_deliveries permission and GSF access
+  const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
+  
   const [selectedPeriod, setSelectedPeriod] = useState('current');
   const [showVolumeView, setShowVolumeView] = useState(false);
   const [realData, setRealData] = useState<ProcessedCaptiveData | null>(null);
@@ -129,6 +134,51 @@ const GSFDashboard = () => {
 
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+
+  // Check if user has permission to view GSF data specifically
+  const hasGSFPermission = permissions?.isAdmin || 
+    permissions?.role === 'manager' ||
+    permissions?.accessibleGroups?.some(group => 
+      group.name.includes('GSF') || group.name.includes('Great Southern Fuels')
+    );
+
+  // Show loading state while checking permissions
+  if (permissionsLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="text-gray-500">Checking permissions...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if user doesn't have GSF permission
+  if (!hasGSFPermission) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center max-w-md">
+          <div className="bg-red-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">
+            You don't have permission to view GSF (Great Southern Fuels) captive payments data.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            This section requires access to GSF group data. Please contact your administrator if you need access.
+          </p>
+          <Link to="/data-centre/captive-payments">
+            <Button variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Captive Payments
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Load initial data to get available date range
   useEffect(() => {

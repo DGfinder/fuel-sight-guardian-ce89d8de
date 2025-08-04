@@ -21,7 +21,9 @@
     "test:accessibility": "playwright test src/test/e2e/accessibility.spec.ts",
     "test:all": "npm run test:run && npm run test:e2e",
     "script:gsf-user": "tsx tools/user-management/gsf-depots-user-management.ts",
-    "test:athara-api": "tsx src/debug/test-athara-api.ts"
+    "test:athara-api": "tsx src/debug/test-athara-api.ts",
+    "migrate:captive-payments": "tsx tools/captive-payments-migration.ts",
+    "migrate:captive-payments:dry-run": "DRY_RUN=true tsx tools/captive-payments-migration.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

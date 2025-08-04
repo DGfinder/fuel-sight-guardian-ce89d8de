@@ -23,13 +23,18 @@ import {
   loadCombinedCaptiveDataWithDateFilter,
   getAvailableDateRange,
   ProcessedCaptiveData,
-  processCSVData
+  processCSVData,
+  groupRecordsByBOL
 } from '@/services/captivePaymentsDataProcessor';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 // Production dashboard - all data sourced from real CSV files
 
 const CaptivePaymentsDashboard = () => {
+  // Permission check - require view_myob_deliveries permission
+  const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
+  
   const [selectedCarrier, setSelectedCarrier] = useState('all');
   
   // Real data state
@@ -43,6 +48,44 @@ const CaptivePaymentsDashboard = () => {
 
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+
+  // Check if user has permission to view MYOB deliveries
+  const hasMyobPermission = permissions?.isAdmin || 
+    permissions?.role === 'manager' || 
+    permissions?.role === 'viewer'; // For now, allow viewers - can be restricted later
+
+  // Show loading state while checking permissions
+  if (permissionsLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="text-gray-500">Checking permissions...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if user doesn't have permission
+  if (!hasMyobPermission) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center max-w-md">
+          <div className="bg-red-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">
+            You don't have permission to view captive payments data. This section requires 
+            'view_myob_deliveries' permission.
+          </p>
+          <p className="text-sm text-gray-500">
+            Please contact your administrator if you need access to this section.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Load initial data to get available date range
   useEffect(() => {
@@ -638,18 +681,8 @@ const CaptivePaymentsDashboard = () => {
       {/* Detailed BOL Delivery Analysis Table */}
       {combinedData ? (
         <BOLDeliveryTable 
-          deliveries={combinedData.rawRecords.slice(0, 1000).map(record => ({
-            bolNumber: record.billOfLading || `BOL-${Date.now()}`,
-            carrier: 'Combined' as 'SMB' | 'GSF',
-            terminal: record.location,
-            customer: record.customer,
-            product: record.product,
-            quantity: record.volume,
-            deliveryDate: record.date,
-            driverName: 'N/A',
-            vehicleId: 'N/A'
-          }))}
-          title={`BOL Delivery Records (showing first 1,000 of ${combinedData.totalDeliveries.toLocaleString()})`}
+          deliveries={groupRecordsByBOL(combinedData.rawRecords.slice(0, 1000), 'Combined')}
+          title={`BOL Delivery Records (showing first 1,000 records grouped by BOL of ${combinedData.totalDeliveries.toLocaleString()} total deliveries)`}
           showFilters={true}
         />
       ) : (

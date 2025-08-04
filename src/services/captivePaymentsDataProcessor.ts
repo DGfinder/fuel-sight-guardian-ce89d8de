@@ -1391,3 +1391,82 @@ export function processCaptivePaymentsDataFromRecords(records: CaptivePaymentRec
     peakMonth
   };
 }
+
+/**
+ * Represents a grouped BOL delivery for table display
+ * Multiple CSV records with same BOL+Date+Customer are grouped into one delivery
+ */
+export interface BOLDelivery {
+  bolNumber: string;
+  carrier: 'SMB' | 'GSF' | 'Combined';
+  terminal: string;
+  customer: string;
+  products: string[]; // Multiple products can be in one delivery
+  totalQuantity: number; // Sum of all quantities for this BOL
+  deliveryDate: string;
+  driverName: string;
+  vehicleId: string;
+  recordCount: number; // Number of CSV rows that make up this delivery
+}
+
+/**
+ * Groups CaptivePaymentRecord[] by BOL delivery key and creates BOLDelivery objects
+ * Multiple CSV rows with same BOL+Date+Customer become one BOL delivery with combined products
+ * This is used to display the correct delivery count (unique BOLs) instead of CSV row count
+ */
+export function groupRecordsByBOL(
+  records: CaptivePaymentRecord[], 
+  defaultCarrier: 'SMB' | 'GSF' | 'Combined' = 'Combined'
+): BOLDelivery[] {
+  const deliveryGroups = new Map<string, {
+    bolNumber: string;
+    carrier: 'SMB' | 'GSF' | 'Combined';
+    terminal: string;
+    customer: string;
+    products: Set<string>;
+    totalQuantity: number;
+    deliveryDate: string;
+    recordCount: number;
+  }>();
+
+  // Group records by delivery key (BOL + Date + Customer)
+  records.forEach(record => {
+    const key = generateDeliveryKey(record);
+    
+    if (!deliveryGroups.has(key)) {
+      deliveryGroups.set(key, {
+        bolNumber: record.billOfLading || `BOL-${Date.now()}`,
+        carrier: defaultCarrier,
+        terminal: extractTerminal(record.location),
+        customer: record.customer,
+        products: new Set<string>(),
+        totalQuantity: 0,
+        deliveryDate: record.date,
+        recordCount: 0
+      });
+    }
+    
+    const group = deliveryGroups.get(key)!;
+    group.products.add(record.product);
+    group.totalQuantity += record.volume;
+    group.recordCount += 1;
+  });
+
+  // Convert to BOLDelivery array
+  return Array.from(deliveryGroups.values()).map(group => ({
+    bolNumber: group.bolNumber,
+    carrier: group.carrier,
+    terminal: group.terminal,
+    customer: group.customer,
+    products: Array.from(group.products).sort(), // Convert Set to sorted array
+    totalQuantity: group.totalQuantity,
+    deliveryDate: group.deliveryDate,
+    driverName: 'N/A', // Not available in CSV data
+    vehicleId: 'N/A',  // Not available in CSV data
+    recordCount: group.recordCount
+  })).sort((a, b) => {
+    // Sort by date (newest first), then by BOL number
+    const dateCompare = new Date(b.deliveryDate).getTime() - new Date(a.deliveryDate).getTime();
+    return dateCompare !== 0 ? dateCompare : a.bolNumber.localeCompare(b.bolNumber);
+  });
+}
