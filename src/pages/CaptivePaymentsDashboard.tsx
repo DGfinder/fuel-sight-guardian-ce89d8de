@@ -51,6 +51,30 @@ const CaptivePaymentsDashboard = () => {
   const isLoading = combinedLoading || smbLoading || gsfLoading;
   const error = combinedError ? String(combinedError) : null;
 
+  // Show error state if any critical data fails to load
+  if (error && !isLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center max-w-md">
+          <div className="bg-red-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Data Loading Error</h2>
+          <p className="text-gray-600 mb-4">
+            Unable to load captive payments data. This could be due to a network issue or server problem.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Error: {error}
+          </p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            <AlertCircle className="w-4 h-4 mr-2" />
+            Retry Loading
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
 

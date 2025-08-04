@@ -69,6 +69,40 @@ const SMBDashboard = () => {
   // Convert error type for compatibility
   const error = dataError ? String(dataError) : null;
 
+  // Show error state if critical data fails to load
+  if (error && !isLoading) {
+    return (
+      <DataCentreLayout>
+        <div className="p-8 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center max-w-md">
+            <div className="bg-red-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-8 w-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">SMB Data Loading Error</h2>
+            <p className="text-gray-600 mb-4">
+              Unable to load SMB (Stevemacs) delivery data. This could be due to a network issue or server problem.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Error: {error}
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => window.location.reload()} variant="outline">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                Retry Loading
+              </Button>
+              <Link to="/data-centre/captive-payments">
+                <Button variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Overview
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </DataCentreLayout>
+    );
+  }
+
   // Check if user has permission to view SMB data specifically
   const hasSMBPermission = permissions?.isAdmin || 
     permissions?.role === 'manager' ||
@@ -305,15 +339,10 @@ const SMBDashboard = () => {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={realData?.monthlyData || smbData.monthlyTrends}>
+                  <ComposedChart data={smbDatabaseData?.monthlyData || []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
-                      dataKey="month"
-                      tickFormatter={(value, index) => {
-                        const data = realData?.monthlyData || smbData.monthlyTrends;
-                        const dataPoint = data[index];
-                        return dataPoint?.year ? `${value} ${dataPoint.year}` : value;
-                      }}
+                      dataKey="month_name"
                       angle={-45}
                       textAnchor="end"
                       height={80}
@@ -338,7 +367,7 @@ const SMBDashboard = () => {
                     <Legend />
                     <Bar 
                       yAxisId="left" 
-                      dataKey="deliveries" 
+                      dataKey="total_deliveries" 
                       fill="#3b82f6" 
                       name="Deliveries" 
                       opacity={showVolumeView ? 0.6 : 1}
@@ -347,7 +376,7 @@ const SMBDashboard = () => {
                       <Line 
                         yAxisId="right" 
                         type="monotone" 
-                        dataKey="volumeMegaLitres" 
+                        dataKey="total_volume_megalitres" 
                         stroke="#10b981" 
                         strokeWidth={3} 
                         name="Volume (ML)" 
@@ -504,7 +533,7 @@ const SMBDashboard = () => {
                           style={{ 
                             width: `${product.percentage || 0}%`,
                             backgroundColor: COLORS[index % COLORS.length]
-                          }} */
+                          }}
                         />
                       </div>
                     </div>

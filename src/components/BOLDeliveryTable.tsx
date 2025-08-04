@@ -29,7 +29,8 @@ import {
   Package,
   ArrowUpDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  AlertCircle
 } from 'lucide-react';
 
 interface BOLDelivery {
@@ -49,12 +50,16 @@ interface BOLDeliveryTableProps {
   deliveries: BOLDelivery[];
   title?: string;
   showFilters?: boolean;
+  isLoading?: boolean;
+  error?: string;
 }
 
 const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
   deliveries,
   title = "BOL Delivery Records",
-  showFilters = true
+  showFilters = true,
+  isLoading = false,
+  error = null
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [carrierFilter, setCarrierFilter] = useState('all');
@@ -244,8 +249,29 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
       </CardHeader>
 
       <CardContent>
-        <div className="rounded-md border">
-          <Table>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-sm text-muted-foreground">Loading delivery records...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center max-w-md">
+              <div className="bg-red-100 rounded-full h-12 w-12 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Deliveries</h3>
+              <p className="text-sm text-gray-600 mb-4">{error}</p>
+              <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+                Try Again
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>BOL Number</TableHead>
@@ -278,62 +304,78 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedDeliveries.map((delivery) => (
-                <TableRow key={`${delivery.bolNumber}-${delivery.deliveryDate}-${delivery.customer}`}>
-                  <TableCell className="font-mono font-medium">
-                    <div>
-                      {delivery.bolNumber}
-                      {delivery.recordCount > 1 && (
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          {delivery.recordCount} lines
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={getCarrierColor(delivery.carrier)}>
-                      {delivery.carrier}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <div className="font-medium">{delivery.terminal}</div>
-                      <div className="text-gray-500">→ {delivery.customer}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {(delivery.products || []).map((product, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {product}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    <span className={delivery.totalQuantity < 0 ? 'text-red-600' : 'text-green-600'}>
-                      {delivery.totalQuantity > 0 ? '+' : ''}{delivery.totalQuantity.toLocaleString()}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 text-sm">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(delivery.deliveryDate).toLocaleDateString()}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <div className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {delivery.driverName}
-                      </div>
-                      <div className="text-gray-500 text-xs">
-                        {delivery.vehicleId}
-                      </div>
+              {paginatedDeliveries.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    <div className="flex flex-col items-center justify-center text-gray-500">
+                      <Package className="w-8 h-8 mb-2 opacity-50" />
+                      <p className="text-sm font-medium">No deliveries found</p>
+                      <p className="text-xs">Try adjusting your filters or search criteria</p>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                paginatedDeliveries.map((delivery) => (
+                  <TableRow key={`${delivery.bolNumber}-${delivery.deliveryDate}-${delivery.customer}`}>
+                    <TableCell className="font-mono font-medium">
+                      <div>
+                        {delivery.bolNumber || 'N/A'}
+                        {delivery.recordCount > 1 && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            {delivery.recordCount} lines
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={getCarrierColor(delivery.carrier)}>
+                        {delivery.carrier}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="font-medium">{delivery.terminal || 'Unknown Terminal'}</div>
+                        <div className="text-gray-500">→ {delivery.customer || 'Unknown Customer'}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(delivery.products || []).length > 0 ? (
+                          delivery.products.map((product, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {product}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">No products listed</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      <span className={delivery.totalQuantity < 0 ? 'text-red-600' : 'text-green-600'}>
+                        {delivery.totalQuantity > 0 ? '+' : ''}{delivery.totalQuantity?.toLocaleString() || '0'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Calendar className="w-3 h-3" />
+                        {delivery.deliveryDate ? new Date(delivery.deliveryDate).toLocaleDateString() : 'N/A'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {delivery.driverName || 'N/A'}
+                        </div>
+                        <div className="text-gray-500 text-xs">
+                          {delivery.vehicleId || 'N/A'}
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
@@ -428,6 +470,8 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
             <div className="text-sm text-gray-500">CSV Records</div>
           </div>
         </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
