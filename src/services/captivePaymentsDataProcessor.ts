@@ -162,55 +162,137 @@ export function extractTerminal(location: string): string {
 
 /**
  * Process raw CSV data into structured format
- * Handles both old format and new June 2025 format with section headers
+ * Handles Australian d/m/y date format and various CSV structures
  */
-export function processCSVData(csvText: string): CaptivePaymentRecord[] {
+export function processCSVData(csvText: string, debugMode: boolean = false): CaptivePaymentRecord[] {
   const lines = csvText.split('\n');
   const records: CaptivePaymentRecord[] = [];
   let headerFound = false;
+  let headerRowIndex = -1;
+  let skippedLines = 0;
+  let validRecords = 0;
+  let dateParseErrors = 0;
+  
+  if (debugMode) {
+    console.log(`🔍 Processing CSV with ${lines.length} total lines`);
+  }
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line) continue;
     
-    // Skip section headers (like "ESPERANCE", "GERALDTON 3PL TOTAL")
-    if (!line.includes(',') || line.split(',').length < 3) continue;
-    
-    // Look for the actual header row (contains "Date,Bill of Lading,Location,Customer,Product,Volume")
-    if (line.toLowerCase().includes('date') && line.toLowerCase().includes('bill') && !headerFound) {
-      headerFound = true;
+    // Skip completely empty lines
+    if (!line) {
+      skippedLines++;
       continue;
     }
     
-    // Skip until we find the header
-    if (!headerFound) continue;
+    // Enhanced section header detection - skip lines that are clearly headers
+    const lowerLine = line.toLowerCase();
+    if (lowerLine.includes('esperance') || 
+        lowerLine.includes('geraldton') || 
+        lowerLine.includes('total') ||
+        (!line.includes(',') && line.length < 50)) {
+      if (debugMode) console.log(`⏭️  Skipping section header at line ${i + 1}: ${line.substring(0, 50)}...`);
+      skippedLines++;
+      continue;
+    }
     
-    // Parse CSV line - handle quoted fields properly
+    // Split by comma to check field count (basic validation)
+    const basicSplit = line.split(',');
+    if (basicSplit.length < 3) {
+      skippedLines++;
+      continue;
+    }
+    
+    // Look for the actual data header row (contains "Date,Bill of Lading,Location,Customer,Product,Volume")
+    if (!headerFound && 
+        (lowerLine.includes('date') && lowerLine.includes('bill') && lowerLine.includes('lading')) ||
+        (lowerLine.includes('date') && lowerLine.includes('location') && lowerLine.includes('customer'))) {
+      headerFound = true;
+      headerRowIndex = i;
+      if (debugMode) console.log(`✅ Found header row at line ${i + 1}: ${line}`);
+      continue;
+    }
+    
+    // Skip lines until we find the header
+    if (!headerFound) {
+      skippedLines++;
+      continue;
+    }
+    
+    // Parse CSV line properly handling quoted fields
     const fields = parseCSVLine(line);
-    if (fields.length < 6) continue;
     
-    // Skip lines where the first field (date) is empty or invalid
-    if (!fields[0] || fields[0].trim() === '') continue;
+    // Ensure we have enough fields (Date, BOL, Location, Customer, Product, Volume)
+    if (fields.length < 6) {
+      if (debugMode && fields.length > 0) {
+        console.log(`⚠️  Insufficient fields at line ${i + 1} (${fields.length} fields): ${fields.join('|')}`);
+      }
+      skippedLines++;
+      continue;
+    }
     
-    // Check if first field looks like a date
-    const dateField = fields[0].trim();
-    if (!/^\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}$/.test(dateField)) continue;
+    // Validate and clean the date field
+    const dateField = fields[0].trim().replace(/"/g, ''); // Remove any quotes
+    if (!dateField) {
+      skippedLines++;
+      continue;
+    }
     
-    const volume = parseVolume(fields[5]);
+    // Enhanced Australian date validation (d/m/y or dd/mm/yyyy)
+    const australianDatePattern = /^\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}$/;
+    if (!australianDatePattern.test(dateField)) {
+      if (debugMode) console.log(`❌ Invalid date format at line ${i + 1}: "${dateField}"`);
+      dateParseErrors++;
+      skippedLines++;
+      continue;
+    }
     
-    // Skip zero volume records or invalid data
-    if (volume === 0) continue;
+    // Parse and validate volume
+    const volumeStr = fields[5].trim();
+    const volume = parseVolume(volumeStr);
     
+    // Allow negative volumes (adjustments) but skip zero volumes
+    if (volume === 0) {
+      skippedLines++;
+      continue;
+    }
+    
+    // Create the record
     const record: CaptivePaymentRecord = {
       date: dateField,
-      billOfLading: fields[1],
-      location: fields[2],
-      customer: fields[3],
-      product: fields[4],
+      billOfLading: fields[1].trim().replace(/"/g, ''),
+      location: fields[2].trim().replace(/"/g, ''),
+      customer: fields[3].trim().replace(/"/g, ''),
+      product: fields[4].trim().replace(/"/g, ''),
       volume: volume
     };
     
     records.push(record);
+    validRecords++;
+  }
+  
+  if (debugMode) {
+    console.log(`📊 CSV Processing Summary:`);
+    console.log(`   Total lines: ${lines.length}`);
+    console.log(`   Header found at line: ${headerRowIndex + 1}`);
+    console.log(`   Valid records: ${validRecords}`);
+    console.log(`   Skipped lines: ${skippedLines}`);
+    console.log(`   Date parse errors: ${dateParseErrors}`);
+    console.log(`   Success rate: ${((validRecords / lines.length) * 100).toFixed(1)}%`);
+    
+    if (records.length > 0) {
+      const sampleRecord = records[0];
+      console.log(`   Sample record:`, sampleRecord);
+      
+      // Test date parsing for first record
+      try {
+        const parsedDate = parseDeliveryDate(sampleRecord.date);
+        console.log(`   Sample date parsing: "${sampleRecord.date}" → ${parsedDate.toISOString()}`);
+      } catch (error) {
+        console.log(`   Sample date parsing failed:`, error);
+      }
+    }
   }
   
   return records;
@@ -457,6 +539,342 @@ export function calculateGrowth(current: number, previous: number): { value: num
     value: current - previous,
     percentage: `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`
   };
+}
+
+/**
+ * DATE FILTERING FUNCTIONS: Advanced date range filtering capabilities with performance caching
+ */
+
+// Simple in-memory cache for filtered data results
+interface CacheEntry {
+  key: string;
+  data: ProcessedCaptiveData;
+  timestamp: number;
+  expiry: number;
+}
+
+class FilterCache {
+  private cache = new Map<string, CacheEntry>();
+  private readonly TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+  private readonly MAX_ENTRIES = 50; // Limit cache size
+
+  generateKey(csvText: string, startDate: Date | null, endDate: Date | null): string {
+    const textHash = this.simpleHash(csvText.substring(0, 500)); // Hash first 500 chars for uniqueness
+    const startStr = startDate ? startDate.toISOString().split('T')[0] : 'null';
+    const endStr = endDate ? endDate.toISOString().split('T')[0] : 'null';
+    return `${textHash}-${startStr}-${endStr}`;
+  }
+
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  get(key: string): ProcessedCaptiveData | null {
+    const entry = this.cache.get(key);
+    if (entry && Date.now() < entry.expiry) {
+      return entry.data;
+    }
+    
+    // Remove expired entry
+    if (entry) {
+      this.cache.delete(key);
+    }
+    
+    return null;
+  }
+
+  set(key: string, data: ProcessedCaptiveData): void {
+    // Clean old entries if cache is getting full
+    if (this.cache.size >= this.MAX_ENTRIES) {
+      const oldestKey = Array.from(this.cache.entries())
+        .sort(([,a], [,b]) => a.timestamp - b.timestamp)[0][0];
+      this.cache.delete(oldestKey);
+    }
+
+    const now = Date.now();
+    this.cache.set(key, {
+      key,
+      data,
+      timestamp: now,
+      expiry: now + this.TTL
+    });
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  // Get cache statistics for debugging
+  getStats(): { size: number; entries: string[] } {
+    return {
+      size: this.cache.size,
+      entries: Array.from(this.cache.keys())
+    };
+  }
+}
+
+// Global cache instance
+const filterCache = new FilterCache();
+
+/**
+ * Filter records by date range
+ */
+export function filterRecordsByDateRange(
+  records: CaptivePaymentRecord[], 
+  startDate: Date | null, 
+  endDate: Date | null
+): CaptivePaymentRecord[] {
+  if (!startDate && !endDate) {
+    return records; // No filtering
+  }
+
+  return records.filter(record => {
+    const recordDate = parseDeliveryDate(record.date);
+    
+    // Handle invalid dates
+    if (isNaN(recordDate.getTime())) {
+      console.warn(`Invalid date in record: ${record.date}`);
+      return false;
+    }
+
+    // Apply date range filters
+    if (startDate && recordDate < startDate) {
+      return false;
+    }
+    
+    if (endDate) {
+      // Set end date to end of day for inclusive filtering
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (recordDate > endOfDay) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Process filtered captive payments data with date range (with caching)
+ */
+export function processFilteredCaptiveData(
+  csvText: string, 
+  startDate: Date | null = null, 
+  endDate: Date | null = null,
+  debugMode: boolean = false
+): ProcessedCaptiveData {
+  // Check cache first for performance optimization (skip cache in debug mode)
+  if (!debugMode) {
+    const cacheKey = filterCache.generateKey(csvText, startDate, endDate);
+    const cachedResult = filterCache.get(cacheKey);
+    
+    if (cachedResult) {
+      console.log(`Cache hit for date filter: ${startDate?.toISOString().split('T')[0]} - ${endDate?.toISOString().split('T')[0]}`);
+      return cachedResult;
+    }
+  }
+
+  if (debugMode) {
+    console.log(`🔄 Processing filtered data (debug mode): ${startDate?.toISOString().split('T')[0]} - ${endDate?.toISOString().split('T')[0]}`);
+  } else {
+    console.log(`Processing filtered data: ${startDate?.toISOString().split('T')[0]} - ${endDate?.toISOString().split('T')[0]}`);
+  }
+  
+  // Process data with debug mode enabled
+  const allRecords = processCSVData(csvText, debugMode);
+  
+  if (debugMode) {
+    console.log(`📋 Total records parsed: ${allRecords.length}`);
+  }
+  
+  const filteredRecords = filterRecordsByDateRange(allRecords, startDate, endDate);
+  
+  if (debugMode) {
+    console.log(`🎯 Records after date filtering: ${filteredRecords.length}`);
+  }
+  
+  const result = processCaptivePaymentsDataFromRecords(filteredRecords);
+  
+  // Cache the result for future use (unless in debug mode)
+  if (!debugMode) {
+    const cacheKey = filterCache.generateKey(csvText, startDate, endDate);
+    filterCache.set(cacheKey, result);
+  }
+  
+  return result;
+}
+
+/**
+ * Get available date range from records
+ */
+export function getAvailableDateRange(records: CaptivePaymentRecord[]): {
+  minDate: Date;
+  maxDate: Date;
+  totalRecords: number;
+} {
+  if (records.length === 0) {
+    const today = new Date();
+    return {
+      minDate: today,
+      maxDate: today,
+      totalRecords: 0
+    };
+  }
+
+  const dates = records
+    .map(record => parseDeliveryDate(record.date))
+    .filter(date => !isNaN(date.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  return {
+    minDate: dates[0] || new Date(),
+    maxDate: dates[dates.length - 1] || new Date(),
+    totalRecords: records.length
+  };
+}
+
+/**
+ * Load and process SMB data with optional date filtering
+ */
+export async function loadSMBDataWithDateFilter(
+  startDate: Date | null = null, 
+  endDate: Date | null = null,
+  debugMode: boolean = false
+): Promise<ProcessedCaptiveData> {
+  try {
+    const response = await fetch('/Inputdata_southern Fuel (3)(Carrier - SMB).csv');
+    if (!response.ok) throw new Error('Failed to load SMB data');
+    const csvText = await response.text();
+    return processFilteredCaptiveData(csvText, startDate, endDate, debugMode);
+  } catch (error) {
+    console.error('Error loading SMB data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Load and process GSF data with optional date filtering
+ */
+export async function loadGSFDataWithDateFilter(
+  startDate: Date | null = null, 
+  endDate: Date | null = null,
+  debugMode: boolean = false
+): Promise<ProcessedCaptiveData> {
+  try {
+    const response = await fetch('/Inputdata_southern Fuel (3)(Carrier - GSF).csv');
+    if (!response.ok) throw new Error('Failed to load GSF data');
+    const csvText = await response.text();
+    
+    if (debugMode) {
+      console.log(`🔄 Processing GSF data with date filter: ${startDate?.toDateString()} - ${endDate?.toDateString()}`);
+    }
+    
+    return processFilteredCaptiveData(csvText, startDate, endDate, debugMode);
+  } catch (error) {
+    console.error('Error loading GSF data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Load and process combined captive payments data with date filtering
+ */
+export async function loadCombinedCaptiveDataWithDateFilter(
+  startDate: Date | null = null, 
+  endDate: Date | null = null,
+  debugMode: boolean = false
+): Promise<{
+  smbData: ProcessedCaptiveData;
+  gsfData: ProcessedCaptiveData;
+  combinedData: ProcessedCaptiveData;
+}> {
+  try {
+    const [smbData, gsfData] = await Promise.all([
+      loadSMBDataWithDateFilter(startDate, endDate, debugMode),
+      loadGSFDataWithDateFilter(startDate, endDate, debugMode)
+    ]);
+
+    // Combine filtered records from both carriers
+    const combinedRecords = [...smbData.rawRecords, ...gsfData.rawRecords];
+    const combinedData = processCaptivePaymentsDataFromRecords(combinedRecords);
+
+    if (debugMode) {
+      console.log(`🔄 Combined data: SMB(${smbData.rawRecords.length}) + GSF(${gsfData.rawRecords.length}) = ${combinedRecords.length} total records`);
+    }
+
+    return {
+      smbData,
+      gsfData,
+      combinedData
+    };
+  } catch (error) {
+    console.error('Error loading combined captive data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Calculate filter statistics for UI feedback
+ */
+export function calculateFilterStats(
+  allRecords: CaptivePaymentRecord[],
+  filteredRecords: CaptivePaymentRecord[]
+): {
+  totalRecords: number;
+  filteredRecords: number;
+  filteredPercentage: number;
+  dateRange: string;
+} {
+  const totalRecords = allRecords.length;
+  const filteredCount = filteredRecords.length;
+  const percentage = totalRecords > 0 ? (filteredCount / totalRecords) * 100 : 0;
+  
+  let dateRange = 'All dates';
+  if (filteredRecords.length > 0) {
+    const dates = filteredRecords
+      .map(r => parseDeliveryDate(r.date))
+      .filter(d => !isNaN(d.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+    
+    if (dates.length > 0) {
+      const start = dates[0];
+      const end = dates[dates.length - 1];
+      dateRange = `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+    }
+  }
+
+  return {
+    totalRecords,
+    filteredRecords: filteredCount,
+    filteredPercentage: percentage,
+    dateRange
+  };
+}
+
+/**
+ * CACHE MANAGEMENT UTILITIES
+ */
+
+/**
+ * Clear all cached filter results (useful for debugging or memory management)
+ */
+export function clearFilterCache(): void {
+  filterCache.clear();
+  console.log('Filter cache cleared');
+}
+
+/**
+ * Get cache statistics for performance monitoring
+ */
+export function getFilterCacheStats(): { size: number; entries: string[] } {
+  return filterCache.getStats();
 }
 
 /**

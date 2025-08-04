@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
+import DateRangeFilter from '@/components/DateRangeFilter';
 import {
   LineChart,
   Line,
@@ -35,7 +36,15 @@ import {
   Cell,
   ComposedChart
 } from 'recharts';
-import { loadGSFData, ProcessedCaptiveData, formatVolume } from '@/services/captivePaymentsDataProcessor';
+import { 
+  loadGSFData, 
+  loadGSFDataWithDateFilter,
+  getAvailableDateRange,
+  ProcessedCaptiveData, 
+  formatVolume,
+  processCSVData
+} from '@/services/captivePaymentsDataProcessor';
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 
 // GSF-specific data
 const gsfData = {
@@ -113,16 +122,40 @@ const GSFDashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('current');
   const [showVolumeView, setShowVolumeView] = useState(false);
   const [realData, setRealData] = useState<ProcessedCaptiveData | null>(null);
+  const [allRecords, setAllRecords] = useState<any[]>([]);
+  const [availableRange, setAvailableRange] = useState<{min: Date; max: Date} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load real CSV data
+  // Date range filtering
+  const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+
+  // Load initial data to get available date range
   useEffect(() => {
-    const loadData = async () => {
+    const loadInitialData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await loadGSFData();
+        // Load all data first to establish available date range
+        const response = await fetch('/Inputdata_southern Fuel (3)(Carrier - GSF).csv');
+        if (!response.ok) throw new Error('Failed to load GSF data');
+        const csvText = await response.text();
+        
+        // Parse GSF CSV data
+        const records = processCSVData(csvText);
+        
+        setAllRecords(records);
+        
+        if (records.length > 0) {
+          const dateRange = getAvailableDateRange(records);
+          setAvailableRange({
+            min: dateRange.minDate,
+            max: dateRange.maxDate
+          });
+        }
+        
+        // Load initial filtered data
+        const data = await loadGSFDataWithDateFilter(startDate, endDate);
         setRealData(data);
       } catch (err) {
         setError('Failed to load GSF data');
@@ -132,8 +165,29 @@ const GSFDashboard = () => {
       }
     };
 
-    loadData();
+    loadInitialData();
   }, []);
+
+  // Reload data when date range changes
+  useEffect(() => {
+    if (availableRange) {
+      const loadFilteredData = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const data = await loadGSFDataWithDateFilter(startDate, endDate);
+          setRealData(data);
+        } catch (err) {
+          setError('Failed to load filtered GSF data');
+          console.error('Error loading filtered GSF data:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadFilteredData();
+    }
+  }, [startDate, endDate, availableRange]);
 
   const handleExportData = () => {
     const exportData = {
@@ -188,6 +242,19 @@ const GSFDashboard = () => {
             </Badge>
           </div>
         </div>
+
+        {/* Date Range Filter */}
+        {availableRange && (
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={setDateRange}
+            availableRange={availableRange}
+            totalRecords={allRecords.length}
+            filteredRecords={realData?.rawRecords.length}
+            className="mb-6"
+          />
+        )}
 
         {/* Key Performance Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

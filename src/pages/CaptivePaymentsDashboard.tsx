@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,14 @@ import {
 import { Link } from 'react-router-dom';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
 import DeliveryTrendCharts from '@/components/DeliveryTrendCharts';
+import DateRangeFilter from '@/components/DateRangeFilter';
+import { 
+  loadCombinedCaptiveDataWithDateFilter,
+  getAvailableDateRange,
+  ProcessedCaptiveData,
+  processCSVData
+} from '@/services/captivePaymentsDataProcessor';
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 
 // Enhanced BOL-focused delivery data for compliance analytics
 const mockDeliveryData = {
@@ -182,6 +190,92 @@ const mockDeliveryData = {
 const CaptivePaymentsDashboard = () => {
   const [selectedCarrier, setSelectedCarrier] = useState('all');
   const { currentMonth, yearToDate } = mockDeliveryData;
+  
+  // Real data state
+  const [combinedData, setCombinedData] = useState<ProcessedCaptiveData | null>(null);
+  const [smbData, setSmbData] = useState<ProcessedCaptiveData | null>(null);
+  const [gsfData, setGsfData] = useState<ProcessedCaptiveData | null>(null);
+  const [allRecords, setAllRecords] = useState<any[]>([]);
+  const [availableRange, setAvailableRange] = useState<{min: Date; max: Date} | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Date range filtering
+  const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+
+  // Load initial data to get available date range
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        // Load all records from both carriers to establish available date range
+        const [smbResponse, gsfResponse] = await Promise.all([
+          fetch('/Inputdata_southern Fuel (3)(Carrier - SMB).csv'),
+          fetch('/Inputdata_southern Fuel (3)(Carrier - GSF).csv')
+        ]);
+        
+        if (!smbResponse.ok || !gsfResponse.ok) {
+          throw new Error('Failed to load captive payments data');
+        }
+        
+        const [smbCsvText, gsfCsvText] = await Promise.all([
+          smbResponse.text(),
+          gsfResponse.text()
+        ]);
+        
+        const smbRecords = processCSVData(smbCsvText);
+        const gsfRecords = processCSVData(gsfCsvText);
+        const allRecordsData = [...smbRecords, ...gsfRecords];
+        
+        setAllRecords(allRecordsData);
+        
+        if (allRecordsData.length > 0) {
+          const dateRange = getAvailableDateRange(allRecordsData);
+          setAvailableRange({
+            min: dateRange.minDate,
+            max: dateRange.maxDate
+          });
+        }
+        
+        // Load initial filtered data
+        const filteredData = await loadCombinedCaptiveDataWithDateFilter(startDate, endDate);
+        setCombinedData(filteredData.combinedData);
+        setSmbData(filteredData.smbData);
+        setGsfData(filteredData.gsfData);
+      } catch (err) {
+        setError('Failed to load captive payments data');
+        console.error('Error loading captive payments data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, []);
+
+  // Reload data when date range changes
+  useEffect(() => {
+    if (availableRange) {
+      const loadFilteredData = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const filteredData = await loadCombinedCaptiveDataWithDateFilter(startDate, endDate);
+          setCombinedData(filteredData.combinedData);
+          setSmbData(filteredData.smbData);
+          setGsfData(filteredData.gsfData);
+        } catch (err) {
+          setError('Failed to load filtered captive payments data');
+          console.error('Error loading filtered captive payments data:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadFilteredData();
+    }
+  }, [startDate, endDate, availableRange]);
 
   const handleExportData = () => {
     // Mock export functionality for compliance reporting
@@ -257,6 +351,19 @@ const CaptivePaymentsDashboard = () => {
         </div>
       </div>
 
+      {/* Date Range Filter */}
+      {availableRange && (
+        <DateRangeFilter
+          startDate={startDate}
+          endDate={endDate}
+          onDateChange={setDateRange}
+          availableRange={availableRange}
+          totalRecords={allRecords.length}
+          filteredRecords={combinedData?.rawRecords.length}
+          className="mb-6"
+        />
+      )}
+
       {/* Core Compliance Metrics - Executive Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* COMPLIANCE METRIC #1: Monthly Deliveries */}
@@ -269,11 +376,17 @@ const CaptivePaymentsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-900">
-              {currentMonth.totalDeliveries.toLocaleString()}
+              {combinedData ? combinedData.totalDeliveries.toLocaleString() : currentMonth.totalDeliveries.toLocaleString()}
             </div>
             <p className="text-xs text-blue-600 flex items-center mt-1">
-              {deliveryChange > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-              {deliveryChangePercent}% vs last month
+              {isFiltered ? (
+                <span>Filtered Period</span>
+              ) : (
+                <>
+                  {deliveryChange > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                  {deliveryChangePercent}% vs last month
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -288,11 +401,17 @@ const CaptivePaymentsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-900">
-              {currentMonth.totalVolume.toLocaleString()} L
+              {combinedData ? `${combinedData.totalVolumeMegaLitres.toFixed(1)} ML` : `${currentMonth.totalVolume.toLocaleString()} L`}
             </div>
             <p className="text-xs text-green-600 flex items-center mt-1">
-              {volumeChange > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-              {volumeChangePercent}% vs last month
+              {isFiltered ? (
+                <span>{combinedData ? `${combinedData.totalVolumeLitres.toLocaleString()} litres total` : 'Filtered Period'}</span>
+              ) : (
+                <>
+                  {volumeChange > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                  {volumeChangePercent}% vs last month
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -355,15 +474,21 @@ const CaptivePaymentsDashboard = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="font-medium">BOL Count</span>
-                <span className="text-2xl font-bold text-blue-600">{currentMonth.smb.deliveries.toLocaleString()}</span>
+                <span className="text-2xl font-bold text-blue-600">
+                  {smbData ? smbData.totalDeliveries.toLocaleString() : currentMonth.smb.deliveries.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Volume</span>
-                <span className="text-xl font-semibold">{currentMonth.smb.volume.toLocaleString()} L</span>
+                <span className="text-xl font-semibold">
+                  {smbData ? `${smbData.totalVolumeMegaLitres.toFixed(1)} ML` : `${currentMonth.smb.volume.toLocaleString()} L`}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Avg per BOL</span>
-                <span className="text-lg font-semibold">{currentMonth.smb.averageVolume.toLocaleString()} L</span>
+                <span className="text-lg font-semibold">
+                  {smbData ? `${Math.round(smbData.averageDeliverySize).toLocaleString()} L` : `${currentMonth.smb.averageVolume.toLocaleString()} L`}
+                </span>
               </div>
               <div className="pt-2 border-t">
                 <div className="text-sm text-gray-600 mb-2">
@@ -404,15 +529,21 @@ const CaptivePaymentsDashboard = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="font-medium">BOL Count</span>
-                <span className="text-2xl font-bold text-green-600">{currentMonth.gsf.deliveries.toLocaleString()}</span>
+                <span className="text-2xl font-bold text-green-600">
+                  {gsfData ? gsfData.totalDeliveries.toLocaleString() : currentMonth.gsf.deliveries.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Volume</span>
-                <span className="text-xl font-semibold">{currentMonth.gsf.volume.toLocaleString()} L</span>
+                <span className="text-xl font-semibold">
+                  {gsfData ? `${gsfData.totalVolumeMegaLitres.toFixed(1)} ML` : `${currentMonth.gsf.volume.toLocaleString()} L`}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Avg per BOL</span>
-                <span className="text-lg font-semibold">{currentMonth.gsf.averageVolume.toLocaleString()} L</span>
+                <span className="text-lg font-semibold">
+                  {gsfData ? `${Math.round(gsfData.averageDeliverySize).toLocaleString()} L` : `${currentMonth.gsf.averageVolume.toLocaleString()} L`}
+                </span>
               </div>
               <div className="pt-2 border-t">
                 <div className="text-sm text-gray-600 mb-2">
