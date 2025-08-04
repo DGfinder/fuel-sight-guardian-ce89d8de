@@ -1,443 +1,383 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, Eye, Wrench, Shield, MapPin, Download, Plus, Edit, AlertTriangle } from 'lucide-react';
+import { useVehicles } from '@/hooks/useVehicles';
+import type { Vehicle, VehicleFilters } from '@/types/fleet';
 
-interface Vehicle {
-  registration: string;
-  fleet: 'Stevemacs' | 'Great Southern Fuels';
-  depot: string;
-  status: 'Active' | 'Maintenance' | 'Out of Service' | 'Available';
-  driver?: string;
-  make: string;
-  model: string;
-  year: number;
-  vin: string;
-  safetyScore: number;
-  fuelEfficiency: number;
-  utilization: number;
-  lastService: string;
-  nextService: string;
-  guardianUnit?: string;
-  lytxDevice?: string;
-  totalDeliveries: number;
-  totalKilometers: number;
-  fatigueEvents: number;
-  safetyEvents: number;
-  registrationExpiry: string;
-  insuranceExpiry: string;
-  inspectionDue: string;
-}
-
-// Comprehensive vehicle database with detailed specifications
-const vehicleDatabase: Vehicle[] = [
-  {
-    registration: '1BMU188',
-    fleet: 'Stevemacs',
-    depot: 'Kewdale',
-    status: 'Active',
-    driver: 'Brad Cameron',
-    make: 'Volvo',
-    model: 'FH16',
-    year: 2019,
-    vin: 'YV2A4D0C4KB123456',
-    safetyScore: 8.5,
-    fuelEfficiency: 3.2,
-    utilization: 85,
-    lastService: '2025-07-15',
-    nextService: '2025-10-15',
-    guardianUnit: 'P1002260-S00002698',
-    lytxDevice: 'QM40999887',
-    totalDeliveries: 156,
-    totalKilometers: 287450,
-    fatigueEvents: 2,
-    safetyEvents: 5,
-    registrationExpiry: '2025-12-15',
-    insuranceExpiry: '2025-11-20',
-    inspectionDue: '2025-09-30'
-  },
-  {
-    registration: '1GLD510',
-    fleet: 'Great Southern Fuels',
-    depot: 'Geraldton',
-    status: 'Active',
-    driver: 'Andrew Buchanan',
-    make: 'Scania',
-    model: 'R730',
-    year: 2020,
-    vin: 'YS2R8X20002123457',
-    safetyScore: 9.1,
-    fuelEfficiency: 3.8,
-    utilization: 92,
-    lastService: '2025-06-20',
-    nextService: '2025-09-20',
-    guardianUnit: 'P04025-S00013423',
-    lytxDevice: 'MV00252104',
-    totalDeliveries: 203,
-    totalKilometers: 342180,
-    fatigueEvents: 1,
-    safetyEvents: 3,
-    registrationExpiry: '2026-03-10',
-    insuranceExpiry: '2025-10-15',
-    inspectionDue: '2025-08-25'
-  },
-  {
-    registration: '1GSF248',
-    fleet: 'Great Southern Fuels',
-    depot: 'Kalgoorlie',
-    status: 'Maintenance',
-    driver: undefined,
-    make: 'Mercedes-Benz',
-    model: 'Actros 2658',
-    year: 2018,
-    vin: 'WDB9634321L123458',
-    safetyScore: 7.8,
-    fuelEfficiency: 3.1,
-    utilization: 0,
-    lastService: '2025-08-01',
-    nextService: '2025-11-01',
-    guardianUnit: 'P1002260-S00010668',
-    lytxDevice: 'QM40025388',
-    totalDeliveries: 142,
-    totalKilometers: 456220,
-    fatigueEvents: 4,
-    safetyEvents: 8,
-    registrationExpiry: '2025-09-05',
-    insuranceExpiry: '2025-12-01',
-    inspectionDue: '2025-08-15'
-  },
-  {
-    registration: '1ILI310',
-    fleet: 'Stevemacs',
-    depot: 'Kewdale',
-    status: 'Available',
-    driver: undefined,
-    make: 'Volvo',
-    model: 'FH13',
-    year: 2021,
-    vin: 'YV2A4D0C4KB123459',
-    safetyScore: 8.9,
-    fuelEfficiency: 3.5,
-    utilization: 0,
-    lastService: '2025-07-25',
-    nextService: '2025-10-25',
-    guardianUnit: 'P1002260-S00010798',
-    lytxDevice: 'QM40999887',
-    totalDeliveries: 89,
-    totalKilometers: 156780,
-    fatigueEvents: 0,
-    safetyEvents: 2,
-    registrationExpiry: '2026-01-20',
-    insuranceExpiry: '2025-11-30',
-    inspectionDue: '2025-10-10'
-  },
-  {
-    registration: '1HUT976',
-    fleet: 'Great Southern Fuels',
-    depot: 'Geraldton',
-    status: 'Active',
-    driver: 'Matthew Ahearn',
-    make: 'DAF',
-    model: 'XF105',
-    year: 2017,
-    vin: 'XLRAO85M70E123460',
-    safetyScore: 8.3,
-    fuelEfficiency: 3.4,
-    utilization: 78,
-    lastService: '2025-05-30',
-    nextService: '2025-08-30',
-    guardianUnit: 'P04025-S00010474',
-    lytxDevice: 'MV00252082',
-    totalDeliveries: 178,
-    totalKilometers: 523150,
-    fatigueEvents: 3,
-    safetyEvents: 6,
-    registrationExpiry: '2025-10-12',
-    insuranceExpiry: '2025-09-18',
-    inspectionDue: '2025-08-20'
-  },
-  {
-    registration: 'QUADADDIC',
-    fleet: 'Great Southern Fuels',
-    depot: 'Geraldton',
-    status: 'Active',
-    driver: 'Glen Sawyer',
-    make: 'Kenworth',
-    model: 'T909',
-    year: 2016,
-    vin: '4NUVT40E4GN123461',
-    safetyScore: 7.6,
-    fuelEfficiency: 2.9,
-    utilization: 88,
-    lastService: '2025-07-10',
-    nextService: '2025-10-10',
-    guardianUnit: 'P04025-S00010474',
-    lytxDevice: 'QM40025417',
-    totalDeliveries: 245,
-    totalKilometers: 678420,
-    fatigueEvents: 5,
-    safetyEvents: 12,
-    registrationExpiry: '2025-11-08',
-    insuranceExpiry: '2025-10-25',
-    inspectionDue: '2025-09-15'
-  }
-];
-
-const VehicleDatabase: React.FC = () => {
+const VehicleDatabase = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Maintenance' | 'Out of Service' | 'Available'>('All');
-  const [fleetFilter, setFleetFilter] = useState<'All' | 'Stevemacs' | 'Great Southern Fuels'>('All');
-  const [depotFilter, setDepotFilter] = useState<'All' | 'Kewdale' | 'Geraldton' | 'Kalgoorlie' | 'Narrogin' | 'Albany'>('All');
-  const [sortBy, setSortBy] = useState<'registration' | 'utilization' | 'safety' | 'efficiency'>('registration');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedFleet, setSelectedFleet] = useState<'all' | 'Stevemacs' | 'Great Southern Fuels'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'Active' | 'Maintenance' | 'Out of Service' | 'Available'>('all');
+  const [selectedDepot, setSelectedDepot] = useState<'all' | string>('all');
+  const [sortField, setSortField] = useState<keyof Vehicle>('registration');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Filter and search vehicles
-  const filteredVehicles = useMemo(() => {
-    let filtered = vehicleDatabase.filter(vehicle => {
-      const matchesSearch = vehicle.registration.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          vehicle.driver?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          vehicle.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          vehicle.model.toLowerCase().includes(searchTerm.toLowerCase());
+  const filters: VehicleFilters = {
+    fleet: selectedFleet !== 'all' ? selectedFleet : undefined,
+    status: selectedStatus !== 'all' ? selectedStatus : undefined,
+    depot: selectedDepot !== 'all' ? selectedDepot : undefined,
+    search: searchTerm || undefined
+  };
+
+  const { data: vehicles = [], isLoading, error } = useVehicles(filters);
+
+  // Get unique depots from vehicles
+  const depots = Array.from(new Set(vehicles.map(v => v.depot))).sort();
+
+  const sortedVehicles = useMemo(() => {
+    return [...vehicles].sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
       
-      const matchesStatus = statusFilter === 'All' || vehicle.status === statusFilter;
-      const matchesFleet = fleetFilter === 'All' || vehicle.fleet === fleetFilter;
-      const matchesDepot = depotFilter === 'All' || vehicle.depot === depotFilter;
-
-      return matchesSearch && matchesStatus && matchesFleet && matchesDepot;
-    });
-
-    // Sort results
-    filtered.sort((a, b) => {
-      let valueA: any, valueB: any;
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
       
-      switch (sortBy) {
-        case 'utilization':
-          valueA = a.utilization;
-          valueB = b.utilization;
-          break;
-        case 'safety':
-          valueA = a.safetyScore;
-          valueB = b.safetyScore;
-          break;
-        case 'efficiency':
-          valueA = a.fuelEfficiency;
-          valueB = b.fuelEfficiency;
-          break;
-        default:
-          valueA = a.registration;
-          valueB = b.registration;
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
       }
-
-      if (sortOrder === 'asc') {
-        return valueA > valueB ? 1 : -1;
-      } else {
-        return valueA < valueB ? 1 : -1;
-      }
+      
+      return sortDirection === 'asc' 
+        ? (aValue < bValue ? -1 : 1)
+        : (aValue > bValue ? -1 : 1);
     });
+  }, [vehicles, sortField, sortDirection]);
 
-    return filtered;
-  }, [searchTerm, statusFilter, fleetFilter, depotFilter, sortBy, sortOrder]);
-
-  // Check if vehicle has any expiring items
-  const hasExpiringItems = (vehicle: Vehicle) => {
-    const today = new Date();
-    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-    
-    const registrationExpiry = new Date(vehicle.registrationExpiry);
-    const insuranceExpiry = new Date(vehicle.insuranceExpiry);
-    const inspectionDue = new Date(vehicle.inspectionDue);
-    
-    return registrationExpiry <= thirtyDaysFromNow || 
-           insuranceExpiry <= thirtyDaysFromNow || 
-           inspectionDue <= thirtyDaysFromNow;
+  const handleSort = (field: keyof Vehicle) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800 border-green-200';
-      case 'Available': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Maintenance': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Out of Service': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'Active':
+        return 'bg-green-100 text-green-800';
+      case 'Maintenance':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Available':
+        return 'bg-blue-100 text-blue-800';
+      case 'Out of Service':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getFleetColor = (fleet: string) => {
-    return fleet === 'Stevemacs' ? 'text-blue-600' : 'text-green-600';
+  const exportToCSV = () => {
+    const headers = [
+      'Registration', 'Fleet', 'Depot', 'Status', 'Driver', 'Make', 'Model', 'Year', 'VIN',
+      'Safety Score', 'Fuel Efficiency', 'Utilization', 'Total Deliveries', 'Total Kilometers',
+      'Fatigue Events', 'Safety Events', 'Guardian Unit', 'Lytx Device', 'Last Service', 'Next Service',
+      'Registration Expiry', 'Insurance Expiry', 'Inspection Due'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...sortedVehicles.map(vehicle => [
+        vehicle.registration,
+        vehicle.fleet,
+        vehicle.depot,
+        vehicle.status,
+        vehicle.current_driver || '',
+        vehicle.make || '',
+        vehicle.model || '',
+        vehicle.year || '',
+        vehicle.vin || '',
+        vehicle.safety_score,
+        vehicle.fuel_efficiency,
+        vehicle.utilization,
+        vehicle.total_deliveries,
+        vehicle.total_kilometers,
+        vehicle.fatigue_events,
+        vehicle.safety_events,
+        vehicle.guardian_unit || '',
+        vehicle.lytx_device || '',
+        vehicle.last_service || '',
+        vehicle.next_service || '',
+        vehicle.registration_expiry || '',
+        vehicle.insurance_expiry || '',
+        vehicle.inspection_due || ''
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vehicle-database-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="text-gray-500">Loading vehicle database...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="text-red-500">Error loading vehicle database</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Vehicle Database</h1>
-            <p className="text-gray-600">Comprehensive fleet registry with detailed vehicle information and history</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Vehicle Database</h1>
+        <p className="text-gray-600">Complete fleet registry with detailed vehicle information</p>
+      </div>
+
+      {/* Filters and Actions */}
+      <div className="mb-6 space-y-4">
+        {/* Search and Actions Row */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-1 max-w-md">
+            <Search className="h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search vehicles by registration, make, model, or device..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
-          <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-              <Plus className="h-4 w-4" />
-              Add Vehicle
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
               <Download className="h-4 w-4" />
-              Export Database
+              Export CSV
             </button>
           </div>
         </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <div className="flex-1 min-w-64">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <input
-                type="text"
-                placeholder="Search by registration, driver, make, model..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+        {/* Filter Row */}
+        <div className="flex flex-wrap gap-4 p-4 bg-white rounded-lg shadow">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <label className="text-sm font-medium text-gray-700">Fleet:</label>
+            <select
+              value={selectedFleet}
+              onChange={(e) => setSelectedFleet(e.target.value as typeof selectedFleet)}
+              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Fleets</option>
+              <option value="Stevemacs">Stevemacs</option>
+              <option value="Great Southern Fuels">Great Southern Fuels</option>
+            </select>
           </div>
-          
-          <select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="All">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Available">Available</option>
-            <option value="Maintenance">Maintenance</option>
-            <option value="Out of Service">Out of Service</option>
-          </select>
-          
-          <select 
-            value={fleetFilter} 
-            onChange={(e) => setFleetFilter(e.target.value as any)}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="All">All Carriers</option>
-            <option value="Stevemacs">Stevemacs</option>
-            <option value="Great Southern Fuels">Great Southern Fuels</option>
-          </select>
-          
-          <select 
-            value={depotFilter} 
-            onChange={(e) => setDepotFilter(e.target.value as any)}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="All">All Depots</option>
-            <option value="Kewdale">Kewdale</option>
-            <option value="Geraldton">Geraldton</option>
-            <option value="Kalgoorlie">Kalgoorlie</option>
-            <option value="Narrogin">Narrogin</option>
-            <option value="Albany">Albany</option>
-          </select>
 
-          <select 
-            value={`${sortBy}-${sortOrder}`} 
-            onChange={(e) => {
-              const [field, order] = e.target.value.split('-');
-              setSortBy(field as any);
-              setSortOrder(order as any);
-            }}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="registration-asc">Registration A-Z</option>
-            <option value="registration-desc">Registration Z-A</option>
-            <option value="utilization-desc">Highest Utilization</option>
-            <option value="utilization-asc">Lowest Utilization</option>
-            <option value="safety-desc">Highest Safety Score</option>
-            <option value="safety-asc">Lowest Safety Score</option>
-            <option value="efficiency-desc">Most Efficient</option>
-            <option value="efficiency-asc">Least Efficient</option>
-          </select>
-        </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Status:</label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value as typeof selectedStatus)}
+              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Available">Available</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Out of Service">Out of Service</option>
+            </select>
+          </div>
 
-        {/* Results Summary */}
-        <div className="text-sm text-gray-600 mb-4">
-          Showing {filteredVehicles.length} of {vehicleDatabase.length} vehicles
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Depot:</label>
+            <select
+              value={selectedDepot}
+              onChange={(e) => setSelectedDepot(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Depots</option>
+              {depots.map(depot => (
+                <option key={depot} value={depot}>{depot}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="ml-auto text-sm text-gray-600">
+            Showing {sortedVehicles.length} vehicles
+          </div>
         </div>
       </div>
 
       {/* Vehicle Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="min-w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="text-left p-4 font-medium text-gray-900">Vehicle</th>
-                <th className="text-left p-4 font-medium text-gray-900">Fleet & Driver</th>
-                <th className="text-left p-4 font-medium text-gray-900">Status</th>
-                <th className="text-left p-4 font-medium text-gray-900">Performance</th>
-                <th className="text-left p-4 font-medium text-gray-900">Safety</th>
-                <th className="text-left p-4 font-medium text-gray-900">Compliance</th>
-                <th className="text-left p-4 font-medium text-gray-900">Actions</th>
+                <th 
+                  className="text-left py-3 px-4 font-semibold text-gray-900 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('registration')}
+                >
+                  <div className="flex items-center gap-1">
+                    Registration
+                    {sortField === 'registration' && (
+                      <span className="text-blue-600">
+                        {sortDirection === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th 
+                  className="text-left py-3 px-4 font-semibold text-gray-900 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('fleet')}
+                >
+                  <div className="flex items-center gap-1">
+                    Fleet
+                    {sortField === 'fleet' && (
+                      <span className="text-blue-600">
+                        {sortDirection === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Depot</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Driver</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Vehicle Info</th>
+                <th 
+                  className="text-left py-3 px-4 font-semibold text-gray-900 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('safety_score')}
+                >
+                  <div className="flex items-center gap-1">
+                    Safety
+                    {sortField === 'safety_score' && (
+                      <span className="text-blue-600">
+                        {sortDirection === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Performance</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Devices</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Service</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredVehicles.map((vehicle) => (
-                <tr key={vehicle.registration} className="hover:bg-gray-50">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      {hasExpiringItems(vehicle) && (
-                        <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                      )}
-                      <div>
-                        <div className="font-semibold text-gray-900">{vehicle.registration}</div>
-                        <div className="text-sm text-gray-600">{vehicle.make} {vehicle.model}</div>
-                        <div className="text-xs text-gray-500">{vehicle.year} • {vehicle.totalKilometers.toLocaleString()} km</div>
-                      </div>
-                    </div>
+            <tbody>
+              {sortedVehicles.map((vehicle) => (
+                <tr key={vehicle.id} className="border-b hover:bg-gray-50">
+                  <td className="py-4 px-4">
+                    <div className="font-medium text-gray-900">{vehicle.registration}</div>
+                    {vehicle.vin && (
+                      <div className="text-xs text-gray-500">VIN: {vehicle.vin}</div>
+                    )}
                   </td>
-                  <td className="p-4">
-                    <div className={`font-medium ${getFleetColor(vehicle.fleet)}`}>{vehicle.fleet}</div>
-                    <div className="text-sm text-gray-600 flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
+                  <td className="py-4 px-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      vehicle.fleet === 'Stevemacs' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {vehicle.fleet}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center text-gray-600">
+                      <MapPin className="h-4 w-4 mr-1" />
                       {vehicle.depot}
                     </div>
-                    <div className="text-sm text-gray-600">{vehicle.driver || 'Unassigned'}</div>
                   </td>
-                  <td className="p-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(vehicle.status)}`}>
+                  <td className="py-4 px-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(vehicle.status)}`}>
                       {vehicle.status}
                     </span>
                   </td>
-                  <td className="p-4">
-                    <div className="text-sm space-y-1">
-                      <div>Utilization: <span className="font-medium">{vehicle.utilization}%</span></div>
-                      <div>Efficiency: <span className="font-medium">{vehicle.fuelEfficiency} km/L</span></div>
-                      <div>Deliveries: <span className="font-medium">{vehicle.totalDeliveries}</span></div>
+                  <td className="py-4 px-4 text-gray-600">
+                    {vehicle.current_driver || '-'}
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="text-sm">
+                      {vehicle.make && vehicle.model ? (
+                        <div className="font-medium">{vehicle.make} {vehicle.model}</div>
+                      ) : (
+                        <div className="text-gray-400">-</div>
+                      )}
+                      {vehicle.year && (
+                        <div className="text-gray-500">{vehicle.year}</div>
+                      )}
                     </div>
                   </td>
-                  <td className="p-4">
-                    <div className="text-sm space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-orange-500" />
-                        <span className="font-medium">{vehicle.safetyScore}/10</span>
+                  <td className="py-4 px-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <Shield className="h-3 w-3 text-yellow-500" />
+                        <span className="text-sm">{vehicle.safety_score.toFixed(1)}/10</span>
                       </div>
-                      <div className="text-xs text-gray-600">
-                        {vehicle.safetyEvents} safety • {vehicle.fatigueEvents} fatigue
-                      </div>
+                      {(vehicle.safety_events > 0 || vehicle.fatigue_events > 0) && (
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 text-red-500" />
+                          <span className="text-xs text-red-600">
+                            {vehicle.safety_events + vehicle.fatigue_events} events
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </td>
-                  <td className="p-4">
+                  <td className="py-4 px-4">
+                    <div className="text-sm space-y-1">
+                      <div>{vehicle.fuel_efficiency.toFixed(1)} km/L</div>
+                      <div className="text-gray-500">{vehicle.utilization}% util</div>
+                      <div className="text-gray-500">{vehicle.total_deliveries} deliveries</div>
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
                     <div className="text-xs space-y-1">
-                      <div>Reg: {new Date(vehicle.registrationExpiry).toLocaleDateString()}</div>
-                      <div>Ins: {new Date(vehicle.insuranceExpiry).toLocaleDateString()}</div>
-                      <div>Insp: {new Date(vehicle.inspectionDue).toLocaleDateString()}</div>
+                      {vehicle.guardian_unit && (
+                        <div className="text-blue-600">G: {vehicle.guardian_unit}</div>
+                      )}
+                      {vehicle.lytx_device && (
+                        <div className="text-green-600">L: {vehicle.lytx_device}</div>
+                      )}
+                      {!vehicle.guardian_unit && !vehicle.lytx_device && (
+                        <div className="text-gray-400">No devices</div>
+                      )}
                     </div>
                   </td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
-                      <button className="p-1 text-blue-600 hover:bg-blue-100 rounded">
+                  <td className="py-4 px-4">
+                    <div className="text-sm space-y-1">
+                      {vehicle.next_service && (
+                        <div className={`${
+                          new Date(vehicle.next_service) < new Date() 
+                            ? 'text-red-600' 
+                            : new Date(vehicle.next_service) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            ? 'text-yellow-600'
+                            : 'text-gray-600'
+                        }`}>
+                          {new Date(vehicle.next_service).toLocaleDateString()}
+                        </div>
+                      )}
+                      {!vehicle.next_service && (
+                        <div className="text-gray-400">Not scheduled</div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-2">
+                      <button className="p-1 text-gray-400 hover:text-blue-600">
                         <Eye className="h-4 w-4" />
                       </button>
-                      <button className="p-1 text-gray-600 hover:bg-gray-100 rounded">
+                      <button className="p-1 text-gray-400 hover:text-gray-600">
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button className="p-1 text-orange-600 hover:bg-orange-100 rounded">
+                      <button className="p-1 text-gray-400 hover:text-orange-600">
                         <Wrench className="h-4 w-4" />
                       </button>
                     </div>
@@ -447,16 +387,39 @@ const VehicleDatabase: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {sortedVehicles.length === 0 && (
+          <div className="p-8 text-center text-gray-500">
+            No vehicles found matching your criteria
+          </div>
+        )}
       </div>
 
-      {/* Empty State */}
-      {filteredVehicles.length === 0 && (
-        <div className="text-center py-12">
-          <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No vehicles found</h3>
-          <p className="text-gray-600">Try adjusting your search criteria or filters</p>
+      {/* Summary Stats */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600">Total Vehicles</div>
+          <div className="text-2xl font-bold text-gray-900">{vehicles.length}</div>
         </div>
-      )}
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600">Active</div>
+          <div className="text-2xl font-bold text-green-600">
+            {vehicles.filter(v => v.status === 'Active').length}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600">Available</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {vehicles.filter(v => v.status === 'Available').length}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600">Maintenance</div>
+          <div className="text-2xl font-bold text-yellow-600">
+            {vehicles.filter(v => v.status === 'Maintenance').length}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
