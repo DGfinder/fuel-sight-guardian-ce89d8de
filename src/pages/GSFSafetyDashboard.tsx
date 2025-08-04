@@ -1,99 +1,141 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, AlertTriangle, TrendingUp, Users, Award, MapPin, Truck, BarChart3 } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
+import { ArrowLeft, AlertTriangle, TrendingUp, Users, Award, MapPin, Truck, BarChart3, Calendar, Clock, Target, Shield, Settings, RefreshCw, Download, Filter, Search, Loader2, WifiOff } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, ComposedChart, Area, AreaChart } from 'recharts';
+import { useLytxCarrierEvents, useLytxDashboardData } from '@/hooks/useLytxData';
+import { lytxDataTransformer, LYTXEvent } from '@/services/lytxDataTransform';
+import DateRangeFilter from '@/components/DateRangeFilter';
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 
-interface GSFEvent {
-  eventId: string;
-  driver: string;
-  vehicle: string;
+interface DriverMetrics {
+  name: string;
+  employeeId: string;
   depot: string;
-  date: string;
-  score: number;
-  status: 'New' | 'Face-To-Face' | 'FYI Notify' | 'Resolved';
-  trigger: string;
-  behaviors: string;
-  eventType: 'Coachable' | 'Driver Tagged';
+  totalEvents: number;
+  coachableEvents: number;
+  driverTaggedEvents: number;
+  averageScore: number;
+  resolutionRate: number;
+  lastEventDate: string;
+  trend: 'improving' | 'declining' | 'stable';
+  riskLevel: 'low' | 'medium' | 'high';
 }
 
-// Sample GSF safety data across multiple depots
-const mockGSFEvents: GSFEvent[] = [
-  {
-    eventId: 'AAQZB09348',
-    driver: 'Driver Unassigned',
-    vehicle: '1GLD510',
-    depot: 'Geraldton',
-    date: '8/3/25',
-    score: 0,
-    status: 'New',
-    trigger: 'Food or Drink',
-    behaviors: '',
-    eventType: 'Coachable'
-  },
-  {
-    eventId: 'AAQYA94405',
-    driver: 'Driver Unassigned',
-    vehicle: '1GSF248',
-    depot: 'Kalgoorlie',
-    date: '8/3/25',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Handheld Device',
-    behaviors: '',
-    eventType: 'Coachable'
-  },
-  {
-    eventId: 'EYKR01503',
-    driver: 'Mark Geary',
-    vehicle: '1ECE509',
-    depot: 'Kewdale',
-    date: '1/3/2024',
-    score: 3,
-    status: 'Resolved',
-    trigger: 'Braking',
-    behaviors: 'Other Concern',
-    eventType: 'Coachable'
-  },
-  {
-    eventId: 'EYLX78719',
-    driver: 'Andrew Buchanan',
-    vehicle: '1EXM998',
-    depot: 'Geraldton',
-    date: '1/7/2024',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Cornering',
-    behaviors: 'Driver Unbelted [Roadway]',
-    eventType: 'Coachable'
-  },
-  {
-    eventId: 'EYMG49224',
-    driver: 'Ken Atkins',
-    vehicle: '1HDO841',
-    depot: 'Geraldton',
-    date: '1/30/2024',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Braking',
-    behaviors: 'Cell Handheld - Observed,Driver Unbelted [Yard]',
-    eventType: 'Coachable'
-  },
-  {
-    eventId: 'EYMQ48496',
-    driver: 'Gavin Coulls',
-    vehicle: '1GSF249',
-    depot: 'Kalgoorlie',
-    date: '2/5/2024',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Braking',
-    behaviors: 'ER Obstruction',
-    eventType: 'Coachable'
-  }
-];
+interface DepotMetrics {
+  name: string;
+  totalEvents: number;
+  eventsPerDay: number;
+  resolutionRate: number;
+  averageScore: number;
+  driverCount: number;
+  topTriggers: Array<{ trigger: string; count: number }>;
+}
 
-// Generate monthly safety trends by depot
-const generateDepotTrends = (events: GSFEvent[]) => {
-  const monthlyStats: Record<string, Record<string, { coachable: number; driverTagged: number; avgScore: number; eventCount: number }>> = {};
+// Helper functions for data analysis
+const calculateDriverMetrics = (events: LYTXEvent[]): DriverMetrics[] => {
+  const driverMap = new Map<string, LYTXEvent[]>();
+  
+  // Group events by driver
+  events.forEach(event => {
+    if (event.driver !== 'Driver Unassigned') {
+      const key = `${event.driver}-${event.employeeId}`;
+      if (!driverMap.has(key)) {
+        driverMap.set(key, []);
+      }
+      driverMap.get(key)!.push(event);
+    }
+  });
+  
+  return Array.from(driverMap.entries()).map(([key, driverEvents]) => {
+    const totalEvents = driverEvents.length;
+    const coachableEvents = driverEvents.filter(e => e.eventType === 'Coachable').length;
+    const driverTaggedEvents = driverEvents.filter(e => e.eventType === 'Driver Tagged').length;
+    const resolvedEvents = driverEvents.filter(e => e.status === 'Resolved').length;
+    const totalScore = driverEvents.reduce((sum, e) => sum + e.score, 0);
+    
+    // Sort events by date to get trend
+    const sortedEvents = driverEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const recentEvents = sortedEvents.slice(-5); // Last 5 events
+    const olderEvents = sortedEvents.slice(0, -5);
+    
+    let trend: 'improving' | 'declining' | 'stable' = 'stable';
+    if (recentEvents.length > 0 && olderEvents.length > 0) {
+      const recentAvg = recentEvents.reduce((sum, e) => sum + e.score, 0) / recentEvents.length;
+      const olderAvg = olderEvents.reduce((sum, e) => sum + e.score, 0) / olderEvents.length;
+      trend = recentAvg < olderAvg ? 'improving' : recentAvg > olderAvg ? 'declining' : 'stable';
+    }
+    
+    const averageScore = totalScore / totalEvents;
+    const riskLevel: 'low' | 'medium' | 'high' = 
+      totalEvents > 10 && averageScore > 3 ? 'high' :
+      totalEvents > 5 && averageScore > 1 ? 'medium' : 'low';
+    
+    return {
+      name: driverEvents[0].driver,
+      employeeId: driverEvents[0].employeeId,
+      depot: driverEvents[0].group,
+      totalEvents,
+      coachableEvents,
+      driverTaggedEvents,
+      averageScore,
+      resolutionRate: (resolvedEvents / totalEvents) * 100,
+      lastEventDate: sortedEvents[sortedEvents.length - 1].date,
+      trend,
+      riskLevel
+    };
+  }).sort((a, b) => b.totalEvents - a.totalEvents);
+};
+
+const calculateDepotMetrics = (events: LYTXEvent[]): DepotMetrics[] => {
+  const depotMap = new Map<string, LYTXEvent[]>();
+  
+  events.forEach(event => {
+    if (!depotMap.has(event.group)) {
+      depotMap.set(event.group, []);
+    }
+    depotMap.get(event.group)!.push(event);
+  });
+  
+  return Array.from(depotMap.entries()).map(([depot, depotEvents]) => {
+    const totalEvents = depotEvents.length;
+    const resolvedEvents = depotEvents.filter(e => e.status === 'Resolved').length;
+    const totalScore = depotEvents.reduce((sum, e) => sum + e.score, 0);
+    const uniqueDrivers = new Set(depotEvents.filter(e => e.driver !== 'Driver Unassigned').map(e => e.driver)).size;
+    
+    // Calculate events per day (assuming 30-day period)
+    const eventsPerDay = totalEvents / 30;
+    
+    // Top triggers
+    const triggerCounts = depotEvents.reduce((acc, event) => {
+      acc[event.trigger] = (acc[event.trigger] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const topTriggers = Object.entries(triggerCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3)
+      .map(([trigger, count]) => ({ trigger, count }));
+    
+    return {
+      name: depot,
+      totalEvents,
+      eventsPerDay,
+      resolutionRate: (resolvedEvents / totalEvents) * 100,
+      averageScore: totalScore / totalEvents,
+      driverCount: uniqueDrivers,
+      topTriggers
+    };
+  }).sort((a, b) => b.totalEvents - a.totalEvents);
+};
+
+const generateMonthlyTrends = (events: LYTXEvent[]) => {
+  const monthlyStats: Record<string, { 
+    month: string; 
+    coachable: number; 
+    driverTagged: number; 
+    avgScore: number; 
+    resolved: number;
+    newEvents: number;
+  }> = {};
   
   events.forEach(event => {
     const date = new Date(event.date);
@@ -101,106 +143,108 @@ const generateDepotTrends = (events: GSFEvent[]) => {
     const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     
     if (!monthlyStats[monthKey]) {
-      monthlyStats[monthKey] = {};
-    }
-    if (!monthlyStats[monthKey][event.depot]) {
-      monthlyStats[monthKey][event.depot] = { coachable: 0, driverTagged: 0, avgScore: 0, eventCount: 0 };
+      monthlyStats[monthKey] = { 
+        month: monthName, 
+        coachable: 0, 
+        driverTagged: 0, 
+        avgScore: 0, 
+        resolved: 0,
+        newEvents: 0
+      };
     }
     
-    const depotStats = monthlyStats[monthKey][event.depot];
+    const stats = monthlyStats[monthKey];
     if (event.eventType === 'Coachable') {
-      depotStats.coachable++;
+      stats.coachable++;
     } else {
-      depotStats.driverTagged++;
+      stats.driverTagged++;
     }
-    depotStats.avgScore += event.score;
-    depotStats.eventCount++;
+    
+    if (event.status === 'Resolved') stats.resolved++;
+    if (event.status === 'New') stats.newEvents++;
+    stats.avgScore += event.score;
   });
   
-  // Convert to chart format
-  const chartData = Object.entries(monthlyStats).map(([monthKey, depots]) => {
-    const date = new Date(monthKey);
-    const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    
-    const result: any = { month: monthName };
-    Object.entries(depots).forEach(([depot, stats]) => {
-      result[`${depot}_events`] = stats.coachable + stats.driverTagged;
-      result[`${depot}_score`] = stats.eventCount > 0 ? stats.avgScore / stats.eventCount : 0;
-    });
-    
-    return result;
-  }).sort((a, b) => a.month.localeCompare(b.month));
-  
-  return chartData;
+  return Object.values(monthlyStats)
+    .map(stats => ({
+      ...stats,
+      avgScore: stats.avgScore / (stats.coachable + stats.driverTagged) || 0,
+      total: stats.coachable + stats.driverTagged
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 };
 
 const GSFSafetyDashboard: React.FC = () => {
-  const [selectedDepot, setSelectedDepot] = useState<'All' | 'Geraldton' | 'Kalgoorlie' | 'Kewdale' | 'Narrogin' | 'Albany'>('All');
+  const [selectedDepot, setSelectedDepot] = useState<'All' | 'Albany' | 'Geraldton' | 'Kalgoorlie' | 'Kewdale' | 'Narrogin' | 'Bunbury'>('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Date range filtering
+  const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+  
+  // Get date range for API calls
+  const apiDateRange = useMemo(() => {
+    if (startDate && endDate) {
+      return {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0]
+      };
+    }
+    return lytxDataTransformer.createDateRange(90); // Default to 90 days
+  }, [startDate, endDate]);
 
-  // Filter events by depot
+  // Fetch GSF-specific data using API
+  const gsfEventsQuery = useLytxCarrierEvents('Great Southern Fuels', apiDateRange);
+  const dashboardData = useLytxDashboardData(apiDateRange);
+
+  // Process events data
+  const allEvents = useMemo(() => {
+    return gsfEventsQuery.data?.events || [];
+  }, [gsfEventsQuery.data]);
+
+  // Filter events based on depot and search
   const filteredEvents = useMemo(() => {
-    return selectedDepot === 'All' 
-      ? mockGSFEvents 
-      : mockGSFEvents.filter(e => e.depot === selectedDepot);
-  }, [selectedDepot]);
+    let filtered = allEvents;
+    
+    // Filter by depot
+    if (selectedDepot !== 'All') {
+      filtered = filtered.filter(event => event.group === selectedDepot);
+    }
+    
+    // Filter by search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(event => 
+        event.driver.toLowerCase().includes(term) ||
+        event.employeeId.toLowerCase().includes(term) ||
+        event.trigger.toLowerCase().includes(term)
+      );
+    }
+    
+    return filtered;
+  }, [allEvents, selectedDepot, searchTerm]);
 
-  const depotTrends = useMemo(() => generateDepotTrends(mockGSFEvents), []);
+  // Calculate metrics
+  const driverMetrics = useMemo(() => calculateDriverMetrics(filteredEvents), [filteredEvents]);
+  const depotMetrics = useMemo(() => calculateDepotMetrics(allEvents), [allEvents]);
+  const monthlyTrends = useMemo(() => generateMonthlyTrends(allEvents), [allEvents]);
 
-  // Calculate key metrics
+  // Key performance indicators
   const totalEvents = filteredEvents.length;
   const coachableEvents = filteredEvents.filter(e => e.eventType === 'Coachable').length;
   const driverTaggedEvents = filteredEvents.filter(e => e.eventType === 'Driver Tagged').length;
   const resolvedEvents = filteredEvents.filter(e => e.status === 'Resolved').length;
-  const highScoreEvents = filteredEvents.filter(e => e.score >= 5).length;
+  const unassignedEvents = filteredEvents.filter(e => e.driver === 'Driver Unassigned').length;
   const averageScore = totalEvents > 0 ? (filteredEvents.reduce((sum, e) => sum + e.score, 0) / totalEvents).toFixed(1) : '0';
 
-  // Depot performance analysis
-  const depotStats = mockGSFEvents.reduce((acc, event) => {
-    if (!acc[event.depot]) {
-      acc[event.depot] = { events: 0, totalScore: 0, resolved: 0, coachable: 0 };
-    }
-    acc[event.depot].events++;
-    acc[event.depot].totalScore += event.score;
-    if (event.status === 'Resolved') acc[event.depot].resolved++;
-    if (event.eventType === 'Coachable') acc[event.depot].coachable++;
-    return acc;
-  }, {} as Record<string, { events: number; totalScore: number; resolved: number; coachable: number }>);
+  // Event status distribution for pie chart
+  const statusData = [
+    { name: 'Resolved', value: resolvedEvents, color: '#10b981' },
+    { name: 'Face-To-Face', value: filteredEvents.filter(e => e.status === 'Face-To-Face').length, color: '#f59e0b' },
+    { name: 'FYI Notify', value: filteredEvents.filter(e => e.status === 'FYI Notify').length, color: '#3b82f6' },
+    { name: 'New', value: filteredEvents.filter(e => e.status === 'New').length, color: '#ef4444' }
+  ];
 
-  const depotPerformance = Object.entries(depotStats)
-    .map(([depot, stats]) => ({
-      depot,
-      events: stats.events,
-      avgScore: (stats.totalScore / stats.events).toFixed(1),
-      resolutionRate: ((stats.resolved / stats.events) * 100).toFixed(0),
-      coachableRate: ((stats.coachable / stats.events) * 100).toFixed(0)
-    }))
-    .sort((a, b) => b.events - a.events);
-
-  // Driver performance analysis
-  const driverStats = filteredEvents.reduce((acc, event) => {
-    if (event.driver !== 'Driver Unassigned') {
-      if (!acc[event.driver]) {
-        acc[event.driver] = { events: 0, totalScore: 0, resolved: 0, depot: event.depot };
-      }
-      acc[event.driver].events++;
-      acc[event.driver].totalScore += event.score;
-      if (event.status === 'Resolved') acc[event.driver].resolved++;
-    }
-    return acc;
-  }, {} as Record<string, { events: number; totalScore: number; resolved: number; depot: string }>);
-
-  const topDrivers = Object.entries(driverStats)
-    .map(([driver, stats]) => ({
-      driver,
-      depot: stats.depot,
-      events: stats.events,
-      avgScore: (stats.totalScore / stats.events).toFixed(1),
-      resolutionRate: ((stats.resolved / stats.events) * 100).toFixed(0)
-    }))
-    .sort((a, b) => b.events - a.events)
-    .slice(0, 5);
-
-  // Safety trigger analysis
+  // Top safety triggers
   const triggerCounts = filteredEvents.reduce((acc, event) => {
     acc[event.trigger] = (acc[event.trigger] || 0) + 1;
     return acc;
@@ -208,7 +252,43 @@ const GSFSafetyDashboard: React.FC = () => {
 
   const topTriggers = Object.entries(triggerCounts)
     .sort(([,a], [,b]) => b - a)
-    .slice(0, 4);
+    .slice(0, 5)
+    .map(([trigger, count]) => ({ trigger, count }));
+
+  if (gsfEventsQuery.isLoading || dashboardData.isLoading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 text-green-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading GSF safety data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (gsfEventsQuery.isError) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-center gap-3">
+            <WifiOff className="h-6 w-6 text-red-600" />
+            <div>
+              <h3 className="text-lg font-semibold text-red-800">API Connection Failed</h3>
+              <p className="text-red-700">Unable to load GSF safety data from LYTX API</p>
+              <button 
+                onClick={() => gsfEventsQuery.refetch()}
+                className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+              >
+                Retry Connection
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -223,44 +303,72 @@ const GSFSafetyDashboard: React.FC = () => {
           </button>
           <div>
             <h1 className="text-3xl font-bold text-green-900 mb-2">Great Southern Fuels Safety Analytics</h1>
-            <p className="text-green-600">Multi-depot safety performance tracking across regional operations</p>
+            <p className="text-green-600">Advanced driver performance and safety event analysis across all GSF depots</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {gsfEventsQuery.isLoading && <Loader2 className="h-5 w-5 text-green-500 animate-spin" />}
+            <button 
+              onClick={() => gsfEventsQuery.refetch()}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-6 text-sm text-green-600 mb-4">
+        <div className="flex items-center gap-6 text-sm text-green-600 mb-6">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
-            <span>Regional Coverage: Geraldton, Kalgoorlie, Narrogin, Albany</span>
+            <span>Depots: Albany, Geraldton, Kalgoorlie, Kewdale, Narrogin</span>
           </div>
           <div className="flex items-center gap-2">
-            <Truck className="h-4 w-4" />
-            <span>Fleet Operations: Multi-depot coordination</span>
+            <Calendar className="h-4 w-4" />
+            <span>Period: {apiDateRange.startDate} to {apiDateRange.endDate}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Award className="h-4 w-4" />
-            <span>Safety Focus: Regional consistency</span>
+            <Target className="h-4 w-4" />
+            <span>{totalEvents} Total Events</span>
           </div>
         </div>
 
-        {/* Depot Filter */}
-        <div className="mb-6">
+        {/* Filters */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          <DateRangeFilter 
+            startDate={startDate}
+            endDate={endDate}
+            onDateRangeChange={setDateRange}
+          />
+          
           <select 
             value={selectedDepot} 
             onChange={(e) => setSelectedDepot(e.target.value as any)}
             className="px-4 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-green-50"
           >
             <option value="All">All Depots</option>
+            <option value="Albany">Albany</option>
             <option value="Geraldton">Geraldton</option>
             <option value="Kalgoorlie">Kalgoorlie</option>
             <option value="Kewdale">Kewdale</option>
             <option value="Narrogin">Narrogin</option>
-            <option value="Albany">Albany</option>
+            <option value="Bunbury">Bunbury</option>
           </select>
+          
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search drivers, triggers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            />
+          </div>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
         <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
           <div className="flex items-center justify-between">
             <div>
@@ -274,9 +382,9 @@ const GSFSafetyDashboard: React.FC = () => {
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-orange-700">Coachable Events</p>
+              <p className="text-sm font-medium text-orange-700">Coachable</p>
               <p className="text-2xl font-bold text-orange-900">{coachableEvents}</p>
-              <p className="text-xs text-orange-600">{((coachableEvents/totalEvents)*100).toFixed(1)}% of total</p>
+              <p className="text-xs text-orange-600">{totalEvents > 0 ? ((coachableEvents/totalEvents)*100).toFixed(1) : 0}%</p>
             </div>
             <TrendingUp className="h-8 w-8 text-orange-600" />
           </div>
@@ -287,7 +395,7 @@ const GSFSafetyDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-indigo-700">Driver Tagged</p>
               <p className="text-2xl font-bold text-indigo-900">{driverTaggedEvents}</p>
-              <p className="text-xs text-indigo-600">{((driverTaggedEvents/totalEvents)*100).toFixed(1)}% of total</p>
+              <p className="text-xs text-indigo-600">{totalEvents > 0 ? ((driverTaggedEvents/totalEvents)*100).toFixed(1) : 0}%</p>
             </div>
             <Users className="h-8 w-8 text-indigo-600" />
           </div>
@@ -297,7 +405,7 @@ const GSFSafetyDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-emerald-700">Resolution Rate</p>
-              <p className="text-2xl font-bold text-emerald-900">{((resolvedEvents/totalEvents)*100).toFixed(1)}%</p>
+              <p className="text-2xl font-bold text-emerald-900">{totalEvents > 0 ? ((resolvedEvents/totalEvents)*100).toFixed(1) : 0}%</p>
               <p className="text-xs text-emerald-600">{resolvedEvents} resolved</p>
             </div>
             <Award className="h-8 w-8 text-emerald-600" />
@@ -309,141 +417,183 @@ const GSFSafetyDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-purple-700">Avg. Score</p>
               <p className="text-2xl font-bold text-purple-900">{averageScore}</p>
-              <p className="text-xs text-purple-600">{highScoreEvents} high severity</p>
+              <p className="text-xs text-purple-600">Safety severity</p>
             </div>
             <BarChart3 className="h-8 w-8 text-purple-600" />
           </div>
         </div>
+
+        <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-lg border border-red-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-red-700">Unassigned</p>
+              <p className="text-2xl font-bold text-red-900">{unassignedEvents}</p>
+              <p className="text-xs text-red-600">Need assignment</p>
+            </div>
+            <Clock className="h-8 w-8 text-red-600" />
+          </div>
+        </div>
       </div>
 
-      {/* Charts Row */}
+      {/* Driver Performance Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Depot Performance Comparison */}
+        {/* Top Drivers by Event Count */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-green-100">
-          <h3 className="text-lg font-semibold text-green-900 mb-4">Depot Safety Performance</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={depotPerformance}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="depot" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="events" fill="#10b981" name="Total Events" />
-            </BarChart>
-          </ResponsiveContainer>
+          <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Driver Performance Analysis
+          </h3>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {driverMetrics.slice(0, 10).map((driver, index) => (
+              <div key={`${driver.name}-${driver.employeeId}`} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-green-900">{driver.name}</span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      driver.riskLevel === 'high' ? 'bg-red-100 text-red-800' :
+                      driver.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {driver.riskLevel} risk
+                    </span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      driver.trend === 'improving' ? 'bg-green-100 text-green-800' :
+                      driver.trend === 'declining' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {driver.trend}
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600">
+                    {driver.depot} • {driver.totalEvents} events • {driver.resolutionRate.toFixed(0)}% resolved • Avg: {driver.averageScore.toFixed(1)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Regional Safety Trends */}
+        {/* Monthly Trends */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-green-100">
-          <h3 className="text-lg font-semibold text-green-900 mb-4">Monthly Regional Trends</h3>
+          <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Monthly Event Trends
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={depotTrends}>
+            <ComposedChart data={monthlyTrends}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis />
+              <YAxis yAxisId="events" />
+              <YAxis yAxisId="score" orientation="right" />
               <Tooltip />
-              <Line type="monotone" dataKey="Geraldton_events" stroke="#059669" strokeWidth={2} name="Geraldton" />
-              <Line type="monotone" dataKey="Kalgoorlie_events" stroke="#dc2626" strokeWidth={2} name="Kalgoorlie" />
-              <Line type="monotone" dataKey="Kewdale_events" stroke="#2563eb" strokeWidth={2} name="Kewdale" />
-            </LineChart>
+              <Bar yAxisId="events" dataKey="coachable" stackId="events" fill="#f59e0b" name="Coachable" />
+              <Bar yAxisId="events" dataKey="driverTagged" stackId="events" fill="#3b82f6" name="Driver Tagged" />
+              <Line yAxisId="score" type="monotone" dataKey="avgScore" stroke="#ef4444" strokeWidth={2} name="Avg Score" />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Depot Performance Details */}
+      {/* Depot Analysis */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Depot Performance Summary */}
+        {/* Depot Performance */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-green-100">
-          <h3 className="text-lg font-semibold text-green-900 mb-4">Depot Performance Analysis</h3>
+          <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Depot Performance Analysis
+          </h3>
           <div className="space-y-3">
-            {depotPerformance.map((depot, index) => (
-              <div key={depot.depot} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                <div>
-                  <span className="text-sm font-medium text-green-900">{depot.depot}</span>
-                  <p className="text-xs text-green-600">{depot.events} events • {depot.resolutionRate}% resolved • {depot.coachableRate}% coachable</p>
+            {depotMetrics.map((depot) => (
+              <div key={depot.name} className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-semibold text-green-900">{depot.name}</h4>
+                  <span className="text-lg font-bold text-green-700">{depot.totalEvents} events</span>
                 </div>
-                <span className="text-lg font-bold text-green-700">Avg: {depot.avgScore}</span>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-green-600">Resolution Rate</p>
+                    <p className="font-semibold">{depot.resolutionRate.toFixed(1)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-green-600">Avg Score</p>
+                    <p className="font-semibold">{depot.averageScore.toFixed(1)}</p>
+                  </div>
+                  <div>
+                    <p className="text-green-600">Drivers</p>
+                    <p className="font-semibold">{depot.driverCount}</p>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <p className="text-xs text-green-600">Top triggers: {depot.topTriggers.map(t => t.trigger).join(', ')}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Driver Performance (filtered by depot) */}
+        {/* Event Status Distribution */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-green-100">
-          <h3 className="text-lg font-semibold text-green-900 mb-4">
-            Driver Performance {selectedDepot !== 'All' ? `- ${selectedDepot}` : ''}
+          <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Event Status Distribution
           </h3>
-          <div className="space-y-3">
-            {topDrivers.length > 0 ? topDrivers.map((driver, index) => (
-              <div key={driver.driver} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                <div>
-                  <span className="text-sm font-medium text-green-900">{driver.driver}</span>
-                  <p className="text-xs text-green-600">{driver.depot} • {driver.events} events • {driver.resolutionRate}% resolved</p>
-                </div>
-                <span className="text-lg font-bold text-green-700">Avg: {driver.avgScore}</span>
+          <ResponsiveContainer width="100%" height={250}>
+            <RechartsPieChart>
+              <Tooltip />
+              <RechartsPieChart data={statusData} cx="50%" cy="50%" outerRadius={80}>
+                {statusData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </ResponsiveContainer>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {statusData.map((status) => (
+              <div key={status.name} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }}></div>
+                <span className="text-sm text-gray-600">{status.name}: {status.value}</span>
               </div>
-            )) : (
-              <p className="text-sm text-green-600 italic">No assigned drivers for selected depot filter</p>
-            )}
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Safety Focus Areas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Top Safety Triggers */}
-        <div className="bg-white p-6 rounded-lg shadow-md border border-green-100">
-          <h3 className="text-lg font-semibold text-green-900 mb-4">
-            Top Safety Concerns {selectedDepot !== 'All' ? `- ${selectedDepot}` : ''}
-          </h3>
-          <div className="space-y-3">
-            {topTriggers.map(([trigger, count], index) => (
-              <div key={trigger} className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                <span className="text-sm font-medium text-orange-800">{trigger}</span>
-                <span className="text-lg font-bold text-orange-700">{count}</span>
+      {/* Top Safety Triggers */}
+      <div className="bg-white p-6 rounded-lg shadow-md border border-green-100 mb-8">
+        <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5" />
+          Top Safety Triggers Analysis
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {topTriggers.map((trigger, index) => (
+            <div key={trigger.trigger} className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-orange-700">{trigger.count}</p>
+                <p className="text-sm font-medium text-orange-800">{trigger.trigger}</p>
+                <p className="text-xs text-orange-600">{totalEvents > 0 ? ((trigger.count/totalEvents)*100).toFixed(1) : 0}% of events</p>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Regional Improvement Actions */}
-        <div className="bg-white p-6 rounded-lg shadow-md border border-green-100">
-          <h3 className="text-lg font-semibold text-green-900 mb-4">Regional Safety Initiatives</h3>
-          <div className="space-y-3">
-            <div className="p-4 bg-emerald-50 rounded-lg border-l-4 border-emerald-500">
-              <h4 className="font-semibold text-emerald-800">Cross-Depot Training</h4>
-              <p className="text-sm text-emerald-700">Standardize safety procedures across all GSF locations</p>
             </div>
-            
-            <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-500">
-              <h4 className="font-semibold text-green-800">Regional Safety Champions</h4>
-              <p className="text-sm text-green-700">Identify and develop safety leaders at each depot</p>
-            </div>
-            
-            <div className="p-4 bg-teal-50 rounded-lg border-l-4 border-teal-500">
-              <h4 className="font-semibold text-teal-800">Equipment Standardization</h4>
-              <p className="text-sm text-teal-700">Ensure consistent safety equipment across all depots</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
       {/* Quick Actions */}
       <div className="bg-gradient-to-r from-green-600 to-green-700 p-6 rounded-lg text-white">
-        <h3 className="text-lg font-semibold mb-4">GSF Regional Safety Management Tools</h3>
+        <h3 className="text-lg font-semibold mb-4">GSF Safety Management Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button className="p-4 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors text-left">
-            <h4 className="font-semibold mb-2">Regional Safety Meeting</h4>
-            <p className="text-sm opacity-90">Coordinate safety initiatives across all depots</p>
+            <h4 className="font-semibold mb-2">Assign Unassigned Events</h4>
+            <p className="text-sm opacity-90">{unassignedEvents} events need driver assignment</p>
           </button>
           
           <button className="p-4 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors text-left">
-            <h4 className="font-semibold mb-2">Depot Safety Audits</h4>
-            <p className="text-sm opacity-90">Schedule comprehensive safety reviews by location</p>
+            <h4 className="font-semibold mb-2">High-Risk Driver Review</h4>
+            <p className="text-sm opacity-90">{driverMetrics.filter(d => d.riskLevel === 'high').length} drivers need attention</p>
           </button>
           
           <button className="p-4 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors text-left">
-            <h4 className="font-semibold mb-2">Regional Safety Report</h4>
-            <p className="text-sm opacity-90">Generate comprehensive GSF safety performance analysis</p>
+            <h4 className="font-semibold mb-2">Export Safety Report</h4>
+            <p className="text-sm opacity-90">Generate comprehensive analysis report</p>
           </button>
         </div>
       </div>

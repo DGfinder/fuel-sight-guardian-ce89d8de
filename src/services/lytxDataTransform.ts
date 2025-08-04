@@ -248,7 +248,7 @@ export class LytxDataTransformer {
     });
   }
 
-  // Get summary statistics
+  // Get summary statistics with enhanced metrics
   getEventSummary(events: LYTXEvent[]) {
     const summary = {
       total: events.length,
@@ -256,10 +256,17 @@ export class LytxDataTransformer {
       byEventType: {} as Record<string, number>,
       byCarrier: {} as Record<string, number>,
       byDepot: {} as Record<string, number>,
+      byTrigger: {} as Record<string, number>,
       averageScore: 0,
       excluded: 0,
-      unassigned: 0
+      unassigned: 0,
+      highRiskEvents: 0,
+      recentEvents: 0,
+      resolutionRate: 0
     };
+
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     events.forEach(event => {
       // Count by status
@@ -274,6 +281,9 @@ export class LytxDataTransformer {
       // Count by depot
       summary.byDepot[event.group] = (summary.byDepot[event.group] || 0) + 1;
       
+      // Count by trigger
+      summary.byTrigger[event.trigger] = (summary.byTrigger[event.trigger] || 0) + 1;
+      
       // Count excluded
       if (event.excluded) {
         summary.excluded++;
@@ -283,13 +293,156 @@ export class LytxDataTransformer {
       if (event.driver === 'Driver Unassigned') {
         summary.unassigned++;
       }
+      
+      // Count high risk events (score >= 5)
+      if (event.score >= 5) {
+        summary.highRiskEvents++;
+      }
+      
+      // Count recent events (last 7 days)
+      try {
+        if (new Date(event.date) >= sevenDaysAgo) {
+          summary.recentEvents++;
+        }
+      } catch {
+        // Ignore date parsing errors
+      }
     });
 
     // Calculate average score
     const totalScore = events.reduce((sum, event) => sum + event.score, 0);
     summary.averageScore = events.length > 0 ? totalScore / events.length : 0;
+    
+    // Calculate resolution rate
+    const resolvedEvents = summary.byStatus['Resolved'] || 0;
+    summary.resolutionRate = events.length > 0 ? (resolvedEvents / events.length) * 100 : 0;
 
     return summary;
+  }
+
+  // Get driver performance metrics
+  getDriverPerformanceMetrics(events: LYTXEvent[]) {
+    const driverMap = new Map<string, LYTXEvent[]>();
+    
+    events.forEach(event => {
+      if (event.driver !== 'Driver Unassigned') {
+        const key = `${event.driver}-${event.employeeId}`;
+        if (!driverMap.has(key)) {
+          driverMap.set(key, []);
+        }
+        driverMap.get(key)!.push(event);
+      }
+    });
+
+    return Array.from(driverMap.entries()).map(([key, driverEvents]) => {
+      const totalEvents = driverEvents.length;
+      const resolvedEvents = driverEvents.filter(e => e.status === 'Resolved').length;
+      const avgScore = driverEvents.reduce((sum, e) => sum + e.score, 0) / totalEvents;
+      const coachableEvents = driverEvents.filter(e => e.eventType === 'Coachable').length;
+      const driverTaggedEvents = driverEvents.filter(e => e.eventType === 'Driver Tagged').length;
+      
+      // Get most recent event date
+      const sortedEvents = driverEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const lastEventDate = sortedEvents[0]?.date || '';
+      
+      // Calculate risk level
+      const riskLevel = totalEvents > 15 && avgScore > 4 ? 'critical' :
+                       totalEvents > 10 && avgScore > 3 ? 'high' :
+                       totalEvents > 5 && avgScore > 1 ? 'medium' : 'low';
+      
+      // Calculate trend based on recent vs older events
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const recentEvents = driverEvents.filter(e => new Date(e.date) >= thirtyDaysAgo);
+      const olderEvents = driverEvents.filter(e => new Date(e.date) < thirtyDaysAgo);
+      
+      let trend: 'improving' | 'declining' | 'stable' = 'stable';
+      if (recentEvents.length > 2 && olderEvents.length > 2) {
+        const recentAvg = recentEvents.reduce((sum, e) => sum + e.score, 0) / recentEvents.length;
+        const olderAvg = olderEvents.reduce((sum, e) => sum + e.score, 0) / olderEvents.length;
+        const improvement = olderAvg - recentAvg;
+        trend = improvement > 0.5 ? 'improving' : improvement < -0.5 ? 'declining' : 'stable';
+      }
+
+      return {
+        driver: driverEvents[0].driver,
+        employeeId: driverEvents[0].employeeId,
+        depot: driverEvents[0].group,
+        totalEvents,
+        coachableEvents,
+        driverTaggedEvents,
+        resolutionRate: (resolvedEvents / totalEvents) * 100,
+        averageScore: avgScore,
+        riskLevel,
+        trend,
+        lastEventDate,
+        eventsLast30Days: recentEvents.length
+      };
+    }).sort((a, b) => b.totalEvents - a.totalEvents);
+  }
+
+  // Get depot performance comparison
+  getDepotComparison(events: LYTXEvent[]) {
+    const depotMap = new Map<string, LYTXEvent[]>();
+    
+    events.forEach(event => {
+      if (!depotMap.has(event.group)) {
+        depotMap.set(event.group, []);
+      }
+      depotMap.get(event.group)!.push(event);
+    });
+
+    return Array.from(depotMap.entries()).map(([depot, depotEvents]) => {
+      const totalEvents = depotEvents.length;
+      const resolvedEvents = depotEvents.filter(e => e.status === 'Resolved').length;
+      const avgScore = depotEvents.reduce((sum, e) => sum + e.score, 0) / totalEvents;
+      const uniqueDrivers = new Set(depotEvents.filter(e => e.driver !== 'Driver Unassigned').map(e => e.driver)).size;
+      const unassignedEvents = depotEvents.filter(e => e.driver === 'Driver Unassigned').length;
+      
+      // Calculate events per day (assuming 30 day period)
+      const eventsPerDay = totalEvents / 30;
+      const eventsPerDriver = uniqueDrivers > 0 ? totalEvents / uniqueDrivers : 0;
+      
+      // Top 3 triggers for this depot
+      const triggerCounts = depotEvents.reduce((acc, event) => {
+        acc[event.trigger] = (acc[event.trigger] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const topTriggers = Object.entries(triggerCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([trigger, count]) => ({ trigger, count, percentage: (count / totalEvents) * 100 }));
+
+      return {
+        depot,
+        totalEvents,
+        resolutionRate: (resolvedEvents / totalEvents) * 100,
+        averageScore: avgScore,
+        driverCount: uniqueDrivers,
+        eventsPerDay,
+        eventsPerDriver,
+        unassignedRate: (unassignedEvents / totalEvents) * 100,
+        topTriggers,
+        // Performance rating
+        performanceRating: this.calculateDepotPerformanceRating(
+          (resolvedEvents / totalEvents) * 100,
+          avgScore,
+          eventsPerDriver
+        )
+      };
+    }).sort((a, b) => b.totalEvents - a.totalEvents);
+  }
+
+  // Calculate depot performance rating
+  private calculateDepotPerformanceRating(resolutionRate: number, avgScore: number, eventsPerDriver: number): 'excellent' | 'good' | 'fair' | 'poor' {
+    const resolutionScore = resolutionRate >= 90 ? 3 : resolutionRate >= 70 ? 2 : resolutionRate >= 50 ? 1 : 0;
+    const severityScore = avgScore <= 1 ? 3 : avgScore <= 2 ? 2 : avgScore <= 3 ? 1 : 0;
+    const frequencyScore = eventsPerDriver <= 2 ? 3 : eventsPerDriver <= 5 ? 2 : eventsPerDriver <= 10 ? 1 : 0;
+    
+    const totalScore = resolutionScore + severityScore + frequencyScore;
+    
+    return totalScore >= 8 ? 'excellent' : totalScore >= 6 ? 'good' : totalScore >= 4 ? 'fair' : 'poor';
   }
 
   // Create date range for API calls

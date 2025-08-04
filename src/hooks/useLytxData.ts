@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { lytxApi, lytxQueryKeys, LytxSafetyEvent } from '@/services/lytxApi';
 import { lytxDataTransformer, LYTXEvent } from '@/services/lytxDataTransform';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 // Hook for safety events with transformation
 export const useLytxSafetyEvents = (params: {
@@ -259,13 +259,13 @@ export const useLytxRealTimeEvents = (intervalMs: number = 30000) => {
   });
 };
 
-// Hook for carrier-specific events
+// Hook for carrier-specific events with enhanced analytics
 export const useLytxCarrierEvents = (
   carrier: 'Stevemacs' | 'Great Southern Fuels',
   dateRange: { startDate: string; endDate: string }
 ) => {
   const eventsQuery = useLytxSafetyEvents({
-    pageSize: 500,
+    pageSize: 1000, // Increased for comprehensive analysis
     startDate: dateRange.startDate,
     endDate: dateRange.endDate
   });
@@ -278,14 +278,186 @@ export const useLytxCarrierEvents = (
   const carrierMetrics = carrierEvents.length > 0 ? 
     lytxDataTransformer.getEventSummary(carrierEvents) : null;
 
+  // Enhanced analytics for GSF
+  const enhancedAnalytics = useMemo(() => {
+    if (carrierEvents.length === 0) return null;
+    
+    return {
+      // Driver analytics
+      driverStats: calculateDriverStatistics(carrierEvents),
+      // Depot analytics
+      depotStats: calculateDepotStatistics(carrierEvents),
+      // Trend analytics
+      trendStats: calculateTrendStatistics(carrierEvents),
+      // Risk analytics
+      riskStats: calculateRiskStatistics(carrierEvents)
+    };
+  }, [carrierEvents]);
+
   return {
     ...eventsQuery,
     data: {
       events: carrierEvents,
       totalCount: carrierEvents.length,
-      metrics: carrierMetrics
+      metrics: carrierMetrics,
+      analytics: enhancedAnalytics
     }
   };
+};
+
+// Helper functions for enhanced analytics
+const calculateDriverStatistics = (events: LYTXEvent[]) => {
+  const driverMap = new Map<string, LYTXEvent[]>();
+  
+  events.forEach(event => {
+    if (event.driver !== 'Driver Unassigned') {
+      const key = `${event.driver}-${event.employeeId}`;
+      if (!driverMap.has(key)) {
+        driverMap.set(key, []);
+      }
+      driverMap.get(key)!.push(event);
+    }
+  });
+
+  return Array.from(driverMap.entries()).map(([key, driverEvents]) => {
+    const totalEvents = driverEvents.length;
+    const resolvedEvents = driverEvents.filter(e => e.status === 'Resolved').length;
+    const avgScore = driverEvents.reduce((sum, e) => sum + e.score, 0) / totalEvents;
+    
+    // Calculate trend (last 30 days vs previous 30 days)
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+    
+    const recentEvents = driverEvents.filter(e => new Date(e.date) >= thirtyDaysAgo);
+    const olderEvents = driverEvents.filter(e => {
+      const eventDate = new Date(e.date);
+      return eventDate >= sixtyDaysAgo && eventDate < thirtyDaysAgo;
+    });
+    
+    let trend: 'improving' | 'declining' | 'stable' = 'stable';
+    if (recentEvents.length > 0 && olderEvents.length > 0) {
+      const recentAvg = recentEvents.reduce((sum, e) => sum + e.score, 0) / recentEvents.length;
+      const olderAvg = olderEvents.reduce((sum, e) => sum + e.score, 0) / olderEvents.length;
+      trend = recentAvg < olderAvg ? 'improving' : recentAvg > olderAvg ? 'declining' : 'stable';
+    }
+
+    return {
+      driver: driverEvents[0].driver,
+      employeeId: driverEvents[0].employeeId,
+      depot: driverEvents[0].group,
+      totalEvents,
+      resolutionRate: (resolvedEvents / totalEvents) * 100,
+      averageScore: avgScore,
+      trend,
+      riskLevel: totalEvents > 10 && avgScore > 3 ? 'high' : 
+                 totalEvents > 5 && avgScore > 1 ? 'medium' : 'low'
+    };
+  });
+};
+
+const calculateDepotStatistics = (events: LYTXEvent[]) => {
+  const depotMap = new Map<string, LYTXEvent[]>();
+  
+  events.forEach(event => {
+    if (!depotMap.has(event.group)) {
+      depotMap.set(event.group, []);
+    }
+    depotMap.get(event.group)!.push(event);
+  });
+
+  return Array.from(depotMap.entries()).map(([depot, depotEvents]) => {
+    const totalEvents = depotEvents.length;
+    const resolvedEvents = depotEvents.filter(e => e.status === 'Resolved').length;
+    const avgScore = depotEvents.reduce((sum, e) => sum + e.score, 0) / totalEvents;
+    const uniqueDrivers = new Set(depotEvents.filter(e => e.driver !== 'Driver Unassigned').map(e => e.driver)).size;
+    
+    // Top triggers for this depot
+    const triggerCounts = depotEvents.reduce((acc, event) => {
+      acc[event.trigger] = (acc[event.trigger] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const topTriggers = Object.entries(triggerCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3)
+      .map(([trigger, count]) => ({ trigger, count }));
+
+    return {
+      depot,
+      totalEvents,
+      resolutionRate: (resolvedEvents / totalEvents) * 100,
+      averageScore: avgScore,
+      driverCount: uniqueDrivers,
+      eventsPerDriver: uniqueDrivers > 0 ? totalEvents / uniqueDrivers : 0,
+      topTriggers
+    };
+  });
+};
+
+const calculateTrendStatistics = (events: LYTXEvent[]) => {
+  const monthlyStats: Record<string, { 
+    month: string; 
+    coachable: number; 
+    driverTagged: number; 
+    avgScore: number; 
+    resolved: number;
+    new: number;
+  }> = {};
+  
+  events.forEach(event => {
+    const date = new Date(event.date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    
+    if (!monthlyStats[monthKey]) {
+      monthlyStats[monthKey] = { 
+        month: monthName, 
+        coachable: 0, 
+        driverTagged: 0, 
+        avgScore: 0, 
+        resolved: 0,
+        new: 0
+      };
+    }
+    
+    const stats = monthlyStats[monthKey];
+    if (event.eventType === 'Coachable') stats.coachable++;
+    else stats.driverTagged++;
+    
+    if (event.status === 'Resolved') stats.resolved++;
+    if (event.status === 'New') stats.new++;
+    stats.avgScore += event.score;
+  });
+  
+  return Object.values(monthlyStats)
+    .map(stats => ({
+      ...stats,
+      avgScore: stats.avgScore / (stats.coachable + stats.driverTagged) || 0,
+      total: stats.coachable + stats.driverTagged
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+};
+
+const calculateRiskStatistics = (events: LYTXEvent[]) => {
+  const riskFactors = {
+    highScoreEvents: events.filter(e => e.score >= 5).length,
+    unassignedEvents: events.filter(e => e.driver === 'Driver Unassigned').length,
+    unresolvedEvents: events.filter(e => e.status === 'New').length,
+    repeatedOffenders: 0
+  };
+
+  // Calculate repeated offenders (drivers with >10 events)
+  const driverCounts = events.reduce((acc, event) => {
+    if (event.driver !== 'Driver Unassigned') {
+      acc[event.driver] = (acc[event.driver] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  riskFactors.repeatedOffenders = Object.values(driverCounts).filter(count => count > 10).length;
+
+  return riskFactors;
 };
 
 // Error boundary helper
