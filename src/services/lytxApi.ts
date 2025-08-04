@@ -2,7 +2,7 @@ import { QueryClient } from '@tanstack/react-query';
 
 // Lytx Video API Configuration - Updated to use environment variables and correct Video API endpoints
 const LYTX_API_KEY = import.meta.env.VITE_LYTX_API_KEY;
-const LYTX_BASE_URL = import.meta.env.VITE_LYTX_BASE_URL || 'https://lytx-api.prod7.lv.lytx.com/video';
+const LYTX_BASE_URL = import.meta.env.VITE_LYTX_BASE_URL || 'https://lytx-api.prod7.lv.lytx.com';
 
 // API Response Types based on Lytx documentation
 export interface LytxApiResponse<T> {
@@ -205,11 +205,11 @@ class LytxApiClient {
     if (params.statusId) queryParams.append('statusId', params.statusId.toString());
     if (params.triggerId) queryParams.append('triggerId', params.triggerId.toString());
 
-    return this.makeRequest<LytxSafetyEvent[]>(`/safety/events?${queryParams.toString()}`);
+    return this.makeRequest<LytxSafetyEvent[]>(`/video/safety/events?${queryParams.toString()}`);
   }
 
   async getSafetyEvent(eventId: string): Promise<LytxApiResponse<LytxSafetyEvent>> {
-    return this.makeRequest<LytxSafetyEvent>(`/safety/events/${eventId}`);
+    return this.makeRequest<LytxSafetyEvent>(`/video/safety/events/${eventId}`);
   }
 
   async getSafetyEventsWithMetadata(params: {
@@ -226,40 +226,43 @@ class LytxApiClient {
     if (params.startDate) queryParams.append('startDate', params.startDate);
     if (params.endDate) queryParams.append('endDate', params.endDate);
 
-    return this.makeRequest<LytxSafetyEvent[]>(`/safety/eventsWithMetadata?${queryParams.toString()}`);
+    return this.makeRequest<LytxSafetyEvent[]>(`/video/safety/eventsWithMetadata?${queryParams.toString()}`);
   }
 
   // Reference Data API
   async getEventStatuses(): Promise<LytxApiResponse<LytxEventStatus[]>> {
-    return this.makeRequest<LytxEventStatus[]>('/safety/events/statuses');
+    return this.makeRequest<LytxEventStatus[]>('/video/safety/events/statuses');
   }
 
   async getEventTriggers(): Promise<LytxApiResponse<LytxEventTrigger[]>> {
-    return this.makeRequest<LytxEventTrigger[]>('/safety/events/triggers');
+    return this.makeRequest<LytxEventTrigger[]>('/video/safety/events/triggers');
   }
 
   async getEventTriggerSubtypes(): Promise<LytxApiResponse<LytxEventTriggerSubtype[]>> {
-    return this.makeRequest<LytxEventTriggerSubtype[]>('/safety/events/triggersubtypes');
+    return this.makeRequest<LytxEventTriggerSubtype[]>('/video/safety/events/triggersubtypes');
   }
 
   async getEventBehaviors(): Promise<LytxApiResponse<LytxEventBehavior[]>> {
-    return this.makeRequest<LytxEventBehavior[]>('/safety/events/behaviors');
+    return this.makeRequest<LytxEventBehavior[]>('/video/safety/events/behaviors');
   }
 
   // Vehicles API
   async getVehicles(params: {
     page?: number;
-    pageSize?: number;
+    limit?: number;
     groupId?: string;
+    name?: string;
+    includeSubgroups?: boolean;
   } = {}): Promise<LytxApiResponse<LytxVehicle[]>> {
     const queryParams = new URLSearchParams();
     
-    queryParams.append('page', (params.page || 1).toString());
-    queryParams.append('pageSize', (params.pageSize || 50).toString());
-    
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.groupId) queryParams.append('groupId', params.groupId);
+    if (params.name) queryParams.append('name', params.name);
+    if (params.includeSubgroups !== undefined) queryParams.append('includeSubgroups', params.includeSubgroups.toString());
 
-    return this.makeRequest<LytxVehicle[]>(`/vehicles?${queryParams.toString()}`);
+    return this.makeRequest<LytxVehicle[]>(`/vehicles/all?${queryParams.toString()}`);
   }
 
   async getVehicle(vehicleId: string): Promise<LytxApiResponse<LytxVehicle>> {
