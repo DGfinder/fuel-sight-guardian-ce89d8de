@@ -17,7 +17,7 @@ export async function getVehicles(filters?: VehicleFilters) {
     .from('vehicles')
     .select(`
       *,
-      current_driver:driver_assignments!inner(driver_name, assigned_at)
+      current_driver:driver_assignments!left(driver_name, assigned_at)
     `)
     .is('driver_assignments.unassigned_at', null);
 
@@ -60,7 +60,7 @@ export async function getVehicleByRegistration(registration: string) {
     .from('vehicles')
     .select(`
       *,
-      current_driver:driver_assignments!inner(driver_name, assigned_at)
+      current_driver:driver_assignments!left(driver_name, assigned_at)
     `)
     .eq('registration', registration)
     .is('driver_assignments.unassigned_at', null)
