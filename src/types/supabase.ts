@@ -460,8 +460,289 @@ export interface Database {
           created_by?: string | null
         }
       }
+      captive_payment_records: {
+        Row: {
+          id: string
+          bill_of_lading: string
+          delivery_date: string
+          terminal: string
+          customer: string
+          product: string
+          volume_litres: number
+          carrier: 'SMB' | 'GSF' | 'Combined'
+          raw_location: string | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+          source_file: string | null
+          import_batch_id: string | null
+        }
+        Insert: {
+          id?: string
+          bill_of_lading: string
+          delivery_date: string
+          terminal: string
+          customer: string
+          product: string
+          volume_litres: number
+          carrier?: 'SMB' | 'GSF' | 'Combined'
+          raw_location?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+          source_file?: string | null
+          import_batch_id?: string | null
+        }
+        Update: {
+          id?: string
+          bill_of_lading?: string
+          delivery_date?: string
+          terminal?: string
+          customer?: string
+          product?: string
+          volume_litres?: number
+          carrier?: 'SMB' | 'GSF' | 'Combined'
+          raw_location?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+          source_file?: string | null
+          import_batch_id?: string | null
+        }
+      }
+      lytx_safety_events: {
+        Row: {
+          id: string
+          event_id: string
+          vehicle_registration: string | null
+          device_serial: string
+          driver_name: string
+          employee_id: string | null
+          group_name: string
+          depot: string
+          carrier: 'Stevemacs' | 'Great Southern Fuels'
+          event_datetime: string
+          timezone: string
+          score: number
+          status: 'New' | 'Face-To-Face' | 'FYI Notify' | 'Resolved'
+          trigger: string
+          behaviors: string
+          event_type: 'Coachable' | 'Driver Tagged'
+          excluded: boolean
+          assigned_date: string | null
+          reviewed_by: string | null
+          notes: string | null
+          raw_data: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          vehicle_registration?: string | null
+          device_serial: string
+          driver_name: string
+          employee_id?: string | null
+          group_name: string
+          depot: string
+          carrier: 'Stevemacs' | 'Great Southern Fuels'
+          event_datetime: string
+          timezone: string
+          score: number
+          status: 'New' | 'Face-To-Face' | 'FYI Notify' | 'Resolved'
+          trigger: string
+          behaviors: string
+          event_type: 'Coachable' | 'Driver Tagged'
+          excluded?: boolean
+          assigned_date?: string | null
+          reviewed_by?: string | null
+          notes?: string | null
+          raw_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          vehicle_registration?: string | null
+          device_serial?: string
+          driver_name?: string
+          employee_id?: string | null
+          group_name?: string
+          depot?: string
+          carrier?: 'Stevemacs' | 'Great Southern Fuels'
+          event_datetime?: string
+          timezone?: string
+          score?: number
+          status?: 'New' | 'Face-To-Face' | 'FYI Notify' | 'Resolved'
+          trigger?: string
+          behaviors?: string
+          event_type?: 'Coachable' | 'Driver Tagged'
+          excluded?: boolean
+          assigned_date?: string | null
+          reviewed_by?: string | null
+          notes?: string | null
+          raw_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      lytx_event_behaviors: {
+        Row: {
+          id: string
+          event_id: string
+          behavior_id: number
+          behavior_name: string
+          score: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          behavior_id: number
+          behavior_name: string
+          score?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          behavior_id?: number
+          behavior_name?: string
+          score?: number | null
+          created_at?: string
+        }
+      }
+      guardian_events: {
+        Row: {
+          id: string
+          vehicle_registration: string
+          guardian_unit: string | null
+          event_type: string
+          occurred_at: string
+          location: string | null
+          latitude: number | null
+          longitude: number | null
+          driver_name: string | null
+          duration: number | null
+          speed: number | null
+          severity: 'Low' | 'Medium' | 'High' | 'Critical'
+          verified: boolean
+          status: string | null
+          fleet: 'Stevemacs' | 'Great Southern Fuels'
+          depot: string | null
+          raw_data: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          vehicle_registration: string
+          guardian_unit?: string | null
+          event_type: string
+          occurred_at: string
+          location?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          driver_name?: string | null
+          duration?: number | null
+          speed?: number | null
+          severity: 'Low' | 'Medium' | 'High' | 'Critical'
+          verified?: boolean
+          status?: string | null
+          fleet: 'Stevemacs' | 'Great Southern Fuels'
+          depot?: string | null
+          raw_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          vehicle_registration?: string
+          guardian_unit?: string | null
+          event_type?: string
+          occurred_at?: string
+          location?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          driver_name?: string | null
+          duration?: number | null
+          speed?: number | null
+          severity?: 'Low' | 'Medium' | 'High' | 'Critical'
+          verified?: boolean
+          status?: string | null
+          fleet?: 'Stevemacs' | 'Great Southern Fuels'
+          depot?: string | null
+          raw_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      data_import_batches: {
+        Row: {
+          id: string
+          source_type: 'captive_payments' | 'lytx_events' | 'guardian_events' | 'driver_data'
+          source_subtype: string | null
+          file_name: string | null
+          batch_reference: string
+          records_processed: number
+          records_failed: number
+          status: 'pending' | 'processing' | 'completed' | 'failed' | 'partial'
+          error_summary: Json | null
+          processing_metadata: Json | null
+          started_at: string
+          completed_at: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          source_type: 'captive_payments' | 'lytx_events' | 'guardian_events' | 'driver_data'
+          source_subtype?: string | null
+          file_name?: string | null
+          batch_reference: string
+          records_processed?: number
+          records_failed?: number
+          status?: 'pending' | 'processing' | 'completed' | 'failed' | 'partial'
+          error_summary?: Json | null
+          processing_metadata?: Json | null
+          started_at?: string
+          completed_at?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          source_type?: 'captive_payments' | 'lytx_events' | 'guardian_events' | 'driver_data'
+          source_subtype?: string | null
+          file_name?: string | null
+          batch_reference?: string
+          records_processed?: number
+          records_failed?: number
+          status?: 'pending' | 'processing' | 'completed' | 'failed' | 'partial'
+          error_summary?: Json | null
+          processing_metadata?: Json | null
+          started_at?: string
+          completed_at?: string | null
+          created_by?: string | null
+        }
+      }
     }
     Views: {
+      captive_deliveries: {
+        Row: {
+          bill_of_lading: string
+          delivery_date: string
+          customer: string
+          terminal: string
+          carrier: 'SMB' | 'GSF' | 'Combined'
+          products: string[]
+          total_volume_litres: number
+          total_volume_litres_abs: number
+          record_count: number
+          first_created_at: string
+          last_updated_at: string
+          delivery_key: string
+        }
+      }
       active_vehicles: {
         Row: {
           id: string
@@ -531,6 +812,55 @@ export interface Database {
           inspection_due: string | null
           service_due: string | null
           days_until_next_compliance: number | null
+        }
+      }
+      captive_payments_analytics: {
+        Row: {
+          carrier: 'SMB' | 'GSF'
+          month: string
+          year: number
+          month_num: number
+          total_deliveries: number
+          total_volume_litres: number
+          total_volume_megalitres: number
+          unique_customers: number
+          top_customer: string
+          top_customer_volume: number
+          avg_delivery_size: number
+        }
+      }
+      lytx_safety_analytics: {
+        Row: {
+          carrier: 'Stevemacs' | 'Great Southern Fuels'
+          depot: string
+          month: string
+          year: number
+          month_num: number
+          total_events: number
+          coachable_events: number
+          driver_tagged_events: number
+          new_events: number
+          resolved_events: number
+          avg_score: number
+          unique_drivers: number
+          high_risk_drivers: number
+        }
+      }
+      cross_analytics_summary: {
+        Row: {
+          fleet: 'Stevemacs' | 'Great Southern Fuels'
+          depot: string
+          month: string
+          year: number
+          month_num: number
+          captive_deliveries: number
+          captive_volume_ml: number
+          safety_events: number
+          guardian_events: number
+          active_vehicles: number
+          avg_safety_score: number
+          events_per_vehicle: number
+          volume_per_vehicle: number
         }
       }
     }
