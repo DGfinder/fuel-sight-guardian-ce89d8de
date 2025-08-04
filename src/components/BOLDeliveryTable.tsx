@@ -433,43 +433,43 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
             </div>
           )}
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-4 border-t">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">
-              {filteredAndSortedDeliveries.length}
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-4 border-t">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {filteredAndSortedDeliveries.length}
+              </div>
+              <div className="text-sm text-gray-500">Unique Deliveries</div>
             </div>
-            <div className="text-sm text-gray-500">Unique Deliveries</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {filteredAndSortedDeliveries
-                .reduce((sum, d) => sum + Math.max(0, d.totalQuantity), 0)
-                .toLocaleString()}L
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {filteredAndSortedDeliveries
+                  .reduce((sum, d) => sum + Math.max(0, d.totalQuantity), 0)
+                  .toLocaleString()}L
+              </div>
+              <div className="text-sm text-gray-500">Total Volume</div>
             </div>
-            <div className="text-sm text-gray-500">Total Volume</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-orange-600">
-              {filteredAndSortedDeliveries.filter(d => d.carrier === 'SMB').length}
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">
+                {filteredAndSortedDeliveries.filter(d => d.carrier === 'SMB').length}
+              </div>
+              <div className="text-sm text-gray-500">SMB Deliveries</div>
             </div>
-            <div className="text-sm text-gray-500">SMB Deliveries</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {filteredAndSortedDeliveries.filter(d => d.carrier === 'GSF').length}
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {filteredAndSortedDeliveries.filter(d => d.carrier === 'GSF').length}
+              </div>
+              <div className="text-sm text-gray-500">GSF Deliveries</div>
             </div>
-            <div className="text-sm text-gray-500">GSF Deliveries</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-600">
-              {filteredAndSortedDeliveries
-                .reduce((sum, d) => sum + d.recordCount, 0)
-                .toLocaleString()}
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-600">
+                {filteredAndSortedDeliveries
+                  .reduce((sum, d) => sum + d.recordCount, 0)
+                  .toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-500">CSV Records</div>
             </div>
-            <div className="text-sm text-gray-500">CSV Records</div>
           </div>
-        </div>
         )}
       </CardContent>
     </Card>
