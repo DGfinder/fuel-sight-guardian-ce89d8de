@@ -378,7 +378,6 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
               )}
             </TableBody>
           </Table>
-          </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
