@@ -500,6 +500,7 @@ export async function loadGSFData(): Promise<ProcessedCaptiveData> {
 
 /**
  * Load and process SMB CSV data
+ * Dataset covers September 1, 2023 to June 30, 2025 (23,000+ records)
  */
 export async function loadSMBData(): Promise<ProcessedCaptiveData> {
   try {
