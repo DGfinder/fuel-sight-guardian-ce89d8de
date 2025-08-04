@@ -55,6 +55,7 @@ const VehicleDatabase = lazy(() => import('@/pages/VehicleDatabase'));
 const StevemacsFleetDashboard = lazy(() => import('@/pages/StevemacsFleetDashboard'));
 const GSFFleetDashboard = lazy(() => import('@/pages/GSFFleetDashboard'));
 const MaintenanceDashboard = lazy(() => import('@/pages/MaintenanceDashboard'));
+const DriverManagement = lazy(() => import('@/pages/DriverManagement'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -345,6 +346,18 @@ function AppContent() {
                         <RouteErrorBoundary routeName="Maintenance & Asset Management" showHomeButton={true}>
                           <DataCentreLayout>
                             <MaintenanceDashboard />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/fleet/drivers" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Driver Management" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <DriverManagement />
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>

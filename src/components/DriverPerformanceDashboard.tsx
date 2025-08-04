@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { getDriverPerformanceSummary, getDriverPerformanceMetrics } from '@/api/drivers';
+import { useDriverPerformanceSummary, useDriverPerformanceMetrics } from '@/hooks/useDrivers';
 import type { 
   DriverPerformanceSummary, 
   DriverPerformanceMetrics,
@@ -52,73 +52,62 @@ interface PerformanceFilters {
 
 export default function DriverPerformanceDashboard() {
   const { toast } = useToast();
-  const [performanceSummary, setPerformanceSummary] = useState<DriverPerformanceSummary[]>([]);
-  const [performanceMetrics, setPerformanceMetrics] = useState<DriverPerformanceMetrics[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<PerformanceFilters>({});
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Performance stats
-  const [stats, setStats] = useState({
-    averageLytxScore: 0,
-    averageGuardianScore: 0,
-    totalIncidents: 0,
-    topPerformers: 0,
-    improvingDrivers: 0,
-    decliningDrivers: 0
+  // Use React Query hooks for data fetching
+  const { 
+    data: performanceSummary = [], 
+    isLoading: summaryLoading,
+    error: summaryError
+  } = useDriverPerformanceSummary({
+    fleet: filters.fleet,
+    depot: filters.depot
   });
 
-  useEffect(() => {
-    loadPerformanceData();
-  }, [filters]);
+  const { 
+    data: performanceMetrics = [],
+    isLoading: metricsLoading,
+    error: metricsError
+  } = useDriverPerformanceMetrics({
+    period_type: 'Monthly',
+    risk_level: filters.riskLevel
+  });
 
-  const loadPerformanceData = async () => {
-    try {
-      setLoading(true);
-      
-      const [summaryData, metricsData] = await Promise.all([
-        getDriverPerformanceSummary({
-          fleet: filters.fleet,
-          depot: filters.depot
-        }),
-        getDriverPerformanceMetrics({
-          period_type: 'Monthly',
-          risk_level: filters.riskLevel
-        })
-      ]);
+  const loading = summaryLoading || metricsLoading;
 
-      setPerformanceSummary(summaryData);
-      setPerformanceMetrics(metricsData);
+  // Calculate stats from the data
+  const stats = React.useMemo(() => {
+    const validLytxScores = performanceSummary.filter(d => d.lytx_safety_score !== undefined && d.lytx_safety_score !== null);
+    const validGuardianScores = performanceSummary.filter(d => d.guardian_safety_score !== undefined && d.guardian_safety_score !== null);
+    
+    return {
+      averageLytxScore: validLytxScores.length > 0 
+        ? validLytxScores.reduce((sum, d) => sum + d.lytx_safety_score!, 0) / validLytxScores.length 
+        : 0,
+      averageGuardianScore: validGuardianScores.length > 0 
+        ? validGuardianScores.reduce((sum, d) => sum + d.guardian_safety_score!, 0) / validGuardianScores.length 
+        : 0,
+      totalIncidents: performanceSummary.reduce((sum, d) => sum + (d.ytd_incidents || 0), 0),
+      topPerformers: performanceSummary.filter(d => 
+        d.risk_level === 'Low' || d.risk_level === 'Very Low'
+      ).length,
+      improvingDrivers: performanceSummary.filter(d => d.trend === 'Improving').length,
+      decliningDrivers: performanceSummary.filter(d => d.trend === 'Declining').length
+    };
+  }, [performanceSummary]);
 
-      // Calculate stats
-      const validLytxScores = summaryData.filter(d => d.lytx_safety_score !== undefined && d.lytx_safety_score !== null);
-      const validGuardianScores = summaryData.filter(d => d.guardian_safety_score !== undefined && d.guardian_safety_score !== null);
-      
-      setStats({
-        averageLytxScore: validLytxScores.length > 0 
-          ? validLytxScores.reduce((sum, d) => sum + d.lytx_safety_score!, 0) / validLytxScores.length 
-          : 0,
-        averageGuardianScore: validGuardianScores.length > 0 
-          ? validGuardianScores.reduce((sum, d) => sum + d.guardian_safety_score!, 0) / validGuardianScores.length 
-          : 0,
-        totalIncidents: summaryData.reduce((sum, d) => sum + (d.ytd_incidents || 0), 0),
-        topPerformers: summaryData.filter(d => 
-          d.risk_level === 'Low' || d.risk_level === 'Very Low'
-        ).length,
-        improvingDrivers: summaryData.filter(d => d.trend === 'Improving').length,
-        decliningDrivers: summaryData.filter(d => d.trend === 'Declining').length
-      });
-
-    } catch (error) {
+  // Handle errors
+  React.useEffect(() => {
+    const error = summaryError || metricsError;
+    if (error) {
       toast({
         variant: "destructive",
         title: "Error loading performance data",
         description: error instanceof Error ? error.message : "Unknown error occurred"
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [summaryError, metricsError, toast]);
 
   const getRiskColor = (risk?: RiskLevel) => {
     switch (risk) {

@@ -24,7 +24,7 @@ import {
   ProcessedDriverData, 
   DriverCsvRow 
 } from '@/services/driverCsvProcessor';
-import { bulkCreateDrivers, bulkCreateDriverNameMappings } from '@/api/drivers';
+import { useDriverCsvImport } from '@/hooks/useDrivers';
 
 interface DriverCSVImportModalProps {
   open: boolean;
@@ -41,9 +41,11 @@ export default function DriverCSVImportModal({
   const [csvData, setCsvData] = useState<DriverCsvRow[]>([]);
   const [processedData, setProcessedData] = useState<ProcessedDriverData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [step, setStep] = useState<'upload' | 'review' | 'import' | 'complete'>('upload');
   const [importProgress, setImportProgress] = useState(0);
+  
+  // Use the React Query mutation hook for importing
+  const csvImportMutation = useDriverCsvImport();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -110,36 +112,19 @@ export default function DriverCSVImportModal({
   const handleImport = async () => {
     if (!processedData) return;
 
-    setIsImporting(true);
     setStep('import');
     setImportProgress(0);
 
     try {
-      // Import drivers
       setImportProgress(25);
-      const createdDrivers = await bulkCreateDrivers(processedData.drivers);
+      await csvImportMutation.mutateAsync(processedData);
       
-      // Update name mappings with actual driver IDs
-      const mappingsWithIds = processedData.nameMappings.map(mapping => {
-        const driver = createdDrivers.find(d => 
-          d.first_name === processedData.drivers.find(pd => pd.id === mapping.driver_id)?.first_name &&
-          d.last_name === processedData.drivers.find(pd => pd.id === mapping.driver_id)?.last_name
-        );
-        return {
-          ...mapping,
-          driver_id: driver?.id || mapping.driver_id
-        };
-      });
-
-      setImportProgress(75);
-      await bulkCreateDriverNameMappings(mappingsWithIds);
-
       setImportProgress(100);
       setStep('complete');
 
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${createdDrivers.length} drivers with ${mappingsWithIds.length} name mappings`
+        description: `Successfully imported ${processedData.uniqueDrivers} drivers with ${processedData.nameMappings.length} name mappings`
       });
 
       onImportComplete?.(processedData);
@@ -151,8 +136,6 @@ export default function DriverCSVImportModal({
         description: error instanceof Error ? error.message : "Unknown error occurred"
       });
       setStep('review');
-    } finally {
-      setIsImporting(false);
     }
   };
 
@@ -496,9 +479,9 @@ export default function DriverCSVImportModal({
               </Button>
               <Button 
                 onClick={handleImport}
-                disabled={!processedData || processedData.validationResults.invalidRows > 0}
+                disabled={!processedData || processedData.validationResults.invalidRows > 0 || csvImportMutation.isPending}
               >
-                Import {processedData?.uniqueDrivers} Drivers
+                {csvImportMutation.isPending ? 'Importing...' : `Import ${processedData?.uniqueDrivers} Drivers`}
               </Button>
             </>
           )}
@@ -508,7 +491,11 @@ export default function DriverCSVImportModal({
             </Button>
           )}
           {(step === 'upload' || step === 'import') && (
-            <Button variant="outline" onClick={handleClose}>
+            <Button 
+              variant="outline" 
+              onClick={handleClose}
+              disabled={csvImportMutation.isPending}
+            >
               Cancel
             </Button>
           )}

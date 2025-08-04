@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Truck, Users, AlertTriangle, Wrench, MapPin, TrendingUp, Activity, Shield, Database, Search } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { Link } from 'react-router-dom';
 import { useVehicles } from '@/hooks/useVehicles';
 import type { Vehicle, VehicleFilters } from '@/types/fleet';

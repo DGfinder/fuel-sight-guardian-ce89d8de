@@ -14,7 +14,8 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
@@ -74,6 +75,7 @@ const DATA_CENTRE_NAV_ITEMS = [
     permission: 'view_analytics_dashboard',
     children: [
       { path: '/data-centre/fleet/database', label: 'Vehicle Database', icon: TrendingUp },
+      { path: '/data-centre/fleet/drivers', label: 'Driver Management', icon: Users },
       { path: '/data-centre/fleet/stevemacs', label: 'Stevemacs Fleet', icon: TrendingUp },
       { path: '/data-centre/fleet/gsf', label: 'GSF Fleet', icon: TrendingUp },
       { path: '/data-centre/fleet/maintenance', label: 'Maintenance & Assets', icon: TrendingUp }

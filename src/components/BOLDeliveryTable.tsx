@@ -37,11 +37,12 @@ interface BOLDelivery {
   carrier: 'SMB' | 'GSF';
   terminal: string;
   customer: string;
-  product: string;
-  quantity: number;
+  products: string[]; // Multiple products can be in one delivery
+  totalQuantity: number; // Sum of all quantities for this BOL
   deliveryDate: string;
   driverName: string;
   vehicleId: string;
+  recordCount: number; // Number of CSV rows that make up this delivery
 }
 
 interface BOLDeliveryTableProps {
@@ -68,7 +69,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
   const terminals = useMemo(() => 
     [...new Set(deliveries.map(d => d.terminal))].sort(), [deliveries]);
   const products = useMemo(() => 
-    [...new Set(deliveries.map(d => d.product))].sort(), [deliveries]);
+    [...new Set(deliveries.flatMap(d => d.products))].sort(), [deliveries]); // Flatten products arrays
 
   // Filter and sort data
   const filteredAndSortedDeliveries = useMemo(() => {
@@ -77,11 +78,12 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
         delivery.bolNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         delivery.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
         delivery.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        delivery.vehicleId.toLowerCase().includes(searchTerm.toLowerCase());
+        delivery.vehicleId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        delivery.products.some(p => p.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesCarrier = carrierFilter === 'all' || delivery.carrier === carrierFilter;
       const matchesTerminal = terminalFilter === 'all' || delivery.terminal === terminalFilter;
-      const matchesProduct = productFilter === 'all' || delivery.product === productFilter;
+      const matchesProduct = productFilter === 'all' || delivery.products.includes(productFilter);
 
       return matchesSearch && matchesCarrier && matchesTerminal && matchesProduct;
     });
@@ -95,7 +97,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
       });
     } else if (volumeSort) {
       filtered.sort((a, b) => {
-        return volumeSort === 'asc' ? a.quantity - b.quantity : b.quantity - a.quantity;
+        return volumeSort === 'asc' ? a.totalQuantity - b.totalQuantity : b.totalQuantity - a.totalQuantity;
       });
     }
 
@@ -126,11 +128,12 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
       'Carrier': delivery.carrier,
       'Terminal': delivery.terminal,
       'Customer': delivery.customer,
-      'Product': delivery.product,
-      'Quantity (L)': delivery.quantity,
+      'Products': delivery.products.join(', '), // Join multiple products
+      'Total Quantity (L)': delivery.totalQuantity,
       'Delivery Date': delivery.deliveryDate,
       'Driver': delivery.driverName,
-      'Vehicle': delivery.vehicleId
+      'Vehicle': delivery.vehicleId,
+      'Record Count': delivery.recordCount // Show how many CSV rows made up this delivery
     }));
     
     console.log('Exporting BOL delivery data:', csvData);
@@ -248,7 +251,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
                 <TableHead>BOL Number</TableHead>
                 <TableHead>Carrier</TableHead>
                 <TableHead>Route</TableHead>
-                <TableHead>Product</TableHead>
+                <TableHead>Products</TableHead>
                 <TableHead className="text-right">
                   <Button 
                     variant="ghost" 
@@ -256,7 +259,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
                     onClick={() => handleSort('volume')}
                     className="font-medium"
                   >
-                    Quantity (L)
+                    Total Quantity (L)
                     <ArrowUpDown className="ml-1 h-4 w-4" />
                   </Button>
                 </TableHead>
@@ -276,9 +279,16 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
             </TableHeader>
             <TableBody>
               {paginatedDeliveries.map((delivery) => (
-                <TableRow key={delivery.bolNumber}>
+                <TableRow key={`${delivery.bolNumber}-${delivery.deliveryDate}-${delivery.customer}`}>
                   <TableCell className="font-mono font-medium">
-                    {delivery.bolNumber}
+                    <div>
+                      {delivery.bolNumber}
+                      {delivery.recordCount > 1 && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          {delivery.recordCount} lines
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={getCarrierColor(delivery.carrier)}>
@@ -292,13 +302,17 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">
-                      {delivery.product}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {delivery.products.map((product, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {product}
+                        </Badge>
+                      ))}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    <span className={delivery.quantity < 0 ? 'text-red-600' : 'text-green-600'}>
-                      {delivery.quantity > 0 ? '+' : ''}{delivery.quantity.toLocaleString()}
+                    <span className={delivery.totalQuantity < 0 ? 'text-red-600' : 'text-green-600'}>
+                      {delivery.totalQuantity > 0 ? '+' : ''}{delivery.totalQuantity.toLocaleString()}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -378,17 +392,17 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
         )}
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-4 border-t">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">
               {filteredAndSortedDeliveries.length}
             </div>
-            <div className="text-sm text-gray-500">Total BOLs</div>
+            <div className="text-sm text-gray-500">Unique Deliveries</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">
               {filteredAndSortedDeliveries
-                .reduce((sum, d) => sum + Math.max(0, d.quantity), 0)
+                .reduce((sum, d) => sum + Math.max(0, d.totalQuantity), 0)
                 .toLocaleString()}L
             </div>
             <div className="text-sm text-gray-500">Total Volume</div>
@@ -404,6 +418,14 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
               {filteredAndSortedDeliveries.filter(d => d.carrier === 'GSF').length}
             </div>
             <div className="text-sm text-gray-500">GSF Deliveries</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-gray-600">
+              {filteredAndSortedDeliveries
+                .reduce((sum, d) => sum + d.recordCount, 0)
+                .toLocaleString()}
+            </div>
+            <div className="text-sm text-gray-500">CSV Records</div>
           </div>
         </div>
       </CardContent>

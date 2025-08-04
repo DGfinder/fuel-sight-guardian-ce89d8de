@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { getDrivers } from '@/api/drivers';
+import { useDrivers } from '@/hooks/useDrivers';
 import DriverCSVImportModal from './DriverCSVImportModal';
 import type { 
   DriverProfile, 
@@ -55,52 +55,34 @@ import type {
 
 export default function DriverManagementDashboard() {
   const { toast } = useToast();
-  const [drivers, setDrivers] = useState<DriverProfile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showImportModal, setShowImportModal] = useState(false);
   const [filters, setFilters] = useState<DriverFilters>({});
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Stats
-  const [stats, setStats] = useState({
-    totalDrivers: 0,
-    activeDrivers: 0,
-    highRiskDrivers: 0,
-    recentIncidents: 0
+  // Use the React Query hook for data fetching
+  const { data: drivers = [], isLoading: loading, error, refetch } = useDrivers({ 
+    ...filters, 
+    search: searchTerm.trim() || undefined
   });
 
-  useEffect(() => {
-    loadDrivers();
-  }, [filters]);
+  // Calculate stats from the data
+  const stats = React.useMemo(() => ({
+    totalDrivers: drivers.length,
+    activeDrivers: drivers.filter(d => d.status === 'Active').length,
+    highRiskDrivers: drivers.filter(d => d.current_risk_level === 'High' || d.current_risk_level === 'Very High').length,
+    recentIncidents: drivers.reduce((sum, d) => sum + d.recent_incidents, 0)
+  }), [drivers]);
 
-  const loadDrivers = async () => {
-    try {
-      setLoading(true);
-      const data = await getDrivers({ 
-        ...filters, 
-        search: searchTerm.trim() || undefined
-      });
-      
-      setDrivers(data);
-      
-      // Calculate stats
-      setStats({
-        totalDrivers: data.length,
-        activeDrivers: data.filter(d => d.status === 'Active').length,
-        highRiskDrivers: data.filter(d => d.current_risk_level === 'High' || d.current_risk_level === 'Very High').length,
-        recentIncidents: data.reduce((sum, d) => sum + d.recent_incidents, 0)
-      });
-      
-    } catch (error) {
+  // Handle errors
+  React.useEffect(() => {
+    if (error) {
       toast({
         variant: "destructive",
         title: "Error loading drivers",
         description: error instanceof Error ? error.message : "Unknown error occurred"
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [error, toast]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -502,7 +484,7 @@ export default function DriverManagementDashboard() {
         onOpenChange={setShowImportModal}
         onImportComplete={() => {
           setShowImportModal(false);
-          loadDrivers();
+          refetch();
         }}
       />
     </div>

@@ -1,60 +1,86 @@
 import { parse } from 'date-fns';
 
+/**
+ * Represents a single CSV record from captive payments data
+ * Multiple records can belong to the same physical delivery
+ */
 export interface CaptivePaymentRecord {
-  date: string;
-  billOfLading: string;
-  location: string;
-  customer: string;
-  product: string;
-  volume: number; // in litres
+  date: string;           // Delivery date in various formats (dd/mm/yyyy, mm/dd/yyyy, etc.)
+  billOfLading: string;   // Bill of Lading number - key identifier for deliveries
+  location: string;       // Terminal location (e.g., "AU TERM KEWDALE")
+  customer: string;       // Customer name
+  product: string;        // Product type (e.g., "ULSD 10PPM", "JET A-1")
+  volume: number;         // Volume in litres (can be positive or negative)
 }
 
+/**
+ * Monthly aggregated volume and delivery data
+ * Deliveries are counted as unique BOL + Date + Customer combinations
+ */
 export interface MonthlyVolumeData {
-  month: string;
-  year: number;
-  deliveries: number;
-  volumeLitres: number;
-  volumeMegaLitres: number;
+  month: string;          // Month name (e.g., "Jan", "Feb")
+  year: number;          // Year (e.g., 2024)
+  deliveries: number;    // Count of unique deliveries (distinct BOL + Date + Customer)
+  volumeLitres: number;  // Total volume in litres for the month
+  volumeMegaLitres: number; // Total volume in megalitres for the month
 }
 
+/**
+ * Comprehensive processed captive payments data with analytics
+ * All delivery counts represent unique deliveries (BOL + Date + Customer combinations)
+ * not individual CSV records
+ */
 export interface ProcessedCaptiveData {
-  rawRecords: CaptivePaymentRecord[];
-  monthlyData: MonthlyVolumeData[];
-  totalVolumeLitres: number;
-  totalVolumeMegaLitres: number;
-  totalDeliveries: number;
-  uniqueCustomers: number;
-  terminals: string[];
-  products: string[];
-  // Enhanced analytics
+  rawRecords: CaptivePaymentRecord[];    // All original CSV records
+  monthlyData: MonthlyVolumeData[];      // Month-by-month breakdown
+  
+  // Summary metrics
+  totalVolumeLitres: number;             // Total volume across all records
+  totalVolumeMegaLitres: number;         // Total volume in megalitres
+  totalDeliveries: number;               // Count of unique deliveries (not CSV rows)
+  uniqueCustomers: number;               // Number of distinct customers
+  terminals: string[];                   // List of all terminals
+  products: string[];                    // List of all products
+  
+  // Date range analysis
   dateRange: {
-    startDate: string;
-    endDate: string;
-    monthsCovered: number;
+    startDate: string;                   // Earliest delivery date
+    endDate: string;                     // Latest delivery date
+    monthsCovered: number;               // Number of months in dataset
   };
-  averageDeliverySize: number;
+  
+  // Performance metrics
+  averageDeliverySize: number;           // Average volume per unique delivery
+  
+  // Top customers by volume (deliveries = unique BOL count)
   topCustomers: Array<{
-    name: string;
-    deliveries: number;
-    volumeLitres: number;
-    volumeMegaLitres: number;
+    name: string;                        // Customer name
+    deliveries: number;                  // Count of unique deliveries to this customer
+    volumeLitres: number;               // Total volume delivered to this customer
+    volumeMegaLitres: number;           // Total volume in megalitres
   }>;
+  
+  // Terminal performance (deliveries = unique BOL count per terminal)
   terminalAnalysis: Array<{
-    terminal: string;
-    deliveries: number;
-    volumeLitres: number;
-    percentage: number;
+    terminal: string;                    // Terminal name
+    deliveries: number;                  // Count of unique deliveries from this terminal
+    volumeLitres: number;               // Total volume from this terminal
+    percentage: number;                  // Percentage of total volume
   }>;
+  
+  // Product mix analysis (deliveries = unique BOL count per product)
   productMix: Array<{
-    product: string;
-    deliveries: number;
-    volumeLitres: number;
-    percentage: number;
+    product: string;                     // Product name
+    deliveries: number;                  // Count of unique deliveries for this product
+    volumeLitres: number;               // Total volume for this product
+    percentage: number;                  // Percentage of total volume
   }>;
+  
+  // Peak performance month
   peakMonth: {
-    month: string;
-    year: number;
-    volumeMegaLitres: number;
+    month: string;                       // Month name
+    year: number;                       // Year
+    volumeMegaLitres: number;           // Volume in megalitres for peak month
   };
 }
 
@@ -490,6 +516,92 @@ export function processCSVData(csvText: string, debugMode: boolean = false, maxR
 }
 
 /**
+ * Generate a unique delivery key for BOL grouping
+ * 
+ * Business Logic: A delivery is defined as a unique combination of:
+ * - Bill of Lading number (BOL)
+ * - Delivery date  
+ * - Customer name
+ * 
+ * Multiple CSV records with different products/quantities but same BOL, date, 
+ * and customer represent one physical delivery with multiple compartments.
+ * 
+ * @param record - The captive payment record
+ * @returns Unique key in format "BOL-Date-Customer"
+ * @example "8139648161-1/09/2023-SOUTH32 WORSLEY REFINERY GARAGE"
+ */
+export function generateDeliveryKey(record: CaptivePaymentRecord): string {
+  return `${record.billOfLading}-${record.date}-${record.customer}`;
+}
+
+/**
+ * Count unique deliveries from a set of records
+ * 
+ * This function implements the core business logic for delivery counting:
+ * - Each unique BOL + Date + Customer combination = 1 delivery
+ * - Multiple CSV rows with same BOL/Date/Customer = still 1 delivery
+ * - Used throughout the application for accurate delivery metrics
+ * 
+ * @param records - Array of captive payment records
+ * @returns Number of unique deliveries (not CSV record count)
+ */
+export function countUniqueDeliveries(records: CaptivePaymentRecord[]): number {
+  const uniqueDeliveries = new Set<string>();
+  records.forEach(record => {
+    uniqueDeliveries.add(generateDeliveryKey(record));
+  });
+  return uniqueDeliveries.size;
+}
+
+/**
+ * Group records by delivery (BOL + Date + Customer) and aggregate volumes
+ */
+export function groupRecordsByDelivery(records: CaptivePaymentRecord[]): Map<string, {
+  billOfLading: string;
+  date: string;
+  customer: string;
+  location: string;
+  totalVolume: number;
+  products: string[];
+  recordCount: number;
+}> {
+  const deliveryGroups = new Map<string, {
+    billOfLading: string;
+    date: string;
+    customer: string;
+    location: string;
+    totalVolume: number;
+    products: string[];
+    recordCount: number;
+  }>();
+
+  records.forEach(record => {
+    const key = generateDeliveryKey(record);
+    
+    if (!deliveryGroups.has(key)) {
+      deliveryGroups.set(key, {
+        billOfLading: record.billOfLading,
+        date: record.date,
+        customer: record.customer,
+        location: record.location,
+        totalVolume: 0,
+        products: [],
+        recordCount: 0
+      });
+    }
+
+    const group = deliveryGroups.get(key)!;
+    group.totalVolume += Math.abs(record.volume);
+    if (!group.products.includes(record.product)) {
+      group.products.push(record.product);
+    }
+    group.recordCount++;
+  });
+
+  return deliveryGroups;
+}
+
+/**
  * Parse a CSV line handling quoted fields
  */
 function parseCSVLine(line: string): string[] {
@@ -517,21 +629,22 @@ function parseCSVLine(line: string): string[] {
 
 /**
  * Generate monthly aggregated data from records
+ * FIXED: Now counts unique deliveries (BOL + Date + Customer) per month instead of counting CSV rows
  */
 export function generateMonthlyData(records: CaptivePaymentRecord[]): MonthlyVolumeData[] {
-  const monthlyMap = new Map<string, { deliveries: number; volume: number; year: number }>();
+  const monthlyMap = new Map<string, { deliveries: Set<string>; volume: number; year: number }>();
   
   records.forEach(record => {
     const date = parseDeliveryDate(record.date);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+    const deliveryKey = generateDeliveryKey(record);
     
     if (!monthlyMap.has(monthKey)) {
-      monthlyMap.set(monthKey, { deliveries: 0, volume: 0, year: date.getFullYear() });
+      monthlyMap.set(monthKey, { deliveries: new Set<string>(), volume: 0, year: date.getFullYear() });
     }
     
     const entry = monthlyMap.get(monthKey)!;
-    entry.deliveries += 1;
+    entry.deliveries.add(deliveryKey); // Add unique delivery key to Set
     entry.volume += Math.abs(record.volume); // Use absolute value for volume calculations
   });
   
@@ -548,7 +661,7 @@ export function generateMonthlyData(records: CaptivePaymentRecord[]): MonthlyVol
       monthlyData.push({
         month: monthName,
         year: parseInt(year),
-        deliveries: data.deliveries,
+        deliveries: data.deliveries.size, // FIXED: Use Set size for unique delivery count
         volumeLitres: data.volume,
         volumeMegaLitres: data.volume / 1000000
       });
@@ -568,7 +681,7 @@ export function processCaptivePaymentsData(csvText: string, maxRecords?: number)
   // Calculate totals (using absolute values for volume calculations)
   const totalVolumeLitres = rawRecords.reduce((sum, record) => sum + Math.abs(record.volume), 0);
   const totalVolumeMegaLitres = totalVolumeLitres / 1000000;
-  const totalDeliveries = rawRecords.length;
+  const totalDeliveries = countUniqueDeliveries(rawRecords); // FIXED: Count unique BOLs instead of CSV rows
   const averageDeliverySize = totalDeliveries > 0 ? totalVolumeLitres / totalDeliveries : 0;
   
   // Extract unique values
@@ -582,66 +695,69 @@ export function processCaptivePaymentsData(csvText: string, maxRecords?: number)
   const endDate = dates.length > 0 ? dates[dates.length - 1] : new Date();
   const monthsCovered = monthlyData.length;
   
-  // Calculate top customers by volume
-  const customerMap = new Map<string, { deliveries: number; volume: number }>();
+  // Calculate top customers by volume (count unique deliveries per customer)
+  const customerMap = new Map<string, { deliveries: Set<string>; volume: number }>();
   rawRecords.forEach(record => {
     const volume = Math.abs(record.volume);
+    const deliveryKey = generateDeliveryKey(record);
     if (!customerMap.has(record.customer)) {
-      customerMap.set(record.customer, { deliveries: 0, volume: 0 });
+      customerMap.set(record.customer, { deliveries: new Set<string>(), volume: 0 });
     }
     const entry = customerMap.get(record.customer)!;
-    entry.deliveries += 1;
+    entry.deliveries.add(deliveryKey); // Track unique deliveries with Set
     entry.volume += volume;
   });
   
   const topCustomers = Array.from(customerMap.entries())
     .map(([name, data]) => ({
       name,
-      deliveries: data.deliveries,
+      deliveries: data.deliveries.size, // FIXED: Use Set size for unique delivery count
       volumeLitres: data.volume,
       volumeMegaLitres: data.volume / 1000000
     }))
     .sort((a, b) => b.volumeLitres - a.volumeLitres)
     .slice(0, 10); // Top 10 customers
   
-  // Calculate terminal analysis
-  const terminalMap = new Map<string, { deliveries: number; volume: number }>();
+  // Calculate terminal analysis (count unique deliveries per terminal)
+  const terminalMap = new Map<string, { deliveries: Set<string>; volume: number }>();
   rawRecords.forEach(record => {
     const terminal = extractTerminal(record.location);
     const volume = Math.abs(record.volume);
+    const deliveryKey = generateDeliveryKey(record);
     if (!terminalMap.has(terminal)) {
-      terminalMap.set(terminal, { deliveries: 0, volume: 0 });
+      terminalMap.set(terminal, { deliveries: new Set<string>(), volume: 0 });
     }
     const entry = terminalMap.get(terminal)!;
-    entry.deliveries += 1;
+    entry.deliveries.add(deliveryKey); // Track unique deliveries with Set
     entry.volume += volume;
   });
   
   const terminalAnalysis = Array.from(terminalMap.entries())
     .map(([terminal, data]) => ({
       terminal,
-      deliveries: data.deliveries,
+      deliveries: data.deliveries.size, // FIXED: Use Set size for unique delivery count
       volumeLitres: data.volume,
       percentage: totalVolumeLitres > 0 ? (data.volume / totalVolumeLitres) * 100 : 0
     }))
     .sort((a, b) => b.volumeLitres - a.volumeLitres);
   
-  // Calculate product mix
-  const productMap = new Map<string, { deliveries: number; volume: number }>();
+  // Calculate product mix (count unique deliveries per product)
+  const productMap = new Map<string, { deliveries: Set<string>; volume: number }>();
   rawRecords.forEach(record => {
     const volume = Math.abs(record.volume);
+    const deliveryKey = generateDeliveryKey(record);
     if (!productMap.has(record.product)) {
-      productMap.set(record.product, { deliveries: 0, volume: 0 });
+      productMap.set(record.product, { deliveries: new Set<string>(), volume: 0 });
     }
     const entry = productMap.get(record.product)!;
-    entry.deliveries += 1;
+    entry.deliveries.add(deliveryKey); // Track unique deliveries with Set
     entry.volume += volume;
   });
   
   const productMix = Array.from(productMap.entries())
     .map(([product, data]) => ({
       product,
-      deliveries: data.deliveries,
+      deliveries: data.deliveries.size, // FIXED: Use Set size for unique delivery count
       volumeLitres: data.volume,
       percentage: totalVolumeLitres > 0 ? (data.volume / totalVolumeLitres) * 100 : 0
     }))
@@ -1164,7 +1280,7 @@ export function processCaptivePaymentsDataFromRecords(records: CaptivePaymentRec
   // Calculate totals (using absolute values for volume calculations)
   const totalVolumeLitres = records.reduce((sum, record) => sum + Math.abs(record.volume), 0);
   const totalVolumeMegaLitres = totalVolumeLitres / 1000000;
-  const totalDeliveries = records.length;
+  const totalDeliveries = countUniqueDeliveries(records); // FIXED: Count unique BOLs instead of CSV rows
   const averageDeliverySize = totalDeliveries > 0 ? totalVolumeLitres / totalDeliveries : 0;
   
   // Extract unique values
@@ -1179,65 +1295,70 @@ export function processCaptivePaymentsDataFromRecords(records: CaptivePaymentRec
   const monthsCovered = monthlyData.length;
   
   // Calculate top customers by volume
-  const customerMap = new Map<string, { deliveries: number; volume: number }>();
+  // FIXED: Count unique deliveries per customer instead of CSV rows
+  const customerMap = new Map<string, { deliveries: Set<string>; volume: number }>();
   records.forEach(record => {
     const volume = Math.abs(record.volume);
+    const deliveryKey = generateDeliveryKey(record);
+    
     if (!customerMap.has(record.customer)) {
-      customerMap.set(record.customer, { deliveries: 0, volume: 0 });
+      customerMap.set(record.customer, { deliveries: new Set<string>(), volume: 0 });
     }
     const entry = customerMap.get(record.customer)!;
-    entry.deliveries += 1;
+    entry.deliveries.add(deliveryKey); // Add unique delivery key to Set
     entry.volume += volume;
   });
   
   const topCustomers = Array.from(customerMap.entries())
     .map(([name, data]) => ({
       name,
-      deliveries: data.deliveries,
+      deliveries: data.deliveries.size, // FIXED: Use Set size for unique delivery count
       volumeLitres: data.volume,
       volumeMegaLitres: data.volume / 1000000
     }))
     .sort((a, b) => b.volumeLitres - a.volumeLitres)
     .slice(0, 10); // Top 10 customers
   
-  // Calculate terminal analysis
-  const terminalMap = new Map<string, { deliveries: number; volume: number }>();
+  // Calculate terminal analysis (count unique deliveries per terminal)
+  const terminalMap = new Map<string, { deliveries: Set<string>; volume: number }>();
   records.forEach(record => {
     const terminal = extractTerminal(record.location);
     const volume = Math.abs(record.volume);
+    const deliveryKey = generateDeliveryKey(record);
     if (!terminalMap.has(terminal)) {
-      terminalMap.set(terminal, { deliveries: 0, volume: 0 });
+      terminalMap.set(terminal, { deliveries: new Set<string>(), volume: 0 });
     }
     const entry = terminalMap.get(terminal)!;
-    entry.deliveries += 1;
+    entry.deliveries.add(deliveryKey); // Track unique deliveries with Set
     entry.volume += volume;
   });
   
   const terminalAnalysis = Array.from(terminalMap.entries())
     .map(([terminal, data]) => ({
       terminal,
-      deliveries: data.deliveries,
+      deliveries: data.deliveries.size, // FIXED: Use Set size for unique delivery count
       volumeLitres: data.volume,
       percentage: totalVolumeLitres > 0 ? (data.volume / totalVolumeLitres) * 100 : 0
     }))
     .sort((a, b) => b.volumeLitres - a.volumeLitres);
   
-  // Calculate product mix
-  const productMap = new Map<string, { deliveries: number; volume: number }>();
+  // Calculate product mix (count unique deliveries per product)
+  const productMap = new Map<string, { deliveries: Set<string>; volume: number }>();
   records.forEach(record => {
     const volume = Math.abs(record.volume);
+    const deliveryKey = generateDeliveryKey(record);
     if (!productMap.has(record.product)) {
-      productMap.set(record.product, { deliveries: 0, volume: 0 });
+      productMap.set(record.product, { deliveries: new Set<string>(), volume: 0 });
     }
     const entry = productMap.get(record.product)!;
-    entry.deliveries += 1;
+    entry.deliveries.add(deliveryKey); // Track unique deliveries with Set
     entry.volume += volume;
   });
   
   const productMix = Array.from(productMap.entries())
     .map(([product, data]) => ({
       product,
-      deliveries: data.deliveries,
+      deliveries: data.deliveries.size, // FIXED: Use Set size for unique delivery count
       volumeLitres: data.volume,
       percentage: totalVolumeLitres > 0 ? (data.volume / totalVolumeLitres) * 100 : 0
     }))
