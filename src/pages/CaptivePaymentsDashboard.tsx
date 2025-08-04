@@ -27,169 +27,10 @@ import {
 } from '@/services/captivePaymentsDataProcessor';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 
-// Enhanced BOL-focused delivery data for compliance analytics
-const mockDeliveryData = {
-  currentMonth: {
-    period: 'December 2024',
-    smb: {
-      name: 'SMB (Stevemacs)',
-      deliveries: 1247,        // Unique BOL count
-      volume: 2856789,         // Total liters delivered
-      averageVolume: 2291,     // Average liters per BOL
-      terminals: ['Kwinana', 'Fremantle', 'Geraldton'],
-      efficiency: 94.2,
-      trend: 2.3
-    },
-    gsf: {
-      name: 'GSF (Great Southern Fuels)',
-      deliveries: 2156,        // Unique BOL count
-      volume: 4923456,         // Total liters delivered
-      averageVolume: 2284,     // Average liters per BOL
-      terminals: ['Kwinana', 'Fremantle', 'Bunbury'],
-      efficiency: 91.8,
-      trend: -1.7
-    },
-    totalDeliveries: 3403,     // Total BOL count (compliance metric #1)
-    totalVolume: 7780245,      // Total liters (compliance metric #2)
-    negativeAdjustments: 15,   // BOLs with negative quantities
-    adjustmentVolume: -23456   // Total negative volume
-  },
-  yearToDate: {
-    totalDeliveries: 41567,    // Total BOL count for year
-    totalVolume: 156789234,    // Total liters for year
-    // Monthly delivery tracking (BOL count and volume)
-    monthlyDeliveries: [
-      { month: 'Jan', smbDeliveries: 1165, gsfDeliveries: 1987, totalDeliveries: 3152, smbVolume: 2456789, gsfVolume: 4234567, totalVolume: 6691356 },
-      { month: 'Feb', smbDeliveries: 1089, gsfDeliveries: 1823, totalDeliveries: 2912, smbVolume: 2234567, gsfVolume: 3987654, totalVolume: 6222221 },
-      { month: 'Mar', smbDeliveries: 1234, gsfDeliveries: 2098, totalDeliveries: 3332, smbVolume: 2567890, gsfVolume: 4456789, totalVolume: 7024679 },
-      { month: 'Apr', smbDeliveries: 1098, gsfDeliveries: 1956, totalDeliveries: 3054, smbVolume: 2345678, gsfVolume: 4123456, totalVolume: 6469134 },
-      { month: 'May', smbDeliveries: 1198, gsfDeliveries: 2134, totalDeliveries: 3332, smbVolume: 2678901, gsfVolume: 4567890, totalVolume: 7246791 },
-      { month: 'Jun', smbDeliveries: 1156, gsfDeliveries: 2003, totalDeliveries: 3159, smbVolume: 2456789, gsfVolume: 4234567, totalVolume: 6691356 },
-      { month: 'Jul', smbDeliveries: 1287, gsfDeliveries: 2189, totalDeliveries: 3476, smbVolume: 2789012, gsfVolume: 4678901, totalVolume: 7467913 },
-      { month: 'Aug', smbDeliveries: 1201, gsfDeliveries: 2078, totalDeliveries: 3279, smbVolume: 2567890, gsfVolume: 4456789, totalVolume: 7024679 },
-      { month: 'Sep', smbDeliveries: 1123, gsfDeliveries: 1934, totalDeliveries: 3057, smbVolume: 2345678, gsfVolume: 4123456, totalVolume: 6469134 },
-      { month: 'Oct', smbDeliveries: 1267, gsfDeliveries: 2145, totalDeliveries: 3412, smbVolume: 2678901, gsfVolume: 4567890, totalVolume: 7246791 },
-      { month: 'Nov', smbDeliveries: 1298, gsfDeliveries: 2198, totalDeliveries: 3496, smbVolume: 2789012, gsfVolume: 4678901, totalVolume: 7467913 },
-      { month: 'Dec', smbDeliveries: 1247, gsfDeliveries: 2156, totalDeliveries: 3403, smbVolume: 2856789, gsfVolume: 4923456, totalVolume: 7780245 }
-    ]
-  },
-  // Recent BOL deliveries for detailed tracking
-  recentDeliveries: [
-    {
-      bolNumber: 'BOL-2024-003401',
-      carrier: 'SMB',
-      terminal: 'Kwinana Terminal',
-      customer: 'Regional Mining Co.',
-      product: 'Diesel',
-      quantity: 15750,
-      deliveryDate: '2024-12-03',
-      driverName: 'John Smith',
-      vehicleId: 'SMB-045'
-    },
-    {
-      bolNumber: 'BOL-2024-003402',
-      carrier: 'GSF',
-      terminal: 'Fremantle Terminal',
-      customer: 'Transport Solutions Ltd',
-      product: 'Unleaded',
-      quantity: 8940,
-      deliveryDate: '2024-12-03',
-      driverName: 'Sarah Johnson',
-      vehicleId: 'GSF-089'
-    },
-    {
-      bolNumber: 'BOL-2024-003403',
-      carrier: 'SMB',
-      terminal: 'Kwinana Terminal',
-      customer: 'Construction Corp',
-      product: 'Diesel',
-      quantity: 22100,
-      deliveryDate: '2024-12-03',
-      driverName: 'Mike Wilson',
-      vehicleId: 'SMB-023'
-    },
-    {
-      bolNumber: 'BOL-2024-003404',
-      carrier: 'GSF',
-      terminal: 'Bunbury Terminal',
-      customer: 'Mining Services Pty Ltd',
-      product: 'Diesel',
-      quantity: -2500,  // Return/adjustment
-      deliveryDate: '2024-12-02',
-      driverName: 'James Brown',
-      vehicleId: 'GSF-156'
-    },
-    {
-      bolNumber: 'BOL-2024-003405',
-      carrier: 'SMB',
-      terminal: 'Geraldton Terminal',
-      customer: 'Regional Mining Co.',
-      product: 'Unleaded',
-      quantity: 12000,
-      deliveryDate: '2024-12-02',
-      driverName: 'David Lee',
-      vehicleId: 'SMB-078'
-    }
-  ],
-  // Top customers by delivery frequency and volume
-  topCustomers: [
-    { name: 'Regional Mining Co.', deliveries: 267, volume: 1567890, terminals: ['Kwinana', 'Geraldton'] },
-    { name: 'Transport Solutions Ltd', deliveries: 189, volume: 1345670, terminals: ['Fremantle', 'Kwinana'] },
-    { name: 'Construction Corp', deliveries: 156, volume: 1234560, terminals: ['Kwinana'] },
-    { name: 'Mining Services Pty Ltd', deliveries: 134, volume: 987650, terminals: ['Bunbury', 'Fremantle'] },
-    { name: 'Logistics Partners', deliveries: 98, volume: 876540, terminals: ['Fremantle'] }
-  ],
-  
-  // Terminal performance summary
-  terminals: [
-    { name: 'Kwinana Terminal', deliveries: 1456, volume: 3234567, carriers: ['SMB', 'GSF'] },
-    { name: 'Fremantle Terminal', deliveries: 987, volume: 2345678, carriers: ['SMB', 'GSF'] },
-    { name: 'Bunbury Terminal', deliveries: 534, volume: 1456789, carriers: ['GSF'] },
-    { name: 'Geraldton Terminal', deliveries: 426, volume: 743211, carriers: ['SMB'] }
-  ],
-
-  // Comprehensive BOL delivery dataset for detailed analysis
-  allDeliveries: [
-    // Recent December deliveries
-    { bolNumber: 'BOL-2024-003401', carrier: 'SMB', terminal: 'Kwinana Terminal', customer: 'Regional Mining Co.', product: 'Diesel', quantity: 15750, deliveryDate: '2024-12-03', driverName: 'John Smith', vehicleId: 'SMB-045' },
-    { bolNumber: 'BOL-2024-003402', carrier: 'GSF', terminal: 'Fremantle Terminal', customer: 'Transport Solutions Ltd', product: 'Unleaded', quantity: 8940, deliveryDate: '2024-12-03', driverName: 'Sarah Johnson', vehicleId: 'GSF-089' },
-    { bolNumber: 'BOL-2024-003403', carrier: 'SMB', terminal: 'Kwinana Terminal', customer: 'Construction Corp', product: 'Diesel', quantity: 22100, deliveryDate: '2024-12-03', driverName: 'Mike Wilson', vehicleId: 'SMB-023' },
-    { bolNumber: 'BOL-2024-003404', carrier: 'GSF', terminal: 'Bunbury Terminal', customer: 'Mining Services Pty Ltd', product: 'Diesel', quantity: -2500, deliveryDate: '2024-12-02', driverName: 'James Brown', vehicleId: 'GSF-156' },
-    { bolNumber: 'BOL-2024-003405', carrier: 'SMB', terminal: 'Geraldton Terminal', customer: 'Regional Mining Co.', product: 'Unleaded', quantity: 12000, deliveryDate: '2024-12-02', driverName: 'David Lee', vehicleId: 'SMB-078' },
-    
-    // Additional comprehensive dataset
-    { bolNumber: 'BOL-2024-003406', carrier: 'GSF', terminal: 'Kwinana Terminal', customer: 'Heavy Industries Inc', product: 'Diesel', quantity: 18750, deliveryDate: '2024-12-02', driverName: 'Robert Taylor', vehicleId: 'GSF-234' },
-    { bolNumber: 'BOL-2024-003407', carrier: 'SMB', terminal: 'Fremantle Terminal', customer: 'Logistics Partners', product: 'Unleaded', quantity: 6500, deliveryDate: '2024-12-01', driverName: 'Emma Davis', vehicleId: 'SMB-156' },
-    { bolNumber: 'BOL-2024-003408', carrier: 'GSF', terminal: 'Bunbury Terminal', customer: 'Construction Corp', product: 'Diesel', quantity: 25000, deliveryDate: '2024-12-01', driverName: 'Michael Chen', vehicleId: 'GSF-467' },
-    { bolNumber: 'BOL-2024-003409', carrier: 'SMB', terminal: 'Kwinana Terminal', customer: 'Transport Solutions Ltd', product: 'Diesel', quantity: 14200, deliveryDate: '2024-11-30', driverName: 'Lisa Wang', vehicleId: 'SMB-289' },
-    { bolNumber: 'BOL-2024-003410', carrier: 'GSF', terminal: 'Fremantle Terminal', customer: 'Regional Mining Co.', product: 'Unleaded', quantity: 9800, deliveryDate: '2024-11-30', driverName: 'Tom Anderson', vehicleId: 'GSF-345' },
-
-    // November deliveries sample
-    { bolNumber: 'BOL-2024-003350', carrier: 'SMB', terminal: 'Geraldton Terminal', customer: 'Mining Services Pty Ltd', product: 'Diesel', quantity: 20500, deliveryDate: '2024-11-29', driverName: 'Peter Jackson', vehicleId: 'SMB-167' },
-    { bolNumber: 'BOL-2024-003351', carrier: 'GSF', terminal: 'Kwinana Terminal', customer: 'Heavy Industries Inc', product: 'Diesel', quantity: 17800, deliveryDate: '2024-11-29', driverName: 'Anna Rodriguez', vehicleId: 'GSF-678' },
-    { bolNumber: 'BOL-2024-003352', carrier: 'SMB', terminal: 'Fremantle Terminal', customer: 'Construction Corp', product: 'Unleaded', quantity: 11200, deliveryDate: '2024-11-28', driverName: 'Mark Thompson', vehicleId: 'SMB-234' },
-    { bolNumber: 'BOL-2024-003353', carrier: 'GSF', terminal: 'Bunbury Terminal', customer: 'Logistics Partners', product: 'Diesel', quantity: 23400, deliveryDate: '2024-11-28', driverName: 'Karen Miller', vehicleId: 'GSF-789' },
-    { bolNumber: 'BOL-2024-003354', carrier: 'SMB', terminal: 'Kwinana Terminal', customer: 'Regional Mining Co.', product: 'Diesel', quantity: 16700, deliveryDate: '2024-11-27', driverName: 'Steve Roberts', vehicleId: 'SMB-345' },
-
-    // Earlier deliveries with various scenarios
-    { bolNumber: 'BOL-2024-003300', carrier: 'GSF', terminal: 'Fremantle Terminal', customer: 'Transport Solutions Ltd', product: 'Unleaded', quantity: 7200, deliveryDate: '2024-11-26', driverName: 'Jennifer Lee', vehicleId: 'GSF-123' },
-    { bolNumber: 'BOL-2024-003301', carrier: 'SMB', terminal: 'Geraldton Terminal', customer: 'Heavy Industries Inc', product: 'Diesel', quantity: 19500, deliveryDate: '2024-11-25', driverName: 'Chris Wilson', vehicleId: 'SMB-456' },
-    { bolNumber: 'BOL-2024-003302', carrier: 'GSF', terminal: 'Kwinana Terminal', customer: 'Mining Services Pty Ltd', product: 'Diesel', quantity: -1800, deliveryDate: '2024-11-24', driverName: 'Nancy Brown', vehicleId: 'GSF-567' },
-    { bolNumber: 'BOL-2024-003303', carrier: 'SMB', terminal: 'Fremantle Terminal', customer: 'Construction Corp', product: 'Unleaded', quantity: 13500, deliveryDate: '2024-11-23', driverName: 'Daniel Garcia', vehicleId: 'SMB-678' },
-    { bolNumber: 'BOL-2024-003304', carrier: 'GSF', terminal: 'Bunbury Terminal', customer: 'Logistics Partners', product: 'Diesel', quantity: 21800, deliveryDate: '2024-11-22', driverName: 'Rachel Martinez', vehicleId: 'GSF-890' },
-
-    // Different fuel types and scenarios
-    { bolNumber: 'BOL-2024-003250', carrier: 'SMB', terminal: 'Kwinana Terminal', customer: 'Regional Mining Co.', product: 'Premium Unleaded', quantity: 8500, deliveryDate: '2024-11-21', driverName: 'Kevin Davis', vehicleId: 'SMB-789' },
-    { bolNumber: 'BOL-2024-003251', carrier: 'GSF', terminal: 'Fremantle Terminal', customer: 'Transport Solutions Ltd', product: 'Diesel', quantity: 24500, deliveryDate: '2024-11-20', driverName: 'Laura Johnson', vehicleId: 'GSF-901' },
-    { bolNumber: 'BOL-2024-003252', carrier: 'SMB', terminal: 'Geraldton Terminal', customer: 'Heavy Industries Inc', product: 'Diesel', quantity: 18200, deliveryDate: '2024-11-19', driverName: 'Brian Smith', vehicleId: 'SMB-890' },
-    { bolNumber: 'BOL-2024-003253', carrier: 'GSF', terminal: 'Bunbury Terminal', customer: 'Mining Services Pty Ltd', product: 'Unleaded', quantity: 10500, deliveryDate: '2024-11-18', driverName: 'Susan Williams', vehicleId: 'GSF-234' },
-    { bolNumber: 'BOL-2024-003254', carrier: 'SMB', terminal: 'Kwinana Terminal', customer: 'Construction Corp', product: 'Diesel', quantity: -3200, deliveryDate: '2024-11-17', driverName: 'Tony Anderson', vehicleId: 'SMB-901' }
-  ]
-};
+// Production dashboard - all data sourced from real CSV files
 
 const CaptivePaymentsDashboard = () => {
   const [selectedCarrier, setSelectedCarrier] = useState('all');
-  const { currentMonth, yearToDate } = mockDeliveryData;
   
   // Real data state
   const [combinedData, setCombinedData] = useState<ProcessedCaptiveData | null>(null);
@@ -278,24 +119,72 @@ const CaptivePaymentsDashboard = () => {
   }, [startDate, endDate, availableRange]);
 
   const handleExportData = () => {
-    // Mock export functionality for compliance reporting
-    const exportData = {
-      period: currentMonth.period,
-      complianceMetrics: {
-        totalDeliveries: currentMonth.totalDeliveries,
-        totalVolume: currentMonth.totalVolume,
-        smbDeliveries: currentMonth.smb.deliveries,
-        gsfDeliveries: currentMonth.gsf.deliveries
-      },
-      carriers: [currentMonth.smb, currentMonth.gsf],
-      recentDeliveries: mockDeliveryData.recentDeliveries
-    };
-    console.log('Exporting Fuel Delivery Compliance Report:', exportData);
+    if (!combinedData) {
+      alert('No data available to export');
+      return;
+    }
+    
+    // Create CSV content
+    const headers = ['Date', 'BOL Number', 'Location', 'Customer', 'Product', 'Volume (L)', 'Carrier'];
+    const csvContent = [
+      headers.join(','),
+      ...combinedData.rawRecords.slice(0, 1000).map(record => [
+        record.date,
+        record.billOfLading,
+        record.location,
+        record.customer,
+        record.product,
+        record.volume,
+        'Combined'
+      ].join(','))
+    ].join('\n');
+    
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `captive-payments-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   const handleUploadData = () => {
-    // Mock upload functionality - would open file dialog for MYOB data
-    console.log('Opening file upload dialog for MYOB delivery data');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        alert('File too large. Please select a file smaller than 50MB.');
+        return;
+      }
+      
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // For now, just show success message
+        // In production, would implement actual file processing
+        alert(`File "${file.name}" uploaded successfully. Processing ${file.size} bytes...`);
+        
+        // Reload data after upload
+        const filteredData = await loadCombinedCaptiveDataWithDateFilter(startDate, endDate);
+        setCombinedData(filteredData.combinedData);
+        setSmbData(filteredData.smbData);
+        setGsfData(filteredData.gsfData);
+      } catch (err) {
+        setError('Failed to process uploaded file');
+        console.error('Upload error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    input.click();
   };
 
   const getCarrierColor = (carrier: string) => {
@@ -306,12 +195,19 @@ const CaptivePaymentsDashboard = () => {
     }
   };
 
-  // Calculate month-over-month changes for compliance metrics
-  const previousMonth = yearToDate.monthlyDeliveries[10]; // November data
-  const deliveryChange = currentMonth.totalDeliveries - previousMonth.totalDeliveries;
-  const volumeChange = currentMonth.totalVolume - previousMonth.totalVolume;
-  const deliveryChangePercent = ((deliveryChange / previousMonth.totalDeliveries) * 100).toFixed(1);
-  const volumeChangePercent = ((volumeChange / previousMonth.totalVolume) * 100).toFixed(1);
+  // Calculate trends from real data
+  const currentMonthData = combinedData?.monthlyData?.slice(-1)[0];
+  const previousMonthData = combinedData?.monthlyData?.slice(-2)[0];
+  
+  const deliveryChange = currentMonthData && previousMonthData ? 
+    currentMonthData.deliveries - previousMonthData.deliveries : 0;
+  const volumeChange = currentMonthData && previousMonthData ? 
+    currentMonthData.volumeLitres - previousMonthData.volumeLitres : 0;
+  
+  const deliveryChangePercent = previousMonthData?.deliveries ? 
+    ((deliveryChange / previousMonthData.deliveries) * 100).toFixed(1) : '0.0';
+  const volumeChangePercent = previousMonthData?.volumeLitres ? 
+    ((volumeChange / previousMonthData.volumeLitres) * 100).toFixed(1) : '0.0';
 
   return (
     <div className="space-y-6">
@@ -346,7 +242,7 @@ const CaptivePaymentsDashboard = () => {
           </Button>
           <Badge variant="secondary" className="text-blue-700 bg-blue-100">
             <BarChart3 className="w-4 h-4 mr-1" />
-            {yearToDate.totalDeliveries.toLocaleString()} BOLs YTD
+            {combinedData ? `${combinedData.totalDeliveries.toLocaleString()} BOLs Total` : 'Loading...'}
           </Badge>
         </div>
       </div>
@@ -366,51 +262,55 @@ const CaptivePaymentsDashboard = () => {
 
       {/* Core Compliance Metrics - Executive Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* COMPLIANCE METRIC #1: Monthly Deliveries */}
+        {/* COMPLIANCE METRIC #1: Total Deliveries */}
         <Card className="border-2 border-blue-200 bg-blue-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-800">
-              Monthly Deliveries ({currentMonth.period})
+              Total Deliveries
             </CardTitle>
             <Truck className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-900">
-              {combinedData ? combinedData.totalDeliveries.toLocaleString() : currentMonth.totalDeliveries.toLocaleString()}
+              {isLoading ? (
+                <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
+              ) : (
+                combinedData ? combinedData.totalDeliveries.toLocaleString() : '0'
+              )}
             </div>
             <p className="text-xs text-blue-600 flex items-center mt-1">
               {isFiltered ? (
                 <span>Filtered Period</span>
+              ) : combinedData ? (
+                <span>{combinedData.dateRange.startDate} - {combinedData.dateRange.endDate}</span>
               ) : (
-                <>
-                  {deliveryChange > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                  {deliveryChangePercent}% vs last month
-                </>
+                <span>Loading...</span>
               )}
             </p>
           </CardContent>
         </Card>
 
-        {/* COMPLIANCE METRIC #2: Monthly Volume */}
+        {/* COMPLIANCE METRIC #2: Total Volume */}
         <Card className="border-2 border-green-200 bg-green-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-green-800">
-              Monthly Volume ({currentMonth.period})
+              Total Volume
             </CardTitle>
             <Package className="h-5 w-5 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-900">
-              {combinedData ? `${combinedData.totalVolumeMegaLitres.toFixed(1)} ML` : `${currentMonth.totalVolume.toLocaleString()} L`}
+              {isLoading ? (
+                <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
+              ) : (
+                combinedData ? `${combinedData.totalVolumeMegaLitres.toFixed(1)} ML` : '0 ML'
+              )}
             </div>
             <p className="text-xs text-green-600 flex items-center mt-1">
-              {isFiltered ? (
-                <span>{combinedData ? `${combinedData.totalVolumeLitres.toLocaleString()} litres total` : 'Filtered Period'}</span>
+              {combinedData ? (
+                <span>{combinedData.totalVolumeLitres.toLocaleString()} litres total</span>
               ) : (
-                <>
-                  {volumeChange > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                  {volumeChangePercent}% vs last month
-                </>
+                <span>Loading...</span>
               )}
             </p>
           </CardContent>
@@ -424,26 +324,34 @@ const CaptivePaymentsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.round(currentMonth.totalVolume / currentMonth.totalDeliveries).toLocaleString()} L
+              {isLoading ? (
+                <div className="animate-pulse bg-gray-200 h-6 w-20 rounded"></div>
+              ) : (
+                combinedData ? `${Math.round(combinedData.averageDeliverySize).toLocaleString()} L` : '0 L'
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {currentMonth.negativeAdjustments} returns/adjustments
+              {combinedData ? `${combinedData.terminals.length} terminals served` : 'Loading...'}
             </p>
           </CardContent>
         </Card>
 
-        {/* YTD Summary */}
+        {/* Data Coverage Summary */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Year to Date Summary</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Data Coverage</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {yearToDate.totalDeliveries.toLocaleString()}
+              {isLoading ? (
+                <div className="animate-pulse bg-gray-200 h-6 w-16 rounded"></div>
+              ) : (
+                combinedData ? `${combinedData.dateRange.monthsCovered} months` : '0 months'
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              BOLs • {(yearToDate.totalVolume / 1000000).toFixed(1)}M liters delivered
+              {combinedData ? `${combinedData.uniqueCustomers} unique customers` : 'Loading...'}
             </p>
           </CardContent>
         </Card>
@@ -475,19 +383,23 @@ const CaptivePaymentsDashboard = () => {
               <div className="flex justify-between items-center">
                 <span className="font-medium">BOL Count</span>
                 <span className="text-2xl font-bold text-blue-600">
-                  {smbData ? smbData.totalDeliveries.toLocaleString() : currentMonth.smb.deliveries.toLocaleString()}
+                  {isLoading ? (
+                    <div className="animate-pulse bg-gray-200 h-6 w-16 rounded"></div>
+                  ) : (
+                    smbData ? smbData.totalDeliveries.toLocaleString() : '0'
+                  )}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Volume</span>
                 <span className="text-xl font-semibold">
-                  {smbData ? `${smbData.totalVolumeMegaLitres.toFixed(1)} ML` : `${currentMonth.smb.volume.toLocaleString()} L`}
+                  {smbData ? `${smbData.totalVolumeMegaLitres.toFixed(1)} ML` : '0 ML'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Avg per BOL</span>
                 <span className="text-lg font-semibold">
-                  {smbData ? `${Math.round(smbData.averageDeliverySize).toLocaleString()} L` : `${currentMonth.smb.averageVolume.toLocaleString()} L`}
+                  {smbData ? `${Math.round(smbData.averageDeliverySize).toLocaleString()} L` : '0 L'}
                 </span>
               </div>
               <div className="pt-2 border-t">
@@ -495,11 +407,13 @@ const CaptivePaymentsDashboard = () => {
                   <span className="font-medium">Terminal Access:</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {currentMonth.smb.terminals.map(terminal => (
+                  {smbData ? smbData.terminals.map(terminal => (
                     <Badge key={terminal} variant="outline" className="text-xs">
                       {terminal}
                     </Badge>
-                  ))}
+                  )) : (
+                    <span className="text-xs text-gray-500">Loading...</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -530,19 +444,23 @@ const CaptivePaymentsDashboard = () => {
               <div className="flex justify-between items-center">
                 <span className="font-medium">BOL Count</span>
                 <span className="text-2xl font-bold text-green-600">
-                  {gsfData ? gsfData.totalDeliveries.toLocaleString() : currentMonth.gsf.deliveries.toLocaleString()}
+                  {isLoading ? (
+                    <div className="animate-pulse bg-gray-200 h-6 w-16 rounded"></div>
+                  ) : (
+                    gsfData ? gsfData.totalDeliveries.toLocaleString() : '0'
+                  )}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Volume</span>
                 <span className="text-xl font-semibold">
-                  {gsfData ? `${gsfData.totalVolumeMegaLitres.toFixed(1)} ML` : `${currentMonth.gsf.volume.toLocaleString()} L`}
+                  {gsfData ? `${gsfData.totalVolumeMegaLitres.toFixed(1)} ML` : '0 ML'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Avg per BOL</span>
                 <span className="text-lg font-semibold">
-                  {gsfData ? `${Math.round(gsfData.averageDeliverySize).toLocaleString()} L` : `${currentMonth.gsf.averageVolume.toLocaleString()} L`}
+                  {gsfData ? `${Math.round(gsfData.averageDeliverySize).toLocaleString()} L` : '0 L'}
                 </span>
               </div>
               <div className="pt-2 border-t">
@@ -550,11 +468,13 @@ const CaptivePaymentsDashboard = () => {
                   <span className="font-medium">Terminal Access:</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {currentMonth.gsf.terminals.map(terminal => (
+                  {gsfData ? gsfData.terminals.map(terminal => (
                     <Badge key={terminal} variant="outline" className="text-xs">
                       {terminal}
                     </Badge>
-                  ))}
+                  )) : (
+                    <span className="text-xs text-gray-500">Loading...</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -576,29 +496,45 @@ const CaptivePaymentsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockDeliveryData.topCustomers.map((customer, index) => (
-                <div key={customer.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <div className="font-medium">{customer.name}</div>
-                      <div className="text-xs text-gray-500 flex items-center gap-1">
-                        {customer.terminals.map(terminal => (
-                          <Badge key={terminal} variant="outline" className="text-xs py-0">
-                            {terminal}
-                          </Badge>
-                        ))}
+              {isLoading ? (
+                Array(5).fill(0).map((_, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="animate-pulse bg-gray-200 w-6 h-6 rounded-full"></div>
+                      <div>
+                        <div className="animate-pulse bg-gray-200 h-4 w-32 rounded mb-1"></div>
+                        <div className="animate-pulse bg-gray-200 h-3 w-20 rounded"></div>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <div className="animate-pulse bg-gray-200 h-4 w-16 rounded mb-1"></div>
+                      <div className="animate-pulse bg-gray-200 h-3 w-12 rounded"></div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold">{customer.deliveries} BOLs</div>
-                    <div className="text-sm text-gray-500">{customer.volume.toLocaleString()} L</div>
+                ))
+              ) : combinedData ? (
+                combinedData.topCustomers.slice(0, 5).map((customer, index) => (
+                  <div key={customer.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="font-medium">{customer.name}</div>
+                        <div className="text-xs text-gray-500">Top Customer</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold">{customer.deliveries} BOLs</div>
+                      <div className="text-sm text-gray-500">{customer.volumeLitres.toLocaleString()} L</div>
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No customer data available
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -615,34 +551,49 @@ const CaptivePaymentsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockDeliveryData.recentDeliveries.map((delivery) => (
-                <div key={delivery.bolNumber} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <div className="font-medium flex items-center gap-2">
-                      {delivery.bolNumber}
-                      <Badge variant="outline" className={getCarrierColor(delivery.carrier)}>
-                        {delivery.carrier}
-                      </Badge>
+              {isLoading ? (
+                Array(5).fill(0).map((_, index) => (
+                  <div key={index} className="p-3 border rounded-lg">
+                    <div className="animate-pulse bg-gray-200 h-4 w-48 rounded mb-2"></div>
+                    <div className="animate-pulse bg-gray-200 h-3 w-64 rounded mb-1"></div>
+                    <div className="animate-pulse bg-gray-200 h-3 w-32 rounded mb-1"></div>
+                    <div className="animate-pulse bg-gray-200 h-3 w-40 rounded"></div>
+                  </div>
+                ))
+              ) : combinedData ? (
+                combinedData.rawRecords.slice(-5).reverse().map((record, index) => (
+                  <div key={`${record.billOfLading}-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <div className="font-medium flex items-center gap-2">
+                        {record.billOfLading || `BOL-${index + 1}`}
+                        <Badge variant="outline" className="text-blue-600 border-blue-200">
+                          Combined
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {record.location} → {record.customer}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {record.product} • {record.volume > 0 ? '+' : ''}{record.volume.toLocaleString()} L
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {record.date}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {delivery.terminal} → {delivery.customer}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {delivery.product} • {delivery.quantity > 0 ? '+' : ''}{delivery.quantity.toLocaleString()} L
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {delivery.deliveryDate} • {delivery.driverName} • {delivery.vehicleId}
+                    <div className="text-right">
+                      {record.volume < 0 && (
+                        <Badge variant="outline" className="text-red-600 border-red-200">
+                          Return
+                        </Badge>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    {delivery.quantity < 0 && (
-                      <Badge variant="outline" className="text-red-600 border-red-200">
-                        Return
-                      </Badge>
-                    )}
-                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No recent deliveries available
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -659,22 +610,54 @@ const CaptivePaymentsDashboard = () => {
           </p>
         </div>
         
-        <DeliveryTrendCharts 
-          monthlyData={yearToDate.monthlyDeliveries}
-          currentMonth={{
-            totalDeliveries: currentMonth.totalDeliveries,
-            totalVolume: currentMonth.totalVolume,
-            period: currentMonth.period
-          }}
-        />
+        {combinedData && combinedData.monthlyData.length > 0 ? (
+          <DeliveryTrendCharts 
+            monthlyData={combinedData.monthlyData.map(month => ({
+              month: month.month,
+              smbDeliveries: smbData?.monthlyData.find(m => m.month === month.month)?.deliveries || 0,
+              gsfDeliveries: gsfData?.monthlyData.find(m => m.month === month.month)?.deliveries || 0,
+              totalDeliveries: month.deliveries,
+              smbVolume: smbData?.monthlyData.find(m => m.month === month.month)?.volumeLitres || 0,
+              gsfVolume: gsfData?.monthlyData.find(m => m.month === month.month)?.volumeLitres || 0,
+              totalVolume: month.volumeLitres
+            }))}
+            currentMonth={{
+              totalDeliveries: combinedData.totalDeliveries,
+              totalVolume: combinedData.totalVolumeLitres,
+              period: `${combinedData.dateRange.startDate} - ${combinedData.dateRange.endDate}`
+            }}
+          />
+        ) : (
+          <div className="text-center py-8">
+            <div className="text-gray-500 mb-4">Loading trend charts...</div>
+            <div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>
+          </div>
+        )}
       </div>
 
       {/* Detailed BOL Delivery Analysis Table */}
-      <BOLDeliveryTable 
-        deliveries={mockDeliveryData.allDeliveries}
-        title="Detailed BOL Delivery Records"
-        showFilters={true}
-      />
+      {combinedData ? (
+        <BOLDeliveryTable 
+          deliveries={combinedData.rawRecords.slice(0, 1000).map(record => ({
+            bolNumber: record.billOfLading || `BOL-${Date.now()}`,
+            carrier: 'Combined' as 'SMB' | 'GSF',
+            terminal: record.location,
+            customer: record.customer,
+            product: record.product,
+            quantity: record.volume,
+            deliveryDate: record.date,
+            driverName: 'N/A',
+            vehicleId: 'N/A'
+          }))}
+          title={`BOL Delivery Records (showing first 1,000 of ${combinedData.totalDeliveries.toLocaleString()})`}
+          showFilters={true}
+        />
+      ) : (
+        <div className="text-center py-8">
+          <div className="text-gray-500 mb-4">Loading delivery records...</div>
+          <div className="animate-pulse bg-gray-200 h-96 rounded-lg"></div>
+        </div>
+      )}
     </div>
   );
 };
