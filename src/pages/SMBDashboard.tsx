@@ -39,15 +39,12 @@ import {
   ComposedChart
 } from 'recharts';
 import { 
-  loadSMBData, 
-  loadSMBDataWithDateFilter,
-  getAvailableDateRange,
   ProcessedCaptiveData, 
-  formatVolume,
-  processCSVData
+  formatVolume
 } from '@/services/captivePaymentsDataProcessor';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useSMBData, useBOLDeliveries, useAvailableDateRange } from '@/hooks/useCaptivePayments';
 
 // SMB-specific data
 const smbData = {
@@ -121,14 +118,18 @@ const SMBDashboard = () => {
   
   const [selectedPeriod, setSelectedPeriod] = useState('current');
   const [showVolumeView, setShowVolumeView] = useState(false);
-  const [realData, setRealData] = useState<ProcessedCaptiveData | null>(null);
-  const [allRecords, setAllRecords] = useState<any[]>([]);
-  const [availableRange, setAvailableRange] = useState<{min: Date; max: Date} | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+
+  // Database hooks - replace CSV loading with database queries
+  const filters = { startDate, endDate, carrier: 'SMB' as const };
+  const { data: smbDatabaseData, isLoading, error: dataError } = useSMBData(filters);
+  const { data: bolDeliveries } = useBOLDeliveries(filters);
+  const { data: availableDateRange } = useAvailableDateRange();
+
+  // Convert error type for compatibility
+  const error = dataError ? String(dataError) : null;
 
   // Check if user has permission to view SMB data specifically
   const hasSMBPermission = permissions?.isAdmin || 
