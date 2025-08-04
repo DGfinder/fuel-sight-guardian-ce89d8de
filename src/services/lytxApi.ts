@@ -150,21 +150,35 @@ class LytxApiClient {
 
       const data = await response.json();
       
+      console.log('LYTX API Response for', endpoint, ':', data);
+      
+      // Handle proxy error responses
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
       // Handle different response formats from Lytx API
-      if (Array.isArray(data)) {
+      let responseData = data;
+      
+      // If using proxy, unwrap the data
+      if (useProxy && data.data !== undefined) {
+        responseData = data.data;
+      }
+      
+      if (Array.isArray(responseData)) {
         return {
-          data,
-          totalCount: data.length,
+          data: responseData,
+          totalCount: responseData.length,
           page: 1,
-          pageSize: data.length
+          pageSize: responseData.length
         };
       }
 
       return {
-        data: data.data || data,
-        totalCount: data.totalCount,
-        page: data.page,
-        pageSize: data.pageSize
+        data: responseData.data || responseData,
+        totalCount: responseData.totalCount,
+        page: responseData.page,
+        pageSize: responseData.pageSize
       };
 
     } catch (error) {

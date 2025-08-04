@@ -51,8 +51,10 @@ export default async function handler(req, res) {
 
     try {
       const jsonData = JSON.parse(data);
+      console.log(`[LYTX Proxy] Success response for ${endpoint}:`, typeof jsonData, Array.isArray(jsonData) ? `Array[${jsonData.length}]` : 'Object');
       res.status(200).json(jsonData);
     } catch (e) {
+      console.log(`[LYTX Proxy] Non-JSON response for ${endpoint}:`, data.substring(0, 200));
       // If not JSON, return as text
       res.status(200).send(data);
     }
