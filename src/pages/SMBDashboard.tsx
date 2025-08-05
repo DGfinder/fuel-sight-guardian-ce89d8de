@@ -25,6 +25,8 @@ import { Link } from 'react-router-dom';
 import DataCentreLayout from '@/components/DataCentreLayout';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
 import DateRangeFilter from '@/components/DateRangeFilter';
+import MonthlyVolumeChart from '@/components/charts/MonthlyVolumeChart';
+import VolumeBreakdownCharts from '@/components/charts/VolumeBreakdownCharts';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { 
@@ -424,6 +426,46 @@ const SMBDashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Monthly Volume Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className=\"flex items-center gap-2\">
+              <BarChart3 className=\"w-5 h-5\" />
+              SMB Monthly Volume Trends
+            </CardTitle>
+            <CardDescription>
+              Professional monthly volume analysis for compliance reporting
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {smbData?.monthlyData && smbData.monthlyData.length > 0 ? (
+              <MonthlyVolumeChart 
+                data={smbData.monthlyData} 
+                carrier=\"SMB\"
+                height={300}
+              />
+            ) : (
+              <div className=\"text-center py-8\">
+                <div className=\"text-gray-500 mb-4\">
+                  {isLoading ? 'Loading monthly volume data...' : 'No monthly data available'}
+                </div>
+                {isLoading && (
+                  <div className=\"animate-pulse bg-gray-200 h-64 rounded-lg\"></div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Volume Breakdown Analytics */}
+        {smbData && (
+          <VolumeBreakdownCharts 
+            terminalAnalysis={smbData.terminalAnalysis || []}
+            topCustomers={smbData.topCustomers || []}
+            carrier=\"SMB\"
+          />
+        )}
 
         {/* Recent SMB Deliveries */}
         {bolDeliveries && bolDeliveries.length > 0 ? (

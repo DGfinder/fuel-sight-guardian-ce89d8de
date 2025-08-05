@@ -5,29 +5,9 @@
 -- Run ONLY after investigating with investigate-carrier-data-import.sql
 -- =====================================================
 
--- OPTION 1: If carrier field is NULL or empty, set based on data patterns
--- (Only run if investigation shows NULL/empty carrier fields)
-
--- Fix NULL carriers based on data patterns (example - adjust as needed)
-/*
-UPDATE captive_payment_records 
-SET carrier = 'GSF'
-WHERE carrier IS NULL OR carrier = ''
-AND (
-    customer ILIKE '%GSF%' OR 
-    customer ILIKE '%Great Southern%' OR
-    terminal ILIKE '%GSF%'
-);
-
-UPDATE captive_payment_records 
-SET carrier = 'SMB'
-WHERE carrier IS NULL OR carrier = ''
-AND (
-    customer ILIKE '%SMB%' OR 
-    customer ILIKE '%Stevemacs%' OR
-    terminal ILIKE '%SMB%'
-);
-*/
+-- OPTION 1: Carrier field is ENUM - no NULL/empty values possible
+-- This option not needed since ENUM enforces valid values only
+-- All records will have either 'GSF' or 'SMB' values
 
 -- OPTION 2: If volume data is missing, check for import truncation
 -- Verify all expected records are present

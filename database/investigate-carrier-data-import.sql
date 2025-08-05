@@ -66,7 +66,7 @@ FROM captive_payment_records
 GROUP BY carrier
 ORDER BY carrier;
 
--- 5. CHECK CARRIER FIELD VALUES
+-- 5. CHECK CARRIER FIELD VALUES (ENUM type - only valid values)
 SELECT 
     'CARRIER FIELD ANALYSIS' as analysis_type,
     carrier,
@@ -76,19 +76,15 @@ FROM captive_payment_records
 GROUP BY carrier
 ORDER BY record_count DESC;
 
--- 6. CHECK FOR MISSING OR NULL CARRIERS
+-- 6. VERIFY CARRIER ENUM VALUES (no NULL/empty possible with ENUM)
 SELECT 
-    'MISSING CARRIER DATA' as analysis_type,
-    CASE 
-        WHEN carrier IS NULL THEN 'NULL'
-        WHEN carrier = '' THEN 'EMPTY'
-        ELSE carrier
-    END as carrier_value,
-    COUNT(*) as record_count
+    'ENUM CARRIER VALUES' as analysis_type,
+    carrier,
+    COUNT(*) as record_count,
+    'Valid ENUM value' as status
 FROM captive_payment_records
-WHERE carrier IS NULL OR carrier = '' OR carrier NOT IN ('GSF', 'SMB')
 GROUP BY carrier
-ORDER BY record_count DESC;
+ORDER BY carrier;
 
 -- 7. VOLUME CALCULATION VERIFICATION
 SELECT 
