@@ -39,6 +39,9 @@ const CaptivePaymentsDashboard = () => {
   
   const [selectedCarrier, setSelectedCarrier] = useState('all');
   
+  // Date range filtering
+  const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+  
   // Database hooks for real data
   const filters = { startDate, endDate };
   const { data: combinedData, isLoading: combinedLoading, error: combinedError } = useCombinedData(filters);
@@ -74,9 +77,6 @@ const CaptivePaymentsDashboard = () => {
       </div>
     );
   }
-
-  // Date range filtering
-  const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
 
   // Check if user has permission to view MYOB deliveries
   const hasMyobPermission = permissions?.isAdmin || 
