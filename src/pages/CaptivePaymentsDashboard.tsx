@@ -18,7 +18,8 @@ import {
   Upload,
   BarChart3,
   FileText,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
@@ -41,11 +42,16 @@ const CaptivePaymentsDashboard: React.FC = () => {
   // Permission check
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
   
-  // Date range filtering
-  const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+  // Date range filtering - start with NO filters to show all 23,756 deliveries
+  const { startDate, endDate, setDateRange, isFiltered, clearDateRange } = useDateRangeFilter();
   
-  // Create filters object
-  const filters: DashboardFilters = { startDate, endDate };
+  // Create filters object - only apply dates if user has actively filtered
+  const filters: DashboardFilters = { 
+    startDate: isFiltered ? startDate : null, 
+    endDate: isFiltered ? endDate : null 
+  };
+  
+  console.log('Dashboard filters:', { startDate, endDate, isFiltered, filtersApplied: filters });
   
   // Data fetching
   const { 
@@ -161,24 +167,46 @@ const CaptivePaymentsDashboard: React.FC = () => {
             <FileText className="w-4 h-4 mr-2" />
             Export Compliance Report
           </Button>
-          <Badge variant="secondary" className="text-blue-700 bg-blue-100">
-            <BarChart3 className="w-4 h-4 mr-1" />
-            {combinedData ? `${combinedData.totalDeliveries.toLocaleString()} BOLs Total` : 'Loading...'}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-blue-700 bg-blue-100">
+              <BarChart3 className="w-4 h-4 mr-1" />
+              {combinedData ? `${combinedData.totalDeliveries.toLocaleString()} BOLs` : 'Loading...'}
+              {isFiltered && ' (Filtered)'}
+            </Badge>
+            {isFiltered && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={clearDateRange}
+                className="text-orange-600 border-orange-200 hover:bg-orange-50"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Show All Data
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Date Range Filter */}
       {availableRange && (
-        <CompactDateFilter
-          startDate={startDate}
-          endDate={endDate}
-          onDateChange={setDateRange}
-          availableRange={availableRange}
-          totalRecords={combinedData?.totalDeliveries || 0}
-          filteredRecords={combinedData?.totalDeliveries || 0}
-          className="mb-6"
-        />
+        <div className="mb-6">
+          <CompactDateFilter
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={setDateRange}
+            availableRange={availableRange}
+            totalRecords={23756} // Total deliveries in database
+            filteredRecords={combinedData?.totalDeliveries || 0}
+            className=""
+          />
+          {!isFiltered && (
+            <div className="mt-2 text-sm text-gray-600 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              <span>Showing all data • No date filters applied • Use date picker above to filter by period</span>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Core Compliance Metrics */}
@@ -201,11 +229,20 @@ const CaptivePaymentsDashboard: React.FC = () => {
             </div>
             <p className="text-xs text-blue-600 flex items-center mt-1">
               {isFiltered ? (
-                <span>Filtered Period</span>
-              ) : combinedData?.dateRange ? (
-                <span>{combinedData.dateRange.startDate} - {combinedData.dateRange.endDate}</span>
+                <span className="flex items-center gap-1">
+                  <span>Filtered Period</span>
+                  <button 
+                    onClick={clearDateRange}
+                    className="text-orange-600 hover:text-orange-800 font-medium underline"
+                  >
+                    (Show All 23,756)
+                  </button>
+                </span>
               ) : (
-                <span>Loading...</span>
+                <span>All Data • {combinedData?.dateRange ? 
+                  `${combinedData.dateRange.startDate} - ${combinedData.dateRange.endDate}` : 
+                  'Complete Dataset'
+                }</span>
               )}
             </p>
           </CardContent>
