@@ -426,8 +426,8 @@ const CaptivePaymentsDashboard: React.FC = () => {
       {/* BOL Delivery Records Table */}
       {bolDeliveries && bolDeliveries.length > 0 ? (
         <BOLDeliveryTable 
-          deliveries={bolDeliveries.slice(0, 1000)}
-          title={`BOL Delivery Records (showing first 1,000 of ${combinedData?.totalDeliveries?.toLocaleString() || 0} total deliveries)`}
+          deliveries={bolDeliveries}
+          title={`BOL Delivery Records (${bolDeliveries.length.toLocaleString()} deliveries)`}
           showFilters={true}
         />
       ) : (
