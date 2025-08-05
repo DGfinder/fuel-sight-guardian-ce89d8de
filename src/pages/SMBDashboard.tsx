@@ -430,8 +430,8 @@ const SMBDashboard: React.FC = () => {
         {/* Monthly Volume Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className=\"flex items-center gap-2\">
-              <BarChart3 className=\"w-5 h-5\" />
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
               SMB Monthly Volume Trends
             </CardTitle>
             <CardDescription>
@@ -442,16 +442,16 @@ const SMBDashboard: React.FC = () => {
             {smbData?.monthlyData && smbData.monthlyData.length > 0 ? (
               <MonthlyVolumeChart 
                 data={smbData.monthlyData} 
-                carrier=\"SMB\"
+                carrier="SMB"
                 height={300}
               />
             ) : (
-              <div className=\"text-center py-8\">
-                <div className=\"text-gray-500 mb-4\">
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
                   {isLoading ? 'Loading monthly volume data...' : 'No monthly data available'}
                 </div>
                 {isLoading && (
-                  <div className=\"animate-pulse bg-gray-200 h-64 rounded-lg\"></div>
+                  <div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>
                 )}
               </div>
             )}
@@ -463,7 +463,7 @@ const SMBDashboard: React.FC = () => {
           <VolumeBreakdownCharts 
             terminalAnalysis={smbData.terminalAnalysis || []}
             topCustomers={smbData.topCustomers || []}
-            carrier=\"SMB\"
+            carrier="SMB"
           />
         )}
 
