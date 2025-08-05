@@ -144,7 +144,7 @@ export async function getCaptivePaymentRecords(filters?: CaptivePaymentsFilters)
  */
 export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Promise<CaptiveDelivery[]> {
   let query = supabase
-    .from('secure_captive_deliveries') // Use security barrier view
+    .from('captive_deliveries') // Use materialized view directly (secure views missing)
     .select('*')
     .order('delivery_date', { ascending: false })
     .order('bill_of_lading');
@@ -184,92 +184,196 @@ export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Pr
  * Get monthly analytics with filters
  */
 export async function getMonthlyAnalytics(filters?: CaptivePaymentsFilters): Promise<MonthlyAnalytics[]> {
-  let query = supabase
-    .from('secure_captive_monthly_analytics')
-    .select('*')
-    .order('month_start', { ascending: false });
-
-  // Apply carrier filter
-  if (filters?.carrier && filters.carrier !== 'all') {
-    query = query.eq('carrier', filters.carrier);
-  }
-
-  // Apply date range filters (filter by month_start)
-  if (filters?.startDate) {
-    const startMonth = new Date(filters.startDate.getFullYear(), filters.startDate.getMonth(), 1);
-    query = query.gte('month_start', startMonth.toISOString());
-  }
-  if (filters?.endDate) {
-    const endMonth = new Date(filters.endDate.getFullYear(), filters.endDate.getMonth() + 1, 0);
-    query = query.lte('month_start', endMonth.toISOString());
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching monthly analytics:', error);
-    throw error;
-  }
-
-  return data || [];
+  // Get deliveries and compute monthly analytics on-the-fly
+  const deliveries = await getCaptiveDeliveries(filters);
+  
+  const monthlyData = new Map<string, {
+    month_start: string;
+    year: number;
+    month: number;
+    month_name: string;
+    carrier: 'SMB' | 'GSF' | 'Combined';
+    total_deliveries: number;
+    total_volume_litres: number;
+    total_volume_megalitres: number;
+    unique_customers: Set<string>;
+    unique_terminals: Set<string>;
+  }>();
+  
+  deliveries.forEach(delivery => {
+    const date = new Date(delivery.delivery_date);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const monthStart = `${year}-${month.toString().padStart(2, '0')}-01`;
+    const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+    const key = `${monthStart}-${delivery.carrier}`;
+    
+    if (!monthlyData.has(key)) {
+      monthlyData.set(key, {
+        month_start: monthStart,
+        year,
+        month,
+        month_name: monthName,
+        carrier: delivery.carrier,
+        total_deliveries: 0,
+        total_volume_litres: 0,
+        total_volume_megalitres: 0,
+        unique_customers: new Set(),
+        unique_terminals: new Set()
+      });
+    }
+    
+    const monthData = monthlyData.get(key)!;
+    monthData.total_deliveries++;
+    monthData.total_volume_litres += delivery.total_volume_litres_abs;
+    monthData.total_volume_megalitres = monthData.total_volume_litres / 1000000;
+    monthData.unique_customers.add(delivery.customer);
+    monthData.unique_terminals.add(delivery.terminal);
+  });
+  
+  return Array.from(monthlyData.values()).map(data => ({
+    ...data,
+    unique_customers: data.unique_customers.size,
+    unique_terminals: data.unique_terminals.size,
+    avg_delivery_size_litres: data.total_deliveries > 0 ? data.total_volume_litres / data.total_deliveries : 0
+  } as MonthlyAnalytics)).sort((a, b) => b.month_start.localeCompare(a.month_start));
 }
 
 /**
  * Get customer analytics with filters
  */
 export async function getCustomerAnalytics(filters?: CaptivePaymentsFilters): Promise<CustomerAnalytics[]> {
-  let query = supabase
-    .from('secure_captive_customer_analytics')
-    .select('*')
-    .order('total_volume_litres', { ascending: false });
-
-  // Apply carrier filter
-  if (filters?.carrier && filters.carrier !== 'all') {
-    query = query.eq('carrier', filters.carrier);
-  }
-
-  // Apply customer filter
-  if (filters?.customer) {
-    query = query.ilike('customer', `%${filters.customer}%`);
-  }
-
-  const { data, error } = await query.limit(50); // Limit to top 50 customers
-
-  if (error) {
-    console.error('Error fetching customer analytics:', error);
-    throw error;
-  }
-
-  return data || [];
+  // Get deliveries and compute customer analytics on-the-fly
+  const deliveries = await getCaptiveDeliveries(filters);
+  
+  const customerData = new Map<string, {
+    customer: string;
+    carrier: 'SMB' | 'GSF' | 'Combined';
+    total_deliveries: number;
+    total_volume_litres: number;
+    total_volume_megalitres: number;
+    first_delivery_date: string;
+    last_delivery_date: string;
+    terminals_list: Set<string>;
+    deliveries_last_30_days: number;
+  }>();
+  
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  deliveries.forEach(delivery => {
+    const key = `${delivery.customer}-${delivery.carrier}`;
+    
+    if (!customerData.has(key)) {
+      customerData.set(key, {
+        customer: delivery.customer,
+        carrier: delivery.carrier,
+        total_deliveries: 0,
+        total_volume_litres: 0,
+        total_volume_megalitres: 0,
+        first_delivery_date: delivery.delivery_date,
+        last_delivery_date: delivery.delivery_date,
+        terminals_list: new Set(),
+        deliveries_last_30_days: 0
+      });
+    }
+    
+    const custData = customerData.get(key)!;
+    custData.total_deliveries++;
+    custData.total_volume_litres += delivery.total_volume_litres_abs;
+    custData.total_volume_megalitres = custData.total_volume_litres / 1000000;
+    
+    if (delivery.delivery_date < custData.first_delivery_date) {
+      custData.first_delivery_date = delivery.delivery_date;
+    }
+    if (delivery.delivery_date > custData.last_delivery_date) {
+      custData.last_delivery_date = delivery.delivery_date;
+    }
+    
+    custData.terminals_list.add(delivery.terminal);
+    
+    if (new Date(delivery.delivery_date) > thirtyDaysAgo) {
+      custData.deliveries_last_30_days++;
+    }
+  });
+  
+  return Array.from(customerData.values()).map(data => ({
+    ...data,
+    terminals_served: data.terminals_list.size,
+    terminals_list: Array.from(data.terminals_list)
+  } as CustomerAnalytics)).sort((a, b) => b.total_volume_litres - a.total_volume_litres).slice(0, 50);
 }
 
 /**
  * Get terminal analytics with filters
  */
 export async function getTerminalAnalytics(filters?: CaptivePaymentsFilters): Promise<TerminalAnalytics[]> {
-  let query = supabase
-    .from('secure_captive_terminal_analytics')
-    .select('*')
-    .order('total_volume_litres', { ascending: false });
-
-  // Apply carrier filter
-  if (filters?.carrier && filters.carrier !== 'all') {
-    query = query.eq('carrier', filters.carrier);
-  }
-
-  // Apply terminal filter
-  if (filters?.terminal) {
-    query = query.eq('terminal', filters.terminal);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching terminal analytics:', error);
-    throw error;
-  }
-
-  return data || [];
+  // Get deliveries and compute terminal analytics on-the-fly
+  const deliveries = await getCaptiveDeliveries(filters);
+  
+  const terminalData = new Map<string, {
+    terminal: string;
+    carrier: 'SMB' | 'GSF' | 'Combined';
+    total_deliveries: number;
+    total_volume_litres: number;
+    total_volume_megalitres: number;
+    first_delivery_date: string;
+    last_delivery_date: string;
+    deliveries_last_30_days: number;
+    customers: Set<string>;
+  }>();
+  
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  // First pass: collect terminal data
+  deliveries.forEach(delivery => {
+    const key = `${delivery.terminal}-${delivery.carrier}`;
+    
+    if (!terminalData.has(key)) {
+      terminalData.set(key, {
+        terminal: delivery.terminal,
+        carrier: delivery.carrier,
+        total_deliveries: 0,
+        total_volume_litres: 0,
+        total_volume_megalitres: 0,
+        first_delivery_date: delivery.delivery_date,
+        last_delivery_date: delivery.delivery_date,
+        deliveries_last_30_days: 0,
+        customers: new Set()
+      });
+    }
+    
+    const termData = terminalData.get(key)!;
+    termData.total_deliveries++;
+    termData.total_volume_litres += delivery.total_volume_litres_abs;
+    termData.total_volume_megalitres = termData.total_volume_litres / 1000000;
+    termData.customers.add(delivery.customer);
+    
+    if (delivery.delivery_date < termData.first_delivery_date) {
+      termData.first_delivery_date = delivery.delivery_date;
+    }
+    if (delivery.delivery_date > termData.last_delivery_date) {
+      termData.last_delivery_date = delivery.delivery_date;
+    }
+    
+    if (new Date(delivery.delivery_date) > thirtyDaysAgo) {
+      termData.deliveries_last_30_days++;
+    }
+  });
+  
+  // Second pass: calculate carrier percentages
+  const carrierTotals = new Map<string, number>();
+  terminalData.forEach(data => {
+    const current = carrierTotals.get(data.carrier) || 0;
+    carrierTotals.set(data.carrier, current + data.total_volume_litres);
+  });
+  
+  return Array.from(terminalData.values()).map(data => ({
+    ...data,
+    unique_customers: data.customers.size,
+    percentage_of_carrier_volume: (data.total_volume_litres / (carrierTotals.get(data.carrier) || 1)) * 100
+  } as TerminalAnalytics)).sort((a, b) => b.total_volume_litres - a.total_volume_litres);
 }
 
 // =====================================================
