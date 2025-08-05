@@ -22,8 +22,10 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import DataCentreLayout from '@/components/DataCentreLayout';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
-import DateRangeFilter from '@/components/DateRangeFilter';
+import CompactDateFilter from '@/components/CompactDateFilter';
+import DashboardHero from '@/components/DashboardHero';
 import MonthlyVolumeChart from '@/components/charts/MonthlyVolumeChart';
 import VolumeBreakdownCharts from '@/components/charts/VolumeBreakdownCharts';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
@@ -61,32 +63,34 @@ const GSFDashboard: React.FC = () => {
   // Show error state if critical data fails to load
   if (error && !isLoading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[60vh]">
-        <div className="text-center max-w-md">
-          <div className="bg-red-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="h-8 w-8 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">GSF Data Loading Error</h2>
-          <p className="text-gray-600 mb-4">
-            Unable to load GSF (Great Southern Fuels) delivery data. This could be due to a network issue or server problem.
-          </p>
-          <p className="text-sm text-gray-500 mb-6">
-            Error: {error}
-          </p>
-          <div className="flex gap-2 justify-center">
-            <Button onClick={() => window.location.reload()} variant="outline">
-              <AlertCircle className="w-4 h-4 mr-2" />
-              Retry Loading
-            </Button>
-            <Link to="/data-centre/captive-payments">
-              <Button variant="outline">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Overview
+      <DataCentreLayout>
+        <div className="p-8 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center max-w-md">
+            <div className="bg-red-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-8 w-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">GSF Data Loading Error</h2>
+            <p className="text-gray-600 mb-4">
+              Unable to load GSF (Great Southern Fuels) delivery data. This could be due to a network issue or server problem.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Error: {error}
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => window.location.reload()} variant="outline">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                Retry Loading
               </Button>
-            </Link>
+              <Link to="/data-centre/captive-payments">
+                <Button variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Overview
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </DataCentreLayout>
     );
   }
 
@@ -100,38 +104,42 @@ const GSFDashboard: React.FC = () => {
   // Show loading state while checking permissions
   if (permissionsLoading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-gray-500">Checking permissions...</div>
+      <DataCentreLayout>
+        <div className="p-8 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="text-gray-500">Checking permissions...</div>
+          </div>
         </div>
-      </div>
+      </DataCentreLayout>
     );
   }
 
   // Show access denied if user doesn't have GSF permission
   if (!hasGSFPermission) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[60vh]">
-        <div className="text-center max-w-md">
-          <div className="bg-red-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="h-8 w-8 text-red-600" />
+      <DataCentreLayout>
+        <div className="p-8 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center max-w-md">
+            <div className="bg-red-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-8 w-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+            <p className="text-gray-600 mb-4">
+              You don't have permission to view GSF (Great Southern Fuels) captive payments data.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              This section requires access to GSF group data. Please contact your administrator if you need access.
+            </p>
+            <Link to="/data-centre/captive-payments">
+              <Button variant="outline">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Captive Payments
+              </Button>
+            </Link>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-4">
-            You don't have permission to view GSF (Great Southern Fuels) captive payments data.
-          </p>
-          <p className="text-sm text-gray-500 mb-6">
-            This section requires access to GSF group data. Please contact your administrator if you need access.
-          </p>
-          <Link to="/data-centre/captive-payments">
-            <Button variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Captive Payments
-            </Button>
-          </Link>
         </div>
-      </div>
+      </DataCentreLayout>
     );
   }
 
@@ -156,127 +164,94 @@ const GSFDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Link 
-              to="/data-centre/captive-payments" 
-              className="flex items-center gap-2 text-green-600 hover:text-green-800 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Captive Payments
-            </Link>
+    <DataCentreLayout>
+      <div className="space-y-6">
+      {/* Header with Compact Controls */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <Link 
+                to="/data-centre/captive-payments" 
+                className="flex items-center gap-2 text-green-600 hover:text-green-800 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Captive Payments
+              </Link>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              GSF Analytics
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              Great Southern Fuels delivery performance and operational metrics
+            </p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <Truck className="w-8 h-8 text-green-600" />
-            GSF (Great Southern Fuels) Analytics
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Comprehensive delivery performance and operational metrics for GSF carrier operations
-          </p>
-          <div className="flex items-center gap-4 mt-2">
-            <Badge variant="outline" className="text-green-600 border-green-200">
-              <Building className="w-4 h-4 mr-1" />
-              Terminal Access
-            </Badge>
-            <Badge variant="outline" className="text-blue-600 border-blue-200">
-              <Package className="w-4 h-4 mr-1" />
-              {gsfData ? `${gsfData.totalDeliveries.toLocaleString()} Deliveries Total` : 'Loading...'}
-            </Badge>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleExportData} size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Export Report
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleExportData}>
-            <Download className="w-4 h-4 mr-2" />
-            Export GSF Report
-          </Button>
-          <Badge variant="secondary" className="text-blue-700 bg-blue-100">
-            <BarChart3 className="w-4 h-4 mr-1" />
-            {gsfData ? `${gsfData.totalVolumeMegaLitres.toFixed(1)} ML Total` : 'Loading...'}
-          </Badge>
-        </div>
+        
+        {/* Compact Date Filter */}
+        {availableRange && (
+          <CompactDateFilter
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={setDateRange}
+            availableRange={availableRange}
+            totalRecords={gsfData?.totalDeliveries || 0}
+            filteredRecords={gsfData?.totalDeliveries || 0}
+          />
+        )}
       </div>
 
-      {/* Date Range Filter */}
-      {availableRange && (
-        <DateRangeFilter
-          startDate={startDate}
-          endDate={endDate}
-          onDateChange={setDateRange}
-          availableRange={availableRange}
-          totalRecords={gsfData?.totalDeliveries || 0}
-          filteredRecords={gsfData?.totalDeliveries || 0}
-          className="mb-6"
+      {/* Dashboard Hero Section */}
+      {gsfData && (
+        <DashboardHero
+          carrier="GSF"
+          totalDeliveries={gsfData.totalDeliveries}
+          totalVolumeMegaLitres={gsfData.totalVolumeMegaLitres}
+          totalVolumeLitres={gsfData.totalVolumeLitres}
+          uniqueCustomers={gsfData.uniqueCustomers}
+          terminalCount={gsfData.terminalAnalysis?.length || 0}
+          monthlyData={gsfData.monthlyData || []}
+          dateRange={gsfData.dateRange}
+          isFiltered={isFiltered}
         />
       )}
 
-      {/* Key Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-2 border-green-200 bg-green-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-800">
-              Monthly Deliveries
-            </CardTitle>
-            <Truck className="h-5 w-5 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-900">
-              {gsfData ? gsfData.totalDeliveries.toLocaleString() : '0'}
+      {/* Monthly Volume Chart - Moved to Position #2 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Monthly Volume Trends
+          </CardTitle>
+          <CardDescription>
+            Professional monthly volume analysis for compliance reporting
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {gsfData?.monthlyData && gsfData.monthlyData.length > 0 ? (
+            <MonthlyVolumeChart 
+              data={gsfData.monthlyData} 
+              carrier="GSF"
+              height={350}
+            />
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-gray-500 mb-4">
+                {isLoading ? 'Loading monthly volume data...' : 'No monthly data available'}
+              </div>
+              {isLoading && (
+                <div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>
+              )}
             </div>
-            <p className="text-xs text-green-600 flex items-center mt-1">
-              <TrendingUp className="w-3 h-3 mr-1" />
-              {isFiltered ? 'Filtered Period' : 'All Time'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-blue-200 bg-blue-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-800">Total Volume Delivered</CardTitle>
-            <Package className="h-5 w-5 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-900">
-              {gsfData ? `${gsfData.totalVolumeMegaLitres.toFixed(1)} ML` : '0 ML'}
-            </div>
-            <p className="text-xs text-blue-600">
-              {gsfData ? `${gsfData.totalVolumeLitres.toLocaleString()} litres total` : 'Loading...'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Data Coverage</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {gsfData ? `${gsfData.dateRange?.monthsCovered || 0} months` : '0 months'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {gsfData?.dateRange ? `${gsfData.dateRange.startDate} - ${gsfData.dateRange.endDate}` : 'Loading...'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customer Base</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {gsfData ? gsfData.uniqueCustomers : 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {gsfData?.terminalAnalysis ? `${gsfData.terminalAnalysis.length} terminals served` : 'Loading...'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Terminal Performance */}
       <Card>
@@ -419,36 +394,6 @@ const GSFDashboard: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Monthly Volume Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
-            GSF Monthly Volume Trends
-          </CardTitle>
-          <CardDescription>
-            Professional monthly volume analysis for compliance reporting
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {gsfData?.monthlyData && gsfData.monthlyData.length > 0 ? (
-            <MonthlyVolumeChart 
-              data={gsfData.monthlyData} 
-              carrier="GSF"
-              height={300}
-            />
-          ) : (
-            <div className="text-center py-8">
-              <div className="text-gray-500 mb-4">
-                {isLoading ? 'Loading monthly volume data...' : 'No monthly data available'}
-              </div>
-              {isLoading && (
-                <div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Volume Breakdown Analytics */}
       {gsfData && (
@@ -484,7 +429,8 @@ const GSFDashboard: React.FC = () => {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </DataCentreLayout>
   );
 };
 

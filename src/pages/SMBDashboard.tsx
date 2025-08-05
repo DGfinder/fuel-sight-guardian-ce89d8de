@@ -24,7 +24,8 @@ import {
 import { Link } from 'react-router-dom';
 import DataCentreLayout from '@/components/DataCentreLayout';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
-import DateRangeFilter from '@/components/DateRangeFilter';
+import CompactDateFilter from '@/components/CompactDateFilter';
+import DashboardHero from '@/components/DashboardHero';
 import MonthlyVolumeChart from '@/components/charts/MonthlyVolumeChart';
 import VolumeBreakdownCharts from '@/components/charts/VolumeBreakdownCharts';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
@@ -165,126 +166,92 @@ const SMBDashboard: React.FC = () => {
   return (
     <DataCentreLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Link 
-                to="/data-centre/captive-payments" 
-                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Captive Payments
-              </Link>
+        {/* Header with Compact Controls */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Link 
+                  to="/data-centre/captive-payments" 
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Captive Payments
+                </Link>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                SMB Analytics
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Stevemacs delivery performance and operational metrics
+              </p>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              <Truck className="w-8 h-8 text-blue-600" />
-              SMB (Stevemacs) Analytics
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Detailed delivery performance and operational metrics for SMB carrier operations
-            </p>
-            <div className="flex items-center gap-4 mt-2">
-              <Badge variant="outline" className="text-blue-600 border-blue-200">
-                <Building className="w-4 h-4 mr-1" />
-                Terminal Access
-              </Badge>
-              <Badge variant="outline" className="text-green-600 border-green-200">
-                <Package className="w-4 h-4 mr-1" />
-                {smbData ? `${smbData.totalDeliveries.toLocaleString()} Deliveries Total` : 'Loading...'}
-              </Badge>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleExportData} size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Export Report
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExportData}>
-              <Download className="w-4 h-4 mr-2" />
-              Export SMB Report
-            </Button>
-            <Badge variant="secondary" className="text-green-700 bg-green-100">
-              <BarChart3 className="w-4 h-4 mr-1" />
-              {smbData ? `${smbData.totalVolumeMegaLitres.toFixed(1)} ML Total` : 'Loading...'}
-            </Badge>
-          </div>
+          
+          {/* Compact Date Filter */}
+          {availableRange && (
+            <CompactDateFilter
+              startDate={startDate}
+              endDate={endDate}
+              onDateChange={setDateRange}
+              availableRange={availableRange}
+              totalRecords={smbData?.totalDeliveries || 0}
+              filteredRecords={smbData?.totalDeliveries || 0}
+            />
+          )}
         </div>
 
-        {/* Date Range Filter */}
-        {availableRange && (
-          <DateRangeFilter
-            startDate={startDate}
-            endDate={endDate}
-            onDateChange={setDateRange}
-            availableRange={availableRange}
-            totalRecords={smbData?.totalDeliveries || 0}
-            filteredRecords={smbData?.totalDeliveries || 0}
-            className="mb-6"
+        {/* Dashboard Hero Section */}
+        {smbData && (
+          <DashboardHero
+            carrier="SMB"
+            totalDeliveries={smbData.totalDeliveries}
+            totalVolumeMegaLitres={smbData.totalVolumeMegaLitres}
+            totalVolumeLitres={smbData.totalVolumeLitres}
+            uniqueCustomers={smbData.uniqueCustomers}
+            terminalCount={smbData.terminalAnalysis?.length || 0}
+            monthlyData={smbData.monthlyData || []}
+            dateRange={smbData.dateRange}
+            isFiltered={isFiltered}
           />
         )}
 
-        {/* Key Performance Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-2 border-blue-200 bg-blue-50/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-800">
-                Monthly Deliveries
-              </CardTitle>
-              <Truck className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-900">
-                {smbData ? smbData.totalDeliveries.toLocaleString() : '0'}
+        {/* Monthly Volume Chart - Moved to Position #2 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Monthly Volume Trends
+            </CardTitle>
+            <CardDescription>
+              Professional monthly volume analysis for compliance reporting
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {smbData?.monthlyData && smbData.monthlyData.length > 0 ? (
+              <MonthlyVolumeChart 
+                data={smbData.monthlyData} 
+                carrier="SMB"
+                height={350}
+              />
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  {isLoading ? 'Loading monthly volume data...' : 'No monthly data available'}
+                </div>
+                {isLoading && (
+                  <div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>
+                )}
               </div>
-              <p className="text-xs text-blue-600 flex items-center mt-1">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                {isFiltered ? 'Filtered Period' : 'All Time'}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-green-200 bg-green-50/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-green-800">Total Volume Delivered</CardTitle>
-              <Package className="h-5 w-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-900">
-                {smbData ? `${smbData.totalVolumeMegaLitres.toFixed(1)} ML` : '0 ML'}
-              </div>
-              <p className="text-xs text-green-600">
-                {smbData ? `${smbData.totalVolumeLitres.toLocaleString()} litres total` : 'Loading...'}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Data Coverage</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {smbData ? `${smbData.dateRange?.monthsCovered || 0} months` : '0 months'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {smbData?.dateRange ? `${smbData.dateRange.startDate} - ${smbData.dateRange.endDate}` : 'Loading...'}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Customer Base</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {smbData ? smbData.uniqueCustomers : 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {smbData?.terminalAnalysis ? `${smbData.terminalAnalysis.length} terminals served` : 'Loading...'}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Terminal Performance */}
         <Card>
@@ -427,36 +394,6 @@ const SMBDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Monthly Volume Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              SMB Monthly Volume Trends
-            </CardTitle>
-            <CardDescription>
-              Professional monthly volume analysis for compliance reporting
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {smbData?.monthlyData && smbData.monthlyData.length > 0 ? (
-              <MonthlyVolumeChart 
-                data={smbData.monthlyData} 
-                carrier="SMB"
-                height={300}
-              />
-            ) : (
-              <div className="text-center py-8">
-                <div className="text-gray-500 mb-4">
-                  {isLoading ? 'Loading monthly volume data...' : 'No monthly data available'}
-                </div>
-                {isLoading && (
-                  <div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Volume Breakdown Analytics */}
         {smbData && (

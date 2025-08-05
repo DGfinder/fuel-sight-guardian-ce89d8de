@@ -65,6 +65,31 @@ const CompactDateFilter: React.FC<CompactDateFilterProps> = ({
       }
     },
     {
+      label: 'Last 6 Months',
+      getValue: (range) => {
+        const end = new Date();
+        const start = new Date();
+        start.setMonth(start.getMonth() - 6);
+        return { 
+          startDate: start < range.min ? range.min : start, 
+          endDate: end > range.max ? range.max : end 
+        };
+      }
+    },
+    {
+      label: 'Peak Period',
+      getValue: (range) => {
+        const currentYear = new Date().getFullYear();
+        const start = new Date(currentYear, 9, 1); // October 1st
+        const end = new Date(currentYear, 11, 31); // December 31st
+        
+        const adjustedStart = start < range.min ? range.min : start;
+        const adjustedEnd = end > range.max ? range.max : end;
+        
+        return { startDate: adjustedStart, endDate: adjustedEnd };
+      }
+    },
+    {
       label: 'This Year',
       getValue: (range) => {
         const end = new Date();
@@ -128,26 +153,26 @@ const CompactDateFilter: React.FC<CompactDateFilterProps> = ({
   }, [startDate, endDate, hasValidRange]);
 
   return (
-    <div className={cn("flex items-center gap-2 p-3 bg-gray-50 rounded-lg border", className)}>
+    <div className={cn("flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 sm:p-2 bg-white border rounded-lg shadow-sm", className)}>
       {/* Date Range Display/Button */}
-      <div className="flex items-center gap-2 flex-1">
-        <Calendar className="w-4 h-4 text-gray-500" />
-        <span className="text-sm font-medium text-gray-700">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <Calendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
+        <span className="text-sm font-medium text-gray-700 truncate">
           {formatDateRange}
         </span>
         {isFiltered && (
-          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200 flex-shrink-0">
             Filtered
           </Badge>
         )}
       </div>
 
       {/* Date Picker Controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-wrap sm:flex-nowrap">
         {/* Start Date Picker */}
         <Popover open={isStartCalendarOpen} onOpenChange={setIsStartCalendarOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs">
+            <Button variant="outline" size="sm" className="text-xs whitespace-nowrap">
               Start: {startDate ? format(startDate, "MMM dd") : "Any"}
             </Button>
           </PopoverTrigger>
@@ -169,7 +194,7 @@ const CompactDateFilter: React.FC<CompactDateFilterProps> = ({
         {/* End Date Picker */}
         <Popover open={isEndCalendarOpen} onOpenChange={setIsEndCalendarOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs">
+            <Button variant="outline" size="sm" className="text-xs whitespace-nowrap">
               End: {endDate ? format(endDate, "MMM dd") : "Any"}
             </Button>
           </PopoverTrigger>
@@ -191,25 +216,28 @@ const CompactDateFilter: React.FC<CompactDateFilterProps> = ({
         {/* Quick Presets */}
         <Popover open={showPresets} onOpenChange={setShowPresets}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs">
+            <Button variant="outline" size="sm" className="text-xs whitespace-nowrap">
               <CalendarDays className="w-3 h-3 mr-1" />
-              Quick
+              <span className="hidden sm:inline">Quick</span>
+              <span className="sm:hidden">Presets</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-48 p-2" align="end">
+          <PopoverContent className="w-52 p-2" align="end">
             <div className="space-y-1">
               <div className="text-xs font-medium text-gray-500 mb-2">Quick Ranges</div>
-              {presets.map((preset) => (
-                <Button
-                  key={preset.label}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handlePresetClick(preset)}
-                  className="w-full justify-start text-xs h-7"
-                >
-                  {preset.label}
-                </Button>
-              ))}
+              <div className="grid grid-cols-1 gap-1">
+                {presets.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePresetClick(preset)}
+                    className="w-full justify-start text-xs h-8 px-2"
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           </PopoverContent>
         </Popover>
@@ -220,16 +248,18 @@ const CompactDateFilter: React.FC<CompactDateFilterProps> = ({
             variant="outline"
             size="sm"
             onClick={handleClearFilter}
-            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 whitespace-nowrap"
+            title="Clear filter"
           >
-            <X className="w-3 h-3" />
+            <X className="w-3 h-3 sm:mr-1" />
+            <span className="hidden sm:inline">Clear</span>
           </Button>
         )}
       </div>
 
       {/* Record Count */}
       {totalRecords && filteredRecords !== undefined && (
-        <div className="text-xs text-gray-500 border-l pl-2">
+        <div className="text-xs text-gray-500 border-t sm:border-t-0 sm:border-l pt-2 sm:pt-0 sm:pl-2 w-full sm:w-auto text-center sm:text-left">
           <span className="font-medium text-blue-600">
             {filteredRecords.toLocaleString()}
           </span>
@@ -237,6 +267,7 @@ const CompactDateFilter: React.FC<CompactDateFilterProps> = ({
           <span className="text-gray-500">
             {totalRecords.toLocaleString()}
           </span>
+          <span className="ml-1 text-gray-400">records</span>
         </div>
       )}
     </div>
