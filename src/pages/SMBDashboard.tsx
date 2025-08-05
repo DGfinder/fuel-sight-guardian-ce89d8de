@@ -41,8 +41,13 @@ const SMBDashboard: React.FC = () => {
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
   
-  // Create filters object
-  const filters: DashboardFilters = { startDate, endDate };
+  // Create filters object - SMB-specific (no date filters unless explicitly set by user)
+  const filters: DashboardFilters = { 
+    startDate: isFiltered ? startDate : null, 
+    endDate: isFiltered ? endDate : null 
+  };
+  
+  console.log('SMB Dashboard filters:', { startDate, endDate, isFiltered, filtersApplied: filters });
   
   // Database hooks for real data
   const { data: smbData, isLoading, error: dataError } = useSMBData(filters);
@@ -184,7 +189,7 @@ const SMBDashboard: React.FC = () => {
               </Badge>
               <Badge variant="outline" className="text-green-600 border-green-200">
                 <Package className="w-4 h-4 mr-1" />
-                {smbData ? `${smbData.totalDeliveries.toLocaleString()} BOLs Total` : 'Loading...'}
+                {smbData ? `${smbData.totalDeliveries.toLocaleString()} Deliveries Total` : 'Loading...'}
               </Badge>
             </div>
           </div>
@@ -218,7 +223,7 @@ const SMBDashboard: React.FC = () => {
           <Card className="border-2 border-blue-200 bg-blue-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-blue-800">
-                Monthly BOL Deliveries
+                Monthly Deliveries
               </CardTitle>
               <Truck className="h-5 w-5 text-blue-600" />
             </CardHeader>
@@ -315,7 +320,7 @@ const SMBDashboard: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
-                        <div className="text-gray-500">BOLs</div>
+                        <div className="text-gray-500">Deliveries</div>
                         <div className="font-medium">{terminal.total_deliveries.toLocaleString()}</div>
                       </div>
                       <div>
@@ -325,7 +330,7 @@ const SMBDashboard: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Avg/BOL</div>
+                        <div className="text-gray-500">Avg/Delivery</div>
                         <div className="font-medium">
                           {(terminal.total_volume_litres / terminal.total_deliveries).toFixed(0)} L
                         </div>
@@ -383,7 +388,7 @@ const SMBDashboard: React.FC = () => {
                         <div className="font-medium text-gray-900">{customer.customer}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-blue-600">{customer.total_deliveries} BOLs</div>
+                        <div className="font-semibold text-blue-600">{customer.total_deliveries} Deliveries</div>
                         {smbData && (
                           <div className="text-xs text-gray-500">
                             {((customer.total_deliveries / smbData.totalDeliveries) * 100).toFixed(1)}% of total
@@ -399,7 +404,7 @@ const SMBDashboard: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Avg/BOL</div>
+                        <div className="text-gray-500">Avg/Delivery</div>
                         <div className="font-medium">
                           {(customer.total_volume_litres / customer.total_deliveries).toFixed(0)} L
                         </div>

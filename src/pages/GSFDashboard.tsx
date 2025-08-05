@@ -40,8 +40,13 @@ const GSFDashboard: React.FC = () => {
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
   
-  // Create filters object
-  const filters: DashboardFilters = { startDate, endDate };
+  // Create filters object - GSF-specific (no date filters unless explicitly set by user)
+  const filters: DashboardFilters = { 
+    startDate: isFiltered ? startDate : null, 
+    endDate: isFiltered ? endDate : null 
+  };
+  
+  console.log('GSF Dashboard filters:', { startDate, endDate, isFiltered, filtersApplied: filters });
   
   // Database hooks for real data
   const { data: gsfData, isLoading, error: dataError } = useGSFData(filters);
@@ -176,7 +181,7 @@ const GSFDashboard: React.FC = () => {
             </Badge>
             <Badge variant="outline" className="text-blue-600 border-blue-200">
               <Package className="w-4 h-4 mr-1" />
-              {gsfData ? `${gsfData.totalDeliveries.toLocaleString()} BOLs Total` : 'Loading...'}
+              {gsfData ? `${gsfData.totalDeliveries.toLocaleString()} Deliveries Total` : 'Loading...'}
             </Badge>
           </div>
         </div>
@@ -210,7 +215,7 @@ const GSFDashboard: React.FC = () => {
         <Card className="border-2 border-green-200 bg-green-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-green-800">
-              Monthly BOL Deliveries
+              Monthly Deliveries
             </CardTitle>
             <Truck className="h-5 w-5 text-green-600" />
           </CardHeader>
@@ -307,7 +312,7 @@ const GSFDashboard: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
-                      <div className="text-gray-500">BOLs</div>
+                      <div className="text-gray-500">Deliveries</div>
                       <div className="font-medium">{terminal.total_deliveries.toLocaleString()}</div>
                     </div>
                     <div>
@@ -317,7 +322,7 @@ const GSFDashboard: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-500">Avg/BOL</div>
+                      <div className="text-gray-500">Avg/Delivery</div>
                       <div className="font-medium">
                         {(terminal.total_volume_litres / terminal.total_deliveries).toFixed(0)} L
                       </div>
@@ -375,7 +380,7 @@ const GSFDashboard: React.FC = () => {
                       <div className="font-medium text-gray-900">{customer.customer}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-green-600">{customer.total_deliveries} BOLs</div>
+                      <div className="font-semibold text-green-600">{customer.total_deliveries} Deliveries</div>
                       {gsfData && (
                         <div className="text-xs text-gray-500">
                           {((customer.total_deliveries / gsfData.totalDeliveries) * 100).toFixed(1)}% of total
@@ -391,7 +396,7 @@ const GSFDashboard: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-500">Avg/BOL</div>
+                      <div className="text-gray-500">Avg/Delivery</div>
                       <div className="font-medium">
                         {(customer.total_volume_litres / customer.total_deliveries).toFixed(0)} L
                       </div>
