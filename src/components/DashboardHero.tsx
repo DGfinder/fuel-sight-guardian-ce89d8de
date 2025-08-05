@@ -230,7 +230,7 @@ const DashboardHero: React.FC<DashboardHeroProps> = ({
                       axisLine={false}
                       tickLine={false}
                       tick={{ fontSize: 9, fill: '#6b7280' }}
-                      tickFormatter={(value) => value.slice(0, 3)}
+                      tickFormatter={(value) => String(value).slice(0, 3)}
                       interval="preserveStartEnd"
                     />
                     <YAxis hide />
