@@ -144,8 +144,9 @@ export async function getCaptivePaymentRecords(filters?: CaptivePaymentsFilters)
  * Get captive deliveries (BOL-grouped data) with filters
  */
 export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Promise<CaptiveDelivery[]> {
+  // Try secure view first, fallback to materialized view if needed
   let query = supabase
-    .from('secure_captive_deliveries') // Use secure view for proper RLS permissions
+    .from('secure_captive_deliveries')
     .select('*')
     .order('delivery_date', { ascending: false })
     .order('bill_of_lading');
@@ -172,12 +173,43 @@ export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Pr
     query = query.ilike('customer', filters.customer);
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
+
+  // If secure view fails, try fallback to materialized view
+  if (error && error.code === 'PGRST116') {
+    console.warn('Secure view not available, falling back to materialized view');
+    let fallbackQuery = supabase
+      .from('captive_deliveries')
+      .select('*')
+      .order('delivery_date', { ascending: false })
+      .order('bill_of_lading');
+
+    // Apply same filters
+    if (filters?.carrier && filters.carrier !== 'all' && filters.carrier !== 'Combined') {
+      fallbackQuery = fallbackQuery.eq('carrier', filters.carrier);
+    }
+    if (filters?.startDate) {
+      fallbackQuery = fallbackQuery.gte('delivery_date', filters.startDate.toISOString().split('T')[0]);
+    }
+    if (filters?.endDate) {
+      fallbackQuery = fallbackQuery.lte('delivery_date', filters.endDate.toISOString().split('T')[0]);
+    }
+    if (filters?.terminal) {
+      fallbackQuery = fallbackQuery.eq('terminal', filters.terminal);
+    }
+    if (filters?.customer) {
+      fallbackQuery = fallbackQuery.ilike('customer', filters.customer);
+    }
+
+    const fallbackResult = await fallbackQuery;
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
 
   if (error) {
     console.error('Error fetching captive deliveries:', error);
     console.error('Query details:', { 
-      table: 'secure_captive_deliveries',
+      table: 'secure_captive_deliveries with fallback to captive_deliveries',
       filters: filters,
       carrier: filters?.carrier 
     });

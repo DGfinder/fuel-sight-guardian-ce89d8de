@@ -145,7 +145,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
             Fuel Delivery Analytics
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Monitor BOL deliveries, volume tracking, and carrier performance metrics
+            Monitor fuel deliveries, volume tracking, and carrier performance metrics
           </p>
           <div className="flex items-center gap-4 mt-2">
             <Badge variant="outline" className="text-orange-600 border-orange-200">
@@ -154,7 +154,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
             </Badge>
             <Badge variant="outline" className="text-purple-600 border-purple-200">
               <Truck className="w-4 h-4 mr-1" />
-              BOL Tracking
+              Delivery Tracking
             </Badge>
           </div>
         </div>
@@ -170,7 +170,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-blue-700 bg-blue-100">
               <BarChart3 className="w-4 h-4 mr-1" />
-              {combinedData ? `${combinedData.totalDeliveries.toLocaleString()} BOLs` : 'Loading...'}
+              {combinedData ? `${combinedData.totalDeliveries.toLocaleString()} Deliveries` : 'Loading...'}
               {isFiltered && ' (Filtered)'}
             </Badge>
             {isFiltered && (
@@ -235,7 +235,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
                     onClick={clearDateRange}
                     className="text-orange-600 hover:text-orange-800 font-medium underline"
                   >
-                    (Show All 23,756)
+                    (Show All 23,756 Deliveries)
                   </button>
                 </span>
               ) : (
@@ -274,10 +274,10 @@ const CaptivePaymentsDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Average Volume per BOL */}
+        {/* Average Volume per Delivery */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Volume per BOL</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg Volume per Delivery</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -327,7 +327,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
                   SMB (Stevemacs) Deliveries
                 </CardTitle>
                 <CardDescription>
-                  BOL delivery performance and terminal operations
+                  Fuel delivery performance and terminal operations
                 </CardDescription>
               </div>
               <Link to="/data-centre/captive-payments/smb">
@@ -340,7 +340,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="font-medium">BOL Count</span>
+                <span className="font-medium">Delivery Count</span>
                 <span className="text-2xl font-bold text-blue-600">
                   {isLoading ? (
                     <div className="animate-pulse bg-gray-200 h-6 w-16 rounded"></div>
@@ -356,7 +356,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-medium">Avg per BOL</span>
+                <span className="font-medium">Avg per Delivery</span>
                 <span className="text-lg font-semibold">
                   {smbData ? `${Math.round(smbData.averageDeliverySize).toLocaleString()} L` : '0 L'}
                 </span>
@@ -375,7 +375,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
                   GSF (Great Southern Fuels) Deliveries
                 </CardTitle>
                 <CardDescription>
-                  BOL delivery performance and terminal operations
+                  Fuel delivery performance and terminal operations
                 </CardDescription>
               </div>
               <Link to="/data-centre/captive-payments/gsf">
@@ -388,7 +388,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="font-medium">BOL Count</span>
+                <span className="font-medium">Delivery Count</span>
                 <span className="text-2xl font-bold text-green-600">
                   {isLoading ? (
                     <div className="animate-pulse bg-gray-200 h-6 w-16 rounded"></div>
@@ -404,7 +404,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-medium">Avg per BOL</span>
+                <span className="font-medium">Avg per Delivery</span>
                 <span className="text-lg font-semibold">
                   {gsfData ? `${Math.round(gsfData.averageDeliverySize).toLocaleString()} L` : '0 L'}
                 </span>
@@ -422,7 +422,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
             Top Customers by Delivery Frequency
           </CardTitle>
           <CardDescription>
-            Customer ranking by BOL count and volume delivered
+            Customer ranking by delivery count and volume delivered
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -456,7 +456,7 @@ const CaptivePaymentsDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold">{customer.total_deliveries} BOLs</div>
+                    <div className="font-semibold">{customer.total_deliveries} Deliveries</div>
                     <div className="text-sm text-gray-500">{customer.total_volume_litres.toLocaleString()} L</div>
                   </div>
                 </div>
@@ -520,18 +520,18 @@ const CaptivePaymentsDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* BOL Delivery Records Table */}
+      {/* Delivery Records Table */}
       {bolDeliveries && bolDeliveries.length > 0 ? (
         <BOLDeliveryTable 
           deliveries={bolDeliveries}
-          title={`BOL Delivery Records (${bolDeliveries.length.toLocaleString()} deliveries)`}
+          title={`Delivery Records (${bolDeliveries.length.toLocaleString()} deliveries)`}
           showFilters={true}
         />
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>BOL Delivery Records</CardTitle>
-            <CardDescription>Detailed delivery transactions with BOL tracking</CardDescription>
+            <CardTitle>Delivery Records</CardTitle>
+            <CardDescription>Detailed delivery transactions with tracking information</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-8">

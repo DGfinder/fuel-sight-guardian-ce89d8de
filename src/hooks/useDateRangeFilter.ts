@@ -54,8 +54,9 @@ export const useDateRangeFilter = (
     const startParam = searchParams.get('startDate');
     const endParam = searchParams.get('endDate');
     
-    const startDate = parseDateFromUrl(startParam) || defaultStartDate;
-    const endDate = parseDateFromUrl(endParam) || defaultEndDate;
+    // Only set dates if they exist in URL - don't use defaults to prevent automatic filtering
+    const startDate = parseDateFromUrl(startParam);
+    const endDate = parseDateFromUrl(endParam);
     
     setDateRangeState({ startDate, endDate });
   }, []); // Only run on mount
