@@ -1,71 +1,54 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * SMB DASHBOARD - REBUILT
+ * 
+ * Clean, simplified SMB-specific dashboard with proper error handling
+ * Uses only real Supabase data with comprehensive null checking
+ */
+
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   Truck, 
   TrendingUp, 
-  TrendingDown, 
   Building, 
   Package, 
   Users,
-  MapPin,
   Calendar,
   BarChart3,
   Download,
   ArrowLeft,
-  ToggleLeft,
-  ToggleRight,
   AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DataCentreLayout from '@/components/DataCentreLayout';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
 import DateRangeFilter from '@/components/DateRangeFilter';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  ComposedChart
-} from 'recharts';
-import { 
-  ProcessedCaptiveData, 
-  formatVolume
-} from '@/services/captivePaymentsDataProcessor';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useSMBData, useBOLDeliveries, useAvailableDateRange } from '@/hooks/useCaptivePayments';
+import { 
+  useSMBData, 
+  useBOLDeliveries, 
+  useAvailableDateRange 
+} from '@/hooks/useCaptivePayments';
+import type { DashboardFilters } from '@/types/captivePayments';
 
-// No more mock data - using real database queries
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-
-const SMBDashboard = () => {
-  // Permission check - require view_myob_deliveries permission and SMB access
+const SMBDashboard: React.FC = () => {
+  // Permission check
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
   
-  const [selectedPeriod, setSelectedPeriod] = useState('current');
-  const [showVolumeView, setShowVolumeView] = useState(false);
-
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
-
-  // Database hooks - replace CSV loading with database queries
-  const filters = { startDate, endDate, carrier: 'SMB' as const };
-  const { data: smbDatabaseData, isLoading, error: dataError } = useSMBData(filters);
+  
+  // Create filters object
+  const filters: DashboardFilters = { startDate, endDate };
+  
+  // Database hooks for real data
+  const { data: smbData, isLoading, error: dataError } = useSMBData(filters);
   const { data: bolDeliveries } = useBOLDeliveries(filters);
   const { data: availableDateRange } = useAvailableDateRange();
-
+  
   // Convert error type for compatibility
   const error = dataError ? String(dataError) : null;
 
@@ -154,18 +137,18 @@ const SMBDashboard = () => {
 
   // Create available range object from hook data
   const availableRange = availableDateRange ? {
-    min: new Date(availableDateRange.startDate),
-    max: new Date(availableDateRange.endDate)
+    min: new Date(availableDateRange.minDate),
+    max: new Date(availableDateRange.maxDate)
   } : null;
 
   const handleExportData = () => {
     const exportData = {
       carrier: 'SMB (Stevemacs)',
-      period: smbDatabaseData?.dateRange ? `${smbDatabaseData.dateRange.startDate} - ${smbDatabaseData.dateRange.endDate}` : 'N/A',
+      period: smbData?.dateRange ? `${smbData.dateRange.startDate} - ${smbData.dateRange.endDate}` : 'N/A',
       summary: {
-        deliveries: smbDatabaseData?.totalDeliveries || 0,
-        volume: smbDatabaseData?.totalVolumeLitres || 0,
-        terminals: smbDatabaseData?.terminalAnalysis?.length || 0
+        deliveries: smbData?.totalDeliveries || 0,
+        volume: smbData?.totalVolumeLitres || 0,
+        terminals: smbData?.terminalAnalysis?.length || 0
       },
       deliveries: bolDeliveries?.slice(0, 100) || []
     };
@@ -197,11 +180,11 @@ const SMBDashboard = () => {
             <div className="flex items-center gap-4 mt-2">
               <Badge variant="outline" className="text-blue-600 border-blue-200">
                 <Building className="w-4 h-4 mr-1" />
-                3 Terminal Access
+                Terminal Access
               </Badge>
               <Badge variant="outline" className="text-green-600 border-green-200">
                 <Package className="w-4 h-4 mr-1" />
-                {smbDatabaseData ? `${smbDatabaseData.totalDeliveries.toLocaleString()} BOLs Total` : 'Loading...'}
+                {smbData ? `${smbData.totalDeliveries.toLocaleString()} BOLs Total` : 'Loading...'}
               </Badge>
             </div>
           </div>
@@ -212,7 +195,7 @@ const SMBDashboard = () => {
             </Button>
             <Badge variant="secondary" className="text-green-700 bg-green-100">
               <BarChart3 className="w-4 h-4 mr-1" />
-              {smbDatabaseData ? `${smbDatabaseData.totalVolumeMegaLitres.toFixed(1)} ML Total` : 'Loading...'}
+              {smbData ? `${smbData.totalVolumeMegaLitres.toFixed(1)} ML Total` : 'Loading...'}
             </Badge>
           </div>
         </div>
@@ -224,8 +207,8 @@ const SMBDashboard = () => {
             endDate={endDate}
             onDateChange={setDateRange}
             availableRange={availableRange}
-            totalRecords={smbDatabaseData?.totalDeliveries || 0}
-            filteredRecords={smbDatabaseData?.totalDeliveries || 0}
+            totalRecords={smbData?.totalDeliveries || 0}
+            filteredRecords={smbData?.totalDeliveries || 0}
             className="mb-6"
           />
         )}
@@ -241,11 +224,11 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-blue-900">
-                {smbDatabaseData ? smbDatabaseData.totalDeliveries.toLocaleString() : '0'}
+                {smbData ? smbData.totalDeliveries.toLocaleString() : '0'}
               </div>
               <p className="text-xs text-blue-600 flex items-center mt-1">
                 <TrendingUp className="w-3 h-3 mr-1" />
-                +2.3% vs last month
+                {isFiltered ? 'Filtered Period' : 'All Time'}
               </p>
             </CardContent>
           </Card>
@@ -257,10 +240,10 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-900">
-                {smbDatabaseData ? `${smbDatabaseData.totalVolumeMegaLitres.toFixed(1)} ML` : '0 ML'}
+                {smbData ? `${smbData.totalVolumeMegaLitres.toFixed(1)} ML` : '0 ML'}
               </div>
               <p className="text-xs text-green-600">
-                {smbDatabaseData ? `${smbDatabaseData.totalVolumeLitres.toLocaleString()} litres total` : 'Loading...'}
+                {smbData ? `${smbData.totalVolumeLitres.toLocaleString()} litres total` : 'Loading...'}
               </p>
             </CardContent>
           </Card>
@@ -272,10 +255,10 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                {smbDatabaseData ? `${smbDatabaseData.dateRange.monthsCovered} months` : '0 months'}
+                {smbData ? `${smbData.dateRange?.monthsCovered || 0} months` : '0 months'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {smbDatabaseData ? `${smbDatabaseData.dateRange.startDate} - ${smbDatabaseData.dateRange.endDate}` : 'Loading...'}
+                {smbData?.dateRange ? `${smbData.dateRange.startDate} - ${smbData.dateRange.endDate}` : 'Loading...'}
               </p>
             </CardContent>
           </Card>
@@ -287,149 +270,47 @@ const SMBDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                {smbDatabaseData ? smbDatabaseData.uniqueCustomers : 0}
+                {smbData ? smbData.uniqueCustomers : 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {smbDatabaseData ? `${smbDatabaseData.terminalAnalysis.length} terminals served` : 'Loading...'}
+                {smbData?.terminalAnalysis ? `${smbData.terminalAnalysis.length} terminals served` : 'Loading...'}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Monthly Volume Analytics */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
-                    SMB Monthly Volume Analytics
-                  </CardTitle>
-                  <CardDescription>
-                    {showVolumeView ? 'Monthly delivery volumes in megalitres' : 'Monthly delivery count trends'}
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowVolumeView(!showVolumeView)}
-                  className="flex items-center gap-2"
-                >
-                  {showVolumeView ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                  {showVolumeView ? 'Volume (ML)' : 'Deliveries'}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
+        {/* Terminal Performance */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building className="w-5 h-5" />
+              Terminal Performance
+            </CardTitle>
+            <CardDescription>
+              Volume distribution across SMB terminals
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
               {isLoading ? (
-                <div className="flex items-center justify-center h-[300px]">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-sm text-muted-foreground">Loading SMB data...</p>
+                Array(3).fill(0).map((_, index) => (
+                  <div key={index} className="animate-pulse border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="bg-gray-200 h-4 w-32 rounded"></div>
+                      <div className="bg-gray-200 h-4 w-12 rounded"></div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-gray-200 h-12 rounded"></div>
+                      <div className="bg-gray-200 h-12 rounded"></div>
+                      <div className="bg-gray-200 h-12 rounded"></div>
+                    </div>
                   </div>
-                </div>
-              ) : error ? (
-                <div className="flex items-center justify-center h-[300px]">
-                  <div className="text-center">
-                    <p className="text-sm text-red-600 mb-2">{error}</p>
-                    <p className="text-xs text-muted-foreground">Falling back to mock data</p>
-                  </div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={smbDatabaseData?.monthlyData || []}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="month_name"
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
-                    <YAxis yAxisId="left" />
-                    {showVolumeView && <YAxis yAxisId="right" orientation="right" />}
-                    <Tooltip 
-                      formatter={(value: number, name: string) => {
-                        if (name === 'Volume (ML)') {
-                          return [`${value.toFixed(2)} ML`, name];
-                        }
-                        return [value.toLocaleString(), name];
-                      }}
-                      labelFormatter={(label, payload) => {
-                        if (payload && payload[0] && payload[0].payload) {
-                          const data = payload[0].payload;
-                          return `${label} ${data.year || ''}`;
-                        }
-                        return label;
-                      }}
-                    />
-                    <Legend />
-                    <Bar 
-                      yAxisId="left" 
-                      dataKey="total_deliveries" 
-                      fill="#3b82f6" 
-                      name="Deliveries" 
-                      opacity={showVolumeView ? 0.6 : 1}
-                    />
-                    {showVolumeView && (
-                      <Line 
-                        yAxisId="right" 
-                        type="monotone" 
-                        dataKey="total_volume_megalitres" 
-                        stroke="#10b981" 
-                        strokeWidth={3} 
-                        name="Volume (ML)" 
-                      />
-                    )}
-                  </ComposedChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Terminal Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="w-5 h-5" />
-                Terminal Distribution
-              </CardTitle>
-              <CardDescription>
-                SMB delivery volume by terminal location
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={smbDatabaseData?.terminalAnalysis || smbData.terminalPerformance}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ terminal, percentage }) => `${terminal.split(' ')[0]} ${percentage.toFixed(1)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey={smbDatabaseData ? "volumeLitres" : "volume"}
-                  >
-                    {(smbDatabaseData?.terminalAnalysis || smbData.terminalPerformance).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => [value.toLocaleString() + ' L', 'Volume']} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-3 mt-4">
-                {(smbDatabaseData?.terminalAnalysis || []).map((terminal, index) => (
+                ))
+              ) : smbData?.terminalAnalysis?.length ? (
+                smbData.terminalAnalysis.map((terminal, index) => (
                   <div key={terminal.terminal} className="border rounded-lg p-3 bg-gray-50/50">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className="font-medium text-gray-900">{terminal.terminal}</span>
-                      </div>
+                      <span className="font-medium text-gray-900">{terminal.terminal}</span>
                       <span className="font-semibold text-blue-600">{terminal.percentage_of_carrier_volume?.toFixed(1) || 0}%</span>
                     </div>
                     <div className="grid grid-cols-3 gap-4 text-sm">
@@ -450,65 +331,49 @@ const SMBDashboard = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full" 
-                          style={{ 
-                            width: `${terminal.percentage_of_carrier_volume || 0}%`,
-                            backgroundColor: COLORS[index % COLORS.length]
-                          }}
-                        />
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No terminal data available
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top Customers */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Top SMB Customers
+            </CardTitle>
+            <CardDescription>
+              Highest volume customers served by SMB
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {isLoading ? (
+                Array(5).fill(0).map((_, index) => (
+                  <div key={index} className="animate-pulse border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-gray-200 w-6 h-6 rounded-full"></div>
+                        <div className="bg-gray-200 h-4 w-32 rounded"></div>
                       </div>
+                      <div className="bg-gray-200 h-4 w-16 rounded"></div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-gray-200 h-8 rounded"></div>
+                      <div className="bg-gray-200 h-8 rounded"></div>
+                      <div className="bg-gray-200 h-8 rounded"></div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Product Mix and Top Customers */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Product Mix Analysis
-              </CardTitle>
-              <CardDescription>
-                Fuel type distribution for SMB deliveries
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Note: Product mix not available in current data structure */}
-                {smbDatabaseData ? (
-                  <div className="text-center py-8 text-gray-500">
-                    Product mix analytics will be available once product-level data is configured
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    Loading product data...
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Top SMB Customers
-              </CardTitle>
-              <CardDescription>
-                Highest volume customers served by SMB
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {(smbDatabaseData?.topCustomers || []).map((customer, index) => (
+                ))
+              ) : smbData?.topCustomers?.length ? (
+                smbData.topCustomers.map((customer, index) => (
                   <div key={customer.customer} className="border rounded-lg p-3 bg-gray-50/50">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
@@ -519,9 +384,9 @@ const SMBDashboard = () => {
                       </div>
                       <div className="text-right">
                         <div className="font-semibold text-blue-600">{customer.total_deliveries} BOLs</div>
-                        {smbDatabaseData && (
+                        {smbData && (
                           <div className="text-xs text-gray-500">
-                            {((customer.total_deliveries / smbDatabaseData.totalDeliveries) * 100).toFixed(1)}% of total
+                            {((customer.total_deliveries / smbData.totalDeliveries) * 100).toFixed(1)}% of total
                           </div>
                         )}
                       </div>
@@ -545,35 +410,41 @@ const SMBDashboard = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No customer data available
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent SMB Deliveries */}
+        {bolDeliveries && bolDeliveries.length > 0 ? (
+          <BOLDeliveryTable 
+            deliveries={bolDeliveries.slice(-20).reverse()}
+            title="Recent SMB Deliveries"
+            showFilters={false}
+          />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent SMB Deliveries</CardTitle>
+              <CardDescription>Latest delivery transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  {isLoading ? 'Loading delivery records...' : 'No delivery records available'}
+                </div>
+                {isLoading && (
+                  <div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>
+                )}
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Recent SMB Deliveries */}
-        <BOLDeliveryTable 
-          deliveries={bolDeliveries ? 
-            bolDeliveries
-              .slice(-20) // Get last 20 deliveries
-              .reverse() // Most recent first
-              .map((delivery, index) => ({
-                bolNumber: delivery.bill_of_lading || `BOL-${new Date(delivery.delivery_date).getFullYear()}-${String(index + 1).padStart(6, '0')}`,
-                carrier: delivery.carrier,
-                terminal: delivery.terminal,
-                customer: delivery.customer,
-                products: delivery.products || [],
-                totalQuantity: delivery.total_volume_litres,
-                deliveryDate: delivery.delivery_date,
-                driverName: 'N/A', // Not available in current data
-                vehicleId: 'N/A',   // Not available in current data
-                recordCount: delivery.record_count || 1
-              }))
-            : []
-          }
-          title="Recent SMB Deliveries"
-          showFilters={false}
-        />
+        )}
       </div>
     </DataCentreLayout>
   );

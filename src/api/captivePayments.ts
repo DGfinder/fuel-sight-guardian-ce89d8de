@@ -84,8 +84,8 @@ export interface TerminalAnalytics {
 // Filter interface
 export interface CaptivePaymentsFilters {
   carrier?: 'SMB' | 'GSF' | 'Combined' | 'all';
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | null;
+  endDate?: Date | null;
   terminal?: string;
   customer?: string;
   product?: string;
