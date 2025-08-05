@@ -47,7 +47,8 @@ const SMBDashboard: React.FC = () => {
   // Create filters object - SMB-specific (no date filters unless explicitly set by user)
   const filters: DashboardFilters = { 
     startDate: isFiltered ? startDate : null, 
-    endDate: isFiltered ? endDate : null 
+    endDate: isFiltered ? endDate : null,
+    carrier: 'SMB'
   };
   
   console.log('SMB Dashboard filters:', { startDate, endDate, isFiltered, filtersApplied: filters });

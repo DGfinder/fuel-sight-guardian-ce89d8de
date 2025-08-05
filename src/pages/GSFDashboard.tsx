@@ -47,7 +47,8 @@ const GSFDashboard: React.FC = () => {
   // Create filters object - GSF-specific (no date filters unless explicitly set by user)
   const filters: DashboardFilters = { 
     startDate: isFiltered ? startDate : null, 
-    endDate: isFiltered ? endDate : null 
+    endDate: isFiltered ? endDate : null,
+    carrier: 'GSF'
   };
   
   console.log('GSF Dashboard filters:', { startDate, endDate, isFiltered, filtersApplied: filters });
