@@ -56,6 +56,10 @@ const GSFDashboard = () => {
   
   const [selectedPeriod, setSelectedPeriod] = useState('current');
   const [showVolumeView, setShowVolumeView] = useState(false);
+  
+  // Date range filtering
+  const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+  
   // Database hooks for real data
   const filters = { startDate, endDate, carrier: 'GSF' as const };
   const { data: gsfDatabaseData, isLoading, error: dataError } = useGSFData(filters);
@@ -96,9 +100,6 @@ const GSFDashboard = () => {
       </div>
     );
   }
-
-  // Date range filtering
-  const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
 
   // Check if user has permission to view GSF data specifically
   const hasGSFPermission = permissions?.isAdmin || 
