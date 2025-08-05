@@ -434,16 +434,16 @@ const GSFDashboard: React.FC = () => {
           {gsfData?.monthlyData && gsfData.monthlyData.length > 0 ? (
             <MonthlyVolumeChart 
               data={gsfData.monthlyData} 
-              carrier=\"GSF\"
+              carrier="GSF"
               height={300}
             />
           ) : (
-            <div className=\"text-center py-8\">
-              <div className=\"text-gray-500 mb-4\">
+            <div className="text-center py-8">
+              <div className="text-gray-500 mb-4">
                 {isLoading ? 'Loading monthly volume data...' : 'No monthly data available'}
               </div>
               {isLoading && (
-                <div className=\"animate-pulse bg-gray-200 h-64 rounded-lg\"></div>
+                <div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>
               )}
             </div>
           )}
@@ -455,7 +455,7 @@ const GSFDashboard: React.FC = () => {
         <VolumeBreakdownCharts 
           terminalAnalysis={gsfData.terminalAnalysis || []}
           topCustomers={gsfData.topCustomers || []}
-          carrier=\"GSF\"
+          carrier="GSF"
         />
       )}
 
