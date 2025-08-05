@@ -26,10 +26,15 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { 
   useAllCarrierData,
   useBOLDeliveries,
-  useAvailableDateRange
+  useAvailableDateRange,
+  useMonthlyAnalytics,
+  useTerminalAnalytics,
+  useCustomerAnalytics
 } from '@/hooks/useCaptivePayments';
 import CompactDateFilter from '@/components/CompactDateFilter';
 import BOLDeliveryTable from '@/components/BOLDeliveryTable';
+import MonthlyVolumeChart from '@/components/charts/MonthlyVolumeChart';
+import VolumeBreakdownCharts from '@/components/charts/VolumeBreakdownCharts';
 import type { DashboardFilters } from '@/types/captivePayments';
 
 const CaptivePaymentsDashboard: React.FC = () => {
@@ -53,6 +58,11 @@ const CaptivePaymentsDashboard: React.FC = () => {
   
   const { data: bolDeliveries } = useBOLDeliveries(filters);
   const { data: availableDateRange } = useAvailableDateRange();
+  
+  // Analytics data for compliance charts
+  const { data: monthlyAnalytics } = useMonthlyAnalytics(filters);
+  const { data: terminalAnalytics } = useTerminalAnalytics(filters);
+  const { data: customerAnalytics } = useCustomerAnalytics(filters);
 
   // Show loading state while checking permissions
   if (permissionsLoading) {
@@ -422,6 +432,56 @@ const CaptivePaymentsDashboard: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Compliance Charts Section */}
+      {monthlyAnalytics && monthlyAnalytics.length > 0 && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Compliance Analytics
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Professional charts for regulatory reporting and management review
+              </p>
+            </div>
+            <Badge variant="outline" className="text-green-700 border-green-200">
+              <BarChart3 className="w-4 h-4 mr-1" />
+              Ready for Export
+            </Badge>
+          </div>
+          
+          {/* Monthly Volume Trend Chart */}
+          <MonthlyVolumeChart 
+            data={monthlyAnalytics}
+            carrier="Combined"
+            showExportButton={true}
+            className="col-span-full"
+          />
+          
+          {/* Volume Breakdown Charts */}
+          {terminalAnalytics && customerAnalytics && (
+            <VolumeBreakdownCharts
+              terminalData={terminalAnalytics}
+              customerData={customerAnalytics}
+              carrierBreakdown={
+                smbData && gsfData
+                  ? {
+                      SMB: {
+                        volume: smbData.totalVolumeLitres,
+                        deliveries: smbData.totalDeliveries
+                      },
+                      GSF: {
+                        volume: gsfData.totalVolumeLitres,
+                        deliveries: gsfData.totalDeliveries
+                      }
+                    }
+                  : undefined
+              }
+            />
+          )}
+        </div>
+      )}
 
       {/* BOL Delivery Records Table */}
       {bolDeliveries && bolDeliveries.length > 0 ? (
