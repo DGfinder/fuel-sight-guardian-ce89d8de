@@ -102,6 +102,7 @@ export async function getCaptivePaymentRecords(filters?: CaptivePaymentsFilters)
   let query = supabase
     .from('captive_payment_records')
     .select('*')
+    .range(0, 100000) // Override default 1000 limit - get all raw records
     .order('delivery_date', { ascending: false })
     .order('bill_of_lading');
 
@@ -144,10 +145,11 @@ export async function getCaptivePaymentRecords(filters?: CaptivePaymentsFilters)
  * Get captive deliveries (BOL-grouped data) with filters
  */
 export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Promise<CaptiveDelivery[]> {
-  // Try secure view first, fallback to materialized view if needed
+  // Direct access to materialized view - override Supabase 1000 row default limit
   let query = supabase
-    .from('secure_captive_deliveries')
+    .from('captive_deliveries')
     .select('*')
+    .range(0, 30000) // Get up to 30,000 rows (covers all 23,756 deliveries)
     .order('delivery_date', { ascending: false })
     .order('bill_of_lading');
 
@@ -173,50 +175,25 @@ export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Pr
     query = query.ilike('customer', filters.customer);
   }
 
-  let { data, error } = await query;
-
-  // If secure view fails, try fallback to materialized view
-  if (error && error.code === 'PGRST116') {
-    console.warn('Secure view not available, falling back to materialized view');
-    let fallbackQuery = supabase
-      .from('captive_deliveries')
-      .select('*')
-      .order('delivery_date', { ascending: false })
-      .order('bill_of_lading');
-
-    // Apply same filters
-    if (filters?.carrier && filters.carrier !== 'all' && filters.carrier !== 'Combined') {
-      fallbackQuery = fallbackQuery.eq('carrier', filters.carrier);
-    }
-    if (filters?.startDate) {
-      fallbackQuery = fallbackQuery.gte('delivery_date', filters.startDate.toISOString().split('T')[0]);
-    }
-    if (filters?.endDate) {
-      fallbackQuery = fallbackQuery.lte('delivery_date', filters.endDate.toISOString().split('T')[0]);
-    }
-    if (filters?.terminal) {
-      fallbackQuery = fallbackQuery.eq('terminal', filters.terminal);
-    }
-    if (filters?.customer) {
-      fallbackQuery = fallbackQuery.ilike('customer', filters.customer);
-    }
-
-    const fallbackResult = await fallbackQuery;
-    data = fallbackResult.data;
-    error = fallbackResult.error;
-  }
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching captive deliveries:', error);
     console.error('Query details:', { 
-      table: 'secure_captive_deliveries with fallback to captive_deliveries',
+      table: 'captive_deliveries (direct access, no RLS)',
       filters: filters,
       carrier: filters?.carrier 
     });
     throw error;
   }
 
-  console.log(`Fetched ${data?.length || 0} deliveries for carrier: ${filters?.carrier || 'all'}`);
+  console.log(`Fetched ${data?.length || 0} deliveries for carrier: ${filters?.carrier || 'all'} (range: 0-30000, RLS disabled)`);
+  
+  // Log if we hit the limit to help debug
+  if (data && data.length >= 30000) {
+    console.warn('Hit 30,000 row limit - may need to increase range');
+  }
+  
   return data || [];
 }
 
