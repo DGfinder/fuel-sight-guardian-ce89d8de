@@ -23,8 +23,9 @@ import { Building, Users, Truck, Package } from 'lucide-react';
 import type { TerminalAnalytics, CustomerAnalytics } from '@/types/captivePayments';
 
 interface VolumeBreakdownChartsProps {
-  terminalData: TerminalAnalytics[];
-  customerData: CustomerAnalytics[];
+  terminalAnalysis: TerminalAnalytics[];
+  topCustomers: CustomerAnalytics[];
+  carrier?: string;
   carrierBreakdown?: {
     SMB: { volume: number; deliveries: number };
     GSF: { volume: number; deliveries: number };
@@ -41,14 +42,17 @@ const COLORS = {
 };
 
 const VolumeBreakdownCharts: React.FC<VolumeBreakdownChartsProps> = ({
-  terminalData,
-  customerData,
+  terminalAnalysis = [],
+  topCustomers = [],
+  carrier,
   carrierBreakdown,
   className = ''
 }) => {
   // Prepare terminal data for chart (top 10)
   const terminalChartData = React.useMemo(() => {
-    return terminalData
+    if (!terminalAnalysis || terminalAnalysis.length === 0) return [];
+    
+    return terminalAnalysis
       .sort((a, b) => b.total_volume_megalitres - a.total_volume_megalitres)
       .slice(0, 10)
       .map((terminal, index) => ({
@@ -59,11 +63,13 @@ const VolumeBreakdownCharts: React.FC<VolumeBreakdownChartsProps> = ({
         percentage: terminal.percentage_of_carrier_volume,
         color: COLORS.terminals[index % COLORS.terminals.length]
       }));
-  }, [terminalData]);
+  }, [terminalAnalysis]);
 
   // Prepare customer data for chart (top 10)
   const customerChartData = React.useMemo(() => {
-    return customerData
+    if (!topCustomers || topCustomers.length === 0) return [];
+    
+    return topCustomers
       .sort((a, b) => b.total_volume_megalitres - a.total_volume_megalitres)
       .slice(0, 10)
       .map((customer, index) => ({
@@ -74,7 +80,7 @@ const VolumeBreakdownCharts: React.FC<VolumeBreakdownChartsProps> = ({
         deliveries: customer.total_deliveries,
         color: COLORS.customers[index % COLORS.customers.length]
       }));
-  }, [customerData]);
+  }, [topCustomers]);
 
   // Prepare carrier breakdown for pie chart
   const carrierChartData = React.useMemo(() => {
@@ -303,11 +309,11 @@ const VolumeBreakdownCharts: React.FC<VolumeBreakdownChartsProps> = ({
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Total Terminals</span>
-              <span className="font-semibold text-lg">{terminalData.length}</span>
+              <span className="font-semibold text-lg">{terminalAnalysis?.length || 0}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Total Customers</span>
-              <span className="font-semibold text-lg">{customerData.length}</span>
+              <span className="font-semibold text-lg">{topCustomers?.length || 0}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Top Terminal</span>
@@ -324,8 +330,8 @@ const VolumeBreakdownCharts: React.FC<VolumeBreakdownChartsProps> = ({
             <div className="flex justify-between items-center pt-2 border-t">
               <span className="text-gray-600">Avg Volume/Terminal</span>
               <span className="font-semibold text-lg">
-                {terminalData.length > 0 
-                  ? (terminalData.reduce((sum, t) => sum + t.total_volume_megalitres, 0) / terminalData.length).toFixed(1)
+                {terminalAnalysis && terminalAnalysis.length > 0 
+                  ? (terminalAnalysis.reduce((sum, t) => sum + t.total_volume_megalitres, 0) / terminalAnalysis.length).toFixed(1)
                   : '0'
                 }M
               </span>
