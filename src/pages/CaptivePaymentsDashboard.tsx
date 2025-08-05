@@ -333,7 +333,7 @@ const CaptivePaymentsDashboard = () => {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {combinedData ? `${combinedData.terminals.length} terminals served` : 'Loading...'}
+              {combinedData?.terminals ? `${combinedData.terminals.length} terminals served` : 'Loading...'}
             </p>
           </CardContent>
         </Card>
