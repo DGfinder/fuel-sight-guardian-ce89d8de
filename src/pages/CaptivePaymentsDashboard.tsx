@@ -134,7 +134,7 @@ const CaptivePaymentsDashboard = () => {
     const headers = ['Date', 'BOL Number', 'Location', 'Customer', 'Product', 'Volume (L)', 'Carrier'];
     const csvContent = [
       headers.join(','),
-      ...combinedData.rawRecords.slice(0, 1000).map(record => [
+      ...(combinedData.rawRecords?.slice(0, 1000) || []).map(record => [
         record.date,
         record.billOfLading,
         record.location,
@@ -284,7 +284,7 @@ const CaptivePaymentsDashboard = () => {
               {isFiltered ? (
                 <span>Filtered Period</span>
               ) : combinedData ? (
-                <span>{combinedData.dateRange.startDate} - {combinedData.dateRange.endDate}</span>
+                <span>{combinedData.dateRange?.startDate} - {combinedData.dateRange?.endDate}</span>
               ) : (
                 <span>Loading...</span>
               )}
@@ -310,7 +310,7 @@ const CaptivePaymentsDashboard = () => {
             </div>
             <p className="text-xs text-green-600 flex items-center mt-1">
               {combinedData ? (
-                <span>{combinedData.totalVolumeLitres.toLocaleString()} litres total</span>
+                <span>{combinedData.totalVolumeLitres?.toLocaleString()} litres total</span>
               ) : (
                 <span>Loading...</span>
               )}
@@ -349,7 +349,7 @@ const CaptivePaymentsDashboard = () => {
               {isLoading ? (
                 <div className="animate-pulse bg-gray-200 h-6 w-16 rounded"></div>
               ) : (
-                combinedData ? `${combinedData.dateRange.monthsCovered} months` : '0 months'
+                combinedData ? `${combinedData.dateRange?.monthsCovered} months` : '0 months'
               )}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -515,7 +515,7 @@ const CaptivePaymentsDashboard = () => {
                   </div>
                 ))
               ) : combinedData ? (
-                combinedData.topCustomers.slice(0, 5).map((customer, index) => (
+                (combinedData.topCustomers || []).slice(0, 5).map((customer, index) => (
                   <div key={customer.customer} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
@@ -612,9 +612,9 @@ const CaptivePaymentsDashboard = () => {
           </p>
         </div>
         
-        {combinedData && combinedData.monthlyData.length > 0 ? (
+        {combinedData && combinedData.monthlyData?.length > 0 ? (
           <DeliveryTrendCharts 
-            monthlyData={combinedData.monthlyData.map(month => ({
+            monthlyData={(combinedData.monthlyData || []).map(month => ({
               month: month.month_name,
               smbDeliveries: smbData?.monthlyData.find(m => m.month_name === month.month_name)?.total_deliveries || 0,
               gsfDeliveries: gsfData?.monthlyData.find(m => m.month_name === month.month_name)?.total_deliveries || 0,
@@ -626,7 +626,7 @@ const CaptivePaymentsDashboard = () => {
             currentMonth={{
               totalDeliveries: combinedData.totalDeliveries,
               totalVolume: combinedData.totalVolumeLitres,
-              period: `${combinedData.dateRange.startDate} - ${combinedData.dateRange.endDate}`
+              period: `${combinedData.dateRange?.startDate} - ${combinedData.dateRange?.endDate}`
             }}
           />
         ) : (
