@@ -47,8 +47,13 @@ const MonthlyVolumeChart: React.FC<MonthlyVolumeChartProps> = ({
 }) => {
   // Transform data for chart display
   const chartData: ChartDataPoint[] = React.useMemo(() => {
+    console.log(`MonthlyVolumeChart: Processing ${data.length} items for carrier: ${carrier}`);
+    
     return data
-      .filter(item => carrier === 'Combined' || item.carrier === carrier)
+      .filter(item => {
+        const shouldInclude = carrier === 'Combined' || item.carrier === carrier;
+        return shouldInclude;
+      })
       .reduce((acc, item) => {
         const monthKey = `${item.year}-${item.month.toString().padStart(2, '0')}`;
         const existing = acc.find(d => d.period === monthKey);
@@ -75,6 +80,9 @@ const MonthlyVolumeChart: React.FC<MonthlyVolumeChartProps> = ({
       }, [] as ChartDataPoint[])
       .sort((a, b) => a.period.localeCompare(b.period))
       .slice(-12); // Show last 12 months
+    
+    console.log(`MonthlyVolumeChart: Generated ${chartData.length} chart points for ${carrier}`);
+    return chartData;
   }, [data, carrier]);
 
   // Calculate totals for summary

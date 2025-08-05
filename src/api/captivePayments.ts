@@ -106,9 +106,10 @@ export async function getCaptivePaymentRecords(filters?: CaptivePaymentsFilters)
     .order('bill_of_lading');
 
   // Apply carrier filter
-  if (filters?.carrier && filters.carrier !== 'all') {
+  if (filters?.carrier && filters.carrier !== 'all' && filters.carrier !== 'Combined') {
     query = query.eq('carrier', filters.carrier);
   }
+  // Note: 'Combined' means show all carriers (SMB + GSF), so no filter applied
 
   // Apply date range filters
   if (filters?.startDate) {
@@ -144,15 +145,16 @@ export async function getCaptivePaymentRecords(filters?: CaptivePaymentsFilters)
  */
 export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Promise<CaptiveDelivery[]> {
   let query = supabase
-    .from('captive_deliveries') // Use materialized view directly (secure views missing)
+    .from('secure_captive_deliveries') // Use secure view for proper RLS permissions
     .select('*')
     .order('delivery_date', { ascending: false })
     .order('bill_of_lading');
 
   // Apply carrier filter
-  if (filters?.carrier && filters.carrier !== 'all') {
+  if (filters?.carrier && filters.carrier !== 'all' && filters.carrier !== 'Combined') {
     query = query.eq('carrier', filters.carrier);
   }
+  // Note: 'Combined' means show all carriers (SMB + GSF), so no filter applied
 
   // Apply date range filters
   if (filters?.startDate) {
@@ -174,9 +176,15 @@ export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Pr
 
   if (error) {
     console.error('Error fetching captive deliveries:', error);
+    console.error('Query details:', { 
+      table: 'secure_captive_deliveries',
+      filters: filters,
+      carrier: filters?.carrier 
+    });
     throw error;
   }
 
+  console.log(`Fetched ${data?.length || 0} deliveries for carrier: ${filters?.carrier || 'all'}`);
   return data || [];
 }
 
