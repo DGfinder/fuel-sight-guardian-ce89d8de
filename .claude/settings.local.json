@@ -59,7 +59,8 @@
       "Bash(timeout 30 npm run build)",
       "Bash(git push:*)",
       "Bash(npm ci:*)",
-      "Bash(export:*)"
+      "Bash(export:*)",
+      "Bash(git stash push:*)"
     ],
     "deny": []
   }
