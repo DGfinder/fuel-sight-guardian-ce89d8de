@@ -422,8 +422,8 @@ const GSFDashboard: React.FC = () => {
       {/* Monthly Volume Chart */}
       <Card>
         <CardHeader>
-          <CardTitle className=\"flex items-center gap-2\">
-            <BarChart3 className=\"w-5 h-5\" />
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
             GSF Monthly Volume Trends
           </CardTitle>
           <CardDescription>
