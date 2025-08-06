@@ -5,16 +5,18 @@
  * for logistics analysis and delivery cost optimization
  */
 
-// Known terminal coordinates (hardcoded for simplicity)
+// Known fuel terminal coordinates - AU TERM locations where trucks load fuel
 export const TERMINAL_COORDINATES: Record<string, { lat: number; lng: number; name: string }> = {
-  // SMB Terminals
-  'Kalgoorlie': { lat: -30.7458, lng: 121.4715, name: 'Kalgoorlie Terminal' },
-  'Perth': { lat: -31.9505, lng: 115.8605, name: 'Perth Terminal' },
-  'Geraldton': { lat: -28.7774, lng: 114.6147, name: 'Geraldton Terminal' },
-  'Bunbury': { lat: -33.3267, lng: 115.6441, name: 'Bunbury Terminal' },
-  'Albany': { lat: -35.0269, lng: 117.8840, name: 'Albany Terminal' },
+  // Fuel Loading Terminals (Updated with AU TERM coordinates)
+  'Kewdale': { lat: -31.981076196850736, lng: 115.9723248550286, name: 'Kewdale Terminal' },
+  'Geraldton': { lat: -28.78226543395978, lng: 114.59626791553842, name: 'Geraldton Terminal' },
+  'Kalgoorlie': { lat: -30.778741698920648, lng: 121.42510090094386, name: 'Kalgoorlie Terminal' },
+  'Coogee Rockingham': { lat: -32.2233144927088, lng: 115.75948393680929, name: 'Coogee Rockingham Terminal' },
+  'Merredin': { lat: -31.483243328052218, lng: 118.2526964695131, name: 'Merredin Terminal' },
+  'Albany': { lat: -34.954554508791155, lng: 117.88980579777935, name: 'Albany Terminal' },
+  'Wongan Hills': { lat: -30.89780974646496, lng: 116.71992488536, name: 'Wongan Hills Terminal' },
   
-  // GSF Terminals
+  // GSF Terminals (keep existing for now)
   'Esperance': { lat: -33.8614, lng: 121.8910, name: 'Esperance Terminal' },
   'Port Hedland': { lat: -20.3192, lng: 118.5717, name: 'Port Hedland Terminal' },
   'Karratha': { lat: -20.7364, lng: 116.8460, name: 'Karratha Terminal' },
@@ -33,9 +35,9 @@ export const CUSTOMER_LOCATION_ESTIMATES: Record<string, { lat: number; lng: num
   'Kimberley': { lat: -17.5, lng: 123.0 },
   'Great Southern': { lat: -34.5, lng: 117.5 },
   
-  // Default locations for unknown customers (Perth metro area)
-  'Perth Metro': { lat: -31.9505, lng: 115.8605 },
-  'Unknown': { lat: -31.9505, lng: 115.8605 }
+  // Default locations for unknown customers (use Kewdale terminal)
+  'Perth Metro': { lat: -31.981076196850736, lng: 115.9723248550286 },
+  'Unknown': { lat: -31.981076196850736, lng: 115.9723248550286 }
 };
 
 /**
@@ -101,11 +103,11 @@ export function estimateCustomerLocation(customerName: string): { lat: number; l
   if (name.includes('albany') || name.includes('great southern')) {
     return CUSTOMER_LOCATION_ESTIMATES['Great Southern'];
   }
-  if (name.includes('perth')) {
+  if (name.includes('perth') || name.includes('kewdale')) {
     return CUSTOMER_LOCATION_ESTIMATES['Perth Metro'];
   }
   
-  // Default to Perth metro for unknown customers
+  // Default to Kewdale (primary terminal) for unknown customers
   return CUSTOMER_LOCATION_ESTIMATES['Unknown'];
 }
 

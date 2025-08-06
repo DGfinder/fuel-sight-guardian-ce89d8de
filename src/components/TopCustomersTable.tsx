@@ -17,11 +17,10 @@ import {
   ArrowUpDown, 
   TrendingUp, 
   Download,
-  Eye,
-  Navigation
+  Eye
 } from 'lucide-react';
 import { CustomerAnalytics } from '@/types/captivePayments';
-import { calculateTerminalToCustomerDistance, formatDistance } from '@/utils/distanceCalculations';
+// TODO: Will integrate mtdata API for real trip distance data in the future
 
 interface TopCustomersTableProps {
   customers: CustomerAnalytics[];
@@ -108,9 +107,7 @@ const TopCustomersTable: React.FC<TopCustomersTableProps> = ({
       const percentage = ((customer.total_deliveries / totalDeliveries) * 100).toFixed(1);
       const avgDelivery = (customer.total_volume_litres / customer.total_deliveries).toFixed(0);
       
-      // Calculate distance for most used terminal (simplified)
-      const primaryTerminal = customer.terminals_list?.[0] || 'Perth';
-      const distance = calculateTerminalToCustomerDistance(primaryTerminal, customer.customer);
+      const primaryTerminal = customer.terminals_list?.[0] || 'Kewdale';
       
       return {
         Rank: index + 1,
@@ -121,8 +118,6 @@ const TopCustomersTable: React.FC<TopCustomersTableProps> = ({
         'Avg per Delivery (L)': avgDelivery,
         'Percentage of Total': `${percentage}%`,
         'Primary Terminal': primaryTerminal,
-        'Distance (km)': distance.oneWayDistance,
-        'Return Distance (km)': distance.returnDistance,
         'Terminals Served': customer.terminals_served,
         'First Delivery': customer.first_delivery_date,
         'Last Delivery': customer.last_delivery_date
@@ -258,9 +253,7 @@ const TopCustomersTable: React.FC<TopCustomersTableProps> = ({
                   const percentage = ((customer.total_deliveries / totalDeliveries) * 100).toFixed(1);
                   const avgDelivery = (customer.total_volume_litres / customer.total_deliveries).toFixed(0);
                   
-                  // Calculate distance for primary terminal
-                  const primaryTerminal = customer.terminals_list?.[0] || 'Perth';
-                  const distance = calculateTerminalToCustomerDistance(primaryTerminal, customer.customer);
+                  const primaryTerminal = customer.terminals_list?.[0] || 'Kewdale';
                   
                   return (
                     <TableRow 
@@ -276,9 +269,8 @@ const TopCustomersTable: React.FC<TopCustomersTableProps> = ({
                       <TableCell>
                         <div>
                           <div className="font-medium text-gray-900">{customer.customer}</div>
-                          <div className="text-xs text-gray-500 flex items-center gap-1">
-                            <Navigation className="w-3 h-3" />
-                            {formatDistance(distance.oneWayDistance)} from {primaryTerminal}
+                          <div className="text-xs text-gray-500">
+                            Primary terminal: {primaryTerminal}
                           </div>
                         </div>
                       </TableCell>
@@ -330,7 +322,7 @@ const TopCustomersTable: React.FC<TopCustomersTableProps> = ({
         {/* Summary Stats */}
         {sortedAndFilteredCustomers.length > 0 && (
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div>
                 <div className="text-gray-500">Total Customers</div>
                 <div className="font-medium">{sortedAndFilteredCustomers.length}</div>
@@ -345,19 +337,6 @@ const TopCustomersTable: React.FC<TopCustomersTableProps> = ({
                 <div className="text-gray-500">Total Volume</div>
                 <div className="font-medium">
                   {sortedAndFilteredCustomers.reduce((sum, c) => sum + c.total_volume_megalitres, 0).toFixed(1)}ML
-                </div>
-              </div>
-              <div>
-                <div className="text-gray-500">Avg Distance</div>
-                <div className="font-medium">
-                  {(() => {
-                    const avgDistance = sortedAndFilteredCustomers.reduce((sum, customer) => {
-                      const primaryTerminal = customer.terminals_list?.[0] || 'Perth';
-                      const distance = calculateTerminalToCustomerDistance(primaryTerminal, customer.customer);
-                      return sum + distance.oneWayDistance;
-                    }, 0) / sortedAndFilteredCustomers.length;
-                    return formatDistance(avgDistance);
-                  })()}
                 </div>
               </div>
             </div>

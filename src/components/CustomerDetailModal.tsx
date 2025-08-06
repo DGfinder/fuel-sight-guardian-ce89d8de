@@ -14,17 +14,13 @@ import {
   User,
   TrendingUp,
   TrendingDown,
-  Navigation,
   Package,
   Calendar,
   MapPin,
-  Truck,
   BarChart3,
   Download,
   Clock,
-  Target,
-  Award,
-  Route
+  Award
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -40,14 +36,7 @@ import {
   Bar
 } from 'recharts';
 import { CustomerAnalytics } from '@/types/captivePayments';
-import {
-  calculateTerminalToCustomerDistance,
-  calculateTotalDeliveryDistance,
-  calculateDeliveryEfficiency,
-  findNearestTerminal,
-  formatDistance,
-  TERMINAL_COORDINATES
-} from '@/utils/distanceCalculations';
+// TODO: Will integrate mtdata API for real trip distance data in the future
 
 interface CustomerDetailModalProps {
   customer: CustomerAnalytics | null;
@@ -68,22 +57,6 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
 
   const customerMetrics = useMemo(() => {
     if (!customer) return null;
-
-    // Calculate distance metrics
-    const primaryTerminal = customer.terminals_list?.[0] || 'Perth';
-    const distanceData = calculateTerminalToCustomerDistance(primaryTerminal, customer.customer);
-    const nearestTerminal = findNearestTerminal(customer.customer);
-    
-    // Calculate total distance for all deliveries
-    const deliveryDistances = calculateTotalDeliveryDistance([
-      { terminal: primaryTerminal, customer: customer.customer, deliveryCount: customer.total_deliveries }
-    ]);
-    
-    // Calculate efficiency metrics
-    const efficiency = calculateDeliveryEfficiency(
-      customer.total_volume_litres,
-      deliveryDistances.totalReturnKm
-    );
 
     // Calculate rankings
     const sortedByVolume = [...allCustomers].sort((a, b) => b.total_volume_megalitres - a.total_volume_megalitres);
@@ -118,10 +91,6 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     const growthRate = earlierAvg > 0 ? ((recentAvg - earlierAvg) / earlierAvg) * 100 : 0;
 
     return {
-      distanceData,
-      nearestTerminal,
-      deliveryDistances,
-      efficiency,
       rankings: { volumeRank, deliveryRank },
       monthlyData,
       growthRate
@@ -146,14 +115,6 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
         percentageOfTotal: percentage,
         terminalsServed: customer.terminals_served,
         servicePeriod: `${customer.first_delivery_date} to ${customer.last_delivery_date}`
-      },
-      distance: {
-        primaryTerminal: customer.terminals_list?.[0] || 'Perth',
-        oneWayDistance: customerMetrics.distanceData.oneWayDistance,
-        returnDistance: customerMetrics.distanceData.returnDistance,
-        totalKilometers: customerMetrics.deliveryDistances.totalReturnKm,
-        nearestTerminal: customerMetrics.nearestTerminal?.terminalName,
-        efficiency: customerMetrics.efficiency
       },
       monthlyTrends: customerMetrics.monthlyData,
       rankings: customerMetrics.rankings
@@ -199,10 +160,9 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
 
         <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
-              <TabsTrigger value="distance">Distance & Logistics</TabsTrigger>
               <TabsTrigger value="performance">Performance</TabsTrigger>
             </TabsList>
 
@@ -321,18 +281,16 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm font-medium mb-2">Nearest Terminal</div>
-                      {customerMetrics.nearestTerminal && (
-                        <div className="p-3 bg-blue-50 rounded-lg">
-                          <div className="font-medium text-blue-900">{customerMetrics.nearestTerminal.terminalName}</div>
-                          <div className="text-sm text-blue-700">
-                            {formatDistance(customerMetrics.nearestTerminal.distance)} away
-                          </div>
-                          <div className="text-xs text-blue-600 mt-1">
-                            Optimal for future deliveries
-                          </div>
+                      <div className="text-sm font-medium mb-2">Future Integration</div>
+                      <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="font-medium text-blue-900">Distance Analytics</div>
+                        <div className="text-sm text-blue-700">
+                          Coming soon with mtdata API integration
                         </div>
-                      )}
+                        <div className="text-xs text-blue-600 mt-1">
+                          Real truck route data will be available
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -454,139 +412,6 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
               </div>
             </TabsContent>
 
-            <TabsContent value="distance" className="space-y-4 mt-4">
-              {/* Distance Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Navigation className="w-4 h-4" />
-                      Distance Metrics
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <div className="text-xl font-bold text-blue-600">
-                        {formatDistance(customerMetrics.distanceData.oneWayDistance)}
-                      </div>
-                      <div className="text-sm text-gray-500">One-way Distance</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-semibold">
-                        {formatDistance(customerMetrics.distanceData.returnDistance)}
-                      </div>
-                      <div className="text-sm text-gray-500">Return Distance</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">Primary Terminal</div>
-                      <div className="text-sm text-gray-600">{customer.terminals_list?.[0] || 'Perth'}</div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Route className="w-4 h-4" />
-                      Total Logistics
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <div className="text-xl font-bold text-green-600">
-                        {customerMetrics.deliveryDistances.totalReturnKm.toLocaleString()}km
-                      </div>
-                      <div className="text-sm text-gray-500">Total Distance Driven</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-semibold">
-                        {(customerMetrics.deliveryDistances.totalReturnKm / customer.total_deliveries).toFixed(1)}km
-                      </div>
-                      <div className="text-sm text-gray-500">Average per Delivery</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">For {customer.total_deliveries} deliveries</div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Target className="w-4 h-4" />
-                      Efficiency Metrics
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <div className="text-lg font-semibold">{customerMetrics.efficiency.litresPerKm.toFixed(1)}L/km</div>
-                      <div className="text-sm text-gray-500">Litres per Kilometer</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-semibold">{customerMetrics.efficiency.kmPerLitre.toFixed(3)}km/L</div>
-                      <div className="text-sm text-gray-500">Kilometers per Litre</div>
-                    </div>
-                    <div>
-                      <Badge 
-                        variant={customerMetrics.efficiency.efficiency === 'High' ? 'default' : 
-                                customerMetrics.efficiency.efficiency === 'Medium' ? 'secondary' : 'outline'}
-                        className="text-xs"
-                      >
-                        {customerMetrics.efficiency.efficiency} Efficiency
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Terminal Distance Comparison */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5" />
-                    Distance from All Terminals
-                  </CardTitle>
-                  <CardDescription>
-                    Distance analysis to optimize future delivery routes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {Object.entries(TERMINAL_COORDINATES).map(([terminalName, coords]) => {
-                      const distance = calculateTerminalToCustomerDistance(terminalName, customer.customer);
-                      const isNearest = customerMetrics.nearestTerminal?.terminalName === terminalName;
-                      const isPrimary = customer.terminals_list?.[0] === terminalName;
-                      
-                      return (
-                        <div 
-                          key={terminalName} 
-                          className={`p-3 rounded-lg border-2 ${
-                            isPrimary ? 'border-blue-500 bg-blue-50' :
-                            isNearest ? 'border-green-500 bg-green-50' :
-                            'border-gray-200 bg-gray-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium">{terminalName}</span>
-                            <div className="flex gap-1">
-                              {isPrimary && <Badge variant="default" className="text-xs">Primary</Badge>}
-                              {isNearest && <Badge variant="secondary" className="text-xs">Nearest</Badge>}
-                            </div>
-                          </div>
-                          <div className="space-y-1 text-sm">
-                            <div>One-way: {formatDistance(distance.oneWayDistance)}</div>
-                            <div>Return: {formatDistance(distance.returnDistance)}</div>
-                            <div className="text-xs text-gray-500">
-                              Total for {customer.total_deliveries} deliveries: {formatDistance(distance.returnDistance * customer.total_deliveries)}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
             <TabsContent value="performance" className="space-y-4 mt-4">
               {/* Performance Comparison */}
@@ -678,26 +503,12 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
 
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm font-medium">Delivery Efficiency</span>
-                          <span className={`text-sm font-bold ${
-                            customerMetrics.efficiency.efficiency === 'High' ? 'text-green-600' :
-                            customerMetrics.efficiency.efficiency === 'Medium' ? 'text-yellow-600' : 'text-red-600'
-                          }`}>
-                            {customerMetrics.efficiency.efficiency}
-                          </span>
+                          <span className="text-sm font-medium">Future Analytics</span>
+                          <span className="text-sm font-bold text-blue-600">Coming Soon</span>
                         </div>
-                        <div className="text-xs text-gray-500 mb-2">{customerMetrics.efficiency.litresPerKm.toFixed(1)} litres per kilometer</div>
+                        <div className="text-xs text-gray-500 mb-2">Delivery efficiency with mtdata API</div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className={`h-2 rounded-full ${
-                              customerMetrics.efficiency.efficiency === 'High' ? 'bg-green-600' :
-                              customerMetrics.efficiency.efficiency === 'Medium' ? 'bg-yellow-600' : 'bg-red-600'
-                            }`}
-                            style={{ width: `${
-                              customerMetrics.efficiency.efficiency === 'High' ? '90' :
-                              customerMetrics.efficiency.efficiency === 'Medium' ? '60' : '30'
-                            }%` }}
-                          ></div>
+                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '75%' }}></div>
                         </div>
                       </div>
                     </div>
