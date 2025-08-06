@@ -145,6 +145,47 @@ export interface MonthlyTrend {
   uniqueCustomers: number;
 }
 
+/**
+ * Distance and logistics metrics for customers
+ */
+export interface CustomerDistanceMetrics {
+  averageOneWayDistance: number;
+  averageReturnDistance: number;
+  totalKilometersDriven: number;
+  nearestTerminal: string;
+  nearestTerminalDistance: number;
+  deliveryEfficiency: {
+    litresPerKm: number;
+    kmPerLitre: number;
+    efficiency: 'High' | 'Medium' | 'Low';
+  };
+  primaryTerminals: Array<{
+    terminal: string;
+    deliveries: number;
+    distance: number;
+    percentage: number;
+  }>;
+}
+
+/**
+ * Enhanced customer analytics with distance calculations
+ */
+export interface CustomerAnalyticsExtended extends CustomerAnalytics {
+  distanceMetrics?: CustomerDistanceMetrics;
+  monthlyTrends?: Array<{
+    month: string;
+    year: number;
+    deliveries: number;
+    volumeLitres: number;
+    volumeMegaLitres: number;
+  }>;
+  performanceRanking?: {
+    volumeRank: number;
+    deliveryRank: number;
+    efficiencyRank: number;
+  };
+}
+
 // =====================================================
 // UTILITY TYPES
 // =====================================================

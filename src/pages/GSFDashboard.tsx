@@ -5,7 +5,7 @@
  * Uses only real Supabase data with comprehensive null checking
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,8 @@ import CompactDateFilter from '@/components/CompactDateFilter';
 import DashboardHero from '@/components/DashboardHero';
 import MonthlyVolumeChart from '@/components/charts/MonthlyVolumeChart';
 import VolumeBreakdownCharts from '@/components/charts/VolumeBreakdownCharts';
+import TopCustomersTable from '@/components/TopCustomersTable';
+import CustomerDetailModal from '@/components/CustomerDetailModal';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { 
@@ -35,7 +37,7 @@ import {
   useBOLDeliveries, 
   useAvailableDateRange 
 } from '@/hooks/useCaptivePayments';
-import type { DashboardFilters } from '@/types/captivePayments';
+import type { DashboardFilters, CustomerAnalytics } from '@/types/captivePayments';
 
 const GSFDashboard: React.FC = () => {
   // Permission check
@@ -43,6 +45,20 @@ const GSFDashboard: React.FC = () => {
   
   // Date range filtering
   const { startDate, endDate, setDateRange, isFiltered } = useDateRangeFilter();
+  
+  // Customer detail modal state
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerAnalytics | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleCustomerClick = (customer: CustomerAnalytics) => {
+    setSelectedCustomer(customer);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedCustomer(null);
+  };
   
   // Create filters object - GSF-specific (no date filters unless explicitly set by user)
   const filters: DashboardFilters = { 
@@ -317,83 +333,15 @@ const GSFDashboard: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Top Customers */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            Top GSF Customers
-          </CardTitle>
-          <CardDescription>
-            Highest volume customers served by GSF
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {isLoading ? (
-              Array(5).fill(0).map((_, index) => (
-                <div key={index} className="animate-pulse border rounded-lg p-3 bg-gray-50/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-gray-200 w-6 h-6 rounded-full"></div>
-                      <div className="bg-gray-200 h-4 w-32 rounded"></div>
-                    </div>
-                    <div className="bg-gray-200 h-4 w-16 rounded"></div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-gray-200 h-8 rounded"></div>
-                    <div className="bg-gray-200 h-8 rounded"></div>
-                    <div className="bg-gray-200 h-8 rounded"></div>
-                  </div>
-                </div>
-              ))
-            ) : gsfData?.topCustomers?.length ? (
-              gsfData.topCustomers.map((customer, index) => (
-                <div key={customer.customer} className="border rounded-lg p-3 bg-gray-50/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center text-xs font-medium text-green-700 dark:text-green-300">
-                        {index + 1}
-                      </div>
-                      <div className="font-medium text-gray-900">{customer.customer}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-green-600">{customer.total_deliveries} Deliveries</div>
-                      {gsfData && (
-                        <div className="text-xs text-gray-500">
-                          {((customer.total_deliveries / gsfData.totalDeliveries) * 100).toFixed(1)}% of total
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-500">Volume</div>
-                      <div className="font-medium">
-                        {customer.total_volume_megalitres.toFixed(2)} ML
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Avg/Delivery</div>
-                      <div className="font-medium">
-                        {(customer.total_volume_litres / customer.total_deliveries).toFixed(0)} L
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Total Litres</div>
-                      <div className="font-medium">{customer.total_volume_litres.toLocaleString()}</div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center text-gray-500 py-4">
-                No customer data available
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Top Customers Table */}
+      {gsfData?.topCustomers && (
+        <TopCustomersTable
+          customers={gsfData.topCustomers}
+          totalDeliveries={gsfData.totalDeliveries}
+          onCustomerClick={handleCustomerClick}
+          isLoading={isLoading}
+        />
+      )}
 
 
       {/* Volume Breakdown Analytics */}
@@ -431,6 +379,15 @@ const GSFDashboard: React.FC = () => {
         </Card>
       )}
       </div>
+      
+      {/* Customer Detail Modal */}
+      <CustomerDetailModal
+        customer={selectedCustomer}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        totalDeliveries={gsfData?.totalDeliveries || 0}
+        allCustomers={gsfData?.topCustomers || []}
+      />
     </DataCentreLayout>
   );
 };
