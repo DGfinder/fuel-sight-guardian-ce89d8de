@@ -31,6 +31,7 @@ const Settings = lazy(() => import('@/pages/Settings'));
 const Login = lazy(() => import("@/pages/Login"));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const Geraldton = lazy(() => import('@/pages/Geraldton'));
+const GeraldtonLinehaul = lazy(() => import('@/pages/GeraldtonLinehaul'));
 const GSFDepots = lazy(() => import('@/pages/GSFDepots'));
 const BGC = lazy(() => import('@/pages/BGC'));
 const TanksPage = lazy(() => import('@/pages/TanksPage'));
@@ -405,6 +406,13 @@ function AppContent() {
                     <ProtectedRoute>
                       <RouteErrorBoundary routeName="Geraldton" showHomeButton={true}>
                         <Geraldton />
+                      </RouteErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/geraldton-linehaul" element={
+                    <ProtectedRoute>
+                      <RouteErrorBoundary routeName="Geraldton Linehaul" showHomeButton={true}>
+                        <GeraldtonLinehaul />
                       </RouteErrorBoundary>
                     </ProtectedRoute>
                   } />

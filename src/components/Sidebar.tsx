@@ -81,6 +81,16 @@ const ALL_NAV_ITEMS = [
     ]
   },
   { 
+    path: '/geraldton-linehaul', 
+    label: 'Geraldton Linehaul', 
+    icon: MapPinIcon, 
+    badge: null, 
+    group: 'Geraldton Linehaul',
+    children: [
+      { path: '/groups/geraldton-linehaul/dip-history', label: 'Dip History', icon: History }
+    ]
+  },
+  { 
     path: '/bgc', 
     label: 'BGC', 
     icon: Building2Icon, 
