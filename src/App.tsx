@@ -41,6 +41,7 @@ const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
 // Data Centre Analytics Platform
 const DataCentrePage = lazy(() => import('@/pages/DataCentrePage'));
+const DataImportPage = lazy(() => import('@/pages/DataImportPage'));
 const GuardianDashboard = lazy(() => import('@/pages/GuardianDashboard'));
 const CaptivePaymentsDashboard = lazy(() => import('@/pages/CaptivePaymentsDashboard'));
 const SMBDashboard = lazy(() => import('@/pages/SMBDashboard'));
@@ -248,6 +249,18 @@ function AppContent() {
                         <RouteErrorBoundary routeName="GSF Analytics" showHomeButton={true}>
                           <DataCentreLayout>
                             <GSFDashboard />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/import" 
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <RouteErrorBoundary routeName="Data Import" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <DataImportPage />
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>

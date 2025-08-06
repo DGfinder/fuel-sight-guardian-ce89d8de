@@ -707,6 +707,199 @@ export async function getTerminalBenchmarkAnalytics(terminalName: string, filter
 }
 
 // =====================================================
+// ROLLBACK AND DATA MANAGEMENT FUNCTIONS
+// =====================================================
+
+/**
+ * Delete captive payment records by import batch ID
+ */
+export async function deleteCaptivePaymentBatch(batchId: string): Promise<{ deletedCount: number }> {
+  const { data, error } = await supabase
+    .from('captive_payment_records')
+    .delete()
+    .eq('import_batch_id', batchId)
+    .select('id');
+
+  if (error) {
+    console.error('Error deleting captive payment batch:', error);
+    throw error;
+  }
+
+  return { deletedCount: data?.length || 0 };
+}
+
+/**
+ * Delete captive payment records by source filename
+ */
+export async function deleteCaptivePaymentsByFile(filename: string): Promise<{ deletedCount: number }> {
+  const { data, error } = await supabase
+    .from('captive_payment_records')
+    .delete()
+    .eq('source_file', filename)
+    .select('id');
+
+  if (error) {
+    console.error('Error deleting captive payment records by file:', error);
+    throw error;
+  }
+
+  return { deletedCount: data?.length || 0 };
+}
+
+/**
+ * Get import batch history with metadata
+ */
+export async function getImportBatches(): Promise<Array<{
+  import_batch_id: string;
+  source_file: string;
+  carrier: string;
+  created_by: string;
+  created_at: string;
+  record_count: number;
+  date_range: {
+    min_date: string;
+    max_date: string;
+  };
+}>> {
+  const { data, error } = await supabase
+    .from('captive_payment_records')
+    .select(`
+      import_batch_id,
+      source_file,
+      carrier,
+      created_by,
+      created_at,
+      delivery_date
+    `)
+    .not('import_batch_id', 'is', null)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching import batches:', error);
+    throw error;
+  }
+
+  if (!data) return [];
+
+  // Group by batch and calculate metadata
+  const batchMap = new Map();
+  
+  data.forEach(record => {
+    const batchId = record.import_batch_id;
+    if (!batchMap.has(batchId)) {
+      batchMap.set(batchId, {
+        import_batch_id: batchId,
+        source_file: record.source_file || 'Unknown',
+        carrier: record.carrier,
+        created_by: record.created_by || 'Unknown',
+        created_at: record.created_at,
+        record_count: 0,
+        dates: []
+      });
+    }
+    
+    const batch = batchMap.get(batchId);
+    batch.record_count++;
+    batch.dates.push(record.delivery_date);
+  });
+
+  return Array.from(batchMap.values()).map(batch => {
+    const sortedDates = batch.dates.sort();
+    return {
+      import_batch_id: batch.import_batch_id,
+      source_file: batch.source_file,
+      carrier: batch.carrier,
+      created_by: batch.created_by,
+      created_at: batch.created_at,
+      record_count: batch.record_count,
+      date_range: {
+        min_date: sortedDates[0],
+        max_date: sortedDates[sortedDates.length - 1]
+      }
+    };
+  });
+}
+
+/**
+ * Check for duplicate imports by filename
+ */
+export async function checkDuplicateImport(filename: string): Promise<{
+  exists: boolean;
+  existingImport?: {
+    import_batch_id: string;
+    created_at: string;
+    created_by: string;
+    record_count: number;
+  };
+}> {
+  const { data, error } = await supabase
+    .from('captive_payment_records')
+    .select('import_batch_id, created_at, created_by')
+    .eq('source_file', filename)
+    .limit(1);
+
+  if (error) {
+    console.error('Error checking duplicate import:', error);
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    return { exists: false };
+  }
+
+  // Get record count for this batch
+  const { count } = await supabase
+    .from('captive_payment_records')
+    .select('*', { count: 'exact', head: true })
+    .eq('import_batch_id', data[0].import_batch_id);
+
+  return {
+    exists: true,
+    existingImport: {
+      import_batch_id: data[0].import_batch_id,
+      created_at: data[0].created_at,
+      created_by: data[0].created_by || 'Unknown',
+      record_count: count || 0
+    }
+  };
+}
+
+/**
+ * Enhanced insert function with batch tracking and validation
+ */
+export async function insertCaptivePaymentBatch(
+  records: Omit<CaptivePaymentRecord, 'id' | 'created_at' | 'updated_at'>[], 
+  batchMetadata: {
+    import_batch_id: string;
+    source_file: string;
+    created_by: string;
+  }
+): Promise<{ insertedCount: number; batchId: string }> {
+  // Add batch metadata to all records
+  const recordsWithBatch = records.map(record => ({
+    ...record,
+    import_batch_id: batchMetadata.import_batch_id,
+    source_file: batchMetadata.source_file,
+    created_by: batchMetadata.created_by
+  }));
+
+  const { data, error } = await supabase
+    .from('captive_payment_records')
+    .insert(recordsWithBatch)
+    .select('id');
+
+  if (error) {
+    console.error('Error inserting captive payment batch:', error);
+    throw error;
+  }
+
+  return { 
+    insertedCount: data?.length || 0, 
+    batchId: batchMetadata.import_batch_id 
+  };
+}
+
+// =====================================================
 // UTILITY FUNCTIONS
 // =====================================================
 

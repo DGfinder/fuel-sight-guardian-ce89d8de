@@ -7,9 +7,14 @@
   "env": {
     "LYTX_API_KEY": "diCeZd54DgkVzV2aPumlLG1qcZflO0GS"
   },
+  "functions": {
+    "api/gasbot-webhook.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "rewrites": [
     {
-      "source": "/((?!assets/).*)",
+      "source": "/((?!api|assets/).*)",
       "destination": "/index.html"
     }
   ],

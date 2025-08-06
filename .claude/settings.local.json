@@ -61,7 +61,8 @@
       "Bash(npm ci:*)",
       "Bash(export:*)",
       "Bash(git stash push:*)",
-      "Bash(./test/test-gasbot-webhook.sh:*)"
+      "Bash(./test/test-gasbot-webhook.sh:*)",
+      "Bash(psql:*)"
     ],
     "deny": []
   }
