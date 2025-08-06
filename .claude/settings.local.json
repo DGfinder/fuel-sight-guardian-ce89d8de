@@ -62,7 +62,8 @@
       "Bash(export:*)",
       "Bash(git stash push:*)",
       "Bash(./test/test-gasbot-webhook.sh:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(vercel:*)"
     ],
     "deny": []
   }
