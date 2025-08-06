@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadCSVFile, generateExport, createBackup } from '@/lib/vercel-blob';
 import { processCaptivePaymentsCsv } from '@/services/captivePaymentsCsvProcessor';
-import { cacheSet, CACHE_CONFIG, CACHE_KEYS } from '@/lib/vercel-kv';
+import { cacheSet, CACHE_CONFIG, CACHE_KEYS } from './lib/vercel-kv';
 import { supabase } from '@/lib/supabase';
 
 // Configuration - Vercel Server Upload Limits

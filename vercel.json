@@ -22,6 +22,30 @@
     },
     "api/test-athara.js": {
       "runtime": "@vercel/node@20.x"
+    },
+    "api/analytics-aggregation.ts": {
+      "runtime": "@vercel/node@20.x"
+    },
+    "api/cross-system-data.ts": {
+      "runtime": "@vercel/node@20.x"
+    },
+    "api/unified-location-data.ts": {
+      "runtime": "@vercel/node@20.x"
+    },
+    "api/upload-csv.ts": {
+      "runtime": "@vercel/node@20.x"
+    },
+    "api/vercel-setup-check.ts": {
+      "runtime": "@vercel/node@20.x"
+    },
+    "api/blob/client-upload.ts": {
+      "runtime": "@vercel/node@20.x"
+    },
+    "api/blob/delete.ts": {
+      "runtime": "@vercel/node@20.x"
+    },
+    "api/blob/list.ts": {
+      "runtime": "@vercel/node@20.x"
     }
   },
   "rewrites": [

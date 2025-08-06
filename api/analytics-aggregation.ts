@@ -15,7 +15,7 @@ import {
   getAnalyticsDBHealth
 } from '@/lib/vercel-postgres';
 import { supabase } from '@/lib/supabase';
-import { cacheSet, cacheGet, CACHE_CONFIG, CACHE_KEYS } from '@/lib/vercel-kv';
+import { cacheSet, cacheGet, CACHE_CONFIG, CACHE_KEYS } from './lib/vercel-kv';
 
 interface AggregationRequest {
   action: 'aggregate' | 'health' | 'summary' | 'init';

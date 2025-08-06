@@ -11,7 +11,7 @@ import {
   getCorrelatedDeliveryData,
   unifiedDataIntegrator 
 } from '@/lib/unified-data-integration';
-import { cacheSet, cacheGet, CACHE_CONFIG } from '@/lib/vercel-kv';
+import { cacheSet, cacheGet, CACHE_CONFIG } from './lib/vercel-kv';
 import { isFeatureEnabled, CONFIG_KEYS } from '@/lib/vercel-edge-config';
 import { supabase } from '@/lib/supabase';
 
