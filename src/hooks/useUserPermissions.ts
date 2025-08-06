@@ -215,3 +215,144 @@ export function useCanAccessGroup(groupId: string | undefined) {
 
   return permissions.accessibleGroups.some(group => group.id === groupId);
 }
+
+export function useCanAccessSubgroup(groupId: string | undefined, subgroupName: string | undefined) {
+  const { data: permissions } = useUserPermissions();
+
+  if (!permissions || !groupId || !subgroupName) return false;
+  if (permissions.isAdmin) return true;
+  
+  const group = permissions.accessibleGroups.find(g => g.id === groupId);
+  if (!group) return false;
+  
+  // If no subgroup restrictions, user can access all subgroups in the group
+  if (group.subgroups.length === 0) return true;
+  
+  return group.subgroups.includes(subgroupName);
+}
+
+export function useCanAccessTankWithSubgroup(tankId: string | undefined) {
+  const { data: permissions } = useUserPermissions();
+
+  return useQuery({
+    queryKey: ['tank-subgroup-access', tankId],
+    queryFn: async () => {
+      if (!tankId || !permissions) return false;
+      
+      console.log('🔍 [SUBGROUP ACCESS DEBUG] Checking subgroup access for tank:', tankId);
+      
+      if (permissions.isAdmin) {
+        console.log('✅ [SUBGROUP ACCESS DEBUG] Admin access granted');
+        return true;
+      }
+
+      const { data, error } = await supabase
+        .from('fuel_tanks')
+        .select('group_id, subgroup')
+        .eq('id', tankId)
+        .single();
+
+      if (error) {
+        console.error('❌ [SUBGROUP ACCESS DEBUG] Error fetching tank data:', error);
+        return false;
+      }
+
+      const { group_id, subgroup } = data;
+      
+      // Check group access first
+      const hasGroupAccess = permissions.accessibleGroups.some(group => group.id === group_id);
+      if (!hasGroupAccess) {
+        console.log('❌ [SUBGROUP ACCESS DEBUG] No group access for:', group_id);
+        return false;
+      }
+      
+      // If tank has no subgroup, group access is sufficient
+      if (!subgroup) {
+        console.log('✅ [SUBGROUP ACCESS DEBUG] Tank has no subgroup, group access granted');
+        return true;
+      }
+
+      // Check subgroup access
+      const group = permissions.accessibleGroups.find(g => g.id === group_id);
+      if (!group) return false;
+      
+      // If user has no subgroup restrictions, they can access all subgroups in the group
+      if (group.subgroups.length === 0) {
+        console.log('✅ [SUBGROUP ACCESS DEBUG] No subgroup restrictions, access granted');
+        return true;
+      }
+      
+      const hasSubgroupAccess = group.subgroups.includes(subgroup);
+      console.log('🔍 [SUBGROUP ACCESS DEBUG] Subgroup access check:', {
+        tankSubgroup: subgroup,
+        allowedSubgroups: group.subgroups,
+        hasAccess: hasSubgroupAccess
+      });
+      
+      return hasSubgroupAccess;
+    },
+    enabled: !!tankId && !!permissions,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useAccessibleSubgroups(groupId: string | undefined) {
+  const { data: permissions } = useUserPermissions();
+
+  if (!permissions || !groupId) return [];
+  if (permissions.isAdmin) {
+    // For admins, fetch all subgroups from the database
+    return useQuery({
+      queryKey: ['all-subgroups', groupId],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('fuel_tanks')
+          .select('subgroup')
+          .eq('group_id', groupId)
+          .not('subgroup', 'is', null);
+          
+        if (error) return [];
+        
+        const uniqueSubgroups = [...new Set(data.map(tank => tank.subgroup))];
+        return uniqueSubgroups.filter(Boolean);
+      },
+      enabled: !!groupId,
+      staleTime: 10 * 60 * 1000,
+    });
+  }
+  
+  const group = permissions.accessibleGroups.find(g => g.id === groupId);
+  return { data: group?.subgroups || [], isLoading: false };
+}
+
+export function useFilterTanksBySubgroup() {
+  const { data: permissions } = useUserPermissions();
+
+  const filterTanks = (tanks: any[]) => {
+    if (!tanks || !permissions) return [];
+    if (permissions.isAdmin) return tanks;
+
+    return tanks.filter(tank => {
+      // Check group access first
+      const hasGroupAccess = permissions.accessibleGroups.some(group => group.id === tank.group_id);
+      if (!hasGroupAccess) return false;
+
+      // If tank has no subgroup, group access is sufficient
+      if (!tank.subgroup) return true;
+
+      // Check subgroup access
+      const group = permissions.accessibleGroups.find(g => g.id === tank.group_id);
+      if (!group) return false;
+
+      // If user has no subgroup restrictions, they can access all subgroups in the group
+      if (group.subgroups.length === 0) return true;
+
+      return group.subgroups.includes(tank.subgroup);
+    });
+  };
+
+  return {
+    filterTanks,
+    permissions
+  };
+}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTanks } from '@/hooks/useTanks';
+import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import { 
   Droplets, 
   MapPin, 
@@ -42,6 +43,7 @@ import type { Tank } from "@/types/fuel";
 
 export default function TanksPage() {
   const { tanks, isLoading, error, refreshTanks } = useTanks();
+  const { filterTanks } = useFilterTanksBySubgroup();
   const { openModal } = useTankModal();
   const [searchParams] = useSearchParams();
 
@@ -97,7 +99,10 @@ export default function TanksPage() {
   const { filteredTanks, stats } = useMemo(() => {
     if (!tanks) return { filteredTanks: [], stats: { total: 0, critical: 0, low: 0, normal: 0, lowFuel: 0 } };
 
-    const filtered = tanks.filter(tank => {
+    // First apply subgroup permissions filtering
+    const permissionFilteredTanks = filterTanks(tanks);
+    
+    const filtered = permissionFilteredTanks.filter(tank => {
       const matchesSearch = tank.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            tank.group_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            tank.product_type?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -149,7 +154,7 @@ export default function TanksPage() {
     };
 
     return { filteredTanks: filtered, stats };
-  }, [tanks, searchTerm, statusFilter, groupFilter, daysToMinFilter, sortBy]);
+  }, [tanks, searchTerm, statusFilter, groupFilter, daysToMinFilter, sortBy, filterTanks]);
 
   const uniqueGroups = useMemo(() => {
     if (!tanks) return [];

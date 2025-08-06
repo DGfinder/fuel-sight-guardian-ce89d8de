@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTanks } from '@/hooks/useTanks';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { SubgroupDebugPanel } from '@/components/SubgroupDebugPanel';
 
 // Comprehensive test page to verify everything is working
 export default function TestEverythingWorking() {
@@ -199,6 +200,11 @@ export default function TestEverythingWorking() {
           <br />
           <em>Your app is now stable and ready for production use.</em>
         </div>
+      </div>
+
+      {/* Subgroup System Debug Panel */}
+      <div style={{ marginTop: '30px' }}>
+        <SubgroupDebugPanel />
       </div>
     </div>
   );
