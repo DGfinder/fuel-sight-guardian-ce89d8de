@@ -16,7 +16,7 @@ const GSF_DEPOTS_GROUP_NAME = 'GSF Depots';
 
 export default function GSFDepotsPage() {
   const { tanks, isLoading } = useTanks();
-  const { filterTanks, permissions } = useFilterTanksBySubgroup();
+  const { filterTanks, permissions, isLoading: permissionsLoading } = useFilterTanksBySubgroup();
   const [selectedTankId, setSelectedTankId] = useState<string | null>(null);
   const [tankDetailsOpen, setTankDetailsOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -39,26 +39,53 @@ export default function GSFDepotsPage() {
 
   // Filter tanks by GSF Depots group and apply subgroup permissions
   const groupFilteredTanks = (tanks || []).filter(t => t.group_name === GSF_DEPOTS_GROUP_NAME);
-  const gsfDepotsTanks = filterTanks(groupFilteredTanks);
+  
+  // Only filter if permissions are loaded
+  const gsfDepotsTanks = (!permissionsLoading && permissions) ? filterTanks(groupFilteredTanks) : [];
   const selectedTank = gsfDepotsTanks.find(t => t.id === selectedTankId) || null;
 
-  // Debug subgroup filtering
+  // Debug subgroup filtering with safe access
   console.log('🔍 [GSF DEPOTS DEBUG] Subgroup filtering:', {
+    tanksLoading: isLoading,
+    permissionsLoading,
     totalGSFTanks: groupFilteredTanks.length,
     filteredTanks: gsfDepotsTanks.length,
     userPermissions: permissions?.role,
     isAdmin: permissions?.isAdmin,
-    accessibleSubgroups: permissions?.accessibleGroups.find(g => g.name === GSF_DEPOTS_GROUP_NAME)?.subgroups
+    hasAccessibleGroups: Array.isArray(permissions?.accessibleGroups),
+    accessibleSubgroups: permissions?.accessibleGroups?.find(g => g?.name === GSF_DEPOTS_GROUP_NAME)?.subgroups
   });
 
-  // Show filtering results prominently 
-  if (permissions && !permissions.isAdmin && groupFilteredTanks.length !== gsfDepotsTanks.length) {
+  // Show filtering results prominently with safe access
+  if (permissions && !permissionsLoading && !permissions.isAdmin && groupFilteredTanks.length !== gsfDepotsTanks.length) {
     console.log('🎯 [SUBGROUP FILTERING ACTIVE]', {
       original: groupFilteredTanks.length,
       filtered: gsfDepotsTanks.length,
       hidden: groupFilteredTanks.length - gsfDepotsTanks.length,
-      allowedSubgroups: permissions.accessibleGroups.find(g => g.name === GSF_DEPOTS_GROUP_NAME)?.subgroups
+      allowedSubgroups: permissions.accessibleGroups?.find(g => g?.name === GSF_DEPOTS_GROUP_NAME)?.subgroups
     });
+  }
+
+  // Show loading state
+  if (isLoading || permissionsLoading) {
+    return (
+      <AppLayout selectedGroup={GSF_DEPOTS_GROUP_NAME} onGroupSelect={() => {}}>
+        <div className="min-h-screen w-full bg-muted">
+          <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
+            <div className="space-y-6 p-6">
+              <div className="flex justify-center items-center h-64">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">
+                    Loading {isLoading ? 'tanks' : ''} {permissionsLoading ? 'permissions' : ''}...
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    );
   }
 
   return (

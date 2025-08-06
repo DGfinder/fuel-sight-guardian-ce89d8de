@@ -43,7 +43,7 @@ import type { Tank } from "@/types/fuel";
 
 export default function TanksPage() {
   const { tanks, isLoading, error, refreshTanks } = useTanks();
-  const { filterTanks } = useFilterTanksBySubgroup();
+  const { filterTanks, isLoading: permissionsLoading } = useFilterTanksBySubgroup();
   const { openModal } = useTankModal();
   const [searchParams] = useSearchParams();
 
@@ -99,8 +99,8 @@ export default function TanksPage() {
   const { filteredTanks, stats } = useMemo(() => {
     if (!tanks) return { filteredTanks: [], stats: { total: 0, critical: 0, low: 0, normal: 0, lowFuel: 0 } };
 
-    // First apply subgroup permissions filtering
-    const permissionFilteredTanks = filterTanks(tanks);
+    // First apply subgroup permissions filtering - only if permissions are loaded
+    const permissionFilteredTanks = !permissionsLoading ? filterTanks(tanks) : [];
     
     const filtered = permissionFilteredTanks.filter(tank => {
       const matchesSearch = tank.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -154,7 +154,7 @@ export default function TanksPage() {
     };
 
     return { filteredTanks: filtered, stats };
-  }, [tanks, searchTerm, statusFilter, groupFilter, daysToMinFilter, sortBy, filterTanks]);
+  }, [tanks, searchTerm, statusFilter, groupFilter, daysToMinFilter, sortBy, filterTanks, permissionsLoading]);
 
   const uniqueGroups = useMemo(() => {
     if (!tanks) return [];

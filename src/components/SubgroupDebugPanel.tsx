@@ -7,13 +7,22 @@ import { Badge } from "@/components/ui/badge";
 export function SubgroupDebugPanel() {
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
   const { tanks, isLoading: tanksLoading } = useTanks();
-  const { filterTanks } = useFilterTanksBySubgroup();
+  const { filterTanks, isLoading: filterLoading } = useFilterTanksBySubgroup();
 
-  if (permissionsLoading || tanksLoading) return <div>Loading debug info...</div>;
+  if (permissionsLoading || tanksLoading || filterLoading) {
+    return (
+      <div className="flex justify-center items-center h-32">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-600">Loading debug info...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const gsfDepotGroup = permissions?.accessibleGroups.find(g => g.name === 'GSF Depots');
+  const gsfDepotGroup = permissions?.accessibleGroups?.find(g => g?.name === 'GSF Depots');
   const gsfTanks = (tanks || []).filter(t => t.group_name === 'GSF Depots');
-  const filteredGsfTanks = filterTanks(gsfTanks);
+  const filteredGsfTanks = permissions ? filterTanks(gsfTanks) : [];
   
   // Get unique subgroups in GSF Depots
   const allGsfSubgroups = [...new Set(gsfTanks.map(t => t.subgroup).filter(Boolean))];
@@ -47,7 +56,7 @@ export function SubgroupDebugPanel() {
               <div>
                 <strong>Allowed Subgroups:</strong> 
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {gsfDepotGroup.subgroups.length === 0 ? (
+                  {(!gsfDepotGroup.subgroups || gsfDepotGroup.subgroups.length === 0) ? (
                     <Badge variant="outline">All Subgroups (No Restrictions)</Badge>
                   ) : (
                     gsfDepotGroup.subgroups.map(sub => (
@@ -89,7 +98,7 @@ export function SubgroupDebugPanel() {
           <div className="grid grid-cols-3 gap-2">
             {allGsfSubgroups.map(subgroup => {
               const canAccess = permissions?.isAdmin || 
-                              (gsfDepotGroup && (gsfDepotGroup.subgroups.length === 0 || gsfDepotGroup.subgroups.includes(subgroup)));
+                              (gsfDepotGroup && (!gsfDepotGroup.subgroups || gsfDepotGroup.subgroups.length === 0 || gsfDepotGroup.subgroups.includes(subgroup)));
               return (
                 <div key={subgroup} className="p-2 border rounded">
                   <div className="font-medium">{subgroup}</div>
@@ -108,6 +117,8 @@ export function SubgroupDebugPanel() {
             {JSON.stringify({
               userRole: permissions?.role,
               isAdmin: permissions?.isAdmin,
+              permissionsLoaded: !!permissions,
+              hasAccessibleGroups: Array.isArray(permissions?.accessibleGroups),
               gsfDepotGroupFound: !!gsfDepotGroup,
               gsfDepotSubgroups: gsfDepotGroup?.subgroups || [],
               totalGsfTanks: gsfTanks.length,

@@ -15,7 +15,8 @@ export const useUserPermissions = () => {
   return useQuery<UserPermissions>({
     queryKey: ['user-permissions'],
     queryFn: async () => {
-      console.log('🔍 [RBAC DEBUG] Fetching user permissions (no RLS)...');
+      const startTime = Date.now();
+      console.log('🔍 [RBAC DEBUG] Starting permissions fetch at:', new Date().toISOString());
       
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
@@ -120,30 +121,49 @@ export const useUserPermissions = () => {
           groups: accessibleGroups.map(g => g.name)
         });
 
-        // Ensure clean, serializable object structure
+        // Ensure clean, serializable object structure with proper fallbacks
         const cleanPermissions = {
           role: String(userRole || 'viewer'),
           isAdmin: Boolean(isAdmin),
           accessibleGroups: Array.isArray(accessibleGroups) ? 
             accessibleGroups.map(group => ({
-              id: String(group.id || ''),
-              name: String(group.name || ''),
-              subgroups: Array.isArray(group.subgroups) ? 
-                group.subgroups.map(sub => String(sub)) : []
-            })) : []
+              id: String(group?.id || ''),
+              name: String(group?.name || 'Unknown Group'),
+              subgroups: Array.isArray(group?.subgroups) ? 
+                group.subgroups.map(sub => String(sub)).filter(Boolean) : []
+            })).filter(group => group.id) : []
         };
+
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+        
+        console.log('✅ [RBAC DEBUG] Clean permissions created:', {
+          role: cleanPermissions.role,
+          isAdmin: cleanPermissions.isAdmin,
+          groupCount: cleanPermissions.accessibleGroups.length,
+          hasAccessibleGroups: Array.isArray(cleanPermissions.accessibleGroups),
+          fetchDuration: `${duration}ms`
+        });
 
         return cleanPermissions;
 
       } catch (error) {
         console.error('💥 [RBAC DEBUG] Error in permissions calculation:', error);
+        console.error('💥 [RBAC DEBUG] Error details:', {
+          message: error?.message,
+          stack: error?.stack,
+          userId: user?.id
+        });
         
-        // Fallback: return clean viewer permissions
-        return {
+        // Fallback: return clean viewer permissions with proper structure
+        const fallbackPermissions = {
           role: 'viewer',
           isAdmin: false,
           accessibleGroups: []
         };
+        
+        console.log('🔄 [RBAC DEBUG] Using fallback permissions:', fallbackPermissions);
+        return fallbackPermissions;
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -338,26 +358,34 @@ export function useAccessibleSubgroups(groupId: string | undefined) {
 }
 
 export function useFilterTanksBySubgroup() {
-  const { data: permissions } = useUserPermissions();
+  const { data: permissions, isLoading } = useUserPermissions();
 
   const filterTanks = (tanks: any[]) => {
-    if (!tanks || !permissions) return [];
+    // Return empty array if still loading or no data
+    if (!tanks || !permissions || isLoading) return [];
+    
+    // Safety check for accessibleGroups
+    if (!permissions.accessibleGroups || !Array.isArray(permissions.accessibleGroups)) {
+      console.warn('⚠️ [SUBGROUP FILTER] accessibleGroups is undefined or not an array:', permissions);
+      return [];
+    }
+    
     if (permissions.isAdmin) return tanks;
 
     return tanks.filter(tank => {
       // Check group access first
-      const hasGroupAccess = permissions.accessibleGroups.some(group => group.id === tank.group_id);
+      const hasGroupAccess = permissions.accessibleGroups.some(group => group && group.id === tank.group_id);
       if (!hasGroupAccess) return false;
 
       // If tank has no subgroup, group access is sufficient
       if (!tank.subgroup) return true;
 
       // Check subgroup access
-      const group = permissions.accessibleGroups.find(g => g.id === tank.group_id);
+      const group = permissions.accessibleGroups.find(g => g && g.id === tank.group_id);
       if (!group) return false;
 
       // If user has no subgroup restrictions, they can access all subgroups in the group
-      if (group.subgroups.length === 0) return true;
+      if (!group.subgroups || !Array.isArray(group.subgroups) || group.subgroups.length === 0) return true;
 
       return group.subgroups.includes(tank.subgroup);
     });
@@ -365,6 +393,7 @@ export function useFilterTanksBySubgroup() {
 
   return {
     filterTanks,
-    permissions
+    permissions,
+    isLoading
   };
 }
