@@ -1,4 +1,15 @@
 import { supabase } from '@/lib/supabase';
+import {
+  cacheApiResponse,
+  withRequestDeduplication,
+  checkRateLimit,
+  CACHE_CONFIG,
+  CACHE_KEYS,
+  cacheGet,
+  cacheSet,
+  cacheDel,
+  cacheHealthCheck
+} from '@/lib/cache-stubs';
 
 // Athara/Gasbot API configuration - with environment variable support
 // 
@@ -237,8 +248,8 @@ export function getAtharaAPIHealth(): AtharaAPIHealth {
   return { ...apiHealthStatus };
 }
 
-// PRODUCTION SAFE: Fetch data from Athara API - NO MOCK DATA FALLBACKS
-export async function fetchAtharaLocations(): Promise<AtharaLocation[]> {
+// PRODUCTION SAFE: Fetch data from Athara API with caching
+export async function fetchAtharaLocations(bypassCache: boolean = false): Promise<AtharaLocation[]> {
   // Validate API configuration before attempting call
   if (!ATHARA_API_KEY || ATHARA_API_KEY === 'your-api-key-here') {
     const error = 'CRITICAL: Invalid or missing Athara API key. Check VITE_ATHARA_API_KEY environment variable.';
@@ -252,40 +263,75 @@ export async function fetchAtharaLocations(): Promise<AtharaLocation[]> {
     throw new Error(error);
   }
 
-  try {
-    if (ENABLE_API_LOGGING) {
-      console.log('[ATHARA API] Fetching data from Athara API...');
-    }
-    
-    // Attempt real API call
-    const data = await makeAtharaRequest('/locations');
-    
-    // Validate the response structure
-    if (!Array.isArray(data)) {
-      const error = 'Invalid Athara API response: expected array of locations';
-      updateAPIHealth(false, error);
-      throw new Error(error);
-    }
-    
-    // Update health status on success
-    updateAPIHealth(true);
-    
-    if (ENABLE_API_LOGGING) {
-      console.log(`[ATHARA API] Successfully fetched ${data.length} locations from Athara API`);
-    }
-    
-    return data;
-    
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    updateAPIHealth(false, errorMessage);
-    
-    console.error('[ATHARA API] CRITICAL: API call failed - NO MOCK DATA AVAILABLE:', error);
-    
-    // Re-throw the error instead of using mock data
-    // This forces the application to handle the error appropriately
-    throw new Error(`Athara API unavailable: ${errorMessage}`);
+  // Rate limiting check
+  const rateLimitResult = await checkRateLimit(
+    'athara_api_locations',
+    30, // 30 requests per hour 
+    CACHE_CONFIG.RATE_LIMITING
+  );
+
+  if (!rateLimitResult.allowed) {
+    const error = `Athara API rate limit exceeded. Try again in ${Math.ceil((rateLimitResult.resetTime - Date.now()) / 60000)} minutes.`;
+    updateAPIHealth(false, error);
+    throw new Error(error);
   }
+
+  // Create cache key
+  const cacheKey = `${CACHE_KEYS.AGBOT_LOCATIONS}all`;
+
+  // Check cache first (unless bypassed)
+  if (!bypassCache) {
+    const cached = await cacheGet<AtharaLocation[]>(cacheKey);
+    if (cached) {
+      if (ENABLE_API_LOGGING) {
+        console.log(`[ATHARA API] Cache hit - ${cached.length} locations`);
+      }
+      return cached;
+    }
+  }
+
+  // Use request deduplication for concurrent requests
+  const requestKey = 'athara_locations_fetch';
+  
+  return await withRequestDeduplication(requestKey, async () => {
+    try {
+      if (ENABLE_API_LOGGING) {
+        console.log('[ATHARA API] Fetching fresh data from Athara API...');
+      }
+      
+      // Attempt real API call
+      const data = await makeAtharaRequest('/locations');
+      
+      // Validate the response structure
+      if (!Array.isArray(data)) {
+        const error = 'Invalid Athara API response: expected array of locations';
+        updateAPIHealth(false, error);
+        throw new Error(error);
+      }
+      
+      // Cache the successful result
+      await cacheSet(cacheKey, data, CACHE_CONFIG.AGBOT_API);
+      
+      // Update health status on success
+      updateAPIHealth(true);
+      
+      if (ENABLE_API_LOGGING) {
+        console.log(`[ATHARA API] Successfully fetched ${data.length} locations (cached for ${CACHE_CONFIG.AGBOT_API}s)`);
+      }
+      
+      return data;
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      updateAPIHealth(false, errorMessage);
+      
+      console.error('[ATHARA API] CRITICAL: API call failed - NO MOCK DATA AVAILABLE:', error);
+      
+      // Re-throw the error instead of using mock data
+      // This forces the application to handle the error appropriately
+      throw new Error(`Athara API unavailable: ${errorMessage}`);
+    }
+  });
 }
 
 // Transform Athara API data to our database format
@@ -1325,4 +1371,71 @@ export async function importAgbotFromCSV(csvRows: any[]): Promise<AgbotCSVImport
     console.error('\n❌ CSV IMPORT FAILED:', error);
     return result;
   }
+}
+
+// AgBot Cache Management Functions
+
+/**
+ * Clear all AgBot cache entries
+ */
+export async function clearAgBotCache(): Promise<void> {
+  try {
+    await Promise.all([
+      cacheDel(`${CACHE_KEYS.AGBOT_LOCATIONS}*`),
+      cacheDel(`${CACHE_KEYS.AGBOT_ASSETS}*`),
+      cacheDel(`${CACHE_KEYS.AGBOT_HEALTH}*`)
+    ]);
+    console.log('[AGBOT CACHE] All AgBot cache entries cleared');
+  } catch (error) {
+    console.warn('[AGBOT CACHE] Failed to clear cache:', error);
+  }
+}
+
+/**
+ * Get AgBot API health including cache status
+ */
+export async function getAgBotSystemHealth(): Promise<{
+  api: AtharaAPIHealth;
+  cache: {
+    healthy: boolean;
+    latency: number;
+    error?: string;
+  };
+  overall: 'healthy' | 'degraded' | 'unhealthy';
+}> {
+  const apiHealth = getAtharaAPIHealth();
+  const cacheHealth = await cacheHealthCheck();
+  
+  let overall: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+  
+  if (apiHealth.status === 'unavailable' || !cacheHealth.healthy) {
+    overall = 'unhealthy';
+  } else if (apiHealth.status === 'error' || cacheHealth.latency > 1000) {
+    overall = 'degraded';
+  }
+  
+  return {
+    api: apiHealth,
+    cache: cacheHealth,
+    overall
+  };
+}
+
+/**
+ * Force refresh AgBot data (bypass cache)
+ */
+export async function refreshAgBotData(): Promise<AtharaLocation[]> {
+  // Clear existing cache first
+  await clearAgBotCache();
+  
+  // Fetch fresh data (bypass cache)
+  return await fetchAtharaLocations(true);
+}
+
+/**
+ * Cache AgBot locations with explicit TTL
+ */
+export async function cacheAgBotLocations(locations: AtharaLocation[], ttl?: number): Promise<void> {
+  const cacheKey = `${CACHE_KEYS.AGBOT_LOCATIONS}all`;
+  await cacheSet(cacheKey, locations, ttl || CACHE_CONFIG.AGBOT_API);
 }

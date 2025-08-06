@@ -1,4 +1,15 @@
 import { supabase } from '@/lib/supabase';
+import {
+  cacheApiResponse,
+  withRequestDeduplication,
+  checkRateLimit,
+  CACHE_CONFIG,
+  CACHE_KEYS,
+  cacheGet,
+  cacheSet,
+  cacheDel,
+  cacheHealthCheck
+} from '@/lib/cache-stubs';
 
 // SmartFill API configuration - JSON-RPC 2.0 based fuel monitoring system
 // API Base URL: https://www.fmtdata.com/API/api.php
@@ -210,10 +221,11 @@ export function getSmartFillAPIHealth(): SmartFillAPIHealth {
   return { ...apiHealthStatus };
 }
 
-// PRODUCTION SAFE: Fetch SmartFill tank data for a customer
+// PRODUCTION SAFE: Fetch SmartFill tank data for a customer with caching
 export async function fetchSmartFillTankData(
   clientReference: string, 
-  clientSecret: string
+  clientSecret: string,
+  bypassCache: boolean = false
 ): Promise<SmartFillTankReading[]> {
   // Validate API credentials
   if (!clientReference || !clientSecret) {
@@ -222,18 +234,49 @@ export async function fetchSmartFillTankData(
     throw new Error(error);
   }
 
-  try {
-    if (ENABLE_API_LOGGING) {
-      console.log('[SMARTFILL API] Fetching tank data from SmartFill API...');
+  // Rate limiting check
+  const rateLimitResult = await checkRateLimit(
+    `smartfill_api_${clientReference}`, 
+    50, // 50 requests per hour per customer
+    CACHE_CONFIG.RATE_LIMITING
+  );
+
+  if (!rateLimitResult.allowed) {
+    const error = `SmartFill API rate limit exceeded. Try again in ${Math.ceil((rateLimitResult.resetTime - Date.now()) / 60000)} minutes.`;
+    updateAPIHealth(false, error);
+    throw new Error(error);
+  }
+
+  // Create cache key for this specific customer
+  const cacheKey = `${CACHE_KEYS.SMARTFILL_TANKS}${clientReference}`;
+
+  // Check cache first (unless bypassed)
+  if (!bypassCache) {
+    const cached = await cacheGet<SmartFillTankReading[]>(cacheKey);
+    if (cached) {
+      if (ENABLE_API_LOGGING) {
+        console.log(`[SMARTFILL API] Cache hit for ${clientReference} - ${cached.length} tanks`);
+      }
+      return cached;
     }
-    
-    // Make JSON-RPC call to Tank:Level method
-    const result = await makeSmartFillRequest(
-      'Tank:Level', 
-      {},
-      clientReference, 
-      clientSecret
-    );
+  }
+
+  // Use request deduplication for concurrent requests
+  const requestKey = `smartfill_tank_data_${clientReference}`;
+  
+  return await withRequestDeduplication(requestKey, async () => {
+    try {
+      if (ENABLE_API_LOGGING) {
+        console.log('[SMARTFILL API] Fetching fresh data from SmartFill API...');
+      }
+      
+      // Make JSON-RPC call to Tank:Level method
+      const result = await makeSmartFillRequest(
+        'Tank:Level', 
+        {},
+        clientReference, 
+        clientSecret
+      );
     
     // Validate the response structure
     if (!result || !result.columns || !Array.isArray(result.values)) {
@@ -242,48 +285,60 @@ export async function fetchSmartFillTankData(
       throw new Error(error);
     }
     
-    // Transform column/value arrays into objects
-    const tankReadings: SmartFillTankReading[] = result.values.map((row: any[]) => {
-      const reading: any = {};
-      result.columns.forEach((column: string, index: number) => {
-        reading[column] = row[index];
+      // Transform column/value arrays into objects
+      const tankReadings: SmartFillTankReading[] = result.values.map((row: any[]) => {
+        const reading: any = {};
+        result.columns.forEach((column: string, index: number) => {
+          reading[column] = row[index];
+        });
+        return reading as SmartFillTankReading;
       });
-      return reading as SmartFillTankReading;
-    });
-    
-    // Update health status on success
-    updateAPIHealth(true);
-    
-    if (ENABLE_API_LOGGING) {
-      console.log(`[SMARTFILL API] Successfully fetched ${tankReadings.length} tank readings`);
+      
+      // Cache the successful result
+      await cacheSet(cacheKey, tankReadings, CACHE_CONFIG.SMARTFILL_API);
+      
+      // Update health status on success
+      updateAPIHealth(true);
+      
+      if (ENABLE_API_LOGGING) {
+        console.log(`[SMARTFILL API] Successfully fetched ${tankReadings.length} tank readings (cached for ${CACHE_CONFIG.SMARTFILL_API}s)`);
+      }
+      
+      return tankReadings;
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      updateAPIHealth(false, errorMessage);
+      
+      console.error('[SMARTFILL API] CRITICAL: API call failed:', error);
+      
+      // Re-throw the error instead of using mock data
+      throw new Error(`SmartFill API unavailable: ${errorMessage}`);
     }
-    
-    return tankReadings;
-    
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    updateAPIHealth(false, errorMessage);
-    
-    console.error('[SMARTFILL API] CRITICAL: API call failed:', error);
-    
-    // Re-throw the error instead of using mock data
-    throw new Error(`SmartFill API unavailable: ${errorMessage}`);
-  }
+  });
 }
 
-// Get all SmartFill customers from database
+// Get all SmartFill customers from database with caching
 export async function getSmartFillCustomers(): Promise<SmartFillCustomer[]> {
-  const { data, error } = await supabase
-    .from('smartfill_customers')
-    .select('*')
-    .order('name');
+  const cacheKey = CACHE_KEYS.SMARTFILL_CUSTOMERS + 'all';
+  
+  return await cacheApiResponse(
+    cacheKey,
+    async () => {
+      const { data, error } = await supabase
+        .from('smartfill_customers')
+        .select('*')
+        .order('name');
 
-  if (error) {
-    console.error('Error fetching SmartFill customers:', error);
-    throw error;
-  }
+      if (error) {
+        console.error('Error fetching SmartFill customers:', error);
+        throw error;
+      }
 
-  return data || [];
+      return data || [];
+    },
+    CACHE_CONFIG.SMARTFILL_API * 6 // Cache customer data for 30 minutes (longer than tank data)
+  );
 }
 
 // Transform SmartFill data to our database format
@@ -637,18 +692,98 @@ export async function getSmartFillLocations(): Promise<SmartFillLocation[]> {
   return data || [];
 }
 
-// Get recent sync logs
+// Get recent sync logs with caching
 export async function getSmartFillSyncLogs(limit: number = 10) {
-  const { data, error } = await supabase
-    .from('smartfill_sync_logs')
-    .select('*')
-    .order('started_at', { ascending: false })
-    .limit(limit);
+  const cacheKey = `${CACHE_KEYS.SMARTFILL_SYNC}logs_${limit}`;
+  
+  return await cacheApiResponse(
+    cacheKey,
+    async () => {
+      const { data, error } = await supabase
+        .from('smartfill_sync_logs')
+        .select('*')
+        .order('started_at', { ascending: false })
+        .limit(limit);
 
-  if (error) {
-    console.error('Error fetching SmartFill sync logs:', error);
-    throw error;
+      if (error) {
+        console.error('Error fetching SmartFill sync logs:', error);
+        throw error;
+      }
+
+      return data || [];
+    },
+    CACHE_CONFIG.SMARTFILL_API / 2 // Cache sync logs for 2.5 minutes
+  );
+}
+
+// SmartFill Cache Management Functions
+
+/**
+ * Clear all SmartFill cache entries
+ */
+export async function clearSmartFillCache(): Promise<void> {
+  try {
+    await Promise.all([
+      cacheDel(`${CACHE_KEYS.SMARTFILL_TANKS}*`),
+      cacheDel(`${CACHE_KEYS.SMARTFILL_CUSTOMERS}*`),
+      cacheDel(`${CACHE_KEYS.SMARTFILL_SYNC}*`)
+    ]);
+    console.log('[SMARTFILL CACHE] All SmartFill cache entries cleared');
+  } catch (error) {
+    console.warn('[SMARTFILL CACHE] Failed to clear cache:', error);
   }
+}
 
-  return data || [];
+/**
+ * Clear cache for a specific SmartFill customer
+ */
+export async function clearSmartFillCustomerCache(clientReference: string): Promise<void> {
+  try {
+    const cacheKey = `${CACHE_KEYS.SMARTFILL_TANKS}${clientReference}`;
+    await cacheDel(cacheKey);
+    console.log(`[SMARTFILL CACHE] Cleared cache for customer ${clientReference}`);
+  } catch (error) {
+    console.warn(`[SMARTFILL CACHE] Failed to clear cache for customer ${clientReference}:`, error);
+  }
+}
+
+/**
+ * Get SmartFill API health including cache status
+ */
+export async function getSmartFillSystemHealth(): Promise<{
+  api: SmartFillAPIHealth;
+  cache: {
+    healthy: boolean;
+    latency: number;
+    error?: string;
+  };
+  overall: 'healthy' | 'degraded' | 'unhealthy';
+}> {
+  const apiHealth = getSmartFillAPIHealth();
+  const cacheHealth = await cacheHealthCheck();
+  
+  let overall: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+  
+  if (apiHealth.status === 'unavailable' || !cacheHealth.healthy) {
+    overall = 'unhealthy';
+  } else if (apiHealth.status === 'error' || cacheHealth.latency > 1000) {
+    overall = 'degraded';
+  }
+  
+  return {
+    api: apiHealth,
+    cache: cacheHealth,
+    overall
+  };
+}
+
+/**
+ * Force refresh SmartFill data (bypass cache)
+ */
+export async function refreshSmartFillData(clientReference: string, clientSecret: string): Promise<SmartFillTankReading[]> {
+  // Clear existing cache first
+  await clearSmartFillCustomerCache(clientReference);
+  
+  // Fetch fresh data (bypass cache)
+  return await fetchSmartFillTankData(clientReference, clientSecret, true);
 }
