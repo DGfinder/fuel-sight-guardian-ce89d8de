@@ -6,10 +6,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadCSVFile, generateExport, createBackup } from '@/lib/vercel-blob';
-import { processCaptivePaymentsCsv } from '@/services/captivePaymentsCsvProcessor';
+import { uploadCSVFile, generateExport, createBackup } from './lib/vercel-blob';
+import { processCaptivePaymentsCsv } from './lib/captivePaymentsCsvProcessor';
 import { cacheSet, CACHE_CONFIG, CACHE_KEYS } from './lib/vercel-kv';
-import { supabase } from '@/lib/supabase';
+import { supabase } from './lib/supabase';
 
 // Configuration - Vercel Server Upload Limits
 const SERVER_MAX_FILE_SIZE = 4.5 * 1024 * 1024; // 4.5MB (Vercel server upload limit)

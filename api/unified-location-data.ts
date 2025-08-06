@@ -8,9 +8,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { 
   getUnifiedLocationData,
   unifiedDataIntegrator 
-} from '@/lib/unified-data-integration';
+} from './lib/unified-data-integration';
 import { cacheSet, cacheGet, CACHE_CONFIG } from './lib/vercel-kv';
-import { isFeatureEnabled, CONFIG_KEYS } from '@/lib/vercel-edge-config';
+import { isFeatureEnabled, CONFIG_KEYS } from './lib/vercel-edge-config';
 
 interface UnifiedLocationRequest {
   locationId: string;
@@ -140,7 +140,7 @@ async function getLocationHistoricalData(
   // Get SmartFill historical readings
   if (systems.includes('smartfill')) {
     try {
-      const { supabase } = await import('@/lib/supabase');
+      const { supabase } = await import('./lib/supabase');
       const { data: readings } = await supabase
         .from('smartfill_readings_history')
         .select(`
@@ -175,7 +175,7 @@ async function getLocationHistoricalData(
   // Get AgBot historical readings
   if (systems.includes('agbot')) {
     try {
-      const { supabase } = await import('@/lib/supabase');
+      const { supabase } = await import('./lib/supabase');
       const { data: readings } = await supabase
         .from('agbot_readings_history')
         .select(`
@@ -208,7 +208,7 @@ async function getLocationHistoricalData(
   // Get delivery history from Captive Payments
   if (systems.includes('captive_payments')) {
     try {
-      const { supabase } = await import('@/lib/supabase');
+      const { supabase } = await import('./lib/supabase');
       const { data: deliveries } = await supabase
         .from('captive_deliveries')
         .select('*')

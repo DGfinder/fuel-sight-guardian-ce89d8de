@@ -7,8 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { put, handleUpload, type HandleUploadBody } from '@vercel/blob/client';
-import { validateVercelEnvironment } from '@/lib/vercel-environment';
-import { supabase } from '@/lib/supabase';
+import { validateVercelEnvironment } from '../lib/vercel-environment';
+import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 // Configuration

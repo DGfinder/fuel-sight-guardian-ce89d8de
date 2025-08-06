@@ -65,7 +65,8 @@
       "Bash(psql:*)",
       "Bash(vercel:*)",
       "Bash(git ls-tree:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(timeout 90 npm run build)"
     ],
     "deny": []
   }

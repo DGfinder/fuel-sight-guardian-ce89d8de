@@ -6,8 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { list, type ListBlobResult } from '@vercel/blob';
-import { validateVercelEnvironment } from '@/lib/vercel-environment';
-import { supabase } from '@/lib/supabase';
+import { validateVercelEnvironment } from '../lib/vercel-environment';
+import { supabase } from '../lib/supabase';
 
 interface ListQuery {
   userId?: string;

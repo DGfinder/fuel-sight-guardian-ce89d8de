@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { runVercelSetupCheck, printSetupReport } from '@/lib/vercel-setup-check';
+import { runVercelSetupCheck, printSetupReport } from './lib/vercel-setup-check';
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'quick-check':
         // Quick verification for development
-        const { quickVercelCheck } = await import('@/lib/vercel-setup-check');
+        const { quickVercelCheck } = await import('./lib/vercel-setup-check');
         const isReady = await quickVercelCheck();
         
         return NextResponse.json({

@@ -10,10 +10,10 @@ import {
   getCrossSystemAnalytics,
   getCorrelatedDeliveryData,
   unifiedDataIntegrator 
-} from '@/lib/unified-data-integration';
+} from './lib/unified-data-integration';
 import { cacheSet, cacheGet, CACHE_CONFIG } from './lib/vercel-kv';
-import { isFeatureEnabled, CONFIG_KEYS } from '@/lib/vercel-edge-config';
-import { supabase } from '@/lib/supabase';
+import { isFeatureEnabled, CONFIG_KEYS } from './lib/vercel-edge-config';
+import { supabase } from './lib/supabase';
 
 interface CrossSystemRequest {
   action: 'analytics' | 'deliveries' | 'correlation' | 'health';
