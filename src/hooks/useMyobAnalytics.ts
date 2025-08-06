@@ -202,7 +202,7 @@ export const useUploadMyobData = () => {
       const duplicateCount = deliveriesWithMetadata.length - newDeliveries.length;
 
       let processedCount = 0;
-      let errors: string[] = [];
+      const errors: string[] = [];
 
       if (newDeliveries.length > 0) {
         // Insert new deliveries

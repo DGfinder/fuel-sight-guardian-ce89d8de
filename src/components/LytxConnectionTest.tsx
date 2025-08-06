@@ -7,7 +7,7 @@ const LytxConnectionTest: React.FC = () => {
   const [testResults, setTestResults] = useState<{
     connection: boolean | null;
     message: string;
-    details?: any;
+    details?: Record<string, unknown>;
   }>({ connection: null, message: '' });
   const [isManualTesting, setIsManualTesting] = useState(false);
 

@@ -27,7 +27,11 @@ interface SubgroupQuickEntryProps {
   tanks: Tank[];
   dipDate: Date;
   userId: string | null;
-  userProfile: any;
+  userProfile: {
+    id: string;
+    role?: string;
+    permissions?: string[];
+  } | null;
   onSuccess: () => void;
 }
 

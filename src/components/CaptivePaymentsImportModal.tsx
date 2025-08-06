@@ -54,10 +54,19 @@ export default function CaptivePaymentsImportModal({
   const [currentStep, setCurrentStep] = useState<ImportStep>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [processedData, setProcessedData] = useState<ProcessedCsvData | null>(null);
-  const [duplicateCheck, setDuplicateCheck] = useState<any>(null);
+  const [duplicateCheck, setDuplicateCheck] = useState<{
+    duplicates: unknown[];
+    conflicts: unknown[];
+    summary: Record<string, unknown>;
+  } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
-  const [importResult, setImportResult] = useState<any>(null);
+  const [importResult, setImportResult] = useState<{
+    success: boolean;
+    message?: string;
+    stats?: Record<string, unknown>;
+    errors?: string[];
+  } | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];

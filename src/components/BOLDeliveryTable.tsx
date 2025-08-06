@@ -78,7 +78,7 @@ const BOLDeliveryTable: React.FC<BOLDeliveryTableProps> = ({
 
   // Filter and sort data
   const filteredAndSortedDeliveries = useMemo(() => {
-    let filtered = deliveries.filter(delivery => {
+    const filtered = deliveries.filter(delivery => {
       const matchesSearch = !searchTerm || 
         delivery.bolNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         delivery.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -57,7 +57,7 @@ const TerminalPerformanceTable: React.FC<TerminalPerformanceTableProps> = ({
   };
 
   const sortedAndFilteredTerminals = useMemo(() => {
-    let filtered = terminals.filter(terminal =>
+    const filtered = terminals.filter(terminal =>
       terminal.terminal.toLowerCase().includes(searchTerm.toLowerCase())
     );
 

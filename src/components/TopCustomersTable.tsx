@@ -54,7 +54,7 @@ const TopCustomersTable: React.FC<TopCustomersTableProps> = ({
   };
 
   const sortedAndFilteredCustomers = useMemo(() => {
-    let filtered = customers.filter(customer =>
+    const filtered = customers.filter(customer =>
       customer.customer.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
