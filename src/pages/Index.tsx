@@ -6,6 +6,7 @@ import { Bell, AlertTriangle, Filter, Map } from "lucide-react";
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { useTanks } from '@/hooks/useTanks';
+import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import { KPICards } from '@/components/KPICards';
 import { GroupSnapshotCards } from '@/components/GroupSnapshotCards';
 import { TankStatusTable } from '@/components/TankStatusTable';
@@ -47,19 +48,36 @@ export default function Index({ selectedGroup }: IndexProps) {
   const suppressNextRowClick = useRef(false);
 
   const { tanks, isLoading: tanksLoading, error: tanksError } = useTanks();
+  const { filterTanks, permissions, isLoading: permissionsLoading } = useFilterTanksBySubgroup();
   const { alerts, isLoading: alertsLoading } = useAlerts();
 
-  // Debug component state
+  // Apply subgroup filtering to tanks - only if permissions are loaded
+  const permissionFilteredTanks = (!permissionsLoading && permissions) ? filterTanks(tanks || []) : [];
+  
+  // Debug component state including subgroup filtering
   console.log('[INDEX DEBUG] Component State:', {
     tanksLoading,
+    permissionsLoading,
     tanksError: tanksError?.message,
-    tanksCount: tanks?.length || 0,
+    originalTanksCount: tanks?.length || 0,
+    permissionFilteredCount: permissionFilteredTanks.length,
     alertsLoading,
-    hasTanks: Array.isArray(tanks) && tanks.length > 0
+    hasTanks: Array.isArray(tanks) && tanks.length > 0,
+    userRole: permissions?.role,
+    isAdmin: permissions?.isAdmin
   });
 
-  // Filter tanks based on selected group
-  const filteredTanks = tanks?.filter(tank => {
+  // Debug subgroup filtering results
+  if (permissions && !permissionsLoading && !permissions.isAdmin && tanks && tanks.length !== permissionFilteredTanks.length) {
+    console.log('🎯 [INDEX SUBGROUP FILTERING ACTIVE]', {
+      original: tanks.length,
+      filtered: permissionFilteredTanks.length,
+      hidden: tanks.length - permissionFilteredTanks.length
+    });
+  }
+
+  // Filter tanks based on selected group (using permission-filtered tanks as base)
+  const filteredTanks = permissionFilteredTanks.filter(tank => {
     if (!selectedGroup) return true;
     // Map group IDs to group names for filtering
     const groupMapping: Record<string, string> = {
@@ -71,26 +89,26 @@ export default function Index({ selectedGroup }: IndexProps) {
     };
     const groupName = groupMapping[selectedGroup];
     return tank.group_name === groupName;
-  }) ?? [];
+  });
 
-  const allGroupNames = Array.from(new Set(tanks?.map(t => t.group_name).filter(Boolean)));
-  const groupSnapshots = tanks ? [
+  const allGroupNames = Array.from(new Set(permissionFilteredTanks.map(t => t.group_name).filter(Boolean)));
+  const groupSnapshots = permissionFilteredTanks.length > 0 ? [
     {
       id: "all",
       name: "All Groups",
-      totalTanks: tanks.length,
-      criticalTanks: tanks.filter(t => t.days_to_min_level !== null && t.days_to_min_level <= 2).length,
-      averageLevel: tanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length > 0
+      totalTanks: permissionFilteredTanks.length,
+      criticalTanks: permissionFilteredTanks.filter(t => t.days_to_min_level !== null && t.days_to_min_level <= 2).length,
+      averageLevel: permissionFilteredTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length > 0
         ? Math.round(
-            tanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null)
+            permissionFilteredTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null)
               .reduce((acc, t) => acc + ((t.current_level / t.safe_level) * 100), 0) /
-            tanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length
+            permissionFilteredTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length
           )
         : 0,
       lastUpdated: new Date().toISOString()
     },
     ...allGroupNames.map(groupName => {
-      const groupTanks = tanks.filter(t => t.group_name === groupName);
+      const groupTanks = permissionFilteredTanks.filter(t => t.group_name === groupName);
       const groupTanksWithDip = groupTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null);
       return {
         id: groupName,
@@ -141,10 +159,10 @@ export default function Index({ selectedGroup }: IndexProps) {
     }
   };
 
-  if (tanksLoading) {
+  if (tanksLoading || permissionsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size={32} text="Loading fuel data..." />
+        <LoadingSpinner size={32} text={`Loading ${tanksLoading ? 'fuel data' : ''}${tanksLoading && permissionsLoading ? ' and ' : ''}${permissionsLoading ? 'permissions' : ''}...`} />
       </div>
     );
   }
@@ -162,7 +180,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   }
 
   const criticalAlerts = alerts?.filter(alert => !alert.acknowledged_at && !alert.snoozed_until) || [];
-  const displayTanks = selectedGroup ? filteredTanks : tanks || [];
+  const displayTanks = selectedGroup ? filteredTanks : permissionFilteredTanks;
 
   return (
     <div className="min-h-screen w-full bg-muted">
@@ -185,7 +203,7 @@ export default function Index({ selectedGroup }: IndexProps) {
             <p className="text-gray-600 mt-1">
               {selectedGroup 
                 ? `Monitoring ${filteredTanks.length} tanks in this group`
-                : `Real-time monitoring across ${tanks?.length || 0} fuel tanks`
+                : `Real-time monitoring across ${permissionFilteredTanks.length} fuel tanks`
               }
             </p>
           </div>
