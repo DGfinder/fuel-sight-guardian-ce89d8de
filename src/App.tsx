@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import '@/lib/auth-cleanup'; // Initialize auth cleanup utilities
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RealtimeErrorBoundary } from '@/components/RealtimeErrorBoundary';
@@ -505,6 +506,7 @@ const App = () => {
   return (
     <AgbotModalProvider>
       <AppContent />
+      <SpeedInsights />
     </AgbotModalProvider>
   );
 };
