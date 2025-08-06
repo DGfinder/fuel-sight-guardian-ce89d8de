@@ -30,6 +30,8 @@ import MonthlyVolumeChart from '@/components/charts/MonthlyVolumeChart';
 import VolumeBreakdownCharts from '@/components/charts/VolumeBreakdownCharts';
 import TopCustomersTable from '@/components/TopCustomersTable';
 import CustomerDetailModal from '@/components/CustomerDetailModal';
+import TerminalPerformanceTable from '@/components/TerminalPerformanceTable';
+import TerminalDetailModal from '@/components/TerminalDetailModal';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { 
@@ -37,7 +39,7 @@ import {
   useBOLDeliveries, 
   useAvailableDateRange 
 } from '@/hooks/useCaptivePayments';
-import type { DashboardFilters, CustomerAnalytics } from '@/types/captivePayments';
+import type { DashboardFilters, CustomerAnalytics, TerminalAnalytics } from '@/types/captivePayments';
 
 const SMBDashboard: React.FC = () => {
   // Permission check
@@ -48,16 +50,30 @@ const SMBDashboard: React.FC = () => {
   
   // Customer detail modal state
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerAnalytics | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+
+  // Terminal detail modal state
+  const [selectedTerminal, setSelectedTerminal] = useState<TerminalAnalytics | null>(null);
+  const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
 
   const handleCustomerClick = (customer: CustomerAnalytics) => {
     setSelectedCustomer(customer);
-    setIsModalOpen(true);
+    setIsCustomerModalOpen(true);
   };
 
-  const handleModalClose = () => {
-    setIsModalOpen(false);
+  const handleCustomerModalClose = () => {
+    setIsCustomerModalOpen(false);
     setSelectedCustomer(null);
+  };
+
+  const handleTerminalClick = (terminal: TerminalAnalytics) => {
+    setSelectedTerminal(terminal);
+    setIsTerminalModalOpen(true);
+  };
+
+  const handleTerminalModalClose = () => {
+    setIsTerminalModalOpen(false);
+    setSelectedTerminal(null);
   };
   
   // Create filters object - SMB-specific (no date filters unless explicitly set by user)
@@ -270,68 +286,16 @@ const SMBDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Terminal Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="w-5 h-5" />
-              Terminal Performance
-            </CardTitle>
-            <CardDescription>
-              Volume distribution across SMB terminals
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {isLoading ? (
-                Array(3).fill(0).map((_, index) => (
-                  <div key={index} className="animate-pulse border rounded-lg p-3 bg-gray-50/50">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="bg-gray-200 h-4 w-32 rounded"></div>
-                      <div className="bg-gray-200 h-4 w-12 rounded"></div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-gray-200 h-12 rounded"></div>
-                      <div className="bg-gray-200 h-12 rounded"></div>
-                      <div className="bg-gray-200 h-12 rounded"></div>
-                    </div>
-                  </div>
-                ))
-              ) : smbData?.terminalAnalysis?.length ? (
-                smbData.terminalAnalysis.map((terminal, index) => (
-                  <div key={terminal.terminal} className="border rounded-lg p-3 bg-gray-50/50">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-gray-900">{terminal.terminal}</span>
-                      <span className="font-semibold text-blue-600">{terminal.percentage_of_carrier_volume?.toFixed(1) || 0}%</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <div className="text-gray-500">Deliveries</div>
-                        <div className="font-medium">{terminal.total_deliveries.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">Volume (ML)</div>
-                        <div className="font-medium">
-                          {(terminal.total_volume_litres / 1000000).toFixed(2)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">Avg/Delivery</div>
-                        <div className="font-medium">
-                          {(terminal.total_volume_litres / terminal.total_deliveries).toFixed(0)} L
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-gray-500 py-4">
-                  No terminal data available
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Terminal Performance - Enhanced Interactive Table */}
+        {smbData?.terminalAnalysis && (
+          <TerminalPerformanceTable
+            terminals={smbData.terminalAnalysis}
+            totalDeliveries={smbData.totalDeliveries}
+            onTerminalClick={handleTerminalClick}
+            isLoading={isLoading}
+            carrier="SMB"
+          />
+        )}
 
         {/* Top Customers Table */}
         {smbData?.topCustomers && (
@@ -383,10 +347,19 @@ const SMBDashboard: React.FC = () => {
       {/* Customer Detail Modal */}
       <CustomerDetailModal
         customer={selectedCustomer}
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
+        isOpen={isCustomerModalOpen}
+        onClose={handleCustomerModalClose}
         totalDeliveries={smbData?.totalDeliveries || 0}
         allCustomers={smbData?.topCustomers || []}
+      />
+      
+      {/* Terminal Detail Modal */}
+      <TerminalDetailModal
+        terminal={selectedTerminal}
+        isOpen={isTerminalModalOpen}
+        onClose={handleTerminalModalClose}
+        carrier="SMB"
+        allTerminals={smbData?.terminalAnalysis || []}
       />
     </DataCentreLayout>
   );

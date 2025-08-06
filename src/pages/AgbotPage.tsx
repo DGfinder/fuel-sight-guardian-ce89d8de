@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload } from 'lucide-react';
+import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload, Globe } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   useAgbotLocations, 
   useAgbotSummary, 
-  useAgbotSync, 
   useFilteredAgbotLocations,
   formatTimestamp,
   usePercentageColor,
@@ -18,10 +17,9 @@ import { AgbotModalProvider, useAgbotModal } from '@/contexts/AgbotModalContext'
 import AgbotLocationCard from '@/components/agbot/AgbotLocationCard';
 import AgbotTable from '@/components/agbot/AgbotTable';
 import AgbotDetailsModal from '@/components/AgbotDetailsModal';
-import { AgbotAPIHealthStatus } from '@/components/agbot/AgbotAPIHealthStatus';
-import { AgbotSystemMonitoring } from '@/components/agbot/AgbotSystemMonitoring';
+import { AgbotWebhookHealthStatus } from '@/components/agbot/AgbotWebhookHealthStatus';
+import { AgbotWebhookMonitoring } from '@/components/agbot/AgbotWebhookMonitoring';
 import { AgbotErrorBoundary } from '@/components/agbot/AgbotErrorBoundary';
-import { AgbotSyncDiagnostics } from '@/components/agbot/AgbotSyncDiagnostics';
 import AgbotCSVImportModal, { type AgbotCSVRow } from '@/components/AgbotCSVImportModal';
 import { importAgbotFromCSV } from '@/services/agbot-api';
 import { useToast } from '@/hooks/use-toast';
@@ -56,12 +54,7 @@ function AgbotPageContent() {
   });
 
   const summary = useAgbotSummary();
-  const syncMutation = useAgbotSync();
   const { toast } = useToast();
-
-  const handleSync = () => {
-    syncMutation.mutate();
-  };
 
   const handleCSVImport = async (csvData: AgbotCSVRow[]) => {
     setIsImporting(true);
@@ -135,15 +128,15 @@ function AgbotPageContent() {
                   <Signal className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Agbot Monitoring</h1>
+                  <h1 className="text-3xl font-bold text-gray-900">Gasbot Monitoring</h1>
                   <p className="text-gray-600 mt-1">
-                    Cellular tank monitoring - {summary.totalAssets} devices across {summary.totalLocations} locations
+                    Real-time webhook data - {summary.totalAssets} devices across {summary.totalLocations} locations
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                {/* API Health Status - Compact */}
-                <AgbotAPIHealthStatus showFullDetails={false} className="mr-2" />
+                {/* Webhook Health Status - Compact */}
+                <AgbotWebhookHealthStatus showFullDetails={false} className="mr-2" />
                 
                 {/* System Monitoring Toggle */}
                 <Button
@@ -152,7 +145,7 @@ function AgbotPageContent() {
                   onClick={() => setShowSystemMonitoring(!showSystemMonitoring)}
                 >
                   <AlertTriangle className="h-4 w-4 mr-1" />
-                  System Health
+                  Webhook Health
                 </Button>
                 
                 {/* View Toggle */}
@@ -184,21 +177,20 @@ function AgbotPageContent() {
                   {isImporting ? 'Importing...' : 'Import CSV'}
                 </Button>
                 <Button
-                  onClick={handleSync}
-                  disabled={syncMutation.isPending}
+                  onClick={() => window.open('https://fuel-sight-guardian-ce89d8de.vercel.app/api/gasbot-webhook', '_blank')}
+                  variant="outline"
                   className="flex items-center gap-2"
                 >
-                  <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                  {syncMutation.isPending ? 'Syncing...' : 'Sync Data'}
+                  <Globe className="h-4 w-4" />
+                  Webhook Endpoint
                 </Button>
               </div>
             </div>
 
-            {/* System Monitoring Panel */}
+            {/* Webhook Monitoring Panel */}
             {showSystemMonitoring && (
               <>
-                <AgbotSystemMonitoring />
-                <AgbotSyncDiagnostics />
+                <AgbotWebhookMonitoring />
               </>
             )}
 
@@ -309,15 +301,6 @@ function AgbotPageContent() {
               </div>
             )}
 
-            {/* Sync Status */}
-            {syncMutation.isPending && (
-              <Alert>
-                <Zap className="h-4 w-4" />
-                <AlertDescription>
-                  Syncing data from Athara API...
-                </AlertDescription>
-              </Alert>
-            )}
 
             {/* Location Display */}
             {locations && locations.length > 0 ? (
@@ -345,13 +328,13 @@ function AgbotPageContent() {
                 <p className="text-muted-foreground mb-4">
                   {locations?.length === 0 && (searchFilter || onlineOnly || lowFuelOnly)
                     ? 'Try adjusting your search criteria or filters.'
-                    : 'Sync data from the Athara API to see your agbot devices.'
+                    : 'Configure Gasbot webhook to receive device data.'
                   }
                 </p>
                 {(!locations || locations.length === 0) && !searchFilter && !onlineOnly && !lowFuelOnly && (
-                  <Button onClick={handleSync} disabled={syncMutation.isPending}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Sync Agbot Data
+                  <Button onClick={() => window.open('https://fuel-sight-guardian-ce89d8de.vercel.app/api/gasbot-webhook', '_blank')} variant="outline">
+                    <Globe className="h-4 w-4 mr-2" />
+                    Test Webhook Endpoint
                   </Button>
                 )}
               </div>
@@ -360,17 +343,17 @@ function AgbotPageContent() {
             {/* Production Safety Info */}
             <Alert>
               <AlertDescription>
-                <strong>Production Environment:</strong> Agbot devices report fuel levels as percentages via cellular transmission. 
-                Data is automatically refreshed every 10 minutes (optimized for hourly cellular reports). 
-                This system uses real Athara API data only - no mock/fake data is provided. 
-                If API is unavailable, no data will be displayed until connectivity is restored.
+                <strong>Webhook Environment:</strong> Gasbot sends fuel level data directly to this system via webhook. 
+                Data is received in real-time as Gasbot devices report (typically hourly). 
+                No mock/fake data is provided - only real webhook data from Gasbot is displayed. 
+                Configure webhook in Gasbot dashboard: https://fuel-sight-guardian-ce89d8de.vercel.app/api/gasbot-webhook
               </AlertDescription>
             </Alert>
           </div>
         </div>
       </div>
       
-      {/* Agbot Details Modal */}
+      {/* Gasbot Details Modal */}
       <AgbotDetailsModal />
       
       {/* CSV Import Modal */}

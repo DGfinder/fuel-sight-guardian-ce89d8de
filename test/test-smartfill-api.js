@@ -175,15 +175,11 @@ async function testSmartFillAPI() {
 }
 
 // Run the test
-if (require.main === module) {
-  testSmartFillAPI()
-    .then(result => {
-      process.exit(result.success ? 0 : 1);
-    })
-    .catch(error => {
-      console.error('💥 Unexpected error:', error);
-      process.exit(1);
-    });
-}
-
-module.exports = { testSmartFillAPI, makeSmartFillRequest };
+testSmartFillAPI()
+  .then(result => {
+    process.exit(result.success ? 0 : 1);
+  })
+  .catch(error => {
+    console.error('💥 Unexpected error:', error);
+    process.exit(1);
+  });

@@ -500,6 +500,213 @@ export async function getAvailableDateRange(): Promise<{ minDate: Date; maxDate:
 }
 
 // =====================================================
+// TERMINAL-SPECIFIC ANALYTICS FUNCTIONS
+// =====================================================
+
+/**
+ * Get monthly analytics for a specific terminal
+ */
+export async function getTerminalMonthlyAnalytics(terminalName: string, filters?: CaptivePaymentsFilters): Promise<MonthlyAnalytics[]> {
+  const terminalFilters = { ...filters, terminal: terminalName };
+  return await getMonthlyAnalytics(terminalFilters);
+}
+
+/**
+ * Get customer analytics for a specific terminal
+ */
+export async function getTerminalCustomerAnalytics(terminalName: string, filters?: CaptivePaymentsFilters): Promise<CustomerAnalytics[]> {
+  const terminalFilters = { ...filters, terminal: terminalName };
+  return await getCustomerAnalytics(terminalFilters);
+}
+
+/**
+ * Get deliveries for a specific terminal
+ */
+export async function getTerminalDeliveries(terminalName: string, filters?: CaptivePaymentsFilters): Promise<CaptiveDelivery[]> {
+  const terminalFilters = { ...filters, terminal: terminalName };
+  return await getCaptiveDeliveries(terminalFilters);
+}
+
+/**
+ * Get comprehensive terminal analysis with detailed breakdown
+ */
+export async function getTerminalDetailedAnalytics(terminalName: string, filters?: CaptivePaymentsFilters) {
+  try {
+    const terminalFilters = { ...filters, terminal: terminalName };
+    
+    // Fetch all data in parallel
+    const [deliveries, monthlyData, customerData] = await Promise.all([
+      getCaptiveDeliveries(terminalFilters),
+      getMonthlyAnalytics(terminalFilters),
+      getCustomerAnalytics(terminalFilters)
+    ]);
+
+    // Calculate terminal-specific metrics
+    const totalDeliveries = deliveries.length;
+    const totalVolumeLitres = deliveries.reduce((sum, d) => sum + d.total_volume_litres_abs, 0);
+    const totalVolumeMegaLitres = totalVolumeLitres / 1000000;
+    const uniqueCustomers = new Set(deliveries.map(d => d.customer)).size;
+    const averageDeliverySize = totalDeliveries > 0 ? totalVolumeLitres / totalDeliveries : 0;
+
+    // Date range
+    const dates = deliveries.map(d => new Date(d.delivery_date)).sort((a, b) => a.getTime() - b.getTime());
+    const startDate = dates.length > 0 ? dates[0] : new Date();
+    const endDate = dates.length > 0 ? dates[dates.length - 1] : new Date();
+
+    // Recent activity (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentDeliveries = deliveries.filter(d => new Date(d.delivery_date) > thirtyDaysAgo).length;
+
+    // Peak month analysis
+    const peakMonth = monthlyData.reduce(
+      (max, month) => month.total_volume_megalitres > max.total_volume_megalitres ? month : max,
+      monthlyData[0] || { month_name: 'N/A', year: 0, total_volume_megalitres: 0, total_deliveries: 0 }
+    );
+
+    // Customer distribution analysis
+    const topCustomers = customerData.slice(0, 10);
+    const customerConcentration = topCustomers.length > 0 ? (topCustomers[0].total_volume_megalitres / totalVolumeMegaLitres) * 100 : 0;
+
+    // Operational metrics
+    const operatingDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const averageDeliveriesPerDay = operatingDays > 0 ? totalDeliveries / operatingDays : 0;
+    const averageVolumePerDay = operatingDays > 0 ? totalVolumeMegaLitres / operatingDays : 0;
+
+    // Calculate utilization score (based on recent activity and consistency)
+    const utilizationScore = Math.min(100, Math.round(
+      (recentDeliveries / Math.max(1, totalDeliveries / 12)) * 100
+    ));
+
+    return {
+      // Raw data
+      deliveries,
+      monthlyData,
+      customerData,
+      
+      // Summary metrics
+      terminalName,
+      totalDeliveries,
+      totalVolumeLitres,
+      totalVolumeMegaLitres,
+      uniqueCustomers,
+      averageDeliverySize,
+      
+      // Date range
+      dateRange: {
+        startDate: startDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        endDate: endDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        operatingDays,
+        monthsCovered: monthlyData.length
+      },
+      
+      // Activity metrics
+      recentActivity: {
+        deliveries30Days: recentDeliveries,
+        utilizationScore,
+        averageDeliveriesPerDay: Math.round(averageDeliveriesPerDay * 10) / 10,
+        averageVolumePerDay: Math.round(averageVolumePerDay * 100) / 100
+      },
+      
+      // Peak performance
+      peakMonth: {
+        month: peakMonth.month_name,
+        year: peakMonth.year,
+        volumeMegaLitres: peakMonth.total_volume_megalitres,
+        deliveries: peakMonth.total_deliveries
+      },
+      
+      // Customer insights
+      customerInsights: {
+        topCustomers,
+        topCustomerConcentration: Math.round(customerConcentration * 10) / 10,
+        customerDiversity: uniqueCustomers / Math.max(1, totalDeliveries) * 100
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching terminal detailed analytics:', error);
+    throw error;
+  }
+}
+
+/**
+ * Compare terminal performance against other terminals
+ */
+export async function getTerminalBenchmarkAnalytics(terminalName: string, filters?: CaptivePaymentsFilters) {
+  try {
+    // Get all terminals for comparison
+    const allTerminals = await getTerminalAnalytics(filters);
+    const targetTerminal = allTerminals.find(t => t.terminal === terminalName);
+    
+    if (!targetTerminal) {
+      throw new Error(`Terminal ${terminalName} not found`);
+    }
+
+    // Calculate rankings
+    const sortedByVolume = [...allTerminals].sort((a, b) => b.total_volume_megalitres - a.total_volume_megalitres);
+    const sortedByDeliveries = [...allTerminals].sort((a, b) => b.total_deliveries - a.total_deliveries);
+    const sortedByCustomers = [...allTerminals].sort((a, b) => b.unique_customers - a.unique_customers);
+    const sortedByEfficiency = [...allTerminals].sort((a, b) => {
+      const aEfficiency = a.total_volume_litres / a.total_deliveries;
+      const bEfficiency = b.total_volume_litres / b.total_deliveries;
+      return bEfficiency - aEfficiency;
+    });
+
+    const volumeRank = sortedByVolume.findIndex(t => t.terminal === terminalName) + 1;
+    const deliveryRank = sortedByDeliveries.findIndex(t => t.terminal === terminalName) + 1;
+    const customerRank = sortedByCustomers.findIndex(t => t.terminal === terminalName) + 1;
+    const efficiencyRank = sortedByEfficiency.findIndex(t => t.terminal === terminalName) + 1;
+
+    // Calculate averages for benchmarking
+    const avgVolume = allTerminals.reduce((sum, t) => sum + t.total_volume_megalitres, 0) / allTerminals.length;
+    const avgDeliveries = allTerminals.reduce((sum, t) => sum + t.total_deliveries, 0) / allTerminals.length;
+    const avgCustomers = allTerminals.reduce((sum, t) => sum + t.unique_customers, 0) / allTerminals.length;
+    const avgDeliverySize = allTerminals.reduce((sum, t) => sum + (t.total_volume_litres / t.total_deliveries), 0) / allTerminals.length;
+
+    return {
+      terminal: targetTerminal,
+      rankings: {
+        volumeRank,
+        deliveryRank,
+        customerRank,
+        efficiencyRank,
+        totalTerminals: allTerminals.length
+      },
+      benchmarks: {
+        volume: {
+          terminal: targetTerminal.total_volume_megalitres,
+          average: Math.round(avgVolume * 100) / 100,
+          percentile: ((allTerminals.length - volumeRank + 1) / allTerminals.length) * 100
+        },
+        deliveries: {
+          terminal: targetTerminal.total_deliveries,
+          average: Math.round(avgDeliveries),
+          percentile: ((allTerminals.length - deliveryRank + 1) / allTerminals.length) * 100
+        },
+        customers: {
+          terminal: targetTerminal.unique_customers,
+          average: Math.round(avgCustomers),
+          percentile: ((allTerminals.length - customerRank + 1) / allTerminals.length) * 100
+        },
+        deliverySize: {
+          terminal: Math.round(targetTerminal.total_volume_litres / targetTerminal.total_deliveries),
+          average: Math.round(avgDeliverySize),
+          percentile: ((allTerminals.length - efficiencyRank + 1) / allTerminals.length) * 100
+        }
+      },
+      competitorAnalysis: {
+        topPerformer: sortedByVolume[0],
+        closestCompetitor: sortedByVolume.find(t => t.terminal !== terminalName) || null,
+        marketShare: targetTerminal.percentage_of_carrier_volume
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching terminal benchmark analytics:', error);
+    throw error;
+  }
+}
+
+// =====================================================
 // UTILITY FUNCTIONS
 // =====================================================
 
