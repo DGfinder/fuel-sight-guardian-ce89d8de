@@ -70,15 +70,26 @@ export const useUserPermissions = () => {
           // Regular users: get their specific group permissions
           console.log('👤 [RBAC DEBUG] User is regular user, fetching specific permissions');
           
-          const { data: userGroups, error: userGroupsError } = await supabase
+          // Use manual join approach to avoid Supabase relationship ambiguity
+          const { data: userGroupIds, error: userGroupsError } = await supabase
             .from('user_group_permissions')
-            .select(`
-              group_id,
-              tank_groups!inner(id, name)
-            `)
+            .select('group_id')
             .eq('user_id', user.id);
 
-          if (!userGroupsError && userGroups) {
+          if (!userGroupsError && userGroupIds && userGroupIds.length > 0) {
+            const groupIds = userGroupIds.map(ug => ug.group_id);
+            
+            const { data: groupDetails, error: groupDetailsError } = await supabase
+              .from('tank_groups')
+              .select('id, name')
+              .in('id', groupIds);
+              
+            const userGroups = groupDetails?.map(group => ({
+              group_id: group.id,
+              tank_groups: { id: group.id, name: group.name }
+            })) || [];
+
+            if (!groupDetailsError && userGroups.length > 0) {
             // Get subgroup restrictions for each group
             const { data: subgroupRestrictions } = await supabase
               .from('user_subgroup_permissions')
@@ -98,6 +109,7 @@ export const useUserPermissions = () => {
               name: (userGroup as any).tank_groups.name,
               subgroups: subgroupsByGroup.get(userGroup.group_id) || []
             }));
+            }
           }
         }
 

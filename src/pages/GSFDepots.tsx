@@ -51,6 +51,16 @@ export default function GSFDepotsPage() {
     accessibleSubgroups: permissions?.accessibleGroups.find(g => g.name === GSF_DEPOTS_GROUP_NAME)?.subgroups
   });
 
+  // Show filtering results prominently 
+  if (permissions && !permissions.isAdmin && groupFilteredTanks.length !== gsfDepotsTanks.length) {
+    console.log('🎯 [SUBGROUP FILTERING ACTIVE]', {
+      original: groupFilteredTanks.length,
+      filtered: gsfDepotsTanks.length,
+      hidden: groupFilteredTanks.length - gsfDepotsTanks.length,
+      allowedSubgroups: permissions.accessibleGroups.find(g => g.name === GSF_DEPOTS_GROUP_NAME)?.subgroups
+    });
+  }
+
   return (
     <AppLayout selectedGroup={GSF_DEPOTS_GROUP_NAME} onGroupSelect={() => {}}>
       <div className="min-h-screen w-full bg-muted">

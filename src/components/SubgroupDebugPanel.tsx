@@ -76,6 +76,12 @@ export function SubgroupDebugPanel() {
               </div>
             </div>
           </div>
+          
+          {!permissions?.isAdmin && filteredGsfTanks.length < gsfTanks.length && (
+            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+              <strong>🎯 Subgroup Filtering Active:</strong> {gsfTanks.length - filteredGsfTanks.length} tanks hidden due to subgroup restrictions
+            </div>
+          )}
         </div>
 
         <div>
