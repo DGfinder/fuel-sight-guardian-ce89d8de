@@ -10,6 +10,15 @@
   "functions": {
     "api/gasbot-webhook.mjs": {
       "runtime": "nodejs20.x"
+    },
+    "api/lytx-debug.js": {
+      "runtime": "nodejs20.x"
+    },
+    "api/lytx-proxy.js": {
+      "runtime": "nodejs20.x"
+    },
+    "api/test-lytx.js": {
+      "runtime": "nodejs20.x"
     }
   },
   "rewrites": [
