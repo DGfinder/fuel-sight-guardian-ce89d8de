@@ -8,8 +8,11 @@ import {
   cacheGet,
   cacheSet,
   cacheDel,
-  cacheHealthCheck
-} from '@/lib/cache-stubs';
+  cacheHealthCheck,
+  warmCache,
+  invalidatePattern,
+  calculateSmartTTL
+} from '@/lib/vercel-kv-cache';
 
 // SmartFill API configuration - JSON-RPC 2.0 based fuel monitoring system
 // API Base URL: https://www.fmtdata.com/API/api.php
@@ -294,8 +297,18 @@ export async function fetchSmartFillTankData(
         return reading as SmartFillTankReading;
       });
       
-      // Cache the successful result
-      await cacheSet(cacheKey, tankReadings, CACHE_CONFIG.SMARTFILL_API);
+      // Cache the successful result with smart TTL
+      const smartTTL = calculateSmartTTL('SMARTFILL_API', 'high'); // High access pattern for tank data
+      await cacheSet(cacheKey, tankReadings, smartTTL);
+      
+      // Warm related cache entries for better performance
+      if (tankReadings.length > 0) {
+        console.log(`[SMARTFILL API] Warming related cache entries for ${clientReference}`);
+        warmCache(`${CACHE_KEYS.SMARTFILL_CUSTOMERS}${clientReference}`, 
+          async () => ({ api_reference: clientReference, last_sync: new Date().toISOString() }),
+          CACHE_CONFIG.SMARTFILL_API * 2
+        ).catch(err => console.warn('[SMARTFILL API] Cache warming failed:', err));
+      }
       
       // Update health status on success
       updateAPIHealth(true);
@@ -337,7 +350,7 @@ export async function getSmartFillCustomers(): Promise<SmartFillCustomer[]> {
 
       return data || [];
     },
-    CACHE_CONFIG.SMARTFILL_API * 6 // Cache customer data for 30 minutes (longer than tank data)
+    calculateSmartTTL('SMARTFILL_API', 'low') * 6 // Cache customer data longer with smart TTL
   );
 }
 
@@ -712,7 +725,7 @@ export async function getSmartFillSyncLogs(limit: number = 10) {
 
       return data || [];
     },
-    CACHE_CONFIG.SMARTFILL_API / 2 // Cache sync logs for 2.5 minutes
+    calculateSmartTTL('SMARTFILL_API', 'medium') / 2 // Cache sync logs with smart TTL
   );
 }
 
@@ -723,12 +736,18 @@ export async function getSmartFillSyncLogs(limit: number = 10) {
  */
 export async function clearSmartFillCache(): Promise<void> {
   try {
-    await Promise.all([
-      cacheDel(`${CACHE_KEYS.SMARTFILL_TANKS}*`),
-      cacheDel(`${CACHE_KEYS.SMARTFILL_CUSTOMERS}*`),
-      cacheDel(`${CACHE_KEYS.SMARTFILL_SYNC}*`)
-    ]);
-    console.log('[SMARTFILL CACHE] All SmartFill cache entries cleared');
+    const patterns = [
+      `${CACHE_KEYS.SMARTFILL_TANKS}*`,
+      `${CACHE_KEYS.SMARTFILL_CUSTOMERS}*`,
+      `${CACHE_KEYS.SMARTFILL_SYNC}*`
+    ];
+    
+    const totalCleared = await Promise.all(
+      patterns.map(pattern => invalidatePattern(pattern))
+    );
+    
+    const total = totalCleared.reduce((sum, count) => sum + count, 0);
+    console.log(`[SMARTFILL CACHE] Cleared ${total} SmartFill cache entries`);
   } catch (error) {
     console.warn('[SMARTFILL CACHE] Failed to clear cache:', error);
   }
@@ -739,9 +758,18 @@ export async function clearSmartFillCache(): Promise<void> {
  */
 export async function clearSmartFillCustomerCache(clientReference: string): Promise<void> {
   try {
-    const cacheKey = `${CACHE_KEYS.SMARTFILL_TANKS}${clientReference}`;
-    await cacheDel(cacheKey);
-    console.log(`[SMARTFILL CACHE] Cleared cache for customer ${clientReference}`);
+    // Clear all cache entries for this customer
+    const patterns = [
+      `${CACHE_KEYS.SMARTFILL_TANKS}${clientReference}*`,
+      `${CACHE_KEYS.SMARTFILL_CUSTOMERS}${clientReference}*`
+    ];
+    
+    const totalCleared = await Promise.all(
+      patterns.map(pattern => invalidatePattern(pattern))
+    );
+    
+    const total = totalCleared.reduce((sum, count) => sum + count, 0);
+    console.log(`[SMARTFILL CACHE] Cleared ${total} cache entries for customer ${clientReference}`);
   } catch (error) {
     console.warn(`[SMARTFILL CACHE] Failed to clear cache for customer ${clientReference}:`, error);
   }

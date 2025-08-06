@@ -8,8 +8,11 @@ import {
   cacheGet,
   cacheSet,
   cacheDel,
-  cacheHealthCheck
-} from '@/lib/cache-stubs';
+  cacheHealthCheck,
+  invalidatePattern,
+  calculateSmartTTL,
+  warmCache
+} from '@/lib/vercel-kv-cache';
 
 // Athara/Gasbot API configuration - with environment variable support
 // 
@@ -309,8 +312,18 @@ export async function fetchAtharaLocations(bypassCache: boolean = false): Promis
         throw new Error(error);
       }
       
-      // Cache the successful result
-      await cacheSet(cacheKey, data, CACHE_CONFIG.AGBOT_API);
+      // Cache the successful result with smart TTL
+      const smartTTL = calculateSmartTTL('AGBOT_API', 'high');
+      await cacheSet(cacheKey, data, smartTTL);
+      
+      // Warm related cache entries
+      if (data.length > 0) {
+        console.log(`[ATHARA API] Warming related cache entries`);
+        warmCache(`${CACHE_KEYS.AGBOT_HEALTH}system`, 
+          async () => ({ status: 'available', timestamp: new Date().toISOString() }),
+          smartTTL / 2
+        ).catch(err => console.warn('[ATHARA API] Cache warming failed:', err));
+      }
       
       // Update health status on success
       updateAPIHealth(true);
@@ -1380,12 +1393,18 @@ export async function importAgbotFromCSV(csvRows: any[]): Promise<AgbotCSVImport
  */
 export async function clearAgBotCache(): Promise<void> {
   try {
-    await Promise.all([
-      cacheDel(`${CACHE_KEYS.AGBOT_LOCATIONS}*`),
-      cacheDel(`${CACHE_KEYS.AGBOT_ASSETS}*`),
-      cacheDel(`${CACHE_KEYS.AGBOT_HEALTH}*`)
-    ]);
-    console.log('[AGBOT CACHE] All AgBot cache entries cleared');
+    const patterns = [
+      `${CACHE_KEYS.AGBOT_LOCATIONS}*`,
+      `${CACHE_KEYS.AGBOT_ASSETS}*`,
+      `${CACHE_KEYS.AGBOT_HEALTH}*`
+    ];
+    
+    const totalCleared = await Promise.all(
+      patterns.map(pattern => invalidatePattern(pattern))
+    );
+    
+    const total = totalCleared.reduce((sum, count) => sum + count, 0);
+    console.log(`[AGBOT CACHE] Cleared ${total} AgBot cache entries`);
   } catch (error) {
     console.warn('[AGBOT CACHE] Failed to clear cache:', error);
   }
@@ -1437,5 +1456,6 @@ export async function refreshAgBotData(): Promise<AtharaLocation[]> {
  */
 export async function cacheAgBotLocations(locations: AtharaLocation[], ttl?: number): Promise<void> {
   const cacheKey = `${CACHE_KEYS.AGBOT_LOCATIONS}all`;
-  await cacheSet(cacheKey, locations, ttl || CACHE_CONFIG.AGBOT_API);
+  const smartTTL = ttl || calculateSmartTTL('AGBOT_API', 'medium');
+  await cacheSet(cacheKey, locations, smartTTL);
 }
