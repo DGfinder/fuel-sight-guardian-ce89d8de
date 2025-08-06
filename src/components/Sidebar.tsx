@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { supabase } from '@/lib/supabase';
 import { safeReactKey, safeStringProperty } from '@/lib/typeGuards';
-import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useUserPermissions, useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import { useTanks } from "@/hooks/useTanks";
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getActiveAlertsCount } from '@/lib/alertService';
@@ -130,10 +130,22 @@ export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
   const { tanks, isLoading: tanksLoading } = useTanks();
+  const { filterTanks, isLoading: filterLoading } = useFilterTanksBySubgroup();
   const queryClient = useQueryClient();
   
-  // Calculate tank count from tanks array (respects RBAC since tanks are already filtered)
-  const tanksCount = tanks?.length || 0;
+  // Calculate tank count with permission filtering applied
+  const permissionFilteredTanks = (!filterLoading && tanks) ? filterTanks(tanks) : [];
+  const tanksCount = permissionFilteredTanks.length;
+  
+  // Debug sidebar tank filtering
+  if (tanks && permissions && !filterLoading && !permissions.isAdmin && tanks.length !== permissionFilteredTanks.length) {
+    console.log('🔢 [SIDEBAR TANK COUNT]', {
+      originalCount: tanks.length,
+      filteredCount: permissionFilteredTanks.length,
+      userRole: permissions.role,
+      hiddenTanks: tanks.length - permissionFilteredTanks.length
+    });
+  }
   
   // Get actual alert count from database
   const { data: activeAlertCount = 0 } = useQuery({
@@ -284,7 +296,7 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  if (permissionsLoading || tanksLoading) {
+  if (permissionsLoading || tanksLoading || filterLoading) {
     return <SidebarSkeleton />;
   }
   

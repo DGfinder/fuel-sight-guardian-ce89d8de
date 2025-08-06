@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import type { Tank } from '@/types/fuel';
 import { useFavourites } from '@/hooks/useFavourites';
 import { useRecentDips } from '@/hooks/useRecentDips';
+import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import { supabase } from '@/lib/supabase';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
@@ -30,6 +31,7 @@ interface FuelInsightsPanelProps {
 export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPanelProps) {
   const [user, setUser] = useState(null);
   const { data: recentDips, isLoading: recentDipsLoading } = useRecentDips(30);
+  const { filterTanks, permissions, isLoading: permissionsLoading } = useFilterTanksBySubgroup();
 
   useEffect(() => {
     const getSession = async () => {
@@ -44,6 +46,22 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
       listener?.subscription.unsubscribe();
     };
   }, []);
+
+  // Filter recent dips to only show readings from authorized tanks
+  const authorizedTankIds = new Set(tanks.map(tank => tank.id));
+  const permissionFilteredRecentDips = recentDips?.filter(dip => 
+    authorizedTankIds.has(dip.tank_id)
+  ) || [];
+  
+  // Debug recent dips filtering
+  if (recentDips && !permissions?.isAdmin && recentDips.length !== permissionFilteredRecentDips.length) {
+    console.log('🔍 [RECENT DIPS FILTERING]', {
+      originalDips: recentDips.length,
+      filteredDips: permissionFilteredRecentDips.length,
+      hiddenDips: recentDips.length - permissionFilteredRecentDips.length,
+      userRole: permissions?.role
+    });
+  }
 
   const needsActionCount = tanks.filter(
     t => !!t.last_dip?.created_at && ((t.days_to_min_level !== null && t.days_to_min_level <= 2) || t.current_level_percent <= 20)
@@ -143,7 +161,7 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
                         <Clock className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">{recentDips?.length || 0}</p>
+                        <p className="text-2xl font-bold text-gray-900">{permissionFilteredRecentDips.length}</p>
                         <p className="text-sm font-medium text-gray-600">Recent Updates</p>
                       </div>
                     </div>
@@ -152,12 +170,12 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
                   
                   <div className="mt-3 pt-3 border-t border-gray-100">
                     <p className="text-xs text-gray-500">
-                      {recentDips && recentDips.length > 0 
-                        ? `Latest: ${recentDips[0]?.tank_location}` 
+                      {permissionFilteredRecentDips && permissionFilteredRecentDips.length > 0 
+                        ? `Latest: ${permissionFilteredRecentDips[0]?.tank_location}` 
                         : "No recent activity"
                       }
                     </p>
-                    {recentDips && recentDips.length > 0 && (
+                    {permissionFilteredRecentDips && permissionFilteredRecentDips.length > 0 && (
                       <Badge variant="outline" className="mt-2 text-xs border-blue-200 text-blue-700">
                         <Activity className="w-3 h-3 mr-1" />
                         Active
@@ -185,9 +203,9 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
                     <div className="animate-spin h-6 w-6 border-2 border-gray-200 border-t-gray-600 rounded-full mx-auto mb-3"></div>
                     <p className="text-gray-500 text-sm">Loading...</p>
                   </div>
-                ) : recentDips && recentDips.length > 0 ? (
+                ) : permissionFilteredRecentDips && permissionFilteredRecentDips.length > 0 ? (
                   <div className="divide-y divide-gray-100">
-                    {recentDips.slice(0, 8).map((dip) => (
+                    {permissionFilteredRecentDips.slice(0, 8).map((dip) => (
                       <div key={dip.id} className="p-3 hover:bg-gray-50 transition-colors">
                         <div className="flex items-start gap-3">
                           <div className="p-1.5 bg-gray-100 rounded">
