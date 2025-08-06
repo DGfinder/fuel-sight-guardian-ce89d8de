@@ -5,7 +5,6 @@
  * SmartFill, AgBot, and Captive Payments data
  */
 
-import { NextRequest, NextResponse } from 'next/server';
 import { 
   getCrossSystemAnalytics,
   getCorrelatedDeliveryData,
@@ -31,69 +30,97 @@ interface CrossSystemRequest {
   aggregation?: 'daily' | 'weekly' | 'monthly';
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    // Check if cross-system integration is enabled
-    const integrationEnabled = await isFeatureEnabled(CONFIG_KEYS.FEATURES.ADVANCED_ANALYTICS);
-    if (!integrationEnabled) {
-      return NextResponse.json(
-        { success: false, error: 'Cross-system integration is disabled' },
-        { status: 503 }
-      );
-    }
+export default async function handler(req, res) {
+  if (req.method === 'POST') {
+    try {
+      // Check if cross-system integration is enabled
+      const integrationEnabled = await isFeatureEnabled(CONFIG_KEYS.FEATURES.ADVANCED_ANALYTICS);
+      if (!integrationEnabled) {
+        return res.status(503).json({
+          success: false, 
+          error: 'Cross-system integration is disabled'
+        });
+      }
 
-    const body: CrossSystemRequest = await request.json();
-    const { 
-      action, 
-      systems = ['smartfill', 'agbot', 'captive_payments'], 
-      dateRange, 
-      filters = {},
-      aggregation = 'daily'
-    } = body;
+      const body: CrossSystemRequest = req.body;
+      const { 
+        action, 
+        systems = ['smartfill', 'agbot', 'captive_payments'], 
+        dateRange, 
+        filters = {},
+        aggregation = 'daily'
+      } = body;
 
-    if (!dateRange?.startDate || !dateRange?.endDate) {
-      return NextResponse.json(
-        { success: false, error: 'Date range is required' },
-        { status: 400 }
-      );
-    }
+      if (!dateRange?.startDate || !dateRange?.endDate) {
+        return res.status(400).json({
+          success: false, 
+          error: 'Date range is required'
+        });
+      }
 
-    switch (action) {
-      case 'analytics':
-        return await handleCrossSystemAnalytics(systems, dateRange, filters, aggregation);
-      
-      case 'deliveries':
-        return await handleCorrelatedDeliveries(dateRange, filters);
-      
-      case 'correlation':
-        return await handleDataCorrelation(systems, dateRange, filters);
-      
-      case 'health':
-        return await handleSystemHealth(systems);
-      
-      default:
-        return NextResponse.json(
-          { success: false, error: 'Invalid action' },
-          { status: 400 }
-        );
-    }
+      switch (action) {
+        case 'analytics':
+          return await handleCrossSystemAnalytics(res, systems, dateRange, filters, aggregation);
+        
+        case 'deliveries':
+          return await handleCorrelatedDeliveries(res, dateRange, filters);
+        
+        case 'correlation':
+          return await handleDataCorrelation(res, systems, dateRange, filters);
+        
+        case 'health':
+          return await handleSystemHealth(res, systems);
+        
+        default:
+          return res.status(400).json({
+            success: false, 
+            error: 'Invalid action'
+          });
+      }
 
-  } catch (error) {
-    console.error('[CROSS_SYSTEM_API] Request failed:', error);
-    return NextResponse.json(
-      { 
+    } catch (error) {
+      console.error('[CROSS_SYSTEM_API] Request failed:', error);
+      return res.status(500).json({
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
-      { status: 500 }
-    );
+      });
+    }
   }
+  
+  if (req.method === 'GET') {
+    try {
+      return res.json({
+        success: true,
+        service: 'Cross-System Data API',
+        timestamp: new Date().toISOString(),
+        capabilities: [
+          'Cross-system analytics',
+          'Delivery correlation analysis',
+          'Data quality assessment',
+          'System health monitoring',
+          'Time-series aggregation'
+        ]
+      });
+    } catch (error) {
+      return res.status(503).json({
+        success: false, 
+        error: 'Service unavailable'
+      });
+    }
+  }
+
+  // Method not allowed
+  return res.status(405).json({
+    success: false,
+    error: 'Method not allowed'
+  });
 }
 
 /**
  * Handle cross-system analytics request
  */
 async function handleCrossSystemAnalytics(
+  res,
   systems: string[],
   dateRange: { startDate: string; endDate: string },
   filters: any,
@@ -104,7 +131,7 @@ async function handleCrossSystemAnalytics(
   // Check cache
   const cached = await cacheGet<any>(cacheKey);
   if (cached) {
-    return NextResponse.json({
+    return res.json({
       success: true,
       data: cached,
       cached: true
@@ -137,7 +164,7 @@ async function handleCrossSystemAnalytics(
   // Cache the result
   await cacheSet(cacheKey, result, CACHE_CONFIG.ANALYTICS_QUERIES);
 
-  return NextResponse.json({
+  return res.json({
     success: true,
     data: result,
     cached: false
@@ -148,6 +175,7 @@ async function handleCrossSystemAnalytics(
  * Handle correlated deliveries request
  */
 async function handleCorrelatedDeliveries(
+  res,
   dateRange: { startDate: string; endDate: string },
   filters: any
 ) {
@@ -156,7 +184,7 @@ async function handleCorrelatedDeliveries(
   // Check cache
   const cached = await cacheGet<any>(cacheKey);
   if (cached) {
-    return NextResponse.json({
+    return res.json({
       success: true,
       data: cached,
       cached: true
@@ -208,7 +236,7 @@ async function handleCorrelatedDeliveries(
   // Cache the result
   await cacheSet(cacheKey, result, CACHE_CONFIG.CORRELATION_DATA);
 
-  return NextResponse.json({
+  return res.json({
     success: true,
     data: result,
     cached: false
@@ -219,6 +247,7 @@ async function handleCorrelatedDeliveries(
  * Handle data correlation analysis
  */
 async function handleDataCorrelation(
+  res,
   systems: string[],
   dateRange: { startDate: string; endDate: string },
   filters: any
@@ -228,7 +257,7 @@ async function handleDataCorrelation(
   // Check cache
   const cached = await cacheGet<any>(cacheKey);
   if (cached) {
-    return NextResponse.json({
+    return res.json({
       success: true,
       data: cached,
       cached: true
@@ -241,7 +270,7 @@ async function handleDataCorrelation(
   // Cache the result
   await cacheSet(cacheKey, correlation, CACHE_CONFIG.CORRELATION_DATA);
 
-  return NextResponse.json({
+  return res.json({
     success: true,
     data: correlation,
     cached: false
@@ -251,7 +280,7 @@ async function handleDataCorrelation(
 /**
  * Handle system health check
  */
-async function handleSystemHealth(systems: string[]) {
+async function handleSystemHealth(res, systems: string[]) {
   const health: any = {
     overall: 'healthy',
     systems: {},
@@ -275,7 +304,7 @@ async function handleSystemHealth(systems: string[]) {
     }
   }
 
-  return NextResponse.json({
+  return res.json({
     success: true,
     data: health
   });
@@ -611,25 +640,3 @@ async function analyzeDataCorrelation(
   };
 }
 
-// Health check endpoint
-export async function GET() {
-  try {
-    return NextResponse.json({
-      success: true,
-      service: 'Cross-System Data API',
-      timestamp: new Date().toISOString(),
-      capabilities: [
-        'Cross-system analytics',
-        'Delivery correlation analysis',
-        'Data quality assessment',
-        'System health monitoring',
-        'Time-series aggregation'
-      ]
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: 'Service unavailable' },
-      { status: 503 }
-    );
-  }
-}

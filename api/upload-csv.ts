@@ -5,7 +5,6 @@
  * processes files server-side, and returns processed results
  */
 
-import { NextRequest, NextResponse } from 'next/server';
 import { uploadCSVFile, generateExport, createBackup } from './lib/vercel-blob';
 import { processCaptivePaymentsCsv } from './lib/captivePaymentsCsvProcessor';
 import { cacheSet, CACHE_CONFIG, CACHE_KEYS } from './lib/vercel-kv';
@@ -27,81 +26,104 @@ interface ProcessingRequest {
   };
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const contentType = request.headers.get('content-type') || '';
-    
-    if (contentType.includes('multipart/form-data')) {
-      // Handle file upload
-      return await handleFileUpload(request);
-    } else {
-      // Handle processing request
-      return await handleProcessingRequest(request);
-    }
-  } catch (error) {
-    console.error('[CSV API] Request failed:', error);
-    return NextResponse.json(
-      { 
+export default async function handler(req, res) {
+  if (req.method === 'POST') {
+    try {
+      const contentType = req.headers['content-type'] || '';
+      
+      if (contentType.includes('multipart/form-data')) {
+        // Handle file upload
+        return await handleFileUpload(req, res);
+      } else {
+        // Handle processing request
+        return await handleProcessingRequest(req, res);
+      }
+    } catch (error) {
+      console.error('[CSV API] Request failed:', error);
+      return res.status(500).json({
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
-      { status: 500 }
-    );
+      });
+    }
   }
+  
+  if (req.method === 'GET') {
+    try {
+      return res.json({
+        success: true,
+        service: 'CSV Upload API',
+        timestamp: new Date().toISOString(),
+        limits: {
+          maxFileSize: SERVER_MAX_FILE_SIZE,
+          allowedTypes: ALLOWED_TYPES
+        }
+      });
+    } catch (error) {
+      return res.status(503).json({
+        success: false, 
+        error: 'Service unavailable'
+      });
+    }
+  }
+
+  // Method not allowed
+  return res.status(405).json({
+    success: false,
+    error: 'Method not allowed'
+  });
 }
 
 /**
  * Handle CSV file upload
  */
-async function handleFileUpload(request: NextRequest) {
+async function handleFileUpload(req, res) {
   try {
-    const formData = await request.formData();
+    // Note: In Vercel serverless functions, form data handling might need a different approach
+    // For now, we'll assume the req object has been parsed for multipart/form-data
+    const formData = await req.formData();
     const file = formData.get('file') as File;
     const userId = formData.get('userId') as string;
     const description = formData.get('description') as string || undefined;
     
     if (!file) {
-      return NextResponse.json(
-        { success: false, error: 'No file provided' },
-        { status: 400 }
-      );
+      return res.status(400).json({
+        success: false, 
+        error: 'No file provided'
+      });
     }
 
     if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'User ID is required' },
-        { status: 400 }
-      );
+      return res.status(400).json({
+        success: false, 
+        error: 'User ID is required'
+      });
     }
 
     // Validate file
     if (!ALLOWED_TYPES.includes(file.type) && !file.name.toLowerCase().endsWith('.csv')) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid file type. Only CSV files are allowed.' },
-        { status: 400 }
-      );
+      return res.status(400).json({
+        success: false, 
+        error: 'Invalid file type. Only CSV files are allowed.'
+      });
     }
 
     // Check file size and determine upload method
     if (file.size > CLIENT_MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { success: false, error: `File too large. Maximum size is ${CLIENT_MAX_FILE_SIZE / 1024 / 1024}MB` },
-        { status: 400 }
-      );
+      return res.status(400).json({
+        success: false, 
+        error: `File too large. Maximum size is ${CLIENT_MAX_FILE_SIZE / 1024 / 1024}MB`
+      });
     }
 
     if (file.size > SERVER_MAX_FILE_SIZE) {
       // File is too large for server upload, suggest client upload
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'File exceeds server upload limit (4.5MB)',
-          suggestion: 'client-upload',
-          fileSize: file.size,
-          serverLimit: SERVER_MAX_FILE_SIZE
-        },
-        { status: 413 } // Payload Too Large
-      );
+      return res.status(413).json({
+        success: false, 
+        error: 'File exceeds server upload limit (4.5MB)',
+        suggestion: 'client-upload',
+        fileSize: file.size,
+        serverLimit: SERVER_MAX_FILE_SIZE
+      });
     }
 
     // Upload file to Blob storage
@@ -111,10 +133,10 @@ async function handleFileUpload(request: NextRequest) {
     });
 
     if (!uploadResult.success) {
-      return NextResponse.json(
-        { success: false, error: uploadResult.errors.join(', ') },
-        { status: 400 }
-      );
+      return res.status(400).json({
+        success: false, 
+        error: uploadResult.errors.join(', ')
+      });
     }
 
     // Cache upload result for quick access
@@ -139,7 +161,7 @@ async function handleFileUpload(request: NextRequest) {
         created_by: userId
       });
 
-    return NextResponse.json({
+    return res.json({
       success: true,
       data: {
         fileId: uploadResult.fileId,
@@ -156,66 +178,66 @@ async function handleFileUpload(request: NextRequest) {
 
   } catch (error) {
     console.error('[CSV API] Upload failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'File upload failed' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      success: false, 
+      error: 'File upload failed'
+    });
   }
 }
 
 /**
  * Handle CSV processing request
  */
-async function handleProcessingRequest(request: NextRequest) {
+async function handleProcessingRequest(req, res) {
   try {
-    const body: ProcessingRequest = await request.json();
+    const body: ProcessingRequest = req.body;
     const { action, fileId, userId, processingOptions = {} } = body;
 
     if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'User ID is required' },
-        { status: 400 }
-      );
+      return res.status(400).json({
+        success: false, 
+        error: 'User ID is required'
+      });
     }
 
     switch (action) {
       case 'preview':
-        return await handlePreview(fileId!, userId);
+        return await handlePreview(res, fileId!, userId);
       case 'process':
-        return await handleProcessing(fileId!, userId, processingOptions);
+        return await handleProcessing(res, fileId!, userId, processingOptions);
       default:
-        return NextResponse.json(
-          { success: false, error: 'Invalid action' },
-          { status: 400 }
-        );
+        return res.status(400).json({
+          success: false, 
+          error: 'Invalid action'
+        });
     }
 
   } catch (error) {
     console.error('[CSV API] Processing request failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'Processing request failed' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      success: false, 
+      error: 'Processing request failed'
+    });
   }
 }
 
 /**
  * Handle file preview request
  */
-async function handlePreview(fileId: string, userId: string) {
+async function handlePreview(res, fileId: string, userId: string) {
   try {
     // Check cache first
     const cacheKey = `${CACHE_KEYS.CAPTIVE_ANALYTICS}upload_${fileId}`;
     let uploadResult = await cacheSet(cacheKey, null);
     
     if (!uploadResult) {
-      return NextResponse.json(
-        { success: false, error: 'File not found or expired' },
-        { status: 404 }
-      );
+      return res.status(404).json({
+        success: false, 
+        error: 'File not found or expired'
+      });
     }
 
-    return NextResponse.json({
+    return res.json({
       success: true,
       data: {
         fileId,
@@ -228,10 +250,10 @@ async function handlePreview(fileId: string, userId: string) {
 
   } catch (error) {
     console.error('[CSV API] Preview failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to generate preview' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      success: false, 
+      error: 'Failed to generate preview'
+    });
   }
 }
 
@@ -239,6 +261,7 @@ async function handlePreview(fileId: string, userId: string) {
  * Handle CSV processing
  */
 async function handleProcessing(
+  res,
   fileId: string, 
   userId: string, 
   options: {
@@ -265,10 +288,10 @@ async function handleProcessing(
     let uploadResult = await cacheSet(cacheKey, null);
     
     if (!uploadResult) {
-      return NextResponse.json(
-        { success: false, error: 'File not found or expired. Please re-upload the file.' },
-        { status: 404 }
-      );
+      return res.status(404).json({
+        success: false, 
+        error: 'File not found or expired. Please re-upload the file.'
+      });
     }
 
     // Fetch the file content from Blob storage
@@ -337,7 +360,7 @@ async function handleProcessing(
     const resultsCacheKey = `${CACHE_KEYS.CAPTIVE_ANALYTICS}processed_${fileId}`;
     await cacheSet(resultsCacheKey, processedData, CACHE_CONFIG.CAPTIVE_PAYMENTS);
 
-    return NextResponse.json({
+    return res.json({
       success: true,
       data: {
         fileId,
@@ -372,29 +395,10 @@ async function handleProcessing(
       })
       .eq('batch_reference', fileId);
 
-    return NextResponse.json(
-      { success: false, error: 'CSV processing failed' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      success: false, 
+      error: 'CSV processing failed'
+    });
   }
 }
 
-// Health check endpoint
-export async function GET(request: NextRequest) {
-  try {
-    return NextResponse.json({
-      success: true,
-      service: 'CSV Upload API',
-      timestamp: new Date().toISOString(),
-      limits: {
-        maxFileSize: MAX_FILE_SIZE,
-        allowedTypes: ALLOWED_TYPES
-      }
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: 'Service unavailable' },
-      { status: 503 }
-    );
-  }
-}

@@ -4,7 +4,6 @@
  * Provides unified location data combining SmartFill, AgBot, and Captive Payments data
  */
 
-import { NextRequest, NextResponse } from 'next/server';
 import { 
   getUnifiedLocationData,
   unifiedDataIntegrator 
@@ -22,102 +21,128 @@ interface UnifiedLocationRequest {
   };
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    // Check if unified data integration is enabled
-    const integrationEnabled = await isFeatureEnabled(CONFIG_KEYS.FEATURES.ADVANCED_ANALYTICS);
-    if (!integrationEnabled) {
-      return NextResponse.json(
-        { success: false, error: 'Unified data integration is disabled' },
-        { status: 503 }
-      );
-    }
+export default async function handler(req, res) {
+  if (req.method === 'POST') {
+    try {
+      // Check if unified data integration is enabled
+      const integrationEnabled = await isFeatureEnabled(CONFIG_KEYS.FEATURES.ADVANCED_ANALYTICS);
+      if (!integrationEnabled) {
+        return res.status(503).json({
+          success: false, 
+          error: 'Unified data integration is disabled'
+        });
+      }
 
-    const body: UnifiedLocationRequest = await request.json();
-    const { locationId, includeSystems, includeHistory = false, timeRange } = body;
+      const body: UnifiedLocationRequest = req.body;
+      const { locationId, includeSystems, includeHistory = false, timeRange } = body;
 
-    if (!locationId) {
-      return NextResponse.json(
-        { success: false, error: 'Location ID is required' },
-        { status: 400 }
-      );
-    }
+      if (!locationId) {
+        return res.status(400).json({
+          success: false, 
+          error: 'Location ID is required'
+        });
+      }
 
-    // Create cache key including all parameters
-    const cacheKey = `unified_location_${locationId}_${JSON.stringify({
-      includeSystems,
-      includeHistory,
-      timeRange
-    })}`;
+      // Create cache key including all parameters
+      const cacheKey = `unified_location_${locationId}_${JSON.stringify({
+        includeSystems,
+        includeHistory,
+        timeRange
+      })}`;
 
-    // Check cache first
-    const cached = await cacheGet<any>(cacheKey);
-    if (cached) {
-      return NextResponse.json({
+      // Check cache first
+      const cached = await cacheGet<any>(cacheKey);
+      if (cached) {
+        return res.json({
+          success: true,
+          data: cached,
+          cached: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Get unified location data
+      const locationData = await getUnifiedLocationData(locationId);
+      
+      if (!locationData) {
+        return res.status(404).json({
+          success: false, 
+          error: 'Location not found'
+        });
+      }
+
+      // Optionally include historical data
+      let historicalData = null;
+      if (includeHistory && timeRange) {
+        try {
+          historicalData = await getLocationHistoricalData(
+            locationId, 
+            timeRange.startDate, 
+            timeRange.endDate,
+            includeSystems
+          );
+        } catch (error) {
+          console.warn('[UNIFIED_LOCATION] Historical data fetch failed:', error);
+          // Continue without historical data
+        }
+      }
+
+      const result = {
+        location: locationData,
+        historical: historicalData,
+        metadata: {
+          systemsAvailable: Object.keys(locationData.sources),
+          correlationScore: locationData.correlationScore,
+          dataQuality: locationData.dataQuality,
+          lastUpdated: locationData.lastUpdated
+        }
+      };
+
+      // Cache the result
+      await cacheSet(cacheKey, result, CACHE_CONFIG.UNIFIED_DATA);
+
+      return res.json({
         success: true,
-        data: cached,
-        cached: true,
+        data: result,
+        cached: false,
         timestamp: new Date().toISOString()
       });
-    }
 
-    // Get unified location data
-    const locationData = await getUnifiedLocationData(locationId);
-    
-    if (!locationData) {
-      return NextResponse.json(
-        { success: false, error: 'Location not found' },
-        { status: 404 }
-      );
-    }
-
-    // Optionally include historical data
-    let historicalData = null;
-    if (includeHistory && timeRange) {
-      try {
-        historicalData = await getLocationHistoricalData(
-          locationId, 
-          timeRange.startDate, 
-          timeRange.endDate,
-          includeSystems
-        );
-      } catch (error) {
-        console.warn('[UNIFIED_LOCATION] Historical data fetch failed:', error);
-        // Continue without historical data
-      }
-    }
-
-    const result = {
-      location: locationData,
-      historical: historicalData,
-      metadata: {
-        systemsAvailable: Object.keys(locationData.sources),
-        correlationScore: locationData.correlationScore,
-        dataQuality: locationData.dataQuality,
-        lastUpdated: locationData.lastUpdated
-      }
-    };
-
-    // Cache the result
-    await cacheSet(cacheKey, result, CACHE_CONFIG.UNIFIED_DATA);
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-      cached: false,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('[UNIFIED_LOCATION_API] Request failed:', error);
-    return NextResponse.json(
-      { 
+    } catch (error) {
+      console.error('[UNIFIED_LOCATION_API] Request failed:', error);
+      return res.status(500).json({
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
-      { status: 500 }
-    );
+      });
+    }
   }
+  
+  if (req.method === 'GET') {
+    try {
+      return res.json({
+        success: true,
+        service: 'Unified Location Data API',
+        timestamp: new Date().toISOString(),
+        features: [
+          'Multi-system data integration',
+          'Data correlation and quality assessment',
+          'Historical data aggregation',
+          'Intelligent caching'
+        ]
+      });
+    } catch (error) {
+      return res.status(503).json({
+        success: false, 
+        error: 'Service unavailable'
+      });
+    }
+  }
+
+  // Method not allowed
+  return res.status(405).json({
+    success: false,
+    error: 'Method not allowed'
+  });
 }
 
 /**
@@ -243,24 +268,3 @@ async function getLocationHistoricalData(
   return historicalData;
 }
 
-// Health check endpoint
-export async function GET() {
-  try {
-    return NextResponse.json({
-      success: true,
-      service: 'Unified Location Data API',
-      timestamp: new Date().toISOString(),
-      features: [
-        'Multi-system data integration',
-        'Data correlation and quality assessment',
-        'Historical data aggregation',
-        'Intelligent caching'
-      ]
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: 'Service unavailable' },
-      { status: 503 }
-    );
-  }
-}

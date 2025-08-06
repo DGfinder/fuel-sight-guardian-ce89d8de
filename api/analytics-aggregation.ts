@@ -5,7 +5,6 @@
  * into the Vercel Postgres analytics warehouse
  */
 
-import { NextRequest, NextResponse } from 'next/server';
 import { 
   initializeAnalyticsDB,
   storeFuelAnalytics,
@@ -24,61 +23,83 @@ interface AggregationRequest {
   systems?: ('smartfill' | 'agbot' | 'captive_payments')[];
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body: AggregationRequest = await request.json();
-    const { action, date = new Date().toISOString().split('T')[0], forceRefresh = false, systems = ['smartfill', 'agbot', 'captive_payments'] } = body;
+export default async function handler(req, res) {
+  if (req.method === 'POST') {
+    try {
+      const body: AggregationRequest = req.body;
+      const { action, date = new Date().toISOString().split('T')[0], forceRefresh = false, systems = ['smartfill', 'agbot', 'captive_payments'] } = body;
 
-    switch (action) {
-      case 'init':
-        return await handleInitialization();
-      case 'aggregate':
-        return await handleAggregation(date, forceRefresh, systems);
-      case 'health':
-        return await handleHealthCheck();
-      case 'summary':
-        return await handleSummary();
-      default:
-        return NextResponse.json(
-          { success: false, error: 'Invalid action' },
-          { status: 400 }
-        );
-    }
-  } catch (error) {
-    console.error('[ANALYTICS API] Request failed:', error);
-    return NextResponse.json(
-      { 
+      switch (action) {
+        case 'init':
+          return await handleInitialization(res);
+        case 'aggregate':
+          return await handleAggregation(res, date, forceRefresh, systems);
+        case 'health':
+          return await handleHealthCheck(res);
+        case 'summary':
+          return await handleSummary(res);
+        default:
+          return res.status(400).json({
+            success: false, 
+            error: 'Invalid action'
+          });
+      }
+    } catch (error) {
+      console.error('[ANALYTICS API] Request failed:', error);
+      return res.status(500).json({
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
-      { status: 500 }
-    );
+      });
+    }
   }
+  
+  if (req.method === 'GET') {
+    try {
+      const health = await getAnalyticsDBHealth();
+      return res.json({
+        success: true,
+        service: 'Analytics Aggregation API',
+        timestamp: new Date().toISOString(),
+        database_health: health
+      });
+    } catch (error) {
+      return res.status(503).json({
+        success: false, 
+        error: 'Service unavailable'
+      });
+    }
+  }
+
+  // Method not allowed
+  return res.status(405).json({
+    success: false,
+    error: 'Method not allowed'
+  });
 }
 
 /**
  * Initialize analytics database
  */
-async function handleInitialization() {
+async function handleInitialization(res) {
   try {
     await initializeAnalyticsDB();
-    return NextResponse.json({
+    return res.json({
       success: true,
       message: 'Analytics database initialized successfully'
     });
   } catch (error) {
     console.error('[ANALYTICS API] Initialization failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to initialize analytics database' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      success: false, 
+      error: 'Failed to initialize analytics database'
+    });
   }
 }
 
 /**
  * Handle data aggregation
  */
-async function handleAggregation(date: string, forceRefresh: boolean, systems: string[]) {
+async function handleAggregation(res, date: string, forceRefresh: boolean, systems: string[]) {
   try {
     const cacheKey = `${CACHE_KEYS.QUERY_CACHE}aggregation_${date}`;
     
@@ -86,7 +107,7 @@ async function handleAggregation(date: string, forceRefresh: boolean, systems: s
     if (!forceRefresh) {
       const cached = await cacheGet<any>(cacheKey);
       if (cached) {
-        return NextResponse.json({
+        return res.json({
           success: true,
           data: cached,
           cached: true
@@ -137,55 +158,55 @@ async function handleAggregation(date: string, forceRefresh: boolean, systems: s
     // Cache results
     await cacheSet(cacheKey, results, CACHE_CONFIG.QUERY_RESULTS);
 
-    return NextResponse.json({
+    return res.json({
       success: results.errors.length === 0,
       data: results,
       cached: false
     });
   } catch (error) {
     console.error('[ANALYTICS API] Aggregation failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'Data aggregation failed' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      success: false, 
+      error: 'Data aggregation failed'
+    });
   }
 }
 
 /**
  * Handle health check
  */
-async function handleHealthCheck() {
+async function handleHealthCheck(res) {
   try {
     const health = await getAnalyticsDBHealth();
-    return NextResponse.json({
+    return res.json({
       success: health.connected,
       data: health
     });
   } catch (error) {
     console.error('[ANALYTICS API] Health check failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'Health check failed' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      success: false, 
+      error: 'Health check failed'
+    });
   }
 }
 
 /**
  * Handle summary request
  */
-async function handleSummary() {
+async function handleSummary(res) {
   try {
     const summary = await getDashboardSummary();
-    return NextResponse.json({
+    return res.json({
       success: true,
       data: summary
     });
   } catch (error) {
     console.error('[ANALYTICS API] Summary failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to get summary' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      success: false, 
+      error: 'Failed to get summary'
+    });
   }
 }
 
@@ -385,20 +406,3 @@ async function aggregatePerformanceMetrics(date: string) {
   return metrics;
 }
 
-// Health check endpoint
-export async function GET() {
-  try {
-    const health = await getAnalyticsDBHealth();
-    return NextResponse.json({
-      success: true,
-      service: 'Analytics Aggregation API',
-      timestamp: new Date().toISOString(),
-      database_health: health
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: 'Service unavailable' },
-      { status: 503 }
-    );
-  }
-}
