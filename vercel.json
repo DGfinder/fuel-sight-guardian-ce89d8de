@@ -19,6 +19,12 @@
     },
     "api/test-lytx.js": {
       "runtime": "nodejs20.x"
+    },
+    "pages/api/gasbot-webhook.js": {
+      "runtime": "nodejs20.x"
+    },
+    "pages/api/test-smartfill.js": {
+      "runtime": "nodejs20.x"
     }
   },
   "rewrites": [
