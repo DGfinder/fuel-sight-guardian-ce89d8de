@@ -24,15 +24,22 @@ export interface AustralianFY {
  * @returns Current Australian Financial Year details
  */
 export function getCurrentAustralianFY(): AustralianFY {
+  const fyEndYear = getCurrentFYYear();
+  return getAustralianFY(fyEndYear);
+}
+
+/**
+ * Get current FY year without creating circular dependency
+ * @returns Current Australian FY ending year
+ */
+function getCurrentFYYear(): number {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-based (0 = January, 6 = July)
   
   // If we're in July-December, we're in the FY that ends next year
   // If we're in January-June, we're in the FY that ends this year
-  const fyEndYear = currentMonth >= 6 ? currentYear + 1 : currentYear;
-  
-  return getAustralianFY(fyEndYear);
+  return currentMonth >= 6 ? currentYear + 1 : currentYear;
 }
 
 /**
@@ -43,14 +50,14 @@ export function getCurrentAustralianFY(): AustralianFY {
 export function getAustralianFY(fyYear: number): AustralianFY {
   const startDate = new Date(fyYear - 1, 6, 1); // July 1st of previous year (month 6 = July)
   const endDate = new Date(fyYear, 5, 30); // June 30th of FY year (month 5 = June)
-  const currentFY = getCurrentAustralianFY();
+  const currentFYYear = getCurrentFYYear();
   
   return {
     fyYear,
     fyLabel: `FY${fyYear}`,
     startDate,
     endDate,
-    isCurrentFY: fyYear === currentFY.fyYear
+    isCurrentFY: fyYear === currentFYYear
   };
 }
 
