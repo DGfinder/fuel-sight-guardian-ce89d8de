@@ -25,6 +25,9 @@
     },
     "pages/api/test-smartfill.js": {
       "runtime": "nodejs20.x"
+    },
+    "src/pages/api/test-athara.ts": {
+      "runtime": "nodejs20.x"
     }
   },
   "rewrites": [
