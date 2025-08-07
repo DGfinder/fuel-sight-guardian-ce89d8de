@@ -26,7 +26,10 @@
     "migrate:captive-payments:dry-run": "DRY_RUN=true tsx tools/captive-payments-migration.ts",
     "import:guardian": "node scripts/import-guardian-csv.js",
     "import:fleet": "node scripts/import-fleet-master.js",
-    "update:fleets": "node scripts/update-guardian-fleets.js"
+    "update:fleets": "node scripts/update-guardian-fleets.js",
+    "analyze:duplicates": "node scripts/analyze-vehicle-duplicates.js",
+    "compare:csv-db": "node scripts/compare-csv-vs-database.js",
+    "cleanup:duplicates": "node scripts/cleanup-vehicle-duplicates.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -79,7 +82,7 @@
     "cmdk": "^1.0.0",
     "d3": "^7.9.0",
     "date-fns": "^3.6.0",
-    "dotenv": "^17.2.0",
+    "dotenv": "^17.2.1",
     "embla-carousel-react": "^8.3.0",
     "framer-motion": "^11.11.17",
     "html2canvas": "^1.4.1",

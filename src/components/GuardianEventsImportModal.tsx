@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { cn } from '@/lib/utils';
-import { GuardianSupabaseService } from '@/services/GuardianSupabaseService';
+import { GuardianSupabaseService } from '../services/GuardianSupabaseService';
 
 interface GuardianEventsImportModalProps {
   open: boolean;
@@ -254,7 +254,7 @@ export default function GuardianEventsImportModal({
           import_batch_id: processedData.metadata.import_batch_id,
           source_file: selectedFile.name,
           fleet: processedData.metadata.fleet,
-          created_by: permissions?.isAdmin ? 'admin' : 'unknown'
+          created_by: permissions?.user?.email || 'unknown'
         }
       );
 

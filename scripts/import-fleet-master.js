@@ -12,6 +12,11 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
+import { 
+  normalizeRegistration, 
+  deduplicateVehicles,
+  createRegistrationLookupMap 
+} from '../utils/registrationNormalizer.js';
 
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -111,13 +116,13 @@ function normalizeDepotName(depotName) {
 }
 
 /**
- * Clean registration number
+ * Clean registration number using normalization utility
  */
 function cleanRegistration(registration) {
   if (!registration) return '';
   
-  // Remove extra spaces and normalize
-  return registration.trim().replace(/\s+/g, '').toUpperCase();
+  // Use the registration normalizer for consistent formatting
+  return normalizeRegistration(registration);
 }
 
 /**
@@ -162,10 +167,9 @@ async function importFleetMaster() {
     
     console.log(`📍 Column mapping: Registration=${registrationIndex}, Fleet=${fleetIndex}, Depot=${depotIndex}`);
     
-    // Process CSV rows
-    const vehicleRecords = [];
+    // Process CSV rows - collect all records first
+    const rawVehicleRecords = [];
     const errors = [];
-    const duplicateCheck = new Map();
     
     console.log('🔄 Processing CSV records...');
     
@@ -178,26 +182,19 @@ async function importFleetMaster() {
           continue;
         }
         
-        const registration = cleanRegistration(values[registrationIndex]);
+        const originalRegistration = values[registrationIndex]?.trim();
         const fleetName = values[fleetIndex]?.trim();
         const depotName = values[depotIndex]?.trim();
         
         // Validate required fields
-        if (!registration || !fleetName) {
+        if (!originalRegistration || !fleetName) {
           errors.push(`Row ${i + 1}: Missing registration or fleet`);
           continue;
         }
         
-        // Check for duplicates
-        if (duplicateCheck.has(registration)) {
-          console.warn(`⚠️  Duplicate registration found: ${registration} (keeping first occurrence)`);
-          continue;
-        }
-        duplicateCheck.set(registration, true);
-        
-        // Create vehicle record
+        // Create vehicle record with original registration for deduplication
         const vehicleRecord = {
-          registration: registration,
+          registration: originalRegistration, // Keep original for deduplication
           fleet: normalizeFleetName(fleetName),
           depot: normalizeDepotName(depotName),
           status: 'Active',
@@ -218,13 +215,42 @@ async function importFleetMaster() {
           next_service: null,
           registration_expiry: null,
           insurance_expiry: null,
-          inspection_due: null
+          inspection_due: null,
+          csvRow: i + 1
         };
         
-        vehicleRecords.push(vehicleRecord);
+        rawVehicleRecords.push(vehicleRecord);
         
       } catch (error) {
         errors.push(`Row ${i + 1}: ${error.message}`);
+      }
+    }
+    
+    console.log(`📋 Collected ${rawVehicleRecords.length} raw records`);
+    
+    // Use enhanced deduplication
+    console.log('🔍 Applying enhanced deduplication...');
+    const deduplication = deduplicateVehicles(rawVehicleRecords, 'registration', 0.95);
+    
+    // Normalize registrations on the final deduplicated records
+    const vehicleRecords = deduplication.deduplicated.map(vehicle => ({
+      ...vehicle,
+      registration: normalizeRegistration(vehicle.registration) // Apply normalization after deduplication
+    }));
+    
+    console.log('📊 Deduplication results:');
+    console.log(`   Original records: ${deduplication.stats.original}`);
+    console.log(`   Unique records: ${deduplication.stats.unique}`);  
+    console.log(`   Duplicates removed: ${deduplication.stats.duplicates}`);
+    console.log(`   Deduplication rate: ${deduplication.stats.deduplicationRate}`);
+    
+    if (deduplication.duplicates.length > 0) {
+      console.log('🔄 Duplicate registrations removed:');
+      deduplication.duplicates.slice(0, 10).forEach(dup => {
+        console.log(`   "${dup.originalRegistration}" → "${dup.canonicalRegistration}" (similarity: ${(dup.similarity * 100).toFixed(1)}%)`);
+      });
+      if (deduplication.duplicates.length > 10) {
+        console.log(`   ...and ${deduplication.duplicates.length - 10} more`);
       }
     }
     

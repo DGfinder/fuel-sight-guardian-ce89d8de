@@ -12,6 +12,11 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
+import { 
+  createRegistrationLookupMap, 
+  lookupVehicleFleet,
+  normalizeRegistration 
+} from '../utils/registrationNormalizer.js';
 
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -180,7 +185,23 @@ function mapGuardianStatus(confirmation, classification) {
 }
 
 /**
- * Determine fleet from Guardian data
+ * Enhanced fleet lookup with database integration
+ */
+function getVehicleFleet(vehicleRegistration, csvFleetValue, fleetLookupMap) {
+  // First try database lookup with fuzzy matching
+  if (fleetLookupMap) {
+    const fleetFromDb = lookupVehicleFleet(vehicleRegistration, fleetLookupMap);
+    if (fleetFromDb) {
+      return fleetFromDb;
+    }
+  }
+  
+  // Fall back to pattern-based detection
+  return determineFleet(csvFleetValue || '', vehicleRegistration);
+}
+
+/**
+ * Determine fleet from Guardian data (fallback method)
  */
 function determineFleet(fleetValue, vehicleRegistration) {
   const fleetLower = fleetValue.toLowerCase();
@@ -276,6 +297,24 @@ async function importGuardianCsv() {
     
     console.log('📦 Import batch created:', batch.id);
     
+    // Load vehicle fleet data for accurate lookups
+    console.log('🚚 Loading vehicle fleet data for accurate matching...');
+    const { data: vehicles, error: vehiclesError } = await supabase
+      .from('vehicles')
+      .select('registration, fleet');
+    
+    if (vehiclesError) {
+      console.warn(`⚠️  Could not load vehicle fleet data: ${vehiclesError.message}`);
+      console.log('   Falling back to pattern-based fleet detection');
+    }
+    
+    // Create enhanced fleet lookup map
+    const fleetLookupMap = vehicles ? createRegistrationLookupMap(vehicles, 'registration', 'fleet') : null;
+    
+    if (fleetLookupMap) {
+      console.log(`✅ Loaded fleet data for ${vehicles.length} vehicles`);
+    }
+    
     // Process CSV rows
     const dbRecords = [];
     const errors = [];
@@ -326,7 +365,7 @@ async function importGuardianCsv() {
           trip_time_seconds: record.trip_time_seconds ? parseInt(record.trip_time_seconds) : null,
           audio_alert: record.audio_alert === 'yes',
           vibration_alert: record.vibration_alert === 'yes',
-          fleet: determineFleet(record.fleet || '', record.vehicle),
+          fleet: getVehicleFleet(record.vehicle, record.fleet, fleetLookupMap),
           account: record.account || null,
           service_provider: record.service_provider || null,
           shift_info: record.shift || null,
