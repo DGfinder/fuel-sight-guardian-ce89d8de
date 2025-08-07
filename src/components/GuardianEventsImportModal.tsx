@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { cn } from '@/lib/utils';
+import { GuardianSupabaseService } from '@/services/GuardianSupabaseService';
 
 interface GuardianEventsImportModalProps {
   open: boolean;
@@ -245,17 +246,25 @@ export default function GuardianEventsImportModal({
     setIsProcessing(true);
 
     try {
-      // TODO: Implement actual Guardian events import API call
-      // For now, simulate the import
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const guardianService = new GuardianSupabaseService();
+      
+      const result = await guardianService.processGuardianCsvImport(
+        processedData.records,
+        {
+          import_batch_id: processedData.metadata.import_batch_id,
+          source_file: selectedFile.name,
+          fleet: processedData.metadata.fleet,
+          created_by: permissions?.isAdmin ? 'admin' : 'unknown'
+        }
+      );
 
-      const result = {
-        success: true,
-        insertedCount: processedData.records.length,
-        batchId: processedData.metadata.import_batch_id
-      };
-
-      setImportResult(result);
+      setImportResult({
+        success: result.success,
+        insertedCount: result.insertedCount,
+        batchId: result.batchId,
+        errors: result.errors
+      });
+      
       setCurrentStep('complete');
       
       toast({

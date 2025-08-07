@@ -23,7 +23,10 @@
     "script:gsf-user": "tsx tools/user-management/gsf-depots-user-management.ts",
     "test:athara-api": "tsx src/debug/test-athara-api.ts",
     "migrate:captive-payments": "tsx tools/captive-payments-migration.ts",
-    "migrate:captive-payments:dry-run": "DRY_RUN=true tsx tools/captive-payments-migration.ts"
+    "migrate:captive-payments:dry-run": "DRY_RUN=true tsx tools/captive-payments-migration.ts",
+    "import:guardian": "node scripts/import-guardian-csv.js",
+    "import:fleet": "node scripts/import-fleet-master.js",
+    "update:fleets": "node scripts/update-guardian-fleets.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

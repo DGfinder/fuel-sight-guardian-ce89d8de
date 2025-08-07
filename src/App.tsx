@@ -222,6 +222,30 @@ function AppContent() {
                     } 
                   />
                   <Route 
+                    path="/data-centre/guardian/smb" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Stevemacs Guardian Analytics" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <GuardianDashboard fleet="Stevemacs" />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/guardian/gsf" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Great Southern Fuels Guardian Analytics" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <GuardianDashboard fleet="Great Southern Fuels" />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
                     path="/data-centre/captive-payments" 
                     element={
                       <ProtectedRoute>

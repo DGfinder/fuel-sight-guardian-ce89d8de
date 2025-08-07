@@ -616,64 +616,121 @@ export interface Database {
       guardian_events: {
         Row: {
           id: string
+          external_event_id: string
+          vehicle_id: string | null
           vehicle_registration: string
-          guardian_unit: string | null
-          event_type: string
-          occurred_at: string
-          location: string | null
+          driver_name: string | null
+          detection_time: string
+          utc_offset: number | null
+          timezone: string | null
           latitude: number | null
           longitude: number | null
-          driver_name: string | null
-          duration: number | null
-          speed: number | null
+          event_type: string
+          detected_event_type: string | null
+          confirmation: string | null
+          confirmation_time: string | null
+          classification: string | null
+          duration_seconds: number | null
+          speed_kph: number | null
+          travel_metres: number | null
+          trip_distance_metres: number | null
+          trip_time_seconds: number | null
+          audio_alert: boolean
+          vibration_alert: boolean
+          fleet: string
+          account: string | null
+          service_provider: string | null
+          shift_info: string | null
+          crew: string | null
+          guardian_unit: string | null
+          software_version: string | null
+          tags: string | null
           severity: 'Low' | 'Medium' | 'High' | 'Critical'
           verified: boolean
           status: string | null
-          fleet: 'Stevemacs' | 'Great Southern Fuels'
           depot: string | null
-          raw_data: Json
+          raw_data: Json | null
+          import_batch_id: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
+          external_event_id: string
+          vehicle_id?: string | null
           vehicle_registration: string
-          guardian_unit?: string | null
-          event_type: string
-          occurred_at: string
-          location?: string | null
+          driver_name?: string | null
+          detection_time: string
+          utc_offset?: number | null
+          timezone?: string | null
           latitude?: number | null
           longitude?: number | null
-          driver_name?: string | null
-          duration?: number | null
-          speed?: number | null
-          severity: 'Low' | 'Medium' | 'High' | 'Critical'
+          event_type: string
+          detected_event_type?: string | null
+          confirmation?: string | null
+          confirmation_time?: string | null
+          classification?: string | null
+          duration_seconds?: number | null
+          speed_kph?: number | null
+          travel_metres?: number | null
+          trip_distance_metres?: number | null
+          trip_time_seconds?: number | null
+          audio_alert?: boolean
+          vibration_alert?: boolean
+          fleet: string
+          account?: string | null
+          service_provider?: string | null
+          shift_info?: string | null
+          crew?: string | null
+          guardian_unit?: string | null
+          software_version?: string | null
+          tags?: string | null
+          severity?: 'Low' | 'Medium' | 'High' | 'Critical'
           verified?: boolean
           status?: string | null
-          fleet: 'Stevemacs' | 'Great Southern Fuels'
           depot?: string | null
-          raw_data?: Json
+          raw_data?: Json | null
+          import_batch_id?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
+          external_event_id?: string
+          vehicle_id?: string | null
           vehicle_registration?: string
-          guardian_unit?: string | null
-          event_type?: string
-          occurred_at?: string
-          location?: string | null
+          driver_name?: string | null
+          detection_time?: string
+          utc_offset?: number | null
+          timezone?: string | null
           latitude?: number | null
           longitude?: number | null
-          driver_name?: string | null
-          duration?: number | null
-          speed?: number | null
+          event_type?: string
+          detected_event_type?: string | null
+          confirmation?: string | null
+          confirmation_time?: string | null
+          classification?: string | null
+          duration_seconds?: number | null
+          speed_kph?: number | null
+          travel_metres?: number | null
+          trip_distance_metres?: number | null
+          trip_time_seconds?: number | null
+          audio_alert?: boolean
+          vibration_alert?: boolean
+          fleet?: string
+          account?: string | null
+          service_provider?: string | null
+          shift_info?: string | null
+          crew?: string | null
+          guardian_unit?: string | null
+          software_version?: string | null
+          tags?: string | null
           severity?: 'Low' | 'Medium' | 'High' | 'Critical'
           verified?: boolean
           status?: string | null
-          fleet?: 'Stevemacs' | 'Great Southern Fuels'
           depot?: string | null
-          raw_data?: Json
+          raw_data?: Json | null
+          import_batch_id?: string | null
           created_at?: string
           updated_at?: string
         }

@@ -34,7 +34,176 @@ interface GuardianProcessingResult {
 export class GuardianSupabaseService {
 
   /**
-   * Process Guardian events from CSV and save to Supabase
+   * Lookup vehicle fleet from database
+   */
+  private async lookupVehicleFleet(vehicleRegistration: string): Promise<string | null> {
+    try {
+      const { data: vehicle, error } = await supabase
+        .from('vehicles')
+        .select('fleet')
+        .eq('registration', vehicleRegistration.trim().replace(/\s+/g, '').toUpperCase())
+        .single();
+      
+      if (error || !vehicle) {
+        return null;
+      }
+      
+      return vehicle.fleet;
+    } catch (error) {
+      console.warn(`Failed to lookup fleet for vehicle ${vehicleRegistration}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Process Guardian events from new CSV format and save to Supabase
+   * Enhanced to handle the Guardian CSV format: event_id, vehicle_id, vehicle, driver, detection_time, event_type, confirmation, classification, fleet
+   */
+  async processGuardianCsvImport(
+    records: any[],
+    metadata: {
+      import_batch_id: string;
+      source_file: string;
+      fleet: string;
+      created_by: string;
+    }
+  ): Promise<{
+    success: boolean;
+    insertedCount: number;
+    batchId: string;
+    errors?: string[];
+  }> {
+    
+    // Create import batch record
+    const { data: batch, error: batchError } = await supabase
+      .from('data_import_batches')
+      .insert({
+        source_type: 'guardian_events',
+        source_subtype: 'CSV',
+        file_name: metadata.source_file,
+        batch_reference: metadata.import_batch_id,
+        status: 'processing',
+        created_by: metadata.created_by
+      })
+      .select()
+      .single();
+
+    if (batchError || !batch) {
+      throw new Error(`Failed to create import batch: ${batchError?.message}`);
+    }
+
+    try {
+      // Transform records to enhanced database format with fleet lookup
+      console.log('🔍 Looking up vehicle fleets for accurate classification...');
+      const dbRecords = [];
+      
+      for (const record of records) {
+        // Lookup actual fleet from vehicles table
+        const actualFleet = await this.lookupVehicleFleet(record.vehicle);
+        const finalFleet = actualFleet || this.determineFleet(record.fleet || metadata.fleet, record.vehicle);
+        
+        dbRecords.push({
+          external_event_id: record.event_id,
+          vehicle_id: record.vehicle_id || null,
+          vehicle_registration: record.vehicle,
+          driver_name: record.driver || null,
+          detection_time: this.parseDateTime(record.detection_time),
+          utc_offset: record.utc_offset ? parseInt(record.utc_offset) : null,
+          timezone: record.timezone || null,
+          latitude: this.parseNumber(record.latitude),
+          longitude: this.parseNumber(record.longitude),
+          event_type: record.event_type,
+          detected_event_type: record.detected_event_type || null,
+          confirmation: record.confirmation || null,
+          confirmation_time: record.confirmation_time ? this.parseDateTime(record.confirmation_time) : null,
+          classification: record.classification || null,
+          duration_seconds: this.parseNumber(record.duration_seconds),
+          speed_kph: this.parseNumber(record.speed_kph),
+          travel_metres: this.parseNumber(record.travel_metres),
+          trip_distance_metres: this.parseNumber(record.trip_distance_metres),
+          trip_time_seconds: record.trip_time_seconds ? parseInt(record.trip_time_seconds) : null,
+          audio_alert: record.audio_alert === 'yes',
+          vibration_alert: record.vibration_alert === 'yes',
+          fleet: finalFleet,
+          account: record.account || null,
+          service_provider: record.service_provider || null,
+          shift_info: record.shift || null,
+          crew: record.crew || null,
+          guardian_unit: record.guardian_unit || null,
+          software_version: record.software_version || null,
+          tags: record.tags || null,
+          severity: this.mapGuardianSeverity(record.event_type, record.classification, record.confirmation),
+          verified: this.shouldAutoVerify(record.event_type, record.confirmation),
+          status: this.mapGuardianStatus(record.confirmation, record.classification),
+          depot: this.inferDepotFromVehicle(record.vehicle),
+          import_batch_id: metadata.import_batch_id,
+          raw_data: {
+            complete_guardian_record: record,
+            fleet_lookup_result: {
+              original_fleet: record.fleet || metadata.fleet,
+              actual_fleet: actualFleet,
+              final_fleet: finalFleet
+            }
+          }
+        });
+      }
+
+      // Insert in batches to avoid timeouts
+      const batchSize = 100;
+      let insertedCount = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < dbRecords.length; i += batchSize) {
+        const batch = dbRecords.slice(i, i + batchSize);
+        
+        const { error: insertError, count } = await supabase
+          .from('guardian_events')
+          .insert(batch)
+          .select('id', { count: 'exact' });
+
+        if (insertError) {
+          errors.push(`Batch ${Math.floor(i/batchSize) + 1}: ${insertError.message}`);
+        } else {
+          insertedCount += count || batch.length;
+        }
+      }
+
+      // Update batch status
+      await supabase
+        .from('data_import_batches')
+        .update({
+          records_processed: insertedCount,
+          records_failed: records.length - insertedCount,
+          status: errors.length > 0 ? 'partial' : 'completed',
+          completed_at: new Date().toISOString(),
+          error_summary: errors.length > 0 ? { errors } : null
+        })
+        .eq('id', batch.id);
+
+      return {
+        success: true,
+        insertedCount,
+        batchId: batch.id,
+        errors: errors.length > 0 ? errors : undefined
+      };
+
+    } catch (error) {
+      // Update batch as failed
+      await supabase
+        .from('data_import_batches')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error_summary: { main_error: error instanceof Error ? error.message : 'Unknown error' }
+        })
+        .eq('id', batch.id);
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Process Guardian events from CSV and save to Supabase (Legacy method)
    */
   async processCsvEventsToSupabase(
     csvData: string,
@@ -203,7 +372,7 @@ export class GuardianSupabaseService {
   }
 
   /**
-   * Create header mapping for CSV parsing
+   * Create header mapping for CSV parsing - Enhanced for Guardian CSV format
    */
   private createHeaderMap(headers: string[]): Record<string, number> {
     const map: Record<string, number> = {};
@@ -211,14 +380,34 @@ export class GuardianSupabaseService {
     headers.forEach((header, index) => {
       const normalized = header.toLowerCase().replace(/[^a-z0-9]/g, '');
       
-      // Map common Guardian CSV headers
-      if (normalized.includes('vehicle') || normalized.includes('registration') || normalized.includes('rego')) {
+      // Map specific Guardian CSV headers (from sample: event_id, vehicle_id, vehicle, driver, detection_time, event_type, confirmation, classification, fleet)
+      if (header === 'event_id') {
+        map.eventId = index;
+      } else if (header === 'vehicle_id') {
+        map.vehicleId = index;
+      } else if (header === 'vehicle') {
+        map.vehicle = index;
+      } else if (header === 'driver') {
+        map.driver = index;
+      } else if (header === 'detection_time') {
+        map.occurredAt = index;
+      } else if (header === 'event_type') {
+        map.eventType = index;
+      } else if (header === 'confirmation') {
+        map.confirmation = index;
+      } else if (header === 'classification') {
+        map.classification = index;
+      } else if (header === 'fleet') {
+        map.fleet = index;
+      }
+      // Fallback patterns for flexibility
+      else if (normalized.includes('vehicle') || normalized.includes('registration') || normalized.includes('rego')) {
         map.vehicle = index;
       } else if (normalized.includes('guardian') || normalized.includes('unit')) {
         map.guardianUnit = index;
       } else if (normalized.includes('event') && normalized.includes('type')) {
         map.eventType = index;
-      } else if (normalized.includes('datetime') || normalized.includes('timestamp') || normalized.includes('occurred')) {
+      } else if (normalized.includes('datetime') || normalized.includes('timestamp') || normalized.includes('occurred') || normalized.includes('detection')) {
         map.occurredAt = index;
       } else if (normalized.includes('location') || normalized.includes('address')) {
         map.location = index;
@@ -245,7 +434,7 @@ export class GuardianSupabaseService {
   }
 
   /**
-   * Map CSV row to Guardian event record
+   * Map CSV row to Guardian event record - Enhanced for Guardian CSV format
    */
   private mapCsvRowToEvent(
     values: string[], 
@@ -258,6 +447,7 @@ export class GuardianSupabaseService {
 
     const vehicle = values[headerMap.vehicle]?.trim();
     const eventType = values[headerMap.eventType]?.trim();
+    const eventId = values[headerMap.eventId]?.trim();
     
     if (!vehicle || !eventType) {
       return null;
@@ -268,9 +458,14 @@ export class GuardianSupabaseService {
       vehicle
     );
 
+    // Map Guardian-specific event severity based on event type and classification
+    const classification = values[headerMap.classification]?.trim() || '';
+    const confirmation = values[headerMap.confirmation]?.trim() || '';
+    const severity = this.mapGuardianSeverity(eventType, classification, confirmation);
+
     return {
       vehicle_registration: vehicle,
-      guardian_unit: values[headerMap.guardianUnit]?.trim() || null,
+      guardian_unit: values[headerMap.vehicleId]?.trim() || values[headerMap.guardianUnit]?.trim() || null,
       event_type: eventType,
       occurred_at: this.parseDateTime(values[headerMap.occurredAt]?.trim() || ''),
       location: values[headerMap.location]?.trim() || null,
@@ -279,12 +474,17 @@ export class GuardianSupabaseService {
       driver_name: values[headerMap.driver]?.trim() || null,
       duration: this.parseInteger(values[headerMap.duration]),
       speed: this.parseNumber(values[headerMap.speed]),
-      severity: this.mapSeverity(values[headerMap.severity]?.trim() || ''),
-      verified: this.shouldAutoVerify(eventType),
-      status: 'Active',
+      severity: severity,
+      verified: this.shouldAutoVerify(eventType, confirmation),
+      status: this.mapGuardianStatus(confirmation, classification),
       fleet: fleet,
       depot: values[headerMap.depot]?.trim() || this.inferDepot(values[headerMap.location]?.trim() || ''),
-      raw_data: Object.fromEntries(values.map((value, index) => [`field_${index}`, value]))
+      raw_data: {
+        event_id: eventId,
+        confirmation: confirmation,
+        classification: classification,
+        original_data: Object.fromEntries(values.map((value, index) => [`field_${index}`, value]))
+      }
     };
   }
 
@@ -316,16 +516,30 @@ export class GuardianSupabaseService {
    * Helper methods for data processing
    */
   private determineFleet(fleetValue: string, vehicleRegistration: string): 'Stevemacs' | 'Great Southern Fuels' {
-    if (fleetValue.toLowerCase().includes('great southern')) {
+    const fleetLower = fleetValue.toLowerCase();
+    
+    if (fleetLower.includes('great southern') || fleetLower.includes('gsf')) {
       return 'Great Southern Fuels';
     }
-    if (fleetValue.toLowerCase().includes('stevemacs')) {
+    if (fleetLower.includes('stevemacs') || fleetLower.includes('steve')) {
       return 'Stevemacs';
     }
     
-    // Infer from vehicle registration patterns if needed
-    // This would need to be customized based on actual registration patterns
-    return 'Stevemacs'; // Default
+    // Infer from vehicle registration patterns
+    const rego = vehicleRegistration.toLowerCase();
+    
+    // GSF patterns (customize based on actual patterns)
+    if (rego.startsWith('gsf') || rego.includes('southern')) {
+      return 'Great Southern Fuels';
+    }
+    
+    // Stevemacs patterns (customize based on actual patterns)
+    if (rego.startsWith('sm') || rego.includes('steve')) {
+      return 'Stevemacs';
+    }
+    
+    // Default to Stevemacs if uncertain
+    return 'Stevemacs';
   }
 
   private mapSeverity(severityValue: string): 'Low' | 'Medium' | 'High' | 'Critical' {
@@ -342,9 +556,82 @@ export class GuardianSupabaseService {
     }
   }
 
-  private shouldAutoVerify(eventType: string): boolean {
+  /**
+   * Map Guardian-specific severity based on event type and classification
+   */
+  private mapGuardianSeverity(
+    eventType: string, 
+    classification: string, 
+    confirmation: string
+  ): 'Low' | 'Medium' | 'High' | 'Critical' {
+    const type = eventType.toLowerCase();
+    const classif = classification.toLowerCase();
+    const confirm = confirmation.toLowerCase();
+    
+    // Critical events
+    if (type.includes('fatigue') || type.includes('microsleep')) {
+      return 'Critical';
+    }
+    
+    // High severity events
+    if (type.includes('distraction') && !type.includes('minor')) {
+      return 'High';
+    }
+    
+    if (type.includes('phone') || type.includes('mobile')) {
+      return 'High';
+    }
+    
+    // Medium severity events
+    if (type.includes('eating') || type.includes('drinking') || type.includes('smoking')) {
+      return 'Medium';
+    }
+    
+    if (type.includes('fov') && type.includes('exception')) {
+      return 'Medium';
+    }
+    
+    // Check classification for severity indicators
+    if (classif.includes('verified') || confirm.includes('verified')) {
+      // Bump up severity for verified events
+      if (type.includes('distraction')) return 'High';
+      return 'Medium';
+    }
+    
+    // Default to low for minor or unverified events
+    return 'Low';
+  }
+
+  /**
+   * Map Guardian status based on confirmation and classification
+   */
+  private mapGuardianStatus(confirmation: string, classification: string): string {
+    const confirm = confirmation.toLowerCase();
+    const classif = classification.toLowerCase();
+    
+    if (confirm.includes('verified') || classif.includes('verified')) {
+      return 'Verified';
+    }
+    
+    if (confirm.includes('false') || classif.includes('false')) {
+      return 'False Positive';
+    }
+    
+    if (confirm.includes('pending') || classif.includes('pending')) {
+      return 'Pending Review';
+    }
+    
+    return 'Active';
+  }
+
+  private shouldAutoVerify(eventType: string, confirmation?: string): boolean {
+    // Auto-verify based on Guardian confirmation status
+    if (confirmation && confirmation.toLowerCase().includes('verified')) {
+      return true;
+    }
+    
     // Auto-verify certain event types
-    const autoVerifyTypes = ['harsh braking', 'hard acceleration', 'cornering'];
+    const autoVerifyTypes = ['harsh braking', 'hard acceleration', 'cornering', 'fov exception'];
     return autoVerifyTypes.some(type => eventType.toLowerCase().includes(type));
   }
 
@@ -359,11 +646,40 @@ export class GuardianSupabaseService {
     return 'Unknown';
   }
 
+  /**
+   * Infer depot from vehicle registration patterns
+   */
+  private inferDepotFromVehicle(vehicleRegistration: string): string {
+    const vehicle = vehicleRegistration.toLowerCase();
+    
+    // Customize these patterns based on actual fleet vehicle numbering
+    if (vehicle.includes('kal') || vehicle.startsWith('k')) return 'Kalgoorlie';
+    if (vehicle.includes('alb') || vehicle.startsWith('a')) return 'Albany';
+    if (vehicle.includes('kew') || vehicle.includes('per') || vehicle.startsWith('p')) return 'Kewdale';
+    if (vehicle.includes('bun') || vehicle.startsWith('b')) return 'Bunbury';
+    
+    return 'Unknown';
+  }
+
   private parseDateTime(dateTime: string): string {
     try {
+      // Handle Guardian detection_time format (e.g., "2025-08-07T10:05:51")
+      if (dateTime.includes('T') && dateTime.length >= 19) {
+        const parsed = new Date(dateTime);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString();
+        }
+      }
+      
+      // Fallback parsing
       const parsed = new Date(dateTime);
-      return parsed.toISOString();
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+      
+      throw new Error('Invalid date format');
     } catch {
+      // If all parsing fails, use current time
       return new Date().toISOString();
     }
   }
