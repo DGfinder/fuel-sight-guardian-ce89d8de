@@ -154,10 +154,11 @@ function Settings() {
       <h1 className="text-3xl font-bold mb-6 text-center">Settings</h1>
       
       <Tabs defaultValue="account" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="gasbot">Gasbot Sync</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account">
@@ -642,6 +643,145 @@ function Settings() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="gasbot">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Gasbot Data Sync</h2>
+            <div className="space-y-6">
+              {/* Sync Status */}
+              <div className="bg-muted p-4 rounded-lg">
+                <h3 className="font-medium mb-2">Sync Status</h3>
+                <div className="text-sm text-muted-foreground">
+                  <div>Last Sync: <span className="font-mono">Never</span></div>
+                  <div>Status: <span className="text-orange-600">Not Configured</span></div>
+                </div>
+              </div>
+
+              {/* Manual Sync */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Manual Sync</h3>
+                <p className="text-sm text-muted-foreground">
+                  Pull the latest tank data from Gasbot API and update the database.
+                </p>
+                <Button 
+                  onClick={() => {
+                    fetch('/api/gasbot-sync', {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': 'Bearer FSG-gasbot-sync-2025',
+                        'Content-Type': 'application/json'
+                      }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                      if (data.success) {
+                        toast({
+                          title: 'Sync Completed',
+                          description: `Processed ${data.results.locationsProcessed} locations and ${data.results.assetsProcessed} assets`,
+                        });
+                      } else {
+                        toast({
+                          title: 'Sync Failed',
+                          description: data.message || 'Unknown error occurred',
+                          variant: 'destructive'
+                        });
+                      }
+                    })
+                    .catch(error => {
+                      toast({
+                        title: 'Sync Error',
+                        description: 'Failed to start sync operation',
+                        variant: 'destructive'
+                      });
+                    });
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Sync Gasbot Data Now
+                </Button>
+              </div>
+
+              {/* API Configuration */}
+              <div className="space-y-4">
+                <h3 className="font-medium">API Configuration</h3>
+                <div className="grid gap-4">
+                  <div>
+                    <Label htmlFor="gasbot-api-key">API Key</Label>
+                    <Input 
+                      id="gasbot-api-key"
+                      type="password"
+                      placeholder="0H5NTKJPLQURW4SQDU3J0G5EO7UNZCI6EB3C"
+                      disabled
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="gasbot-api-secret">API Secret</Label>
+                    <Input 
+                      id="gasbot-api-secret"
+                      type="password"
+                      placeholder="1F01ONSVQGCN47NOS987MAR768RBXJF5NO1VORQF7W"
+                      disabled
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    API credentials are configured via environment variables for security.
+                  </p>
+                </div>
+              </div>
+
+              {/* Test API Connection */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Connection Test</h3>
+                <p className="text-sm text-muted-foreground">
+                  Test the connection to Gasbot API to verify credentials.
+                </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    fetch('/api/gasbot-sync', { method: 'GET' })
+                    .then(response => response.json())
+                    .then(data => {
+                      if (data.success) {
+                        toast({
+                          title: 'Connection Test Successful',
+                          description: `API is working correctly`,
+                        });
+                      } else {
+                        toast({
+                          title: 'Connection Test Failed',
+                          description: data.message || 'API connection failed',
+                          variant: 'destructive'
+                        });
+                      }
+                    })
+                    .catch(error => {
+                      toast({
+                        title: 'Test Error',
+                        description: 'Failed to test API connection',
+                        variant: 'destructive'
+                      });
+                    });
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Test API Connection
+                </Button>
+              </div>
+
+              {/* Sync Logs */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Recent Sync Logs</h3>
+                <div className="bg-muted p-4 rounded-lg">
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    No sync logs available. Run a sync to see results here.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

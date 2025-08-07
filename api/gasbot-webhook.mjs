@@ -4,9 +4,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY; // Use service role key for webhook operations
+// Initialize Supabase client for webhook operations
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY; // This is actually the service role key for backend operations
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Webhook authentication secret
@@ -142,6 +142,21 @@ export default async function handler(req, res) {
   console.log(`🌐 Method: ${req.method}`);
   console.log(`📍 URL: ${req.url}`);
   console.log(`🔑 Headers:`, Object.keys(req.headers));
+  
+  // Check environment variables
+  console.log(`🔧 Environment check:`);
+  console.log(`   SUPABASE_URL: ${supabaseUrl ? '✅ Set' : '❌ Missing'}`);
+  console.log(`   SUPABASE_ANON_KEY (service role): ${supabaseKey ? '✅ Set' : '❌ Missing'}`);
+  console.log(`   GASBOT_WEBHOOK_SECRET: ${WEBHOOK_SECRET ? '✅ Set' : '❌ Missing'}`);
+  
+  // Fail fast if environment is not properly configured
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('💥 CONFIGURATION ERROR: Missing required environment variables');
+    return res.status(500).json({
+      error: 'Server configuration error',
+      message: 'Missing required environment variables for database connection'
+    });
+  }
   
   // Only accept POST requests
   if (req.method !== 'POST') {
