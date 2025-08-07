@@ -36,6 +36,27 @@ interface GuardianEvent {
   status?: string;
   fleet: string;
   depot?: string;
+  confirmation?: string;
+  classification?: string;
+}
+
+interface RequiringAttentionEvent {
+  id: string;
+  external_event_id: string;
+  vehicle_registration: string;
+  driver_name?: string;
+  detection_time: string;
+  event_type: string;
+  severity: 'Low' | 'Medium' | 'High' | 'Critical';
+  confirmation?: string;
+  classification?: string;
+  fleet: string;
+  depot?: string;
+  duration_seconds?: number;
+  speed_kph?: number;
+  verified: boolean;
+  status?: string;
+  created_at: string;
 }
 
 interface GuardianAnalytics {
@@ -48,8 +69,12 @@ interface GuardianAnalytics {
     verificationRate: number;
     stevemacsEvents: number;
     gsfEvents: number;
+    criticalEvents: number;
+    highSeverityEvents: number;
+    requiresAttentionCount: number;
   };
   recentEvents: GuardianEvent[];
+  requiresAttention: RequiringAttentionEvent[];
   topRiskVehicles: Array<{
     vehicle: string;
     events: number;
@@ -114,6 +139,23 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
         throw recentError;
       }
 
+      // Get events requiring attention using the specialized view
+      let attentionQuery = supabase
+        .from('guardian_events_requiring_attention')
+        .select('*')
+        .limit(10);
+
+      if (fleet) {
+        attentionQuery = attentionQuery.eq('fleet', fleet);
+      }
+
+      const { data: requiresAttention, error: attentionError } = await attentionQuery;
+
+      if (attentionError) {
+        console.error('Error fetching Guardian events requiring attention:', attentionError);
+        // Continue without failing if this view has issues
+      }
+
       // Calculate analytics
       const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
       
@@ -126,12 +168,23 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
         e.event_type.toLowerCase().includes('microsleep')
       ).length || 0;
 
-      const verifiedEvents = monthlyEvents?.filter(e => e.verified).length || 0;
+      // Count events that are either manually verified in our system OR confirmed by Guardian
+      const verifiedEvents = monthlyEvents?.filter(e => 
+        e.verified || e.confirmation === 'verified'
+      ).length || 0;
       const totalEvents = monthlyEvents?.length || 0;
       const verificationRate = totalEvents > 0 ? (verifiedEvents / totalEvents) * 100 : 0;
 
+      // High severity event counts
+      const criticalEvents = monthlyEvents?.filter(e => e.severity === 'Critical').length || 0;
+      const highSeverityEvents = monthlyEvents?.filter(e => 
+        e.severity === 'High' || e.severity === 'Critical'
+      ).length || 0;
+
       const stevemacsEvents = monthlyEvents?.filter(e => e.fleet === 'Stevemacs').length || 0;
       const gsfEvents = monthlyEvents?.filter(e => e.fleet === 'Great Southern Fuels').length || 0;
+
+      const requiresAttentionCount = requiresAttention?.length || 0;
 
       // Calculate top risk vehicles
       const vehicleEventCounts = monthlyEvents?.reduce((acc, event) => {
@@ -161,9 +214,13 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
           verifiedEvents,
           verificationRate,
           stevemacsEvents,
-          gsfEvents
+          gsfEvents,
+          criticalEvents,
+          highSeverityEvents,
+          requiresAttentionCount
         },
         recentEvents: recentEvents || [],
+        requiresAttention: requiresAttention || [],
         topRiskVehicles
       };
 
@@ -338,19 +395,77 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">High Risk Events</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Requiring Attention</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {analytics.recentEvents.filter(e => e.severity === 'High' || e.severity === 'Critical').length}
+              <div className="text-2xl font-bold text-red-600">
+                {currentMonth.requiresAttentionCount}
               </div>
               <p className="text-xs text-muted-foreground">
-                Requiring immediate attention
+                {currentMonth.criticalEvents} critical, {currentMonth.highSeverityEvents} high severity
               </p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Events Requiring Attention */}
+        {analytics.requiresAttention.length > 0 && (
+          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                <AlertTriangle className="w-5 h-5" />
+                Events Requiring Immediate Attention ({analytics.requiresAttention.length})
+              </CardTitle>
+              <CardDescription>
+                High priority unverified events, missing confirmations, and critical active events
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {analytics.requiresAttention.map((event) => (
+                  <div key={event.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-3 h-3 rounded-full ${
+                        event.severity === 'Critical' ? 'bg-red-600' : 
+                        event.severity === 'High' ? 'bg-orange-500' : 'bg-yellow-500'
+                      }`}></div>
+                      <div>
+                        <div className="font-medium">
+                          {event.vehicle_registration} - {event.driver_name || 'Unknown Driver'}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {event.event_type}
+                          {event.duration_seconds && ` • ${event.duration_seconds}s`}
+                          {event.speed_kph && ` • ${event.speed_kph} km/h`}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(event.detection_time).toLocaleString()}
+                          {!event.confirmation && ' • Missing confirmation'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline"
+                        className={
+                          event.severity === 'Critical' ? 'border-red-500 text-red-700 bg-red-50' :
+                          event.severity === 'High' ? 'border-orange-500 text-orange-700 bg-orange-50' :
+                          'border-yellow-500 text-yellow-700 bg-yellow-50'
+                        }
+                      >
+                        {event.severity}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {event.fleet === 'Stevemacs' ? 'SMB' : 'GSF'}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Charts and Analytics */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -376,11 +491,12 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                     <div className="font-bold">{currentMonth.distractionEvents}</div>
                     <div className="text-sm text-gray-500">
                       {currentMonth.distractionEvents > 0 
-                        ? ((analytics.recentEvents.filter(e => 
-                            e.event_type.toLowerCase().includes('distraction') && e.verified
-                          ).length / currentMonth.distractionEvents) * 100).toFixed(1)
+                        ? ((monthlyEvents?.filter(e => 
+                            e.event_type.toLowerCase().includes('distraction') && 
+                            (e.verified || e.confirmation === 'verified')
+                          ).length || 0) / currentMonth.distractionEvents * 100).toFixed(1)
                         : '0'
-                      }% verified
+                      }% confirmed
                     </div>
                   </div>
                 </div>
@@ -393,12 +509,13 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                     <div className="font-bold">{currentMonth.fatigueEvents}</div>
                     <div className="text-sm text-gray-500">
                       {currentMonth.fatigueEvents > 0
-                        ? ((analytics.recentEvents.filter(e => 
+                        ? ((monthlyEvents?.filter(e => 
                             (e.event_type.toLowerCase().includes('fatigue') || 
-                             e.event_type.toLowerCase().includes('microsleep')) && e.verified
-                          ).length / currentMonth.fatigueEvents) * 100).toFixed(1)
+                             e.event_type.toLowerCase().includes('microsleep')) && 
+                            (e.verified || e.confirmation === 'verified')
+                          ).length || 0) / currentMonth.fatigueEvents * 100).toFixed(1)
                         : '0'
-                      }% verified
+                      }% confirmed
                     </div>
                   </div>
                 </div>
@@ -483,15 +600,18 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge 
-                        variant={event.verified ? "default" : "secondary"}
+                        variant={(event.verified || event.confirmation === 'verified') ? "default" : "secondary"}
                         className={
-                          event.verified ? 'bg-green-100 text-green-700' :
+                          (event.verified || event.confirmation === 'verified') ? 'bg-green-100 text-green-700' :
+                          event.confirmation === 'criteria not met' ? 'bg-gray-100 text-gray-700' :
                           event.severity === 'Critical' ? 'bg-red-100 text-red-700' :
                           event.severity === 'High' ? 'bg-orange-100 text-orange-700' :
                           'bg-yellow-100 text-yellow-700'
                         }
                       >
-                        {event.verified ? 'Verified' : event.severity}
+                        {(event.verified || event.confirmation === 'verified') ? 'Confirmed' :
+                         event.confirmation === 'criteria not met' ? 'Dismissed' :
+                         event.confirmation || event.severity}
                       </Badge>
                       <Badge variant="outline" className="text-xs">
                         {event.fleet === 'Stevemacs' ? 'SMB' : 'GSF'}
