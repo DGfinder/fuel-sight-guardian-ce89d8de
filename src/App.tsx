@@ -460,9 +460,9 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="SmartFill Monitoring" showHomeButton={true}>
-                          <Suspense fallback={<PageLoader />}>
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
                             <SmartFillPage />
-                          </Suspense>
+                          </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 

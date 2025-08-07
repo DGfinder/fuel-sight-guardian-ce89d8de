@@ -42,6 +42,7 @@ import {
 
 const SmartFillPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [fullSyncLoading, setFullSyncLoading] = useState(false);
   
   // Data hooks
   const { data: locations, isLoading, error } = useSmartFillLocations();
@@ -60,6 +61,36 @@ const SmartFillPage = () => {
 
   const handleAPITest = () => {
     apiTestMutation.mutate();
+  };
+
+  const handleFullSync = async () => {
+    setFullSyncLoading(true);
+    try {
+      const response = await fetch('/api/smartfill-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Show success message
+        console.log('Full sync completed:', result);
+        // You might want to show a toast notification here
+        // and refresh the data
+        window.location.reload(); // Simple refresh - could be improved with data invalidation
+      } else {
+        console.error('Full sync failed:', result);
+        alert(`Full sync failed: ${result.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Full sync error:', error);
+      alert(`Full sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setFullSyncLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -151,10 +182,18 @@ const SmartFillPage = () => {
           </Button>
           <Button 
             onClick={handleSync}
+            variant="outline"
             disabled={syncMutation.isPending}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-            Sync Data
+            Quick Sync
+          </Button>
+          <Button 
+            onClick={handleFullSync}
+            disabled={fullSyncLoading}
+          >
+            <Database className={`w-4 h-4 mr-2 ${fullSyncLoading ? 'animate-spin' : ''}`} />
+            Full API Sync
           </Button>
         </div>
       </div>

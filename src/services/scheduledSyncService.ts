@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 
 interface SyncJob {
   id: string;
-  type: 'lytx_events' | 'guardian_events' | 'captive_payments';
+  type: 'lytx_events' | 'guardian_events' | 'captive_payments' | 'smartfill_sync';
   schedule: string; // cron-like schedule
   lastRun?: Date;
   nextRun: Date;
@@ -48,6 +48,22 @@ export class ScheduledSyncService {
         type: 'lytx_events',
         schedule: '0 2 * * *', // Daily at 2 AM
         nextRun: this.getNextDailyRun(2, 0),
+        status: 'active',
+        enabled: true
+      },
+      {
+        id: 'smartfill_sync_frequent',
+        type: 'smartfill_sync',
+        schedule: '*/15 * * * *', // Every 15 minutes
+        nextRun: new Date(Date.now() + 15 * 60 * 1000),
+        status: 'active',
+        enabled: true
+      },
+      {
+        id: 'smartfill_sync_daily',
+        type: 'smartfill_sync',
+        schedule: '0 3 * * *', // Daily at 3 AM
+        nextRun: this.getNextDailyRun(3, 0),
         status: 'active',
         enabled: true
       }
@@ -115,6 +131,14 @@ export class ScheduledSyncService {
           result.success = lytxResult.eventsFailed === 0;
           break;
 
+        case 'smartfill_sync':
+          const smartfillResult = await this.syncSmartFill(job);
+          result.recordsProcessed = smartfillResult.tanksProcessed + smartfillResult.readingsProcessed;
+          result.recordsFailed = smartfillResult.customersFailedCount;
+          result.errors = smartfillResult.errors;
+          result.success = smartfillResult.customersFailedCount === 0;
+          break;
+
         default:
           result.errors.push(`Unknown job type: ${job.type}`);
           break;
@@ -162,6 +186,87 @@ export class ScheduledSyncService {
   }
 
   /**
+   * Sync SmartFill data
+   */
+  private async syncSmartFill(job: SyncJob): Promise<{
+    customersProcessed: number;
+    customersFailedCount: number;
+    locationsProcessed: number;
+    tanksProcessed: number;
+    readingsProcessed: number;
+    errors: string[];
+  }> {
+    console.log(`[SMARTFILL SCHEDULED SYNC] Starting ${job.id}`);
+    
+    const errors: string[] = [];
+    let customersProcessed = 0;
+    let customersFailedCount = 0;
+    let totalLocations = 0;
+    let totalTanks = 0;
+    let totalReadings = 0;
+
+    try {
+      // Call the SmartFill sync API internally
+      const syncUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:3000/api/smartfill-sync'
+        : `https://fuel-sight-guardian-ce89d8de.vercel.app/api/smartfill-sync`;
+
+      console.log(`[SMARTFILL SCHEDULED SYNC] Calling sync endpoint: ${syncUrl}`);
+
+      const response = await fetch(syncUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': `ScheduledSync/${job.id}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`SmartFill sync API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const syncResult = await response.json();
+
+      if (syncResult.success) {
+        customersProcessed = syncResult.summary.successful;
+        customersFailedCount = syncResult.summary.failed;
+        totalLocations = syncResult.summary.locationsProcessed;
+        totalTanks = syncResult.summary.tanksProcessed;
+        totalReadings = syncResult.summary.readingsProcessed;
+
+        console.log(`[SMARTFILL SCHEDULED SYNC] Success: ${customersProcessed} customers, ${totalTanks} tanks, ${totalReadings} readings`);
+
+        // Log any customer-level failures
+        if (syncResult.syncResults) {
+          syncResult.syncResults.forEach((customerResult: any) => {
+            if (customerResult.status !== 'success') {
+              errors.push(`Customer ${customerResult.customerName}: ${customerResult.error || 'Unknown error'}`);
+            }
+          });
+        }
+      } else {
+        errors.push(`SmartFill sync failed: ${syncResult.message || 'Unknown error'}`);
+        customersFailedCount = 1; // Assume all customers failed if sync API failed
+      }
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown SmartFill sync error';
+      errors.push(errorMsg);
+      customersFailedCount = 1; // Mark as failed
+      console.error(`[SMARTFILL SCHEDULED SYNC] Error:`, error);
+    }
+
+    return {
+      customersProcessed,
+      customersFailedCount,
+      locationsProcessed: totalLocations,
+      tanksProcessed: totalTanks,
+      readingsProcessed: totalReadings,
+      errors
+    };
+  }
+
+  /**
    * Calculate next run time based on schedule
    */
   private calculateNextRun(job: SyncJob): Date {
@@ -173,6 +278,9 @@ export class ScheduledSyncService {
     } else if (job.schedule === '0 2 * * *') {
       // Daily at 2 AM
       return this.getNextDailyRun(2, 0);
+    } else if (job.schedule === '0 3 * * *') {
+      // Daily at 3 AM (SmartFill daily sync)
+      return this.getNextDailyRun(3, 0);
     }
     
     // Default: run again in 1 hour
@@ -228,7 +336,7 @@ export class ScheduledSyncService {
    * Manual sync trigger (for immediate sync requests)
    */
   async triggerManualSync(
-    type: 'lytx_events' | 'guardian_events' | 'captive_payments',
+    type: 'lytx_events' | 'guardian_events' | 'captive_payments' | 'smartfill_sync',
     options?: {
       daysBack?: number;
       carrier?: string;
@@ -254,6 +362,21 @@ export class ScheduledSyncService {
           result.recordsFailed = lytxResult.eventsFailed;
           result.errors = lytxResult.errors;
           result.success = lytxResult.eventsFailed === 0;
+          break;
+
+        case 'smartfill_sync':
+          const smartfillResult = await this.syncSmartFill({ 
+            id: result.jobId, 
+            type: 'smartfill_sync', 
+            schedule: 'manual', 
+            nextRun: new Date(), 
+            status: 'active', 
+            enabled: true 
+          });
+          result.recordsProcessed = smartfillResult.tanksProcessed + smartfillResult.readingsProcessed;
+          result.recordsFailed = smartfillResult.customersFailedCount;
+          result.errors = smartfillResult.errors;
+          result.success = smartfillResult.customersFailedCount === 0;
           break;
 
         default:
