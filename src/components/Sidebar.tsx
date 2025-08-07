@@ -469,11 +469,6 @@ export const Sidebar: React.FC = () => {
             >
               <AlertIcon className="w-5 h-5" />
               Alerts
-              {typeof activeAlertCount === 'number' && activeAlertCount > 0 && (
-                <span className="ml-2 bg-gray-700 text-white px-2 py-0.5 rounded-full text-sm">
-                  {activeAlertCount}
-                </span>
-              )}
             </Link>
           </div>
         </nav>
