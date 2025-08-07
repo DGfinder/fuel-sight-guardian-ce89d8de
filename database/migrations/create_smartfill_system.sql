@@ -5,7 +5,7 @@
 -- SmartFill Customers table (API credentials)
 CREATE TABLE IF NOT EXISTS smartfill_customers (
   id SERIAL PRIMARY KEY,
-  api_reference TEXT NOT NULL,
+  api_reference TEXT NOT NULL UNIQUE,
   api_secret TEXT NOT NULL,
   name TEXT NOT NULL,
   active BOOLEAN DEFAULT true,
@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS smartfill_sync_logs (
   sync_status TEXT NOT NULL, -- 'success', 'partial', 'failed', 'running'
   locations_processed INT DEFAULT 0,
   tanks_processed INT DEFAULT 0,
+  assets_processed INT DEFAULT 0,
   readings_processed INT DEFAULT 0,
   error_message TEXT,
   sync_duration_ms INT,
@@ -100,19 +101,24 @@ ALTER TABLE smartfill_readings_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE smartfill_sync_logs ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated users to read SmartFill data
+DROP POLICY IF EXISTS "Users can view smartfill customers" ON smartfill_customers;
 CREATE POLICY "Users can view smartfill customers" ON smartfill_customers
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can view smartfill locations" ON smartfill_locations;
 CREATE POLICY "Users can view smartfill locations" ON smartfill_locations
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can view smartfill tanks" ON smartfill_tanks;
 CREATE POLICY "Users can view smartfill tanks" ON smartfill_tanks
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can view smartfill readings history" ON smartfill_readings_history;
 CREATE POLICY "Users can view smartfill readings history" ON smartfill_readings_history
   FOR SELECT TO authenticated USING (true);
 
 -- Only admins can view sync logs
+DROP POLICY IF EXISTS "Admins can view smartfill sync logs" ON smartfill_sync_logs;
 CREATE POLICY "Admins can view smartfill sync logs" ON smartfill_sync_logs
   FOR SELECT TO authenticated USING (
     EXISTS (
@@ -123,18 +129,23 @@ CREATE POLICY "Admins can view smartfill sync logs" ON smartfill_sync_logs
   );
 
 -- Insert/Update policies for system operations
+DROP POLICY IF EXISTS "System can manage smartfill customers" ON smartfill_customers;
 CREATE POLICY "System can manage smartfill customers" ON smartfill_customers
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "System can manage smartfill locations" ON smartfill_locations;
 CREATE POLICY "System can manage smartfill locations" ON smartfill_locations
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "System can manage smartfill tanks" ON smartfill_tanks;
 CREATE POLICY "System can manage smartfill tanks" ON smartfill_tanks
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "System can manage smartfill readings" ON smartfill_readings_history;
 CREATE POLICY "System can manage smartfill readings" ON smartfill_readings_history
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "System can manage smartfill sync logs" ON smartfill_sync_logs;
 CREATE POLICY "System can manage smartfill sync logs" ON smartfill_sync_logs
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
