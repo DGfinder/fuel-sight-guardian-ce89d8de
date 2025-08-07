@@ -23,7 +23,8 @@ import {
   History,
   Mail,
   Signal,
-  BarChart3
+  BarChart3,
+  Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
@@ -40,6 +41,7 @@ const ALL_NAV_ITEMS = [
   { path: '/tanks', label: 'Tanks', icon: TankIcon, badge: 'totalTanks', group: null },
   { path: '/map', label: 'Map View', icon: MapPin, badge: null, group: null },
   { path: '/agbot', label: 'Agbot Monitoring', icon: Signal, badge: null, group: null },
+  { path: '/smartfill', label: 'SmartFill', icon: Database, badge: null, group: null },
   { 
     path: '/swan-transit', 
     label: 'Swan Transit', 

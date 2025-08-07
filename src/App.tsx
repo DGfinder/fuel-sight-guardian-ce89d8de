@@ -59,6 +59,7 @@ const StevemacsFleetDashboard = lazy(() => import('@/pages/StevemacsFleetDashboa
 const GSFFleetDashboard = lazy(() => import('@/pages/GSFFleetDashboard'));
 const MaintenanceDashboard = lazy(() => import('@/pages/MaintenanceDashboard'));
 const DriverManagement = lazy(() => import('@/pages/DriverManagement'));
+const SmartFillPage = lazy(() => import('@/pages/SmartFillPage'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -449,6 +450,18 @@ function AppContent() {
                         <RouteErrorBoundary routeName="Agbot Monitoring" showHomeButton={true}>
                           <Suspense fallback={<PageLoader />}>
                             <AgbotPage />
+                          </Suspense>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/smartfill" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="SmartFill Monitoring" showHomeButton={true}>
+                          <Suspense fallback={<PageLoader />}>
+                            <SmartFillPage />
                           </Suspense>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
