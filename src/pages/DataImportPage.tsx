@@ -23,6 +23,7 @@ import {
 import { Link } from 'react-router-dom';
 import DataCentreLayout from '@/components/DataCentreLayout';
 import CaptivePaymentsImportModal from '@/components/CaptivePaymentsImportModal';
+import GuardianEventsImportModal from '@/components/GuardianEventsImportModal';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useToast } from '@/hooks/use-toast';
 import { getImportBatches, deleteCaptivePaymentBatch } from '@/api/captivePayments';
@@ -34,6 +35,7 @@ const DataImportPage: React.FC = () => {
   const queryClient = useQueryClient();
   
   const [isCaptiveModalOpen, setIsCaptiveModalOpen] = useState(false);
+  const [isGuardianModalOpen, setIsGuardianModalOpen] = useState(false);
 
   // Fetch import history
   const { data: importBatches = [], isLoading: batchesLoading } = useQuery({
@@ -177,20 +179,34 @@ const DataImportPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Future Import Types */}
-          <Card className="opacity-60">
+          {/* Guardian Events Import */}
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setIsGuardianModalOpen(true)}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-gray-400" />
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Upload className="w-5 h-5 text-purple-600" />
                 </div>
-                <Badge variant="secondary">Coming Soon</Badge>
+                <Badge variant="outline" className="text-purple-600 border-purple-200">
+                  Ready
+                </Badge>
               </div>
               <CardTitle className="text-lg">Guardian Events</CardTitle>
               <CardDescription>
                 Import distraction and fatigue event data from Athara Guardian system
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm text-gray-600">
+                <div>• Supports Guardian CSV event exports</div>
+                <div>• Automatic vehicle matching and validation</div>
+                <div>• Event classification and severity mapping</div>
+                <div>• Driver data integration with fleet management</div>
+              </div>
+              <Button className="w-full mt-4" onClick={() => setIsGuardianModalOpen(true)}>
+                <Upload className="w-4 h-4 mr-2" />
+                Import Guardian Data
+              </Button>
+            </CardContent>
           </Card>
 
           <Card className="opacity-60">
@@ -287,6 +303,13 @@ const DataImportPage: React.FC = () => {
       <CaptivePaymentsImportModal
         open={isCaptiveModalOpen}
         onOpenChange={setIsCaptiveModalOpen}
+        onImportSuccess={handleImportSuccess}
+      />
+
+      {/* Guardian Events Import Modal */}
+      <GuardianEventsImportModal
+        open={isGuardianModalOpen}
+        onOpenChange={setIsGuardianModalOpen}
         onImportSuccess={handleImportSuccess}
       />
     </DataCentreLayout>
