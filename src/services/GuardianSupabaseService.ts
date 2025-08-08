@@ -8,7 +8,7 @@ export interface GuardianEventData {
   vehicleRegistration: string;
   guardianUnit?: string;
   eventType: string;
-  occurredAt: string;
+  detection_time: string;
   location?: string;
   latitude?: number;
   longitude?: number;
@@ -159,7 +159,7 @@ export class GuardianSupabaseService {
         const { error: insertError, count } = await supabase
           .from('guardian_events')
           .insert(batch)
-          .select('id', { count: 'exact' });
+          .select('*', { count: 'exact' });
 
         if (insertError) {
           errors.push(`Batch ${Math.floor(i/batchSize) + 1}: ${insertError.message}`);
@@ -390,7 +390,7 @@ export class GuardianSupabaseService {
       } else if (header === 'driver') {
         map.driver = index;
       } else if (header === 'detection_time') {
-        map.occurredAt = index;
+        map.detection_time = index;
       } else if (header === 'event_type') {
         map.eventType = index;
       } else if (header === 'confirmation') {
@@ -408,7 +408,7 @@ export class GuardianSupabaseService {
       } else if (normalized.includes('event') && normalized.includes('type')) {
         map.eventType = index;
       } else if (normalized.includes('datetime') || normalized.includes('timestamp') || normalized.includes('occurred') || normalized.includes('detection')) {
-        map.occurredAt = index;
+        map.detection_time = index;
       } else if (normalized.includes('location') || normalized.includes('address')) {
         map.location = index;
       } else if (normalized.includes('latitude') || normalized.includes('lat')) {
@@ -467,7 +467,7 @@ export class GuardianSupabaseService {
       vehicle_registration: vehicle,
       guardian_unit: values[headerMap.vehicleId]?.trim() || values[headerMap.guardianUnit]?.trim() || null,
       event_type: eventType,
-      occurred_at: this.parseDateTime(values[headerMap.occurredAt]?.trim() || ''),
+      detection_time: this.parseDateTime(values[headerMap.detection_time]?.trim() || ''),
       location: values[headerMap.location]?.trim() || null,
       latitude: this.parseNumber(values[headerMap.latitude]),
       longitude: this.parseNumber(values[headerMap.longitude]),
@@ -496,7 +496,7 @@ export class GuardianSupabaseService {
       vehicle_registration: event.vehicleRegistration,
       guardian_unit: event.guardianUnit || null,
       event_type: event.eventType,
-      occurred_at: new Date(event.occurredAt).toISOString(),
+      detection_time: new Date(event.detection_time).toISOString(),
       location: event.location || null,
       latitude: event.latitude || null,
       longitude: event.longitude || null,
@@ -775,15 +775,15 @@ export class GuardianSupabaseService {
     }
 
     if (startDate) {
-      query = query.gte('occurred_at', startDate.toISOString());
+      query = query.gte('detection_time', startDate.toISOString());
     }
 
     if (endDate) {
-      query = query.lte('occurred_at', endDate.toISOString());
+      query = query.lte('detection_time', endDate.toISOString());
     }
 
     const { data, error } = await query
-      .order('occurred_at', { ascending: false })
+      .order('detection_time', { ascending: false })
       .limit(1000);
 
     if (error) {
@@ -837,7 +837,7 @@ export class GuardianSupabaseService {
     }
 
     const { data, error } = await query
-      .order('occurred_at', { ascending: false })
+      .order('detection_time', { ascending: false })
       .limit(limit);
 
     if (error) {
