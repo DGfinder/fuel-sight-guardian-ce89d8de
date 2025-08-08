@@ -98,7 +98,14 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
   };
 
   const monthlyData = useMemo(() => {
-    const filteredEvents = filterEventsByType(events, selectedEventType);
+    let filteredEvents = filterEventsByType(events, selectedEventType);
+    
+    // Filter out future events (data integrity fix)
+    const today = new Date();
+    filteredEvents = filteredEvents.filter(event => {
+      const eventDate = new Date(event.detection_time);
+      return eventDate <= today;
+    });
     
     // Group events by month
     const monthlyGroups: Record<string, GuardianEvent[]> = {};

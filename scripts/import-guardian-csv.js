@@ -85,10 +85,11 @@ function parseCSVLine(line) {
 }
 
 /**
- * Parse date time from Guardian format
+ * Parse date time from Guardian format with support for multiple formats
  */
 function parseDateTime(dateTime) {
   try {
+    // Handle ISO format with T (e.g., 2024-03-31T10:30:00)
     if (dateTime.includes('T') && dateTime.length >= 19) {
       const parsed = new Date(dateTime);
       if (!isNaN(parsed.getTime())) {
@@ -96,16 +97,42 @@ function parseDateTime(dateTime) {
       }
     }
     
-    // Try parsing YYYY-MM-DD HH:MM:SS format
+    // Handle DD/MM/YYYY format (Australian format)
+    if (dateTime.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+      const [day, month, year] = dateTime.split('/');
+      const parsed = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+    
+    // Handle YYYY/MM/DD format
+    if (dateTime.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) {
+      const [year, month, day] = dateTime.split('/');
+      const parsed = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+    
+    // Handle YYYY-MM-DD format  
+    if (dateTime.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+      const parsed = new Date(dateTime);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+    
+    // Try default JavaScript parsing as last resort
     const parsed = new Date(dateTime);
     if (!isNaN(parsed.getTime())) {
       return parsed.toISOString();
     }
     
     throw new Error('Invalid date format');
-  } catch {
-    console.warn(`⚠️  Invalid date format: ${dateTime}, using current time`);
-    return new Date().toISOString();
+  } catch (error) {
+    console.warn(`⚠️  Invalid date format: ${dateTime}, skipping record (was using current time)`);
+    throw error; // Don't fallback to current time, reject the record instead
   }
 }
 
@@ -342,13 +369,33 @@ async function importGuardianCsv() {
           continue;
         }
         
+        // Parse detection_time (required) - reject record if parsing fails
+        let detection_time;
+        try {
+          detection_time = parseDateTime(record.detection_time);
+        } catch (error) {
+          errors.push(`Row ${i + 1}: Invalid detection_time format: ${record.detection_time}`);
+          continue;
+        }
+        
+        // Parse confirmation_time (optional) - allow null if parsing fails
+        let confirmation_time = null;
+        if (record.confirmation_time) {
+          try {
+            confirmation_time = parseDateTime(record.confirmation_time);
+          } catch (error) {
+            // Log but don't reject record for optional field
+            console.warn(`Row ${i + 1}: Invalid confirmation_time format: ${record.confirmation_time}, setting to null`);
+          }
+        }
+        
         // Transform to database format
         const dbRecord = {
           external_event_id: record.event_id,
           vehicle_id: record.vehicle_id || null,
           vehicle_registration: record.vehicle,
           driver_name: record.driver || null,
-          detection_time: parseDateTime(record.detection_time),
+          detection_time: detection_time,
           utc_offset: record.utc_offset ? parseInt(record.utc_offset) : null,
           timezone: record.timezone || null,
           latitude: parseNumber(record.latitude),
@@ -356,7 +403,7 @@ async function importGuardianCsv() {
           event_type: record.event_type,
           detected_event_type: record.detected_event_type || null,
           confirmation: record.confirmation || null,
-          confirmation_time: record.confirmation_time ? parseDateTime(record.confirmation_time) : null,
+          confirmation_time: confirmation_time,
           classification: record.classification || null,
           duration_seconds: parseNumber(record.duration_seconds),
           speed_kph: parseNumber(record.speed_kph),
