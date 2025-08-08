@@ -32,7 +32,7 @@ const DATA_CENTRE_NAV_ITEMS = [
   },
   { 
     path: '/data-centre/guardian', 
-    label: 'Guardian Compliance', 
+    label: 'Guardian', 
     icon: Shield,
     permission: 'view_guardian_events',
     children: [

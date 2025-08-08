@@ -16,6 +16,7 @@ import {
   Loader2
 } from 'lucide-react';
 import DataCentreLayout from '@/components/DataCentreLayout';
+import GuardianMonthlyChart, { EventTypeFilter } from '@/components/GuardianMonthlyChart';
 import { supabase } from '@/lib/supabase';
 
 interface GuardianDashboardProps {
@@ -65,6 +66,7 @@ interface GuardianAnalytics {
     totalEvents: number;
     distractionEvents: number;
     fatigueEvents: number;
+    fieldOfViewEvents: number;
     verifiedEvents: number;
     verificationRate: number;
     stevemacsEvents: number;
@@ -87,12 +89,13 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<GuardianAnalytics | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('current');
+  const [selectedEventType, setSelectedEventType] = useState<EventTypeFilter>('all');
 
   // Determine dashboard title and filter based on fleet prop
   const getDashboardTitle = () => {
     if (fleet === 'Stevemacs') return 'Stevemacs Guardian Analytics';
     if (fleet === 'Great Southern Fuels') return 'Great Southern Fuels Guardian Analytics';
-    return 'Guardian Compliance Dashboard';
+    return 'Guardian Dashboard';
   };
 
   const fetchGuardianData = async () => {
@@ -168,6 +171,10 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
         e.event_type.toLowerCase().includes('fatigue') || 
         e.event_type.toLowerCase().includes('microsleep')
       ).length || 0;
+      
+      const fieldOfViewEvents = monthlyEvents?.filter(e => 
+        e.event_type.toLowerCase().includes('field of view')
+      ).length || 0;
 
       // Count events that are either manually verified in our system OR confirmed by Guardian
       const verifiedEvents = monthlyEvents?.filter(e => 
@@ -212,6 +219,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
           totalEvents,
           distractionEvents,
           fatigueEvents,
+          fieldOfViewEvents,
           verifiedEvents,
           verificationRate,
           stevemacsEvents,
@@ -343,6 +351,14 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
           </div>
         )}
 
+        {/* Monthly Events Chart */}
+        <GuardianMonthlyChart 
+          events={analytics.monthlyEvents}
+          selectedEventType={selectedEventType}
+          onEventTypeChange={setSelectedEventType}
+          fleet={fleet}
+        />
+
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
@@ -357,7 +373,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                 {currentMonth.totalEvents.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                {currentMonth.distractionEvents} distraction, {currentMonth.fatigueEvents} fatigue
+                {currentMonth.distractionEvents} distraction, {currentMonth.fatigueEvents} fatigue, {currentMonth.fieldOfViewEvents} field of view
               </p>
             </CardContent>
           </Card>
@@ -479,7 +495,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                 Event Type Breakdown
               </CardTitle>
               <CardDescription>
-                Current month distraction vs fatigue events
+                Current month distraction, fatigue, and field of view events
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -516,6 +532,24 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                              e.event_type.toLowerCase().includes('microsleep')) && 
                             (e.verified || e.confirmation === 'verified')
                           ).length || 0) / currentMonth.fatigueEvents * 100).toFixed(1)
+                        : '0'
+                      }% confirmed
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <span className="font-medium">Field of View Events</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold">{currentMonth.fieldOfViewEvents}</div>
+                    <div className="text-sm text-gray-500">
+                      {currentMonth.fieldOfViewEvents > 0
+                        ? ((analytics.monthlyEvents?.filter(e => 
+                            e.event_type.toLowerCase().includes('field of view') && 
+                            (e.verified || e.confirmation === 'verified')
+                          ).length || 0) / currentMonth.fieldOfViewEvents * 100).toFixed(1)
                         : '0'
                       }% confirmed
                     </div>
@@ -586,7 +620,8 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                     <div className="flex items-center gap-4">
                       <div className={`w-3 h-3 rounded-full ${
                         event.event_type.toLowerCase().includes('distraction') ? 'bg-red-500' : 
-                        event.event_type.toLowerCase().includes('fatigue') ? 'bg-orange-500' : 'bg-gray-500'
+                        event.event_type.toLowerCase().includes('fatigue') ? 'bg-orange-500' : 
+                        event.event_type.toLowerCase().includes('field of view') ? 'bg-blue-500' : 'bg-gray-500'
                       }`}></div>
                       <div>
                         <div className="font-medium">
