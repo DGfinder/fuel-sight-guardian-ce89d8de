@@ -41,6 +41,8 @@ interface GuardianMonthlyChartProps {
   fleet?: 'Stevemacs' | 'Great Southern Fuels';
 }
 
+type TimeRangeOption = '6M' | '12M' | '18M' | '24M';
+
 const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
   events,
   selectedEventType,
@@ -49,6 +51,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
 }) => {
   const [showVerifiedEvents, setShowVerifiedEvents] = useState(true);
   const [showVerificationRate, setShowVerificationRate] = useState(true);
+  const [timeRange, setTimeRange] = useState<TimeRangeOption>('12M');
 
   const eventTypeFilters = [
     { 
@@ -114,7 +117,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
       .map(([monthKey, monthEvents]) => {
         const verifiedEvents = monthEvents.filter(e => e.verified || e.confirmation === 'verified');
         const [year, month] = monthKey.split('-');
-        const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('default', { month: 'short', year: '2-digit' });
+        const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('default', { month: 'short', year: 'numeric' });
         
         return {
           month: monthName,
@@ -123,8 +126,19 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
           verificationRate: monthEvents.length > 0 ? (verifiedEvents.length / monthEvents.length) * 100 : 0
         };
       })
-      .sort((a, b) => new Date(`${a.month} 01, 20${a.month.slice(-2)}`).getTime() - new Date(`${b.month} 01, 20${b.month.slice(-2)}`).getTime())
-      .slice(-6); // Last 6 months
+      .sort((a, b) => {
+        // Parse year from month string (e.g., "Mar 2024" -> 2024)
+        const aYear = parseInt(a.month.split(' ')[1]);
+        const aMonth = new Date(`${a.month} 1, ${aYear}`).getMonth();
+        const bYear = parseInt(b.month.split(' ')[1]);
+        const bMonth = new Date(`${b.month} 1, ${bYear}`).getMonth();
+        
+        const aDate = new Date(aYear, aMonth);
+        const bDate = new Date(bYear, bMonth);
+        
+        return aDate.getTime() - bDate.getTime();
+      })
+      .slice(-(parseInt(timeRange) || 12)); // Configurable months
 
     return chartData;
   }, [events, selectedEventType]);
@@ -198,7 +212,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
               Monthly Guardian Events Trend
             </CardTitle>
             <CardDescription>
-              {fleet ? `${fleet} events` : 'All fleet events'} - last 6 months with verification rates
+              {fleet ? `${fleet} events` : 'All fleet events'} - last {timeRange} with verification rates
             </CardDescription>
           </div>
           
@@ -272,6 +286,22 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
             {showVerificationRate ? <ToggleRight className="w-4 h-4 mr-2" /> : <ToggleLeft className="w-4 h-4 mr-2" />}
             Verification Rate
           </Button>
+        </div>
+        
+        {/* Time Range Selection */}
+        <div className="flex flex-wrap gap-2 pt-2">
+          <span className="text-sm text-gray-600 self-center mr-2">Time Range:</span>
+          {(['6M', '12M', '18M', '24M'] as TimeRangeOption[]).map((range) => (
+            <Button
+              key={range}
+              variant={timeRange === range ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTimeRange(range)}
+              className={timeRange === range ? 'bg-blue-100 text-blue-700 border-blue-200' : 'border-gray-200 hover:bg-blue-50'}
+            >
+              {range}
+            </Button>
+          ))}
         </div>
       </CardHeader>
 
