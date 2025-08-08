@@ -75,6 +75,7 @@ interface GuardianAnalytics {
   };
   recentEvents: GuardianEvent[];
   requiresAttention: RequiringAttentionEvent[];
+  monthlyEvents: GuardianEvent[];
   topRiskVehicles: Array<{
     vehicle: string;
     events: number;
@@ -221,6 +222,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
         },
         recentEvents: recentEvents || [],
         requiresAttention: requiresAttention || [],
+        monthlyEvents: monthlyEvents || [],
         topRiskVehicles
       };
 
@@ -491,7 +493,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                     <div className="font-bold">{currentMonth.distractionEvents}</div>
                     <div className="text-sm text-gray-500">
                       {currentMonth.distractionEvents > 0 
-                        ? ((monthlyEvents?.filter(e => 
+                        ? ((analytics.monthlyEvents?.filter(e => 
                             e.event_type.toLowerCase().includes('distraction') && 
                             (e.verified || e.confirmation === 'verified')
                           ).length || 0) / currentMonth.distractionEvents * 100).toFixed(1)
@@ -509,7 +511,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                     <div className="font-bold">{currentMonth.fatigueEvents}</div>
                     <div className="text-sm text-gray-500">
                       {currentMonth.fatigueEvents > 0
-                        ? ((monthlyEvents?.filter(e => 
+                        ? ((analytics.monthlyEvents?.filter(e => 
                             (e.event_type.toLowerCase().includes('fatigue') || 
                              e.event_type.toLowerCase().includes('microsleep')) && 
                             (e.verified || e.confirmation === 'verified')
