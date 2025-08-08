@@ -69,7 +69,8 @@
       "Bash(timeout 90 npm run build)",
       "WebFetch(domain:vercel.com)",
       "Bash(echo:*)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(git mv:*)"
     ],
     "deny": []
   }
