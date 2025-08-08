@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
   Legend 
 } from 'recharts';
-import { CheckCircle, AlertTriangle, Eye, TrendingUp, ToggleLeft, ToggleRight } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Eye, TrendingUp, ToggleLeft, ToggleRight, Focus } from 'lucide-react';
 
 interface GuardianEvent {
   id: string;
@@ -51,6 +51,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
 }) => {
   const [showVerifiedEvents, setShowVerifiedEvents] = useState(true);
   const [showVerificationRate, setShowVerificationRate] = useState(true);
+  const [verifiedEventsFocusMode, setVerifiedEventsFocusMode] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRangeOption>('12M');
 
   const eventTypeFilters = [
@@ -100,12 +101,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
   const monthlyData = useMemo(() => {
     let filteredEvents = filterEventsByType(events, selectedEventType);
     
-    // Filter out future events (data integrity fix)
-    const today = new Date();
-    filteredEvents = filteredEvents.filter(event => {
-      const eventDate = new Date(event.detection_time);
-      return eventDate <= today;
-    });
+    // Note: Future date filtering is now handled at import time for better data integrity
     
     // Group events by month
     const monthlyGroups: Record<string, GuardianEvent[]> = {};
@@ -182,6 +178,23 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
     };
   }, [events, selectedEventType]);
 
+  // Calculate optimal Y-axis domain based on focus mode
+  const yAxisDomain = useMemo(() => {
+    if (verifiedEventsFocusMode) {
+      // In focus mode, scale to verified events only
+      const verifiedCounts = monthlyData.map(d => d.verifiedEvents);
+      const maxVerified = Math.max(...verifiedCounts);
+      const minVerified = Math.min(...verifiedCounts);
+      
+      // Add 10% padding to the range
+      const padding = Math.max(1, Math.ceil((maxVerified - minVerified) * 0.1));
+      return [Math.max(0, minVerified - padding), maxVerified + padding];
+    }
+    
+    // Normal mode - let Recharts auto-scale
+    return undefined;
+  }, [monthlyData, verifiedEventsFocusMode]);
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -220,6 +233,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
             </CardTitle>
             <CardDescription>
               {fleet ? `${fleet} events` : 'All fleet events'} - last {timeRange} with verification rates
+              {verifiedEventsFocusMode && <span className="text-blue-600 font-medium"> • Verified Events Focus Mode</span>}
             </CardDescription>
           </div>
           
@@ -280,6 +294,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
             size="sm"
             onClick={() => setShowVerifiedEvents(!showVerifiedEvents)}
             className={`border-green-200 ${showVerifiedEvents ? 'bg-green-100 text-green-700' : 'hover:bg-green-50'}`}
+            disabled={verifiedEventsFocusMode}
           >
             {showVerifiedEvents ? <ToggleRight className="w-4 h-4 mr-2" /> : <ToggleLeft className="w-4 h-4 mr-2" />}
             Verified Events
@@ -292,6 +307,16 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
           >
             {showVerificationRate ? <ToggleRight className="w-4 h-4 mr-2" /> : <ToggleLeft className="w-4 h-4 mr-2" />}
             Verification Rate
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVerifiedEventsFocusMode(!verifiedEventsFocusMode)}
+            className={`border-blue-200 ${verifiedEventsFocusMode ? 'bg-blue-100 text-blue-700' : 'hover:bg-blue-50'}`}
+            title={verifiedEventsFocusMode ? 'Exit focus mode to show total events' : 'Focus on verified events only with optimized scaling'}
+          >
+            <Focus className="w-4 h-4 mr-2" />
+            {verifiedEventsFocusMode ? 'Exit Focus Mode' : 'Verified Focus Mode'}
           </Button>
         </div>
         
@@ -330,6 +355,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
+                domain={yAxisDomain}
               />
               {showVerificationRate && (
                 <YAxis 
@@ -346,41 +372,43 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
               <Tooltip content={<CustomTooltip />} />
               <Legend />
               
-              {/* Total Events Line */}
-              <Line
-                yAxisId="events"
-                type="monotone"
-                dataKey="totalEvents"
-                name="Total Events"
-                stroke={
-                  selectedEventType === 'distraction' ? '#ef4444' :
-                  selectedEventType === 'fatigue' ? '#f97316' :
-                  selectedEventType === 'fieldOfView' ? '#3b82f6' :
-                  '#6b7280'
-                }
-                strokeWidth={3}
-                dot={{ 
-                  fill: selectedEventType === 'distraction' ? '#ef4444' :
-                        selectedEventType === 'fatigue' ? '#f97316' :
-                        selectedEventType === 'fieldOfView' ? '#3b82f6' :
-                        '#6b7280',
-                  strokeWidth: 2, 
-                  r: 5 
-                }}
-                activeDot={{ r: 7 }}
-              />
+              {/* Total Events Line - Hidden in focus mode */}
+              {!verifiedEventsFocusMode && (
+                <Line
+                  yAxisId="events"
+                  type="monotone"
+                  dataKey="totalEvents"
+                  name="Total Events"
+                  stroke={
+                    selectedEventType === 'distraction' ? '#ef4444' :
+                    selectedEventType === 'fatigue' ? '#f97316' :
+                    selectedEventType === 'fieldOfView' ? '#3b82f6' :
+                    '#6b7280'
+                  }
+                  strokeWidth={3}
+                  dot={{ 
+                    fill: selectedEventType === 'distraction' ? '#ef4444' :
+                          selectedEventType === 'fatigue' ? '#f97316' :
+                          selectedEventType === 'fieldOfView' ? '#3b82f6' :
+                          '#6b7280',
+                    strokeWidth: 2, 
+                    r: 5 
+                  }}
+                  activeDot={{ r: 7 }}
+                />
+              )}
               
-              {/* Verified Events Line */}
-              {showVerifiedEvents && (
+              {/* Verified Events Line - Always shown in focus mode */}
+              {(showVerifiedEvents || verifiedEventsFocusMode) && (
                 <Line
                   yAxisId="events"
                   type="monotone"
                   dataKey="verifiedEvents"
                   name="Verified Events"
                   stroke="#10b981"
-                  strokeWidth={3}
-                  dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
-                  activeDot={{ r: 7 }}
+                  strokeWidth={verifiedEventsFocusMode ? 4 : 3}
+                  dot={{ fill: '#10b981', strokeWidth: 2, r: verifiedEventsFocusMode ? 6 : 5 }}
+                  activeDot={{ r: verifiedEventsFocusMode ? 8 : 7 }}
                   strokeDasharray="0"
                 />
               )}

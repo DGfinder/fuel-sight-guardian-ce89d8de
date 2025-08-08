@@ -85,54 +85,109 @@ function parseCSVLine(line) {
 }
 
 /**
- * Parse date time from Guardian format with support for multiple formats
+ * Parse date time from Guardian format with robust format detection
  */
-function parseDateTime(dateTime) {
+function parseDateTime(dateTime, recordIndex = null) {
+  const originalDateTime = dateTime;
+  
   try {
-    // Handle ISO format with T (e.g., 2024-03-31T10:30:00)
+    // Handle ISO format with T (e.g., 2024-03-31T10:30:00 or 2024-03-31T10:30:00.000Z)
     if (dateTime.includes('T') && dateTime.length >= 19) {
       const parsed = new Date(dateTime);
       if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString();
+        const result = parsed.toISOString();
+        console.log(`📅 Parsed ISO format: ${originalDateTime} → ${result}${recordIndex ? ` (row ${recordIndex})` : ''}`);
+        return result;
       }
     }
     
-    // Handle DD/MM/YYYY format (Australian format)
-    if (dateTime.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-      const [day, month, year] = dateTime.split('/');
-      const parsed = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString();
+    // Handle date-only formats (no time component)
+    const dateOnlyMatch = dateTime.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/) || 
+                          dateTime.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    
+    if (dateOnlyMatch) {
+      let day, month, year;
+      
+      // Determine if it's YYYY-MM-DD or DD/MM/YYYY format
+      if (parseInt(dateOnlyMatch[1]) > 31) {
+        // First part > 31, must be YYYY-MM-DD format
+        year = parseInt(dateOnlyMatch[1]);
+        month = parseInt(dateOnlyMatch[2]);
+        day = parseInt(dateOnlyMatch[3]);
+        console.log(`📅 Detected YYYY-MM-DD format: ${originalDateTime}`);
+      } else if (parseInt(dateOnlyMatch[3]) > 31 || parseInt(dateOnlyMatch[3]) > 2000) {
+        // Third part > 31 or > 2000, must be DD/MM/YYYY format
+        day = parseInt(dateOnlyMatch[1]);
+        month = parseInt(dateOnlyMatch[2]);
+        year = parseInt(dateOnlyMatch[3]);
+        console.log(`📅 Detected DD/MM/YYYY format: ${originalDateTime}`);
+      } else {
+        // Ambiguous case - need to make educated guess
+        // Check if month value makes sense (1-12)
+        if (parseInt(dateOnlyMatch[2]) <= 12) {
+          // Could be either format, but prefer DD/MM/YYYY for Guardian data (Australian)
+          day = parseInt(dateOnlyMatch[1]);
+          month = parseInt(dateOnlyMatch[2]);
+          year = parseInt(dateOnlyMatch[3]);
+          console.log(`📅 Ambiguous date, assuming DD/MM/YYYY: ${originalDateTime}`);
+        } else {
+          // Second part > 12, must be MM/DD/YYYY format (but unlikely for Guardian)
+          month = parseInt(dateOnlyMatch[1]);
+          day = parseInt(dateOnlyMatch[2]);
+          year = parseInt(dateOnlyMatch[3]);
+          console.log(`📅 Detected MM/DD/YYYY format: ${originalDateTime}`);
+        }
       }
+      
+      // Validate date components
+      if (year < 2020 || year > 2030) {
+        throw new Error(`Invalid year: ${year} (expected 2020-2030)`);
+      }
+      if (month < 1 || month > 12) {
+        throw new Error(`Invalid month: ${month} (expected 1-12)`);
+      }
+      if (day < 1 || day > 31) {
+        throw new Error(`Invalid day: ${day} (expected 1-31)`);
+      }
+      
+      const parsed = new Date(year, month - 1, day);
+      
+      // Validate the date actually exists (e.g., not Feb 31)
+      if (parsed.getFullYear() !== year || parsed.getMonth() !== (month - 1) || parsed.getDate() !== day) {
+        throw new Error(`Invalid date: ${day}/${month}/${year} does not exist`);
+      }
+      
+      // Check for future dates (data integrity check)
+      const today = new Date();
+      if (parsed > today) {
+        console.warn(`⚠️  Future date detected: ${originalDateTime} → ${parsed.toISOString()}, rejecting record${recordIndex ? ` (row ${recordIndex})` : ''}`);
+        throw new Error(`Future date not allowed: ${originalDateTime}`);
+      }
+      
+      const result = parsed.toISOString();
+      console.log(`📅 Successfully parsed: ${originalDateTime} → ${result}${recordIndex ? ` (row ${recordIndex})` : ''}`);
+      return result;
     }
     
-    // Handle YYYY/MM/DD format
-    if (dateTime.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) {
-      const [year, month, day] = dateTime.split('/');
-      const parsed = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString();
-      }
-    }
-    
-    // Handle YYYY-MM-DD format  
-    if (dateTime.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
-      const parsed = new Date(dateTime);
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString();
-      }
-    }
-    
-    // Try default JavaScript parsing as last resort
+    // Try default JavaScript parsing as last resort (for complex formats)
     const parsed = new Date(dateTime);
     if (!isNaN(parsed.getTime())) {
-      return parsed.toISOString();
+      // Still check for future dates
+      const today = new Date();
+      if (parsed > today) {
+        console.warn(`⚠️  Future date from JS parsing: ${originalDateTime}, rejecting record${recordIndex ? ` (row ${recordIndex})` : ''}`);
+        throw new Error(`Future date not allowed: ${originalDateTime}`);
+      }
+      
+      const result = parsed.toISOString();
+      console.log(`📅 JS parsed: ${originalDateTime} → ${result}${recordIndex ? ` (row ${recordIndex})` : ''}`);
+      return result;
     }
     
-    throw new Error('Invalid date format');
+    throw new Error('No valid date format detected');
   } catch (error) {
-    console.warn(`⚠️  Invalid date format: ${dateTime}, skipping record (was using current time)`);
-    throw error; // Don't fallback to current time, reject the record instead
+    console.error(`❌ Date parsing failed for "${originalDateTime}": ${error.message}${recordIndex ? ` (row ${recordIndex})` : ''}`);
+    throw error; // Reject the record - don't use fallback dates
   }
 }
 
@@ -372,21 +427,17 @@ async function importGuardianCsv() {
         // Parse detection_time (required) - reject record if parsing fails
         let detection_time;
         try {
-          detection_time = parseDateTime(record.detection_time);
+          detection_time = parseDateTime(record.detection_time, i + 1);
         } catch (error) {
-          errors.push(`Row ${i + 1}: Invalid detection_time format: ${record.detection_time}`);
+          errors.push(`Row ${i + 1}: Invalid detection_time format: ${record.detection_time} - ${error.message}`);
           continue;
         }
         
-        // Parse confirmation_time (optional) - allow null if parsing fails
+        // Skip confirmation_time parsing - it uses different format and we focus on detection_time only
         let confirmation_time = null;
         if (record.confirmation_time) {
-          try {
-            confirmation_time = parseDateTime(record.confirmation_time);
-          } catch (error) {
-            // Log but don't reject record for optional field
-            console.warn(`Row ${i + 1}: Invalid confirmation_time format: ${record.confirmation_time}, setting to null`);
-          }
+          // Simply store as null since detection_time is the key field and confirmation_time uses different format
+          console.log(`Row ${i + 1}: Skipping confirmation_time parsing (${record.confirmation_time}) - focusing on detection_time only`);
         }
         
         // Transform to database format

@@ -70,7 +70,13 @@
       "WebFetch(domain:vercel.com)",
       "Bash(echo:*)",
       "Bash(env)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(grep:*)",
+      "Bash(chmod:*)",
+      "Bash(node:*)",
+      "Bash(git pull:*)",
+      "Bash(pkill:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }
