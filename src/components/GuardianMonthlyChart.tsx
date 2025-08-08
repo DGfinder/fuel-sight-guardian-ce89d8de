@@ -1,10 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  ComposedChart, 
-  Bar, 
+  LineChart, 
   Line, 
   XAxis, 
   YAxis, 
@@ -13,7 +12,7 @@ import {
   ResponsiveContainer,
   Legend 
 } from 'recharts';
-import { CheckCircle, AlertTriangle, Eye, TrendingUp } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Eye, TrendingUp, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface GuardianEvent {
   id: string;
@@ -48,6 +47,8 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
   onEventTypeChange,
   fleet
 }) => {
+  const [showVerifiedEvents, setShowVerifiedEvents] = useState(true);
+  const [showVerificationRate, setShowVerificationRate] = useState(true);
 
   const eventTypeFilters = [
     { 
@@ -250,12 +251,34 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
             );
           })}
         </div>
+        
+        {/* Verification Toggle Buttons */}
+        <div className="flex flex-wrap gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowVerifiedEvents(!showVerifiedEvents)}
+            className={`border-green-200 ${showVerifiedEvents ? 'bg-green-100 text-green-700' : 'hover:bg-green-50'}`}
+          >
+            {showVerifiedEvents ? <ToggleRight className="w-4 h-4 mr-2" /> : <ToggleLeft className="w-4 h-4 mr-2" />}
+            Verified Events
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowVerificationRate(!showVerificationRate)}
+            className={`border-purple-200 ${showVerificationRate ? 'bg-purple-100 text-purple-700' : 'hover:bg-purple-50'}`}
+          >
+            {showVerificationRate ? <ToggleRight className="w-4 h-4 mr-2" /> : <ToggleLeft className="w-4 h-4 mr-2" />}
+            Verification Rate
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent>
         {monthlyData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={monthlyData}>
+            <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
               <XAxis 
                 dataKey="month" 
@@ -271,56 +294,75 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
                 tickLine={false}
                 axisLine={false}
               />
-              <YAxis 
-                yAxisId="rate"
-                orientation="right"
-                stroke="#6b7280"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                domain={[0, 100]}
-                tickFormatter={(value) => `${value}%`}
-              />
+              {showVerificationRate && (
+                <YAxis 
+                  yAxisId="rate"
+                  orientation="right"
+                  stroke="#6b7280"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={[0, 100]}
+                  tickFormatter={(value) => `${value}%`}
+                />
+              )}
               <Tooltip content={<CustomTooltip />} />
               <Legend />
               
-              {/* Total Events Bar */}
-              <Bar 
+              {/* Total Events Line */}
+              <Line
                 yAxisId="events"
-                dataKey="totalEvents" 
+                type="monotone"
+                dataKey="totalEvents"
                 name="Total Events"
-                fill={
+                stroke={
                   selectedEventType === 'distraction' ? '#ef4444' :
                   selectedEventType === 'fatigue' ? '#f97316' :
                   selectedEventType === 'fieldOfView' ? '#3b82f6' :
                   '#6b7280'
                 }
-                fillOpacity={0.6}
-                radius={[2, 2, 0, 0]}
+                strokeWidth={3}
+                dot={{ 
+                  fill: selectedEventType === 'distraction' ? '#ef4444' :
+                        selectedEventType === 'fatigue' ? '#f97316' :
+                        selectedEventType === 'fieldOfView' ? '#3b82f6' :
+                        '#6b7280',
+                  strokeWidth: 2, 
+                  r: 5 
+                }}
+                activeDot={{ r: 7 }}
               />
               
-              {/* Verified Events Bar */}
-              <Bar 
-                yAxisId="events"
-                dataKey="verifiedEvents" 
-                name="Verified Events"
-                fill="#10b981"
-                fillOpacity={0.8}
-                radius={[2, 2, 0, 0]}
-              />
+              {/* Verified Events Line */}
+              {showVerifiedEvents && (
+                <Line
+                  yAxisId="events"
+                  type="monotone"
+                  dataKey="verifiedEvents"
+                  name="Verified Events"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
+                  activeDot={{ r: 7 }}
+                  strokeDasharray="0"
+                />
+              )}
               
               {/* Verification Rate Line */}
-              <Line
-                yAxisId="rate"
-                type="monotone"
-                dataKey="verificationRate"
-                name="Verification Rate %"
-                stroke="#8b5cf6"
-                strokeWidth={2}
-                dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            </ComposedChart>
+              {showVerificationRate && (
+                <Line
+                  yAxisId="rate"
+                  type="monotone"
+                  dataKey="verificationRate"
+                  name="Verification Rate %"
+                  stroke="#8b5cf6"
+                  strokeWidth={2}
+                  dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                  strokeDasharray="5 5"
+                />
+              )}
+            </LineChart>
           </ResponsiveContainer>
         ) : (
           <div className="flex items-center justify-center h-60 text-gray-500">
