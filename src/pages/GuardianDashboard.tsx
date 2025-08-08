@@ -89,7 +89,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<GuardianAnalytics | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('current');
-  const [selectedEventType, setSelectedEventType] = useState<EventTypeFilter>('all');
+  const [selectedEventType, setSelectedEventType] = useState<EventTypeFilter>('distraction');
 
   // Determine dashboard title and filter based on fleet prop
   const getDashboardTitle = () => {
@@ -102,15 +102,17 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
     try {
       setLoading(true);
 
-      // Get current month start date
+      // Establish time windows
       const now = new Date();
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      // Start from 11 months ago to include the current month => 12 months total
+      const lastYearStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
       
       // Base query with fleet filter if specified
       let eventsQuery = supabase
         .from('guardian_events')
         .select('*')
-        .gte('detection_time', currentMonthStart.toISOString())
+        .gte('detection_time', lastYearStart.toISOString())
         .order('detection_time', { ascending: false });
 
       if (fleet) {
@@ -162,47 +164,52 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
 
       // Calculate analytics
       const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
-      
-      const distractionEvents = monthlyEvents?.filter(e => 
+      // Only include events from the current month for the KPI cards
+      const currentMonthEvents = (monthlyEvents || []).filter(e => {
+        const d = new Date(e.detection_time);
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      });
+
+      const distractionEvents = currentMonthEvents.filter(e => 
         e.event_type.toLowerCase().includes('distraction')
       ).length || 0;
       
-      const fatigueEvents = monthlyEvents?.filter(e => 
+      const fatigueEvents = currentMonthEvents.filter(e => 
         e.event_type.toLowerCase().includes('fatigue') || 
         e.event_type.toLowerCase().includes('microsleep')
       ).length || 0;
       
-      const fieldOfViewEvents = monthlyEvents?.filter(e => 
+      const fieldOfViewEvents = currentMonthEvents.filter(e => 
         e.event_type.toLowerCase().includes('field of view')
       ).length || 0;
 
       // Count events that are either manually verified in our system OR confirmed by Guardian
-      const verifiedEvents = monthlyEvents?.filter(e => 
+      const verifiedEvents = currentMonthEvents.filter(e => 
         e.verified || e.confirmation === 'verified'
       ).length || 0;
-      const totalEvents = monthlyEvents?.length || 0;
+      const totalEvents = currentMonthEvents.length || 0;
       const verificationRate = totalEvents > 0 ? (verifiedEvents / totalEvents) * 100 : 0;
 
       // High severity event counts
-      const criticalEvents = monthlyEvents?.filter(e => e.severity === 'Critical').length || 0;
-      const highSeverityEvents = monthlyEvents?.filter(e => 
+      const criticalEvents = currentMonthEvents.filter(e => e.severity === 'Critical').length || 0;
+      const highSeverityEvents = currentMonthEvents.filter(e => 
         e.severity === 'High' || e.severity === 'Critical'
       ).length || 0;
 
-      const stevemacsEvents = monthlyEvents?.filter(e => e.fleet === 'Stevemacs').length || 0;
-      const gsfEvents = monthlyEvents?.filter(e => e.fleet === 'Great Southern Fuels').length || 0;
+      const stevemacsEvents = currentMonthEvents.filter(e => e.fleet === 'Stevemacs').length || 0;
+      const gsfEvents = currentMonthEvents.filter(e => e.fleet === 'Great Southern Fuels').length || 0;
 
       const requiresAttentionCount = requiresAttention?.length || 0;
 
       // Calculate top risk vehicles
-      const vehicleEventCounts = monthlyEvents?.reduce((acc, event) => {
+      const vehicleEventCounts = currentMonthEvents.reduce((acc, event) => {
         const vehicle = event.vehicle_registration;
         if (!acc[vehicle]) {
           acc[vehicle] = { count: 0, fleet: event.fleet };
         }
         acc[vehicle].count++;
         return acc;
-      }, {} as Record<string, { count: number; fleet: string }>) || {};
+      }, {} as Record<string, { count: number; fleet: string }>);
 
       const topRiskVehicles = Object.entries(vehicleEventCounts)
         .map(([vehicle, data]) => ({

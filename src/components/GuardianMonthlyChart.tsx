@@ -128,6 +128,26 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
     return chartData;
   }, [events, selectedEventType]);
 
+  const headerMetrics = useMemo(() => {
+    const totals = monthlyData.reduce(
+      (acc, m) => {
+        acc.totalEvents += m.totalEvents;
+        acc.verifiedEvents += m.verifiedEvents;
+        return acc;
+      },
+      { totalEvents: 0, verifiedEvents: 0 }
+    );
+    const months = monthlyData.length || 1;
+    const avgPerMonth = totals.totalEvents / months;
+    let monthTrend = 0;
+    if (monthlyData.length >= 2) {
+      const last = monthlyData[monthlyData.length - 1].totalEvents;
+      const prev = monthlyData[monthlyData.length - 2].totalEvents || 0;
+      monthTrend = prev > 0 ? ((last - prev) / prev) * 100 : 0;
+    }
+    return { ...totals, avgPerMonth, monthTrend };
+  }, [monthlyData]);
+
   const currentTypeStats = useMemo(() => {
     const filteredEvents = filterEventsByType(events, selectedEventType);
     const verifiedEvents = filteredEvents.filter(e => e.verified || e.confirmation === 'verified');
@@ -181,20 +201,30 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
             </CardDescription>
           </div>
           
-          {/* Event Type Stats */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 text-sm">
-              <div className="flex items-center gap-2">
+          {/* KPI Strip (Total, Verified, Avg/Month, Month Trend) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full lg:w-auto">
+            <div>
+              <div className="text-2xl font-bold">{headerMetrics.totalEvents.toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground">
+                Total {selectedEventType === 'all' ? 'events' : selectedEventType}
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600" />
-                <span className="font-medium">{currentTypeStats.verified} verified</span>
+                {headerMetrics.verifiedEvents.toLocaleString()}
               </div>
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-orange-600" />
-                <span className="font-medium">{currentTypeStats.total} total</span>
+              <div className="text-xs text-muted-foreground">Verified</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{Math.round(headerMetrics.avgPerMonth).toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground">Avg/Month</div>
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${headerMetrics.monthTrend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {headerMetrics.monthTrend.toFixed(1)}%
               </div>
-              <Badge variant="outline" className="text-blue-700 border-blue-200 bg-blue-50">
-                {currentTypeStats.verificationRate.toFixed(1)}% rate
-              </Badge>
+              <div className="text-xs text-muted-foreground">Month Trend</div>
             </div>
           </div>
         </div>
