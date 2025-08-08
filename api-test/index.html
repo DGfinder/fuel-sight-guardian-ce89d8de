@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuel Sight Guardian - API Testing Interface</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="../src/assets/logo.png">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧪 API Testing Interface</h1>
+            <p>Simple, direct testing for all Fuel Sight Guardian APIs</p>
+            <div class="status-bar">
+                <span id="status-indicator" class="status unknown">⚪ Starting up...</span>
+                <button id="clear-results" class="btn-secondary">Clear Results</button>
+                <button id="export-results" class="btn-secondary">Export Results</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Environment Configuration Section -->
+            <section class="test-section">
+                <h2>🔧 Environment Configuration</h2>
+                <div class="button-group">
+                    <button id="test-env-config" class="btn-primary">Validate Environment</button>
+                    <button id="show-config" class="btn-secondary">Show Config</button>
+                </div>
+                <div id="config-results" class="results-container" style="display: none;"></div>
+            </section>
+
+            <!-- Supabase Testing Section -->
+            <section class="test-section">
+                <h2>🗄️ Supabase Database API</h2>
+                <div class="api-info">
+                    <span class="api-status" id="supabase-status">⚪ Not tested</span>
+                    <span class="api-url">https://wjzsdsvbtapriiuxzmih.supabase.co</span>
+                </div>
+                <div class="button-group">
+                    <button id="test-supabase-connection" class="btn-primary">Test Connection</button>
+                    <button id="test-supabase-auth" class="btn-primary">Test Auth</button>
+                    <button id="test-supabase-query" class="btn-primary">Test Query</button>
+                    <button id="test-supabase-all" class="btn-accent">Test All Supabase</button>
+                </div>
+                <div id="supabase-results" class="results-container"></div>
+            </section>
+
+            <!-- Athara/Gasbot API Testing Section -->
+            <section class="test-section">
+                <h2>⛽ Athara/Gasbot API</h2>
+                <div class="api-info">
+                    <span class="api-status" id="athara-status">⚪ Not tested</span>
+                    <span class="api-url">https://dashboard2-production.prod.gasbot.io</span>
+                </div>
+                <div class="button-group">
+                    <button id="test-athara-connection" class="btn-primary">Test Connection</button>
+                    <button id="test-athara-locations" class="btn-primary">Fetch Locations</button>
+                    <button id="test-athara-auth" class="btn-primary">Test Auth</button>
+                    <button id="test-athara-all" class="btn-accent">Test All Athara</button>
+                </div>
+                <div id="athara-results" class="results-container"></div>
+            </section>
+
+            <!-- Lytx Video API Testing Section -->
+            <section class="test-section">
+                <h2>🎥 Lytx Video API</h2>
+                <div class="api-info">
+                    <span class="api-status" id="lytx-status">⚪ Not tested</span>
+                    <span class="api-url">https://lytx-api.prod7.lv.lytx.com</span>
+                </div>
+                <div class="button-group">
+                    <button id="test-lytx-connection" class="btn-primary">Test Connection</button>
+                    <button id="test-lytx-auth" class="btn-primary">Test Auth</button>
+                    <button id="test-lytx-endpoints" class="btn-primary">Test Endpoints</button>
+                    <button id="test-lytx-all" class="btn-accent">Test All Lytx</button>
+                </div>
+                <div id="lytx-results" class="results-container"></div>
+            </section>
+
+            <!-- Bulk Testing Section -->
+            <section class="test-section bulk-testing">
+                <h2>🚀 Bulk Testing</h2>
+                <div class="button-group">
+                    <button id="test-all-apis" class="btn-bulk">🧪 Test All APIs</button>
+                    <button id="health-check" class="btn-bulk">❤️ Health Check</button>
+                    <button id="performance-test" class="btn-bulk">⚡ Performance Test</button>
+                </div>
+                <div id="bulk-results" class="results-container"></div>
+            </section>
+        </main>
+
+        <!-- Global Results Panel -->
+        <aside class="results-panel">
+            <h3>📊 Test Results Log</h3>
+            <div id="global-results" class="global-results"></div>
+        </aside>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/supabase-test.js"></script>
+    <script src="js/athara-test.js"></script>
+    <script src="js/lytx-test.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
