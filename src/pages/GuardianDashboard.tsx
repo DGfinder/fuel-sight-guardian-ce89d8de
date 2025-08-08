@@ -83,6 +83,11 @@ interface GuardianAnalytics {
     events: number;
     fleet: string;
   }>;
+  fovProblemVehicles: Array<{
+    vehicle: string;
+    fovEvents: number;
+    fleet: string;
+  }>;
 }
 
 const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
@@ -220,6 +225,34 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
         .sort((a, b) => b.events - a.events)
         .slice(0, 5);
 
+      // Calculate FOV problem vehicles (last 3 months)
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      
+      const fovEvents = (monthlyEvents || []).filter(event => 
+        event.event_type.toLowerCase().includes('field of view') &&
+        new Date(event.detection_time) >= threeMonthsAgo
+      );
+
+      const fovVehicleCounts = fovEvents.reduce((acc, event) => {
+        const vehicle = event.vehicle_registration;
+        if (!acc[vehicle]) {
+          acc[vehicle] = { count: 0, fleet: event.fleet };
+        }
+        acc[vehicle].count++;
+        return acc;
+      }, {} as Record<string, { count: number; fleet: string }>);
+
+      const fovProblemVehicles = Object.entries(fovVehicleCounts)
+        .filter(([_, data]) => data.count >= 5) // Only show vehicles with 5+ FOV events
+        .map(([vehicle, data]) => ({
+          vehicle,
+          fovEvents: data.count,
+          fleet: data.fleet
+        }))
+        .sort((a, b) => b.fovEvents - a.fovEvents)
+        .slice(0, 10);
+
       const analyticsData: GuardianAnalytics = {
         currentMonth: {
           period: currentMonth,
@@ -238,7 +271,8 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
         recentEvents: recentEvents || [],
         requiresAttention: requiresAttention || [],
         monthlyEvents: monthlyEvents || [],
-        topRiskVehicles
+        topRiskVehicles,
+        fovProblemVehicles
       };
 
       setAnalytics(analyticsData);
@@ -669,6 +703,55 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                 </p>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Field of View Issues */}
+        <Card className="border-blue-200 bg-blue-50/30 dark:bg-blue-950/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+              <Eye className="w-5 h-5" />
+              Field of View Issues (Last 3 Months)
+            </CardTitle>
+            <CardDescription>
+              Trucks with frequent FOV events - may indicate camera alignment issues
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {analytics.fovProblemVehicles.length > 0 ? (
+              <div className="space-y-3">
+                {analytics.fovProblemVehicles.map((vehicle) => (
+                  <div key={vehicle.vehicle} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <div>
+                        <div className="font-medium">{vehicle.vehicle}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          Camera may need alignment check
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline"
+                        className="border-blue-500 text-blue-700 bg-blue-50"
+                      >
+                        {vehicle.fovEvents} FOV events
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {vehicle.fleet === 'Stevemacs' ? 'SMB' : 'GSF'}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Eye className="w-12 h-12 mx-auto mb-4 text-green-300" />
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">No FOV Issues Detected</p>
+                <p className="text-xs text-muted-foreground mt-1">All trucks have fewer than 5 FOV events in the last 3 months</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -76,7 +76,8 @@
       "Bash(node:*)",
       "Bash(git pull:*)",
       "Bash(pkill:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }
