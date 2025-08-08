@@ -93,13 +93,36 @@ export class GuardianSupabaseService {
     }
 
     try {
-      // Transform records to enhanced database format with fleet lookup
+      // Transform records to enhanced database format with batch fleet lookup
       console.log('🔍 Looking up vehicle fleets for accurate classification...');
+      
+      // Get unique vehicle registrations for batch lookup
+      const uniqueVehicleRegs = [...new Set(records.map(r => r.vehicle.trim().replace(/\s+/g, '').toUpperCase()))];
+      
+      // Batch lookup vehicle fleets
+      const { data: vehicleFleets, error: fleetError } = await supabase
+        .from('vehicles')
+        .select('registration, fleet')
+        .in('registration', uniqueVehicleRegs);
+        
+      if (fleetError) {
+        console.warn('Failed to batch lookup vehicle fleets:', fleetError);
+      }
+      
+      // Create lookup map for O(1) fleet lookups
+      const fleetMap = new Map();
+      if (vehicleFleets) {
+        vehicleFleets.forEach(v => {
+          fleetMap.set(v.registration, v.fleet);
+        });
+      }
+      
       const dbRecords = [];
       
       for (const record of records) {
-        // Lookup actual fleet from vehicles table
-        const actualFleet = await this.lookupVehicleFleet(record.vehicle);
+        // Use cached fleet lookup instead of individual database calls
+        const normalizedVehicle = record.vehicle.trim().replace(/\s+/g, '').toUpperCase();
+        const actualFleet = fleetMap.get(normalizedVehicle);
         const finalFleet = actualFleet || this.determineFleet(record.fleet || metadata.fleet, record.vehicle);
         
         dbRecords.push({
@@ -762,7 +785,21 @@ export class GuardianSupabaseService {
     let query = supabase
       .from('guardian_events')
       .select(`
-        *,
+        id,
+        external_event_id,
+        vehicle_registration,
+        driver_name,
+        detection_time,
+        event_type,
+        severity,
+        verified,
+        status,
+        fleet,
+        depot,
+        latitude,
+        longitude,
+        duration_seconds,
+        speed_kph,
         count() over() as total_count
       `);
 

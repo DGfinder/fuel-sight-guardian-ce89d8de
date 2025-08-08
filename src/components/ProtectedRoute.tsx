@@ -6,7 +6,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'manager' | 'swan_transit' | 'gsfs_depots' | 'kalgoorlie';
+  requiredRole?: 'admin' | 'manager' | 'depot_manager' | 'operator' | 'viewer';
   requiredGroup?: string;
 }
 

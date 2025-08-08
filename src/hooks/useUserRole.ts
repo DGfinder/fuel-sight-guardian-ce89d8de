@@ -1,35 +1,42 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { useUserPermissions } from './useUserPermissions';
 
+// DEPRECATED: Use useUserPermissions instead for new code
+// This hook is maintained for backward compatibility but will be removed in the future
 export interface UserRole {
   role: 'admin' | 'depot_manager' | 'operator';
   depot_id: string | null;
   group_id?: string | null;
 }
 
+/**
+ * @deprecated Use useUserPermissions hook instead
+ * This hook provides basic role information but lacks the comprehensive
+ * permission structure needed for RBAC. It's mapped to useUserPermissions
+ * internally for consistency.
+ */
 export function useUserRole() {
-  return useQuery({
-    queryKey: ['user-role'],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-      if (error) {
-        console.error('Error fetching user role:', error);
-        return { role: 'operator' as const, depot_id: null, group_id: null };
-      }
-      return {
-        role: data.role as 'admin' | 'depot_manager' | 'operator',
-        depot_id: null,
-        group_id: null
-      };
-    }
-  });
+  const { data: permissions, isLoading, error } = useUserPermissions();
+  
+  return {
+    data: permissions ? {
+      role: mapToLegacyRole(permissions.role),
+      depot_id: null, // Legacy field, not used in current RBAC
+      group_id: permissions.accessibleGroups[0]?.id || null
+    } : undefined,
+    isLoading,
+    error
+  };
+}
+
+// Map modern role names to legacy role names
+function mapToLegacyRole(modernRole: string): 'admin' | 'depot_manager' | 'operator' {
+  switch (modernRole) {
+    case 'admin':
+    case 'manager':
+      return 'admin';
+    case 'depot_manager':
+      return 'depot_manager';
+    default:
+      return 'operator';
+  }
 }

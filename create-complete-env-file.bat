@@ -8,17 +8,17 @@ echo SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key >> .env
 echo. >> .env
 
 echo # LYTX API Configuration >> .env
-echo VITE_LYTX_API_KEY=diCeZd54DgkVzV2aPumlLG1qcZflO0GS >> .env
+echo VITE_LYTX_API_KEY=your-lytx-api-key >> .env
 echo VITE_LYTX_BASE_URL=https://lytx-api.prod7.lv.lytx.com >> .env
-echo LYTX_API_KEY=diCeZd54DgkVzV2aPumlLG1qcZflO0GS >> .env
+echo LYTX_API_KEY=your-lytx-api-key >> .env
 echo. >> .env
 
 echo # Gasbot API Configuration >> .env
-echo VITE_ATHARA_API_KEY=0H5NTKJPLQURW4SQDU3J0G5EO7UNZCI6EB3C >> .env
-echo VITE_ATHARA_API_SECRET=1F01ONSVQGCN47NOS987MAR768RBXJF5NO1VORQF7W >> .env
+echo VITE_ATHARA_API_KEY=your-athara-api-key >> .env
+echo VITE_ATHARA_API_SECRET=your-athara-api-secret >> .env
 echo VITE_ATHARA_BASE_URL=https://dashboard2-production.prod.gasbot.io >> .env
-echo GASBOT_WEBHOOK_SECRET=FSG-gasbot-webhook-2025 >> .env
-echo GASBOT_SYNC_SECRET=FSG-gasbot-sync-2025 >> .env
+echo GASBOT_WEBHOOK_SECRET=your-gasbot-webhook-secret >> .env
+echo GASBOT_SYNC_SECRET=your-gasbot-sync-secret >> .env
 echo. >> .env
 
 echo # SmartFill API Configuration >> .env

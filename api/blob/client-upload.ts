@@ -5,7 +5,7 @@
  * Returns a signed URL for direct client upload to Blob storage.
  */
 
-import { put, handleUpload, type HandleUploadBody } from '@vercel/blob/client';
+import { put, handleUpload, type HandleUploadBody } from '@vercel/blob';
 import { validateVercelEnvironment } from '../lib/vercel-environment';
 import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       }
 
       // Generate signed URL for client upload
-      const uploadUrl = await put(blobPath, new Blob(['placeholder']), {
+      const uploadUrl = await put(blobPath, Buffer.from('placeholder'), {
         access: 'public',
         addRandomSuffix: false,
         multipart: fileSize > 50 * 1024 * 1024 // Use multipart for files >50MB

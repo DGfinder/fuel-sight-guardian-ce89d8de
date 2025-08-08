@@ -936,5 +936,9 @@ export interface Database {
 // Helper type for table rows
 export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
 
-// TODO: Replace this placeholder with actual generated types
-// Run: supabase login && supabase gen types typescript --project-id wjzsdsvbtapriiuxzmih > src/types/supabase.ts
+// TODO: Replace this manual type definition with auto-generated types
+// Run the following command to generate up-to-date types:
+// supabase login && supabase gen types typescript --project-id wjzsdsvbtapriiuxzmih > src/types/supabase.ts
+//
+// IMPORTANT: This file should be regenerated after any database schema changes
+// Consider adding this to your CI/CD pipeline or pre-commit hooks
