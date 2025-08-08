@@ -611,8 +611,8 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                           'bg-yellow-100 text-yellow-700'
                         }
                       >
-                        {(event.verified || event.confirmation === 'verified') ? 'Confirmed' :
-                         event.confirmation === 'criteria not met' ? 'Dismissed' :
+                        {(event.verified || event.confirmation === 'verified') ? 'verified' :
+                         event.confirmation === 'criteria not met' ? 'criteria not met' :
                          event.confirmation || event.severity}
                       </Badge>
                       <Badge variant="outline" className="text-xs">

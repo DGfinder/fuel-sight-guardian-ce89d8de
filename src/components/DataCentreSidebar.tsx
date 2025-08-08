@@ -34,7 +34,11 @@ const DATA_CENTRE_NAV_ITEMS = [
     path: '/data-centre/guardian', 
     label: 'Guardian Compliance', 
     icon: Shield,
-    permission: 'view_guardian_events'
+    permission: 'view_guardian_events',
+    children: [
+      { path: '/data-centre/guardian/smb', label: 'SMB Analytics', icon: Shield },
+      { path: '/data-centre/guardian/gsf', label: 'GSF Analytics', icon: Shield }
+    ]
   },
   { 
     path: '/data-centre/captive-payments', 
