@@ -11,6 +11,13 @@ import {
   type AgbotSyncResult,
   type AtharaAPIHealth
 } from '@/services/agbot-api';
+import { 
+  formatPerthRelativeTime, 
+  formatPerthDisplay, 
+  getDeviceStatus, 
+  validateTimestamp,
+  normalizeToPerthString 
+} from '@/utils/timezone';
 
 // Combined health and data status
 export interface AgbotSystemStatus {
@@ -271,32 +278,100 @@ export function usePercentageBackground(percentage: number | null | undefined): 
   }
 }
 
-// Helper function to format timestamp
+// Helper function to format timestamp with Perth timezone
 export function formatTimestamp(timestamp: string | null): string {
   if (!timestamp) return 'No data';
   
   try {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMins < 1) {
-      return 'Just now';
-    } else if (diffMins < 60) {
-      return `${diffMins}m ago`;
-    } else if (diffHours < 24) {
-      return `${diffHours}h ago`;
-    } else if (diffDays < 7) {
-      return `${diffDays}d ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
+    return formatPerthRelativeTime(timestamp);
   } catch (error) {
+    console.error('Error formatting timestamp:', error, timestamp);
     return 'Invalid date';
   }
+}
+
+// Helper function to get device online status with proper Perth timezone logic
+export function getDeviceOnlineStatus(lastReading: string | null) {
+  if (!lastReading) {
+    return {
+      isOnline: false,
+      status: 'no-data',
+      displayText: 'No Data',
+      colorClass: 'text-gray-500 bg-gray-100',
+      lastSeenText: 'No data available'
+    };
+  }
+
+  const deviceStatus = getDeviceStatus(lastReading);
+  
+  return {
+    isOnline: deviceStatus.status === 'online',
+    status: deviceStatus.status,
+    displayText: deviceStatus.displayText,
+    colorClass: deviceStatus.colorClass,
+    lastSeenText: formatPerthRelativeTime(lastReading),
+    minutesAgo: deviceStatus.minutesAgo
+  };
+}
+
+// Helper function to format full Perth timestamp
+export function formatPerthTimestampDisplay(timestamp: string | null): string {
+  if (!timestamp) return 'No data';
+  
+  try {
+    return formatPerthDisplay(timestamp);
+  } catch (error) {
+    console.error('Error formatting Perth timestamp:', error, timestamp);
+    return 'Invalid date';
+  }
+}
+
+// Data quality validation helper
+export function validateLocationData(location: any): {
+  hasIssues: boolean;
+  issues: string[];
+  severity: 'low' | 'medium' | 'high';
+} {
+  const issues: string[] = [];
+  let severity: 'low' | 'medium' | 'high' = 'low';
+
+  // Validate timestamp
+  if (location.last_reading_time) {
+    const validation = validateTimestamp(location.last_reading_time);
+    if (validation.isFuture) {
+      issues.push('Last reading is in the future (timezone issue)');
+      severity = 'high';
+    }
+    if (validation.isStale) {
+      issues.push('Data is more than 4 hours old');
+      if (severity === 'low') severity = 'medium';
+    }
+    if (!validation.isValid) {
+      issues.push('Invalid timestamp format');
+      severity = 'high';
+    }
+    issues.push(...validation.issues);
+  } else {
+    issues.push('No last reading time available');
+    if (severity === 'low') severity = 'medium';
+  }
+
+  // Validate fuel level data
+  if (location.latest_calibrated_fill_percentage > 100) {
+    issues.push('Fuel level over 100% (sensor issue?)');
+    severity = 'high';
+  }
+  
+  if (location.latest_calibrated_fill_percentage < 0) {
+    issues.push('Negative fuel level (sensor issue?)');
+    severity = 'high';
+  }
+
+  return {
+    hasIssues: issues.length > 0,
+    issues,
+    severity
+  };
 }
 
 // Hook to filter locations by status, percentage, etc.
@@ -313,9 +388,12 @@ export function useFilteredAgbotLocations(filters: {
       return false;
     }
 
-    // Filter by online status
-    if (filters.onlineOnly && location.location_status !== 2) {
-      return false;
+    // Filter by online status using proper device status logic
+    if (filters.onlineOnly) {
+      const deviceStatus = getDeviceOnlineStatus(location.last_reading_time);
+      if (!deviceStatus.isOnline) {
+        return false;
+      }
     }
 
     // Filter by low fuel (if location or any asset has <20%)

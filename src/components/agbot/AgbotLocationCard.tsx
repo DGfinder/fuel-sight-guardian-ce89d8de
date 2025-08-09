@@ -18,7 +18,9 @@ import { Progress } from '@/components/ui/progress';
 import { 
   usePercentageColor, 
   usePercentageBackground, 
-  formatTimestamp 
+  formatTimestamp,
+  getDeviceOnlineStatus,
+  validateLocationData
 } from '@/hooks/useAgbotData';
 import { useAgbotModal } from '@/contexts/AgbotModalContext';
 import type { AgbotLocation } from '@/services/agbot-api';
@@ -34,25 +36,38 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
   
   // Use location-level percentage if available, otherwise use main asset
   const displayPercentage = location.latest_calibrated_fill_percentage ?? mainAsset?.latest_calibrated_fill_percentage;
-  const isOnline = location.location_status === 2 && (mainAsset?.device_online ?? false);
   const lastSeen = mainAsset?.latest_telemetry_event_timestamp || location.latest_telemetry;
+  
+  // Use new Perth-timezone-aware device status logic
+  const deviceStatus = getDeviceOnlineStatus(lastSeen);
+  const isOnline = deviceStatus.isOnline;
+  
+  // Data quality validation
+  const dataQuality = validateLocationData(location);
 
   // Get color classes
   const percentageColor = usePercentageColor(displayPercentage);
   const percentageBackground = usePercentageBackground(displayPercentage);
 
-  // Determine status icon and color
+  // Determine status icon and color based on device status and fuel level
   const getStatusIcon = () => {
-    if (!isOnline) {
+    if (deviceStatus.status === 'offline' || deviceStatus.status === 'no-data') {
       return <WifiOff className="h-4 w-4 text-red-500" />;
     }
+    if (deviceStatus.status === 'stale') {
+      return <Wifi className="h-4 w-4 text-yellow-500" />;
+    }
+    // Device is online, show signal strength based on fuel level
     if (displayPercentage && displayPercentage > 70) {
       return <SignalHigh className="h-4 w-4 text-green-500" />;
     }
     if (displayPercentage && displayPercentage > 30) {
       return <Signal className="h-4 w-4 text-yellow-500" />;
     }
-    return <SignalLow className="h-4 w-4 text-red-500" />;
+    if (displayPercentage && displayPercentage > 0) {
+      return <SignalLow className="h-4 w-4 text-red-500" />;
+    }
+    return <Wifi className="h-4 w-4 text-green-500" />; // Online but no fuel data
   };
 
   // Format address
@@ -81,11 +96,16 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
           <div className="flex items-center gap-1 ml-2">
             {getStatusIcon()}
             <Badge 
-              variant={isOnline ? "default" : "secondary"}
-              className="text-xs"
+              variant={deviceStatus.status === 'online' ? "default" : "secondary"}
+              className={`text-xs ${deviceStatus.colorClass}`}
             >
-              {isOnline ? 'Online' : 'Offline'}
+              {deviceStatus.displayText}
             </Badge>
+            {dataQuality.hasIssues && dataQuality.severity === 'high' && (
+              <Badge variant="destructive" className="text-xs ml-1">
+                ⚠️ Data Issues
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -220,17 +240,29 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
               {allAssets.length} devices at this location
             </span>
             <Badge variant="secondary" className="text-xs">
-              {allAssets.filter(asset => asset.device_online).length} online
+              {allAssets.filter(asset => getDeviceOnlineStatus(asset.latest_telemetry_event_timestamp).isOnline).length} online
             </Badge>
           </div>
         )}
 
-        {/* Last Seen */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Last reading:</span>
-          <span className={isOnline ? 'text-green-600' : 'text-red-600'}>
-            {formatTimestamp(lastSeen)}
-          </span>
+        {/* Last Seen with Data Quality Indicators */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Last reading:</span>
+            <span className={deviceStatus.colorClass}>
+              {deviceStatus.lastSeenText}
+            </span>
+          </div>
+          {dataQuality.hasIssues && (
+            <div className="text-xs text-orange-600 bg-orange-50 p-1 rounded">
+              <div className="font-medium">Data Quality Issues:</div>
+              <ul className="list-disc list-inside">
+                {dataQuality.issues.slice(0, 2).map((issue, index) => (
+                  <li key={index}>{issue}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Status Indicators */}
