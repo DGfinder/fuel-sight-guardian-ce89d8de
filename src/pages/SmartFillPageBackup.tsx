@@ -80,7 +80,6 @@ const SmartFillPage = () => {
   const [tankModalOpen, setTankModalOpen] = useState(false);
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'table' | 'grouped'>('table');
-  const [mobileView, setMobileView] = useState<'cards' | 'table'>('cards');
   
   // Data hooks
   const { data: locations, isLoading, error } = useSmartFillLocations();
@@ -334,95 +333,6 @@ const SmartFillPage = () => {
         <Icon className="w-3 h-3" />
         {status}
       </Badge>
-    );
-  };
-
-  const TankMobileCard = ({ tank }: { tank: any }) => {
-    const percentageColor = useSmartFillPercentageColor(tank.latest_volume_percent);
-    
-    return (
-      <Card 
-        className="p-4 hover:shadow-md cursor-pointer transition-all duration-200 border-l-4 border-blue-400"
-        onClick={() => handleTankClick(tank)}
-      >
-        <div className="space-y-3">
-          {/* Header */}
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="font-semibold text-lg text-gray-900">
-                Unit {tank.unit_number} - Tank {tank.tank_number}
-              </h3>
-              <p className="text-sm text-gray-600">{tank.customer_name}</p>
-              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{tank.description}</p>
-            </div>
-            <div className="text-right">
-              <StatusBadge status={tank.latest_status || 'Unknown'} />
-            </div>
-          </div>
-
-          {/* Fuel Level */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Fuel Level</span>
-              <span className={`text-sm font-bold ${percentageColor}`}>
-                {(tank.latest_volume_percent || 0).toFixed(1)}%
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <div 
-                className={`h-3 rounded-full transition-all duration-300 ${
-                  tank.latest_volume_percent < 20 ? 'bg-red-500' : 
-                  tank.latest_volume_percent < 40 ? 'bg-yellow-500' : 'bg-green-500'
-                }`}
-                style={{ width: `${Math.max(0, Math.min(100, tank.latest_volume_percent || 0))}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>{(tank.latest_volume || 0).toLocaleString()} L current</span>
-              <span>{(tank.capacity || 0).toLocaleString()} L capacity</span>
-            </div>
-          </div>
-
-          {/* Additional Info */}
-          <div className="grid grid-cols-2 gap-3 pt-2 border-t text-xs">
-            <div>
-              <span className="text-gray-500">Last Update:</span>
-              <div className="font-medium text-gray-700">
-                {formatSmartFillTimestamp(tank.latest_update_time)}
-              </div>
-            </div>
-            <div>
-              <span className="text-gray-500">Actions:</span>
-              <div className="flex gap-1 mt-1">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-6 px-2 text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleTankClick(tank);
-                  }}
-                >
-                  <Eye className="w-3 h-3 mr-1" />
-                  View
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-6 px-2 text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleExportTank(tank);
-                  }}
-                >
-                  <Download className="w-3 h-3 mr-1" />
-                  Export
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
     );
   };
 
@@ -753,8 +663,7 @@ const SmartFillPage = () => {
                     </SelectContent>
                   </Select>
 
-                  {/* Desktop View Toggle */}
-                  <div className="hidden sm:flex items-center gap-1 border rounded-md p-1">
+                  <div className="flex items-center gap-1 border rounded-md p-1">
                     <Button
                       variant={viewMode === 'table' ? 'default' : 'ghost'}
                       size="sm"
@@ -772,28 +681,6 @@ const SmartFillPage = () => {
                     >
                       <Users className="w-4 h-4 mr-1" />
                       Grouped
-                    </Button>
-                  </div>
-
-                  {/* Mobile View Toggle */}
-                  <div className="sm:hidden flex items-center gap-1 border rounded-md p-1">
-                    <Button
-                      variant={mobileView === 'cards' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setMobileView('cards')}
-                      className="h-7"
-                    >
-                      <Building2 className="w-4 h-4 mr-1" />
-                      Cards
-                    </Button>
-                    <Button
-                      variant={mobileView === 'table' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setMobileView('table')}
-                      className="h-7"
-                    >
-                      <ArrowUpDown className="w-4 h-4 mr-1" />
-                      Table
                     </Button>
                   </div>
 
@@ -847,114 +734,22 @@ const SmartFillPage = () => {
               )}
 
               {viewMode === 'table' ? (
-                <>
-                  {/* Mobile Card View */}
-                  <div className="sm:hidden">
-                    {mobileView === 'cards' ? (
-                      <div className="grid gap-4">
-                        {filteredTanks.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            {locations?.length === 0 ? (
-                              <div className="flex flex-col items-center gap-2">
-                                <Database className="w-12 h-12 text-gray-300" />
-                                <p>No SmartFill data found</p>
-                                <p className="text-sm">Run a full sync to fetch tank data from the API</p>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center gap-2">
-                                <Filter className="w-12 h-12 text-gray-300" />
-                                <p>No tanks match your filters</p>
-                                <p className="text-sm">Try adjusting your search or filter criteria</p>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          filteredTanks.map(tank => (
-                            <TankMobileCard 
-                              key={`${tank.unit_number}-${tank.tank_number}`}
-                              tank={tank}
-                            />
-                          ))
-                        )}
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="min-w-[120px]">Customer</TableHead>
-                              <TableHead>Unit</TableHead>
-                              <TableHead>Tank</TableHead>
-                              <TableHead className="min-w-[100px]">Fuel Level</TableHead>
-                              <TableHead>Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredTanks.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                                  {locations?.length === 0 ? (
-                                    <div className="flex flex-col items-center gap-2">
-                                      <Database className="w-12 h-12 text-gray-300" />
-                                      <p>No SmartFill data found</p>
-                                      <p className="text-sm">Run a full sync to fetch tank data from the API</p>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col items-center gap-2">
-                                      <Filter className="w-12 h-12 text-gray-300" />
-                                      <p>No tanks match your filters</p>
-                                      <p className="text-sm">Try adjusting your search or filter criteria</p>
-                                    </div>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              filteredTanks.map(tank => (
-                                <TableRow 
-                                  key={`${tank.unit_number}-${tank.tank_number}`}
-                                  className="hover:bg-gray-50 cursor-pointer transition-colors"
-                                  onClick={() => handleTankClick(tank)}
-                                >
-                                  <TableCell className="font-medium text-sm">
-                                    {tank.customer_name}
-                                  </TableCell>
-                                  <TableCell className="font-mono text-sm">{tank.unit_number}</TableCell>
-                                  <TableCell className="font-mono text-sm">{tank.tank_number}</TableCell>
-                                  <TableCell>
-                                    <FuelLevelBar 
-                                      percentage={tank.latest_volume_percent || 0} 
-                                      volume={tank.latest_volume || 0}
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <StatusBadge status={tank.latest_status || 'Unknown'} />
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Desktop Table View */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[200px]">Customer</TableHead>
-                          <TableHead>Unit #</TableHead>
-                          <TableHead>Tank #</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="w-[120px]">Capacity</TableHead>
-                          <TableHead className="w-[160px]">Fuel Level</TableHead>
-                          <TableHead className="w-[100px]">Status</TableHead>
-                          <TableHead className="w-[120px]">Last Update</TableHead>
-                          <TableHead className="w-[60px]">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[200px]">Customer</TableHead>
+                        <TableHead>Unit #</TableHead>
+                        <TableHead>Tank #</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="w-[120px]">Capacity</TableHead>
+                        <TableHead className="w-[160px]">Fuel Level</TableHead>
+                        <TableHead className="w-[100px]">Status</TableHead>
+                        <TableHead className="w-[120px]">Last Update</TableHead>
+                        <TableHead className="w-[60px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                     {filteredTanks.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-8 text-gray-500">
@@ -1040,164 +835,8 @@ const SmartFillPage = () => {
                       ))
                     )}
                   </TableBody>
-                    </Table>
-                  </div>
-                </>
-              ) : (
-                /* Grouped View */
-                <div className="space-y-4">
-                  {groupedTanks.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      {locations?.length === 0 ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <Database className="w-12 h-12 text-gray-300" />
-                          <p>No SmartFill data found</p>
-                          <p className="text-sm">Run a full sync to fetch tank data from the API</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <Filter className="w-12 h-12 text-gray-300" />
-                          <p>No tanks match your filters</p>
-                          <p className="text-sm">Try adjusting your search or filter criteria</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    groupedTanks.map(({ customerName, tanks }) => (
-                      <Card key={customerName} className="border-l-4 border-blue-400">
-                        <CardHeader className="pb-3">
-                          <div 
-                            className="flex items-center justify-between cursor-pointer group"
-                            onClick={() => toggleCustomerExpanded(customerName)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-2">
-                                {expandedCustomers.has(customerName) ? (
-                                  <ChevronDown className="w-5 h-5 text-blue-600" />
-                                ) : (
-                                  <ChevronRight className="w-5 h-5 text-blue-600" />
-                                )}
-                                <Building2 className="w-5 h-5 text-blue-600" />
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
-                                  {customerName}
-                                </h3>
-                                <p className="text-sm text-gray-600">
-                                  {tanks.length} tank{tanks.length !== 1 ? 's' : ''} • 
-                                  Avg: {((tanks.reduce((sum, tank) => sum + (tank.latest_volume_percent || 0), 0)) / tanks.length).toFixed(1)}% fuel level
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <Badge 
-                                  variant="outline" 
-                                  className="bg-blue-50 text-blue-700 border-blue-200"
-                                >
-                                  {tanks.filter(t => (t.latest_volume_percent || 0) < 20).length > 0 && (
-                                    <AlertTriangle className="w-3 h-3 mr-1 text-red-500" />
-                                  )}
-                                  {tanks.length} tanks
-                                </Badge>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {tanks.filter(t => t.latest_status?.toLowerCase().includes('ok')).length} operational
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        
-                        {expandedCustomers.has(customerName) && (
-                          <CardContent className="pt-0">
-                            <div className="overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="bg-gray-50">
-                                    <TableHead>Unit #</TableHead>
-                                    <TableHead>Tank #</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="w-[120px]">Capacity</TableHead>
-                                    <TableHead className="w-[160px]">Fuel Level</TableHead>
-                                    <TableHead className="w-[100px]">Status</TableHead>
-                                    <TableHead className="w-[120px]">Last Update</TableHead>
-                                    <TableHead className="w-[60px]">Actions</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {tanks.map(tank => (
-                                    <TableRow 
-                                      key={`${tank.unit_number}-${tank.tank_number}`}
-                                      className="hover:bg-blue-50 cursor-pointer transition-colors"
-                                      onClick={() => handleTankClick(tank)}
-                                    >
-                                      <TableCell className="font-mono text-sm">{tank.unit_number}</TableCell>
-                                      <TableCell className="font-mono text-sm">{tank.tank_number}</TableCell>
-                                      <TableCell className="max-w-[200px] truncate" title={tank.description}>
-                                        {tank.description}
-                                      </TableCell>
-                                      <TableCell>{tank.capacity ? `${tank.capacity.toLocaleString()} L` : 'N/A'}</TableCell>
-                                      <TableCell>
-                                        <FuelLevelBar 
-                                          percentage={tank.latest_volume_percent || 0} 
-                                          volume={tank.latest_volume || 0}
-                                        />
-                                      </TableCell>
-                                      <TableCell>
-                                        <StatusBadge status={tank.latest_status || 'Unknown'} />
-                                      </TableCell>
-                                      <TableCell className="text-sm text-gray-600">
-                                        <div className="flex flex-col">
-                                          <span>{formatSmartFillTimestamp(tank.latest_update_time)}</span>
-                                          <span className="text-xs text-gray-500">{tank.latest_update_time?.split(' ')[0]}</span>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                              <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                          </DropdownMenuTrigger>
-                                          <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Tank Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleTankClick(tank);
-                                            }}>
-                                              <Eye className="w-4 h-4 mr-2" />
-                                              View Details
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleRefreshTank(tank.id);
-                                            }}>
-                                              <RefreshCw className="w-4 h-4 mr-2" />
-                                              Refresh Data
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleExportTank(tank);
-                                            }}>
-                                              <Download className="w-4 h-4 mr-2" />
-                                              Export Tank Data
-                                            </DropdownMenuItem>
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          </CardContent>
-                        )}
-                      </Card>
-                    ))
-                  )}
-                </div>
-              )}
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

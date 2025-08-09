@@ -238,10 +238,34 @@ export class LytxDataTransformer {
   }
 
   // Transform multiple events
-  transformSafetyEvents(lytxEvents: LytxSafetyEvent[]): LYTXEvent[] {
-    console.log('transformSafetyEvents - Processing', lytxEvents.length, 'events');
+  transformSafetyEvents(lytxEvents: any): LYTXEvent[] {
+    console.log('transformSafetyEvents - Input data:', lytxEvents, 'Type:', typeof lytxEvents);
     
-    const transformed = lytxEvents.map(event => this.transformSafetyEvent(event));
+    // Handle different possible data structures
+    let eventsArray: LytxSafetyEvent[] = [];
+    
+    if (Array.isArray(lytxEvents)) {
+      eventsArray = lytxEvents;
+    } else if (lytxEvents && typeof lytxEvents === 'object') {
+      // Handle nested structure like { events: [...] } or { data: [...] }
+      if (Array.isArray(lytxEvents.events)) {
+        eventsArray = lytxEvents.events;
+      } else if (Array.isArray(lytxEvents.data)) {
+        eventsArray = lytxEvents.data;
+      } else if (Array.isArray(lytxEvents.items)) {
+        eventsArray = lytxEvents.items;
+      } else {
+        console.warn('transformSafetyEvents - Unexpected data structure:', lytxEvents);
+        return [];
+      }
+    } else {
+      console.warn('transformSafetyEvents - Invalid input, not an array or object:', lytxEvents);
+      return [];
+    }
+    
+    console.log('transformSafetyEvents - Processing', eventsArray.length, 'events');
+    
+    const transformed = eventsArray.map(event => this.transformSafetyEvent(event));
     
     // Log carrier breakdown after transformation
     const carrierBreakdown = transformed.reduce((acc, event) => {

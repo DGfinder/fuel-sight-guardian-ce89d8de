@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload, Globe } from 'lucide-react';
+import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload, Globe, Gauge, TrendingUp, Activity } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import AgbotTable from '@/components/agbot/AgbotTable';
 import AgbotDetailsModal from '@/components/AgbotDetailsModal';
 import { AgbotWebhookHealthStatus } from '@/components/agbot/AgbotWebhookHealthStatus';
 import { AgbotWebhookMonitoring } from '@/components/agbot/AgbotWebhookMonitoring';
+import AtharaWebhookMonitor from '@/components/agbot/AtharaWebhookMonitor';
 import { AgbotErrorBoundary } from '@/components/agbot/AgbotErrorBoundary';
 import AgbotCSVImportModal, { type AgbotCSVRow } from '@/components/AgbotCSVImportModal';
 import { importAgbotFromCSV } from '@/services/agbot-api';
@@ -145,7 +146,7 @@ function AgbotPageContent() {
                   onClick={() => setShowSystemMonitoring(!showSystemMonitoring)}
                 >
                   <AlertTriangle className="h-4 w-4 mr-1" />
-                  Webhook Health
+                  Athara Monitor
                 </Button>
                 
                 {/* View Toggle */}
@@ -187,45 +188,122 @@ function AgbotPageContent() {
               </div>
             </div>
 
-            {/* Webhook Monitoring Panel */}
+            {/* Webhook Monitoring Panel - Enhanced Athara Monitor */}
             {showSystemMonitoring && (
               <>
+                <AtharaWebhookMonitor />
                 <AgbotWebhookMonitoring />
               </>
             )}
 
-            {/* Summary Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="bg-white p-4 rounded-lg border">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{summary.totalLocations}</div>
-                  <div className="text-sm text-muted-foreground">Locations</div>
+            {/* Enhanced Fleet Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Fleet Overview */}
+              <div className="bg-white p-6 rounded-lg border shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">Fleet Overview</h3>
+                  <Signal className="h-5 w-5 text-blue-500" />
                 </div>
-              </div>
-              <div className="bg-white p-4 rounded-lg border">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{summary.totalAssets}</div>
-                  <div className="text-sm text-muted-foreground">Devices</div>
-                </div>
-              </div>
-              <div className="bg-white p-4 rounded-lg border">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{summary.onlineAssets}</div>
-                  <div className="text-sm text-muted-foreground">Online</div>
-                </div>
-              </div>
-              <div className="bg-white p-4 rounded-lg border">
-                <div className="text-center">
-                  <div className={`text-2xl font-bold ${usePercentageColor(summary.averageFillPercentage)}`}>
-                    {summary.averageFillPercentage}%
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Locations</span>
+                    <span className="text-sm font-bold">{summary.totalLocations}</span>
                   </div>
-                  <div className="text-sm text-muted-foreground">Avg Level</div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Active Devices</span>
+                    <span className="text-sm font-bold text-green-600">{summary.onlineAssets}/{summary.totalAssets}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span>Agricultural: {summary.categories.agricultural}</span>
+                    <span>Commercial: {summary.categories.commercial}</span>
+                  </div>
                 </div>
               </div>
-              <div className="bg-white p-4 rounded-lg border">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">{summary.lowFuelCount}</div>
-                  <div className="text-sm text-muted-foreground">Low Fuel</div>
+
+              {/* Fuel Capacity & Volume */}
+              <div className="bg-white p-6 rounded-lg border shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">Fuel Inventory</h3>
+                  <Gauge className="h-5 w-5 text-purple-500" />
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {(summary.currentFuelVolume / 1000).toFixed(1)}k
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      of {(summary.totalCapacity / 1000).toFixed(0)}k liters
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-purple-600 h-2 rounded-full" 
+                      style={{ width: `${summary.fleetUtilization}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Fleet Utilization: {summary.fleetUtilization}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Fuel Levels Status */}
+              <div className="bg-white p-6 rounded-lg border shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">Fuel Status</h3>
+                  <TrendingUp className="h-5 w-5 text-green-500" />
+                </div>
+                <div className="space-y-3">
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${usePercentageColor(summary.averageFillPercentage)}`}>
+                      {summary.averageFillPercentage}%
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-3">Average Level</div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    {summary.criticalCount > 0 && (
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-gray-600">{summary.criticalCount}</div>
+                        <div className="text-xs text-muted-foreground">Empty</div>
+                      </div>
+                    )}
+                    {summary.lowFuelCount > 0 && (
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-orange-600">{summary.lowFuelCount}</div>
+                        <div className="text-xs text-muted-foreground">Low</div>
+                      </div>
+                    )}
+                    <div className="text-center">
+                      <div className="text-sm font-bold text-green-600">
+                        {summary.totalAssets - summary.lowFuelCount - summary.criticalCount}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Good</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Consumption Analytics */}
+              <div className="bg-white p-6 rounded-lg border shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">Consumption</h3>
+                  <Activity className="h-5 w-5 text-orange-500" />
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {summary.dailyConsumption.toFixed(1)}L
+                    </div>
+                    <div className="text-xs text-muted-foreground">per day</div>
+                  </div>
+                  {summary.estimatedDaysRemaining && (
+                    <div className="text-center pt-2">
+                      <div className="text-sm font-bold text-blue-600">
+                        ~{summary.estimatedDaysRemaining} days
+                      </div>
+                      <div className="text-xs text-muted-foreground">remaining at current rate</div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

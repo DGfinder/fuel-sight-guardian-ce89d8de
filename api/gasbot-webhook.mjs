@@ -4,6 +4,74 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+// Perth timezone constants and utilities
+const PERTH_TIMEZONE = 'Australia/Perth';
+
+/**
+ * Validate and normalize timestamp to Perth timezone
+ * Handles common data quality issues with incoming timestamps
+ */
+function validateAndNormalizeTimestamp(timestamp, fieldName = 'timestamp') {
+  if (!timestamp) {
+    console.warn(`⚠️  Empty ${fieldName}, using current time`);
+    return new Date().toISOString();
+  }
+  
+  try {
+    let date;
+    
+    // Handle different input formats
+    if (typeof timestamp === 'number') {
+      // Epoch timestamp - could be seconds or milliseconds
+      date = timestamp > 1000000000000 ? new Date(timestamp) : new Date(timestamp * 1000);
+    } else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    } else {
+      throw new Error('Invalid timestamp type');
+    }
+    
+    // Validate the date is reasonable
+    const now = new Date();
+    const year = date.getFullYear();
+    const minutesDiff = (now.getTime() - date.getTime()) / (1000 * 60);
+    
+    // Check for obvious data quality issues
+    if (isNaN(date.getTime())) {
+      console.error(`🚫 Invalid ${fieldName}: ${timestamp}`);
+      return new Date().toISOString();
+    }
+    
+    if (year < 2020 || year > now.getFullYear() + 1) {
+      console.warn(`⚠️  Suspicious year in ${fieldName}: ${year} from ${timestamp}`);
+    }
+    
+    if (minutesDiff < -60) { // More than 1 hour in the future
+      console.warn(`⚠️  Future ${fieldName}: ${timestamp} (${Math.abs(minutesDiff).toFixed(0)} min ahead)`);
+    }
+    
+    if (minutesDiff > 7 * 24 * 60) { // More than 1 week old
+      console.warn(`⚠️  Very old ${fieldName}: ${timestamp} (${(minutesDiff / (24 * 60)).toFixed(0)} days old)`);
+    }
+    
+    // Return normalized ISO string
+    return date.toISOString();
+    
+  } catch (error) {
+    console.error(`🚫 Failed to parse ${fieldName}: ${timestamp}`, error.message);
+    return new Date().toISOString();
+  }
+}
+
+/**
+ * Log data quality issues for monitoring
+ */
+function logDataQuality(locationId, issues) {
+  if (issues.length > 0) {
+    console.warn(`⚠️  Data quality issues for ${locationId}:`, issues);
+    // Could add to monitoring/alerting system here
+  }
+}
+
 // Initialize Supabase client for webhook operations
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY; // This is actually the service role key for backend operations
@@ -38,9 +106,11 @@ function transformGasbotLocationData(gasbotData) {
     location_status_label: gasbotData.DeviceOnline ? 'Active' : 'Offline',
     latest_telemetry_epoch: gasbotData.LocationLastCalibratedTelemetryEpoch || 
       (gasbotData.LocationLastCalibratedTelemetryTimestamp ? 
-        new Date(gasbotData.LocationLastCalibratedTelemetryTimestamp).getTime() : Date.now()),
-    latest_telemetry: gasbotData.LocationLastCalibratedTelemetryTimestamp || 
-      gasbotData.AssetLastCalibratedTelemetryTimestamp || new Date().toISOString(),
+        new Date(validateAndNormalizeTimestamp(gasbotData.LocationLastCalibratedTelemetryTimestamp, 'LocationLastCalibratedTelemetryTimestamp')).getTime() : Date.now()),
+    latest_telemetry: validateAndNormalizeTimestamp(
+      gasbotData.LocationLastCalibratedTelemetryTimestamp || gasbotData.AssetLastCalibratedTelemetryTimestamp,
+      'latest_telemetry'
+    ),
     lat: parseFloat(gasbotData.LocationLat) || null,
     lng: parseFloat(gasbotData.LocationLng) || null,
     disabled: gasbotData.LocationDisabledStatus || !gasbotData.DeviceOnline,
@@ -82,14 +152,17 @@ function transformGasbotAssetData(gasbotData, locationId) {
     device_model_label: 'Gasbot Cellular Tank Monitor',
     device_model: gasbotData.DeviceModel || 43111,
     device_online: gasbotData.DeviceOnline || false,
-    device_activation_date: gasbotData.DeviceActivationTimestamp || null,
+    device_activation_date: gasbotData.DeviceActivationTimestamp ? 
+      validateAndNormalizeTimestamp(gasbotData.DeviceActivationTimestamp, 'DeviceActivationTimestamp') : null,
     device_activation_epoch: gasbotData.DeviceActivationEpoch || null,
     latest_calibrated_fill_percentage: parseFloat(gasbotData.AssetCalibratedFillLevel) || 0,
     latest_raw_fill_percentage: parseFloat(gasbotData.AssetRawFillLevel || gasbotData.AssetCalibratedFillLevel) || 0,
-    latest_telemetry_event_timestamp: gasbotData.AssetLastCalibratedTelemetryTimestamp || new Date().toISOString(),
+    latest_telemetry_event_timestamp: validateAndNormalizeTimestamp(
+      gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp'
+    ),
     latest_telemetry_event_epoch: gasbotData.AssetLastCalibratedTelemetryEpoch || 
       (gasbotData.AssetLastCalibratedTelemetryTimestamp ? 
-        new Date(gasbotData.AssetLastCalibratedTelemetryTimestamp).getTime() : Date.now()),
+        new Date(validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp')).getTime() : Date.now()),
     latest_reported_lat: parseFloat(gasbotData.AssetLatestReportedLat) || null,
     latest_reported_lng: parseFloat(gasbotData.AssetLatestReportedLng) || null,
     subscription_id: '',
@@ -97,11 +170,14 @@ function transformGasbotAssetData(gasbotData, locationId) {
     // New comprehensive asset fields
     asset_raw_fill_level: parseFloat(gasbotData.AssetRawFillLevel) || null,
     asset_last_raw_telemetry_epoch: gasbotData.AssetLastRawTelemetryEpoch || null,
-    asset_last_raw_telemetry_timestamp: gasbotData.AssetLastRawTelemetryTimestamp || null,
+    asset_last_raw_telemetry_timestamp: gasbotData.AssetLastRawTelemetryTimestamp ? 
+      validateAndNormalizeTimestamp(gasbotData.AssetLastRawTelemetryTimestamp, 'AssetLastRawTelemetryTimestamp') : null,
     asset_last_calibrated_telemetry_epoch: gasbotData.AssetLastCalibratedTelemetryEpoch || null,
-    asset_last_calibrated_telemetry_timestamp: gasbotData.AssetLastCalibratedTelemetryTimestamp || null,
+    asset_last_calibrated_telemetry_timestamp: gasbotData.AssetLastCalibratedTelemetryTimestamp ? 
+      validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp') : null,
     asset_updated_epoch: gasbotData.AssetUpdatedEpoch || null,
-    asset_updated_timestamp: gasbotData.AssetUpdatedTimestamp || null,
+    asset_updated_timestamp: gasbotData.AssetUpdatedTimestamp ? 
+      validateAndNormalizeTimestamp(gasbotData.AssetUpdatedTimestamp, 'AssetUpdatedTimestamp') : null,
     asset_daily_consumption: parseFloat(gasbotData.AssetDailyConsumption) || null,
     asset_days_remaining: parseInt(gasbotData.AssetDaysRemaining) || null,
     asset_reported_litres: parseFloat(gasbotData.AssetReportedLitres) || null,
@@ -117,12 +193,14 @@ function transformGasbotAssetData(gasbotData, locationId) {
     asset_profile_commodity: gasbotData.AssetProfileCommodity,
     
     // New comprehensive device fields
-    device_last_telemetry_timestamp: gasbotData.DeviceLastTelemetryTimestamp || null,
+    device_last_telemetry_timestamp: gasbotData.DeviceLastTelemetryTimestamp ? 
+      validateAndNormalizeTimestamp(gasbotData.DeviceLastTelemetryTimestamp, 'DeviceLastTelemetryTimestamp') : null,
     device_last_telemetry_epoch: gasbotData.DeviceLastTelemetryEpoch || null,
     device_sku: gasbotData.DeviceSKU,
     device_battery_voltage: parseFloat(gasbotData.DeviceBatteryVoltage) || null,
     device_temperature: parseFloat(gasbotData.DeviceTemperature) || null,
-    device_activation_timestamp: gasbotData.DeviceActivationTimestamp || null,
+    device_activation_timestamp: gasbotData.DeviceActivationTimestamp ? 
+      validateAndNormalizeTimestamp(gasbotData.DeviceActivationTimestamp, 'DeviceActivationTimestamp_2') : null,
     device_state: gasbotData.DeviceState,
     device_network_id: gasbotData.DeviceNetworkId,
     
@@ -265,7 +343,10 @@ export default async function handler(req, res) {
           asset_id: asset.id,
           calibrated_fill_percentage: parseFloat(tankData.AssetCalibratedFillLevel) || 0,
           raw_fill_percentage: parseFloat(tankData.AssetRawFillLevel || tankData.AssetCalibratedFillLevel) || 0,
-          reading_timestamp: tankData.AssetLastCalibratedTelemetryTimestamp || new Date().toISOString(),
+          reading_timestamp: validateAndNormalizeTimestamp(
+            tankData.AssetLastCalibratedTelemetryTimestamp || new Date().toISOString(), 
+            'reading_timestamp'
+          ),
           device_online: tankData.DeviceOnline || false,
           telemetry_epoch: tankData.AssetLastCalibratedTelemetryEpoch || 
             (tankData.AssetLastCalibratedTelemetryTimestamp ? 
