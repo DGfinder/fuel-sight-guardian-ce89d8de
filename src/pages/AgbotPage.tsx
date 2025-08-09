@@ -19,6 +19,7 @@ import AgbotTable from '@/components/agbot/AgbotTable';
 import AgbotDetailsModal from '@/components/AgbotDetailsModal';
 import { AgbotWebhookHealthStatus } from '@/components/agbot/AgbotWebhookHealthStatus';
 import { AgbotWebhookMonitoring } from '@/components/agbot/AgbotWebhookMonitoring';
+import AtharaWebhookMonitor from '@/components/agbot/AtharaWebhookMonitor';
 import { AgbotErrorBoundary } from '@/components/agbot/AgbotErrorBoundary';
 import AgbotCSVImportModal, { type AgbotCSVRow } from '@/components/AgbotCSVImportModal';
 import { importAgbotFromCSV } from '@/services/agbot-api';
@@ -145,7 +146,7 @@ function AgbotPageContent() {
                   onClick={() => setShowSystemMonitoring(!showSystemMonitoring)}
                 >
                   <AlertTriangle className="h-4 w-4 mr-1" />
-                  Webhook Health
+                  Athara Monitor
                 </Button>
                 
                 {/* View Toggle */}
@@ -187,9 +188,10 @@ function AgbotPageContent() {
               </div>
             </div>
 
-            {/* Webhook Monitoring Panel */}
+            {/* Webhook Monitoring Panel - Enhanced Athara Monitor */}
             {showSystemMonitoring && (
               <>
+                <AtharaWebhookMonitor />
                 <AgbotWebhookMonitoring />
               </>
             )}

@@ -77,7 +77,18 @@
       "Bash(git pull:*)",
       "Bash(pkill:*)",
       "Bash(npm run build:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(git checkout:*)",
+      "Bash(mkdir:*)",
+      "Bash(git add:*)",
+      "Bash(ls:*)",
+      "Bash(curl:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(sed:*)",
+      "Bash(psql:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": []
   }
