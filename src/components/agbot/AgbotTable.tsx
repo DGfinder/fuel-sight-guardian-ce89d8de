@@ -24,7 +24,7 @@ interface AgbotTableProps {
   className?: string;
 }
 
-type SortField = 'location' | 'customer' | 'percentage' | 'status' | 'lastReading';
+type SortField = 'location' | 'customer' | 'percentage' | 'status' | 'lastReading' | 'capacity' | 'consumption' | 'daysRemaining';
 type SortDirection = 'asc' | 'desc';
 
 export default function AgbotTable({ locations, className }: AgbotTableProps) {
@@ -66,6 +66,29 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
         case 'lastReading':
           aValue = new Date(a.latest_telemetry || 0).getTime();
           bValue = new Date(b.latest_telemetry || 0).getTime();
+          break;
+        case 'capacity':
+          // Calculate capacity from asset profile or default
+          const aAsset = a.assets?.[0];
+          const bAsset = b.assets?.[0];
+          const aCapacity = aAsset?.asset_refill_capacity_litres || 
+                           (aAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '') ? 
+                            parseInt(aAsset.asset_profile_name.match(/[\d,]+/)[0].replace(/,/g, '')) : 50000);
+          const bCapacity = bAsset?.asset_refill_capacity_litres || 
+                           (bAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '') ? 
+                            parseInt(bAsset.asset_profile_name.match(/[\d,]+/)[0].replace(/,/g, '')) : 50000);
+          aValue = aCapacity;
+          bValue = bCapacity;
+          break;
+        case 'consumption':
+          const aConsumption = a.assets?.[0]?.asset_daily_consumption || a.location_daily_consumption || 0;
+          const bConsumption = b.assets?.[0]?.asset_daily_consumption || b.location_daily_consumption || 0;
+          aValue = aConsumption;
+          bValue = bConsumption;
+          break;
+        case 'daysRemaining':
+          aValue = a.assets?.[0]?.asset_days_remaining || 999999;
+          bValue = b.assets?.[0]?.asset_days_remaining || 999999;
           break;
         default:
           return 0;
@@ -146,22 +169,44 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => handleSort('customer')}
+                onClick={() => handleSort('percentage')}
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
-                Customer
-                <SortIcon field="customer" />
+                Fuel Level
+                <SortIcon field="percentage" />
               </Button>
             </TableHead>
             <TableHead>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => handleSort('percentage')}
+                onClick={() => handleSort('capacity')}
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
-                Fuel Level
-                <SortIcon field="percentage" />
+                Capacity
+                <SortIcon field="capacity" />
+              </Button>
+            </TableHead>
+            <TableHead>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => handleSort('consumption')}
+                className="h-auto p-0 font-semibold hover:bg-transparent"
+              >
+                Daily Usage
+                <SortIcon field="consumption" />
+              </Button>
+            </TableHead>
+            <TableHead>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => handleSort('daysRemaining')}
+                className="h-auto p-0 font-semibold hover:bg-transparent"
+              >
+                Days Left
+                <SortIcon field="daysRemaining" />
               </Button>
             </TableHead>
             <TableHead>
@@ -175,7 +220,6 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
                 <SortIcon field="status" />
               </Button>
             </TableHead>
-            <TableHead>Device</TableHead>
             <TableHead>
               <Button 
                 variant="ghost" 
@@ -194,6 +238,17 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
           {sortedLocations.map((location) => {
             const mainAsset = location.assets?.[0];
             const isOnline = location.location_status === 2 && (mainAsset?.device_online ?? false);
+            const percentage = location.latest_calibrated_fill_percentage ?? mainAsset?.latest_calibrated_fill_percentage;
+            
+            // Calculate capacity and current volume
+            const capacityFromName = mainAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
+            const capacity = mainAsset?.asset_refill_capacity_litres || 
+                            (capacityFromName ? parseInt(capacityFromName) : 50000);
+            const currentVolume = percentage ? Math.round((percentage / 100) * capacity) : 0;
+            
+            // Consumption data
+            const dailyConsumption = mainAsset?.asset_daily_consumption || location.location_daily_consumption;
+            const daysRemaining = mainAsset?.asset_days_remaining;
             
             return (
               <TableRow 
@@ -201,6 +256,7 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
                 className="cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => openModal(location)}
               >
+                {/* Location */}
                 <TableCell className="font-medium">
                   <div>
                     <div className="font-semibold">
@@ -212,40 +268,72 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
                         .filter(Boolean)
                         .join(', ') || 'No address'}
                     </div>
-                  </div>
-                </TableCell>
-                
-                <TableCell>
-                  <div className="text-sm">
-                    {location.customer_name || 'Unknown Customer'}
-                  </div>
-                </TableCell>
-                
-                <TableCell>
-                  {getPercentageDisplay(location.latest_calibrated_fill_percentage)}
-                </TableCell>
-                
-                <TableCell>
-                  {getStatusBadge(location)}
-                </TableCell>
-                
-                <TableCell>
-                  <div className="text-sm">
-                    <div className="flex items-center gap-1">
-                      {isOnline ? 
-                        <Signal className="h-3 w-3 text-green-500" /> : 
-                        <Signal className="h-3 w-3 text-gray-400" />
-                      }
-                      {mainAsset?.device_sku_name || 'Unknown Device'}
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {location.customer_name || 'Unknown Customer'}
                     </div>
-                    {mainAsset?.device_serial_number && (
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        #{mainAsset.device_serial_number}
-                      </div>
-                    )}
                   </div>
                 </TableCell>
                 
+                {/* Fuel Level */}
+                <TableCell>
+                  <div className="space-y-1">
+                    {getPercentageDisplay(percentage)}
+                    <div className="text-xs text-muted-foreground">
+                      {currentVolume.toLocaleString()}L current
+                    </div>
+                  </div>
+                </TableCell>
+                
+                {/* Capacity */}
+                <TableCell>
+                  <div className="text-sm">
+                    <div className="font-semibold">{capacity.toLocaleString()}L</div>
+                    <div className="text-xs text-muted-foreground">
+                      {mainAsset?.asset_profile_name?.includes('Diesel') ? 'Diesel' : 
+                       mainAsset?.asset_profile_name?.includes('Water') ? 'Water' : 'Fuel'}
+                    </div>
+                  </div>
+                </TableCell>
+                
+                {/* Daily Usage */}
+                <TableCell>
+                  {dailyConsumption ? (
+                    <div className="text-sm">
+                      <div className="font-semibold">{dailyConsumption.toFixed(2)}L</div>
+                      <div className="text-xs text-muted-foreground">per day</div>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No data</span>
+                  )}
+                </TableCell>
+                
+                {/* Days Remaining */}
+                <TableCell>
+                  {daysRemaining ? (
+                    <div className="text-sm">
+                      <div className={`font-semibold ${
+                        daysRemaining <= 7 ? 'text-red-600' : 
+                        daysRemaining <= 30 ? 'text-yellow-600' : 'text-green-600'
+                      }`}>
+                        {daysRemaining} days
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">–</span>
+                  )}
+                </TableCell>
+                
+                {/* Status */}
+                <TableCell>
+                  <div className="space-y-1">
+                    {getStatusBadge(location)}
+                    <div className="text-xs text-muted-foreground">
+                      {mainAsset?.device_serial_number && `#${mainAsset.device_serial_number.slice(-4)}`}
+                    </div>
+                  </div>
+                </TableCell>
+                
+                {/* Last Reading */}
                 <TableCell>
                   <div className="text-sm">
                     <div className={isOnline ? 'text-green-600' : 'text-red-600'}>
@@ -253,18 +341,8 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
                     </div>
                     {location.latest_telemetry && (
                       <div className="text-xs text-muted-foreground">
-                        {new Date(location.latest_telemetry).toLocaleString()}
+                        {new Date(location.latest_telemetry).toLocaleDateString()}
                       </div>
-                    )}
-                  </div>
-                </TableCell>
-                
-                <TableCell>
-                  <div className="flex items-center justify-center">
-                    {location.assets && location.assets.length > 1 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{location.assets.length - 1}
-                      </Badge>
                     )}
                   </div>
                 </TableCell>

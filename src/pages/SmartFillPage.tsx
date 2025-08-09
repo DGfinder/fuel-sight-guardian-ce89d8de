@@ -1042,7 +1042,7 @@ const SmartFillPage = () => {
                   </TableBody>
                     </Table>
                   </div>
-                </>)
+                </>
               ) : (
                 /* Grouped View */
                 <div className="space-y-4">

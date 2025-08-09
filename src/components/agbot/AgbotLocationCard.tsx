@@ -11,6 +11,7 @@ import {
   TrendingDown,
   Minus
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -90,8 +91,8 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Main Percentage Display */}
-        <div className="text-center">
+        {/* Enhanced Fuel Level Display */}
+        <div className="text-center space-y-2">
           <div className={`text-4xl font-bold ${percentageColor}`}>
             {displayPercentage !== null && displayPercentage !== undefined 
               ? `${displayPercentage.toFixed(1)}%` 
@@ -99,6 +100,29 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
             }
           </div>
           <p className="text-sm text-muted-foreground">Current Fuel Level</p>
+          
+          {/* Volume and Capacity Information */}
+          {mainAsset && displayPercentage !== null && (
+            <div className="text-center">
+              <div className="text-lg font-semibold text-blue-600">
+                {(() => {
+                  const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
+                  const capacity = mainAsset.asset_refill_capacity_litres || 
+                                  (capacityFromName ? parseInt(capacityFromName) : 50000);
+                  const currentVolume = Math.round((displayPercentage / 100) * capacity);
+                  return `${currentVolume.toLocaleString()}L`;
+                })()}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                of {(() => {
+                  const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
+                  const capacity = mainAsset.asset_refill_capacity_litres || 
+                                  (capacityFromName ? parseInt(capacityFromName) : 50000);
+                  return capacity.toLocaleString();
+                })()}L capacity
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Progress Bar */}
@@ -129,21 +153,62 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
           </div>
         </div>
 
-        {/* Device Info */}
+        {/* Enhanced Technical Info */}
         {mainAsset && (
-          <div className="space-y-2 p-3 bg-muted rounded-lg">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Device Info</span>
-              <Badge variant="outline" className="text-xs">
-                {mainAsset.device_sku_name || 'Unknown Model'}
-              </Badge>
-            </div>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <div>Serial: {mainAsset.device_serial_number}</div>
-              {mainAsset.latest_raw_fill_percentage !== null && 
-               mainAsset.latest_raw_fill_percentage !== undefined && (
-                <div>Raw: {mainAsset.latest_raw_fill_percentage.toFixed(1)}%</div>
-              )}
+          <div className="space-y-3">
+            {/* Consumption Analytics */}
+            {(mainAsset.asset_daily_consumption || location.location_daily_consumption || mainAsset.asset_days_remaining) && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-800">Consumption</span>
+                  <TrendingDown className="h-4 w-4 text-blue-600" />
+                </div>
+                <div className="space-y-1 text-xs">
+                  {(mainAsset.asset_daily_consumption || location.location_daily_consumption) && (
+                    <div className="flex justify-between">
+                      <span className="text-blue-600">Daily Usage:</span>
+                      <span className="font-semibold text-blue-800">
+                        {(mainAsset.asset_daily_consumption || location.location_daily_consumption).toFixed(2)}L
+                      </span>
+                    </div>
+                  )}
+                  {mainAsset.asset_days_remaining && (
+                    <div className="flex justify-between">
+                      <span className="text-blue-600">Days Remaining:</span>
+                      <span className="font-semibold text-blue-800">{mainAsset.asset_days_remaining}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Device Technical Info */}
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Device Info</span>
+                <Badge variant="outline" className="text-xs">
+                  {mainAsset.device_sku_name || `Model ${mainAsset.device_sku_model || 'Unknown'}`}
+                </Badge>
+              </div>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Serial:</span>
+                  <span className="font-mono">{mainAsset.device_serial_number}</span>
+                </div>
+                {mainAsset.latest_raw_fill_percentage !== null && 
+                 mainAsset.latest_raw_fill_percentage !== undefined && (
+                  <div className="flex justify-between">
+                    <span>Raw Reading:</span>
+                    <span className="font-semibold">{mainAsset.latest_raw_fill_percentage.toFixed(1)}%</span>
+                  </div>
+                )}
+                {mainAsset.device_activation_date && (
+                  <div className="flex justify-between">
+                    <span>Activated:</span>
+                    <span>{format(new Date(mainAsset.device_activation_date), 'MMM yyyy')}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

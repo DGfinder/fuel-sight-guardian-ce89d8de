@@ -139,7 +139,7 @@ export function useAgbotSync() {
   });
 }
 
-// Hook to get summary statistics
+// Enhanced hook to get comprehensive fleet summary statistics
 export function useAgbotSummary() {
   const { data: locations, isLoading } = useAgbotLocations();
   
@@ -150,12 +150,21 @@ export function useAgbotSummary() {
       onlineAssets: 0,
       averageFillPercentage: 0,
       lowFuelCount: 0,
+      criticalCount: 0,
+      totalCapacity: 0,
+      currentFuelVolume: 0,
+      fleetUtilization: 0,
+      dailyConsumption: 0,
+      estimatedDaysRemaining: 0,
+      categories: { agricultural: 0, commercial: 0 },
       isLoading
     };
   }
 
   const allAssets = locations.flatMap(location => location.assets || []);
   const onlineAssets = allAssets.filter(asset => asset.device_online);
+  
+  // Enhanced calculations
   const fillPercentages = allAssets
     .map(asset => asset.latest_calibrated_fill_percentage)
     .filter(percentage => percentage !== null && percentage !== undefined);
@@ -164,7 +173,56 @@ export function useAgbotSummary() {
     ? fillPercentages.reduce((sum, percentage) => sum + percentage, 0) / fillPercentages.length
     : 0;
 
-  const lowFuelCount = fillPercentages.filter(percentage => percentage < 20).length;
+  const lowFuelCount = fillPercentages.filter(percentage => percentage < 20 && percentage > 0).length;
+  const criticalCount = fillPercentages.filter(percentage => percentage === 0).length;
+  
+  // Calculate capacity and fuel volumes from asset data
+  let totalCapacity = 0;
+  let currentFuelVolume = 0;
+  let totalDailyConsumption = 0;
+  let locationsWithConsumption = 0;
+  
+  const categories = { agricultural: 0, commercial: 0 };
+  
+  allAssets.forEach(asset => {
+    // Extract capacity from asset profile name or use asset_refill_capacity_litres if available
+    const capacityFromName = asset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
+    const capacity = asset.asset_refill_capacity_litres || 
+                    (capacityFromName ? parseInt(capacityFromName) : 50000); // Default to 50,000L
+    
+    const percentage = asset.latest_calibrated_fill_percentage || 0;
+    const currentVolume = (percentage / 100) * capacity;
+    
+    totalCapacity += capacity;
+    currentFuelVolume += currentVolume;
+    
+    // Daily consumption from asset data
+    if (asset.asset_daily_consumption && asset.asset_daily_consumption > 0) {
+      totalDailyConsumption += asset.asset_daily_consumption;
+      locationsWithConsumption++;
+    }
+  });
+  
+  locations.forEach(location => {
+    // Categorize locations
+    const isCommercial = location.location_id?.toLowerCase().includes('depot') || 
+                        location.address1?.toLowerCase().includes('depot');
+    if (isCommercial) {
+      categories.commercial++;
+    } else {
+      categories.agricultural++;
+    }
+    
+    // Add location-level consumption if available
+    if (location.location_daily_consumption && location.location_daily_consumption > 0) {
+      totalDailyConsumption += location.location_daily_consumption;
+    }
+  });
+  
+  const fleetUtilization = totalCapacity > 0 ? (currentFuelVolume / totalCapacity) * 100 : 0;
+  const estimatedDaysRemaining = totalDailyConsumption > 0 && currentFuelVolume > 0 
+    ? Math.round(currentFuelVolume / totalDailyConsumption) 
+    : null;
 
   return {
     totalLocations: locations.length,
@@ -172,6 +230,13 @@ export function useAgbotSummary() {
     onlineAssets: onlineAssets.length,
     averageFillPercentage: Math.round(averageFillPercentage * 10) / 10,
     lowFuelCount,
+    criticalCount,
+    totalCapacity: Math.round(totalCapacity),
+    currentFuelVolume: Math.round(currentFuelVolume),
+    fleetUtilization: Math.round(fleetUtilization * 10) / 10,
+    dailyConsumption: Math.round(totalDailyConsumption * 100) / 100,
+    estimatedDaysRemaining,
+    categories,
     isLoading: false
   };
 }
