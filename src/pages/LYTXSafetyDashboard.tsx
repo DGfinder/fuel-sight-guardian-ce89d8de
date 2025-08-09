@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, TrendingUp, Users, Calendar, Filter, Download, BarChart3, PieChart, Loader2, WifiOff, Settings, RefreshCw } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Users, Calendar, Filter, Download, BarChart3, PieChart, Loader2, WifiOff, Settings, RefreshCw, X } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
 import LYTXEventTable from '@/components/LYTXEventTable';
 import LytxConnectionTest from '@/components/LytxConnectionTest';
@@ -92,9 +92,17 @@ const mockLYTXEvents: LYTXEvent[] = [
   }
 ];
 
-// Generate monthly trend data
+// Generate enhanced monthly trend data with fleet breakdown
 const generateMonthlyData = (events: LYTXEvent[]) => {
-  const monthlyStats: Record<string, { month: string; coachable: number; driverTagged: number; total: number }> = {};
+  const monthlyStats: Record<string, { 
+    month: string; 
+    coachableSMB: number; 
+    coachableGSF: number;
+    driverTaggedSMB: number;
+    driverTaggedGSF: number;
+    total: number;
+    unassigned: number;
+  }> = {};
   
   events.forEach(event => {
     const date = new Date(event.date);
@@ -102,14 +110,30 @@ const generateMonthlyData = (events: LYTXEvent[]) => {
     const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     
     if (!monthlyStats[monthKey]) {
-      monthlyStats[monthKey] = { month: monthName, coachable: 0, driverTagged: 0, total: 0 };
+      monthlyStats[monthKey] = { 
+        month: monthName, 
+        coachableSMB: 0, 
+        coachableGSF: 0,
+        driverTaggedSMB: 0,
+        driverTaggedGSF: 0,
+        total: 0,
+        unassigned: 0
+      };
     }
     
+    const isSMB = event.carrier === 'Stevemacs';
+    const isGSF = event.carrier === 'Great Southern Fuels';
+    const isUnassigned = event.driver === 'Driver Unassigned';
+    
     if (event.eventType === 'Coachable') {
-      monthlyStats[monthKey].coachable++;
+      if (isSMB) monthlyStats[monthKey].coachableSMB++;
+      if (isGSF) monthlyStats[monthKey].coachableGSF++;
     } else {
-      monthlyStats[monthKey].driverTagged++;
+      if (isSMB) monthlyStats[monthKey].driverTaggedSMB++;
+      if (isGSF) monthlyStats[monthKey].driverTaggedGSF++;
     }
+    
+    if (isUnassigned) monthlyStats[monthKey].unassigned++;
     monthlyStats[monthKey].total++;
   });
   
@@ -120,6 +144,8 @@ const LYTXSafetyDashboard: React.FC = () => {
   const [selectedCarrier, setSelectedCarrier] = useState<'All' | 'Stevemacs' | 'Great Southern Fuels'>('All');
   const [dateRange, setDateRange] = useState('30');
   const [showConnectionTest, setShowConnectionTest] = useState(false);
+  const [selectedTrigger, setSelectedTrigger] = useState<string | null>(null);
+  const [showTriggerModal, setShowTriggerModal] = useState(false);
 
   // Get date range for API calls
   const apiDateRange = useMemo(() => {
@@ -184,6 +210,54 @@ const LYTXSafetyDashboard: React.FC = () => {
     .sort(([,a], [,b]) => b - a)
     .slice(0, 5)
     .map(([trigger, count]) => ({ trigger, count }));
+
+  // Enhanced trigger analysis for modal
+  const enhancedTriggerAnalysis = Object.entries(triggerCounts)
+    .sort(([,a], [,b]) => b - a)
+    .map(([trigger, count]) => {
+      const triggerEvents = filteredEvents.filter(e => e.trigger === trigger);
+      const avgScore = triggerEvents.reduce((sum, e) => sum + e.score, 0) / triggerEvents.length || 0;
+      const resolvedCount = triggerEvents.filter(e => e.status === 'Resolved').length;
+      const unassignedCount = triggerEvents.filter(e => e.driver === 'Driver Unassigned').length;
+      
+      // Driver breakdown
+      const driverBreakdown = triggerEvents.reduce((acc, event) => {
+        if (event.driver !== 'Driver Unassigned') {
+          acc[event.driver] = (acc[event.driver] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const topDrivers = Object.entries(driverBreakdown)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5);
+
+      // Fleet breakdown
+      const fleetBreakdown = triggerEvents.reduce((acc, event) => {
+        acc[event.carrier] = (acc[event.carrier] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Monthly trend for this trigger
+      const monthlyTrend = triggerEvents.reduce((acc, event) => {
+        const date = new Date(event.date);
+        const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        acc[monthKey] = (acc[monthKey] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      return {
+        trigger,
+        count,
+        percentage: (count / totalEvents * 100),
+        avgScore,
+        resolutionRate: (resolvedCount / count * 100),
+        unassignedCount,
+        topDrivers,
+        fleetBreakdown,
+        monthlyTrend: Object.entries(monthlyTrend).sort(([a], [b]) => a.localeCompare(b))
+      };
+    });
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -341,36 +415,86 @@ const LYTXSafetyDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className={`p-6 rounded-lg shadow-md transition-colors ${
+          unassignedDrivers > 0 ? 'bg-red-50 border-2 border-red-200' : 'bg-white'
+        }`}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Unassigned Drivers</p>
-              <p className="text-2xl font-bold text-gray-600">{unassignedDrivers}</p>
-              <p className="text-xs text-gray-500">{((unassignedDrivers/totalEvents)*100).toFixed(1)}% pending</p>
+              <p className="text-sm font-medium text-gray-600">⚠️ Driver Assignment Required</p>
+              <p className={`text-3xl font-bold ${unassignedDrivers > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                {unassignedDrivers}
+              </p>
+              <p className="text-xs text-gray-500 mb-2">
+                {((unassignedDrivers/totalEvents)*100).toFixed(1)}% need review
+              </p>
+              {unassignedDrivers > 0 && (
+                <button 
+                  onClick={() => {
+                    // Scroll to event table and filter for unassigned
+                    const tableElement = document.querySelector('[data-testid="lytx-event-table"]');
+                    if (tableElement) {
+                      tableElement.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                  className="mt-2 flex items-center gap-1 text-xs bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 transition-colors"
+                >
+                  <Users className="h-3 w-3" />
+                  Assign Drivers Now
+                </button>
+              )}
             </div>
-            <Filter className="h-8 w-8 text-gray-500" />
+            <div className={`p-3 rounded-full ${unassignedDrivers > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+              <Users className={`h-8 w-8 ${unassignedDrivers > 0 ? 'text-red-600' : 'text-gray-500'}`} />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Monthly Trends */}
+        {/* Enhanced Monthly Trends with Fleet Breakdown */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Monthly Event Trends</h3>
+            <h3 className="text-lg font-semibold">Monthly Events by Fleet & Type</h3>
+            <div className="ml-auto text-sm text-gray-500">
+              SMB = Stevemacs • GSF = Great Southern Fuels
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthlyData}>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="coachable" stroke="#f59e0b" strokeWidth={2} name="Coachable Events" />
-              <Line type="monotone" dataKey="driverTagged" stroke="#3b82f6" strokeWidth={2} name="Driver Tagged" />
-            </LineChart>
+              <Tooltip 
+                formatter={(value, name) => [value, name]}
+                labelFormatter={(label) => `Month: ${label}`}
+              />
+              {/* Legend */}
+              <Bar dataKey="coachableSMB" stackId="coachable" fill="#3b82f6" name="SMB Coachable" />
+              <Bar dataKey="coachableGSF" stackId="coachable" fill="#60a5fa" name="GSF Coachable" />
+              <Bar dataKey="driverTaggedSMB" stackId="driverTagged" fill="#f59e0b" name="SMB Driver Tagged" />
+              <Bar dataKey="driverTaggedGSF" stackId="driverTagged" fill="#fbbf24" name="GSF Driver Tagged" />
+            </BarChart>
           </ResponsiveContainer>
+          
+          {/* Fleet Summary */}
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div className="bg-blue-50 p-3 rounded">
+              <div className="font-medium text-blue-900">Stevemacs (SMB)</div>
+              <div className="text-blue-700">
+                Coachable: {monthlyData.reduce((sum, m) => sum + m.coachableSMB, 0)} | 
+                Driver Tagged: {monthlyData.reduce((sum, m) => sum + m.driverTaggedSMB, 0)}
+              </div>
+            </div>
+            <div className="bg-green-50 p-3 rounded">
+              <div className="font-medium text-green-900">Great Southern Fuels (GSF)</div>
+              <div className="text-green-700">
+                Coachable: {monthlyData.reduce((sum, m) => sum + m.coachableGSF, 0)} | 
+                Driver Tagged: {monthlyData.reduce((sum, m) => sum + m.driverTaggedGSF, 0)}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Event Status Distribution */}
@@ -452,6 +576,98 @@ const LYTXSafetyDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Event Types Analysis Table */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+        <div className="flex items-center gap-2 mb-6">
+          <BarChart3 className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Safety Event Types Analysis</h3>
+          <span className="text-sm text-gray-500 ml-2">Click any row for detailed breakdown</span>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left p-3 font-medium text-gray-900">Event Type</th>
+                <th className="text-left p-3 font-medium text-gray-900">Count</th>
+                <th className="text-left p-3 font-medium text-gray-900">% of Total</th>
+                <th className="text-left p-3 font-medium text-gray-900">Avg Score</th>
+                <th className="text-left p-3 font-medium text-gray-900">Resolution Rate</th>
+                <th className="text-left p-3 font-medium text-gray-900">Unassigned</th>
+                <th className="text-left p-3 font-medium text-gray-900">Trend</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {enhancedTriggerAnalysis.slice(0, 10).map((trigger, index) => (
+                <tr 
+                  key={trigger.trigger}
+                  onClick={() => {
+                    setSelectedTrigger(trigger.trigger);
+                    setShowTriggerModal(true);
+                  }}
+                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <td className="p-3">
+                    <div className="font-medium text-gray-900">{trigger.trigger}</div>
+                    <div className="text-xs text-gray-500">Click for details</div>
+                  </td>
+                  <td className="p-3">
+                    <span className="text-lg font-bold text-gray-900">{trigger.count}</span>
+                  </td>
+                  <td className="p-3">
+                    <span className="text-sm text-gray-600">{trigger.percentage.toFixed(1)}%</span>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ width: `${Math.min(trigger.percentage, 100)}%` }}
+                      ></div>
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <span className={`font-medium ${
+                      trigger.avgScore >= 3 ? 'text-red-600' : 
+                      trigger.avgScore >= 1 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                      {trigger.avgScore.toFixed(1)}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span className={`font-medium ${
+                      trigger.resolutionRate >= 80 ? 'text-green-600' : 
+                      trigger.resolutionRate >= 50 ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {trigger.resolutionRate.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span className={`font-medium ${
+                      trigger.unassignedCount > 0 ? 'text-red-600' : 'text-gray-600'
+                    }`}>
+                      {trigger.unassignedCount}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <div className="w-16 h-8">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={trigger.monthlyTrend.map(([month, count]) => ({ month, count }))}>
+                          <Line 
+                            type="monotone" 
+                            dataKey="count" 
+                            stroke="#3b82f6" 
+                            strokeWidth={1}
+                            dot={false}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Action Items */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold mb-4">Action Items & Tools</h3>
@@ -474,13 +690,134 @@ const LYTXSafetyDashboard: React.FC = () => {
       </div>
 
       {/* LYTX Event Management Table */}
-      <div className="mt-8">
+      <div className="mt-8" data-testid="lytx-event-table">
         <LYTXEventTable 
           showTitle={true}
           maxHeight="500px"
           carrierFilter={selectedCarrier}
         />
       </div>
+
+      {/* Event Type Detail Modal */}
+      {showTriggerModal && selectedTrigger && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {(() => {
+              const triggerData = enhancedTriggerAnalysis.find(t => t.trigger === selectedTrigger);
+              if (!triggerData) return null;
+              
+              return (
+                <>
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">{selectedTrigger}</h3>
+                      <div className="flex gap-4 text-sm text-gray-600">
+                        <span>Total Events: <strong>{triggerData.count}</strong></span>
+                        <span>Avg Score: <strong>{triggerData.avgScore.toFixed(1)}</strong></span>
+                        <span>Resolution Rate: <strong>{triggerData.resolutionRate.toFixed(1)}%</strong></span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setShowTriggerModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    {/* Fleet Distribution */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-gray-900 mb-3">Fleet Distribution</h4>
+                      <div className="space-y-2">
+                        {Object.entries(triggerData.fleetBreakdown).map(([fleet, count]) => (
+                          <div key={fleet} className="flex justify-between items-center">
+                            <span className={`text-sm ${fleet === 'Stevemacs' ? 'text-blue-600' : 'text-green-600'}`}>
+                              {fleet}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className={`h-2 rounded-full ${fleet === 'Stevemacs' ? 'bg-blue-600' : 'bg-green-600'}`}
+                                  style={{ width: `${(count / triggerData.count) * 100}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm font-medium">{count}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Monthly Trend Chart */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-gray-900 mb-3">Monthly Trend</h4>
+                      <ResponsiveContainer width="100%" height={150}>
+                        <BarChart data={triggerData.monthlyTrend.map(([month, count]) => ({ month, count }))}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip />
+                          <Bar dataKey="count" fill="#3b82f6" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Top Drivers */}
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-gray-900 mb-3">Top Drivers for {selectedTrigger}</h4>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {triggerData.topDrivers.length > 0 ? (
+                          triggerData.topDrivers.map(([driver, count]) => (
+                            <div key={driver} className="flex justify-between items-center p-3 bg-white rounded border">
+                              <div>
+                                <div className="font-medium text-gray-900">{driver}</div>
+                                <div className="text-xs text-gray-500">{count} events</div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-orange-500 h-2 rounded-full"
+                                    style={{ width: `${(count / triggerData.count) * 100}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-sm font-bold">{count}</span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-gray-500 text-sm">All events are unassigned to drivers</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Recommendations */}
+                  <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+                    <h4 className="font-semibold text-blue-900 mb-2">Recommended Actions</h4>
+                    <div className="space-y-2 text-sm text-blue-800">
+                      {triggerData.unassignedCount > 0 && (
+                        <div>• Assign drivers to {triggerData.unassignedCount} unassigned events</div>
+                      )}
+                      {triggerData.resolutionRate < 50 && (
+                        <div>• Focus on improving resolution rate (currently {triggerData.resolutionRate.toFixed(1)}%)</div>
+                      )}
+                      {triggerData.avgScore > 2 && (
+                        <div>• High average score ({triggerData.avgScore.toFixed(1)}) indicates need for targeted coaching</div>
+                      )}
+                      {triggerData.topDrivers.length > 0 && triggerData.topDrivers[0][1] > 5 && (
+                        <div>• Consider additional training for top driver: {triggerData.topDrivers[0][0]} ({triggerData.topDrivers[0][1]} events)</div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

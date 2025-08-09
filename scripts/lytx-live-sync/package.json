@@ -1,0 +1,14 @@
+{
+  "name": "lytx-live-sync",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Minimal polling ingest of Lytx Safety events into Supabase",
+  "scripts": {
+    "sync": "node ./sync.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  }
+}
+
