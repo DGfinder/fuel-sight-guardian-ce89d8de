@@ -13,6 +13,7 @@ import {
   calculateSmartTTL,
   warmCache
 } from '@/lib/vercel-kv-cache';
+import { toPerthTime, validateTimestamp } from '@/utils/timezone';
 
 // Athara/Gasbot API configuration - with environment variable support
 // 
@@ -1107,7 +1108,7 @@ export interface AgbotCSVImportResult {
 
 // Transform CSV row data to database location format
 function transformCSVLocationData(csvRow: any) {
-  // Parse date strings and handle empty values
+  // Parse date strings and handle empty values with Perth timezone
   const parseDate = (dateStr: string) => {
     if (!dateStr || dateStr.trim() === '') return null;
     try {
@@ -1123,16 +1124,22 @@ function transformCSVLocationData(csvRow: any) {
       if (period?.toLowerCase() === 'pm' && hour24 !== 12) hour24 += 12;
       if (period?.toLowerCase() === 'am' && hour24 === 12) hour24 = 0;
       
-      const isoDate = new Date(
-        parseInt(year), 
-        parseInt(month) - 1, 
-        parseInt(day), 
-        hour24, 
-        parseInt(minutes), 
-        parseInt(seconds || '0')
-      ).toISOString();
+      // Create date string in Perth timezone format instead of browser timezone
+      const perthDateString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour24.toString().padStart(2, '0')}:${minutes.padStart(2, '0')}:${(seconds || '0').padStart(2, '0')}`;
       
-      return isoDate;
+      // Parse as Perth time and convert to proper timezone-aware date
+      const perthDate = toPerthTime(perthDateString);
+      
+      // Validate the timestamp for data quality
+      const validation = validateTimestamp(perthDate);
+      if (validation.issues.length > 0) {
+        console.warn(`[AGBOT CSV] Date validation issues for "${dateStr}":`, validation.issues);
+        if (validation.isFuture) {
+          console.warn(`[AGBOT CSV] Future date detected: ${dateStr} -> ${perthDate.toISOString()}`);
+        }
+      }
+      
+      return perthDate.toISOString();
     } catch (e) {
       console.warn('Failed to parse date:', dateStr, e);
       return null;
@@ -1240,6 +1247,41 @@ export async function importAgbotFromCSV(csvRows: any[]): Promise<AgbotCSVImport
     errors: [],
     duration: 0
   };
+
+  // Pre-validate CSV data for common issues like future dates
+  console.log('[AGBOT CSV] Pre-validating CSV data for data quality issues...');
+  let futureDataWarnings = 0;
+  const currentTime = new Date();
+  
+  csvRows.forEach((row, index) => {
+    // Check for potentially problematic date fields
+    const dateFields = ['deviceLastSeen', 'assetLastSeen', 'deviceActivation'];
+    dateFields.forEach(field => {
+      const dateStr = row[field];
+      if (dateStr && dateStr.trim() !== '') {
+        try {
+          // Parse with the same logic as parseDate function
+          const [datePart] = dateStr.split(', ');
+          if (datePart) {
+            const [day, month, year] = datePart.split('/');
+            const checkDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            
+            if (checkDate > currentTime) {
+              console.warn(`[AGBOT CSV] Row ${index + 1}: Future date detected in ${field}: "${dateStr}"`);
+              futureDataWarnings++;
+            }
+          }
+        } catch (e) {
+          // Ignore parsing errors here, they'll be handled in parseDate
+        }
+      }
+    });
+  });
+  
+  if (futureDataWarnings > 0) {
+    console.warn(`[AGBOT CSV] ⚠️ Found ${futureDataWarnings} future date entries that may cause display issues`);
+    result.errors.push(`Data quality warning: ${futureDataWarnings} entries contain future dates`);
+  }
 
   console.log('\n' + '='.repeat(60));
   console.log('📁 AGBOT CSV IMPORT STARTED');

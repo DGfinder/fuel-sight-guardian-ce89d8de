@@ -3,6 +3,8 @@ import { QueryClient } from '@tanstack/react-query';
 // Lytx Video API Configuration - Updated to use environment variables and correct Video API endpoints
 const LYTX_API_KEY = import.meta.env.VITE_LYTX_API_KEY;
 const LYTX_BASE_URL = import.meta.env.VITE_LYTX_BASE_URL || 'https://lytx-api.prod7.lv.lytx.com';
+// Allow forcing proxy usage from env; default is to try direct on localhost and proxy elsewhere
+const LYTX_FORCE_PROXY = (import.meta.env.VITE_LYTX_USE_PROXY || '').toString().toLowerCase() === 'true';
 
 // API Response Types based on Lytx documentation
 export interface LytxApiResponse<T> {
@@ -110,21 +112,21 @@ class LytxApiClient {
     options: RequestInit = {}
   ): Promise<LytxApiResponse<T>> {
     try {
-      // Use proxy in production, direct API in development
-      const useProxy = typeof window !== 'undefined' && 
-                      !window.location.hostname.includes('localhost') && 
-                      !window.location.hostname.includes('127.0.0.1') &&
-                      !window.location.hostname.includes('192.168.');
+      // Decide whether to use proxy. We prefer proxy unless explicitly disabled for localhost
+      const isBrowser = typeof window !== 'undefined';
+      const isLocalHost = isBrowser && (
+        window.location.hostname.includes('localhost') ||
+        window.location.hostname.includes('127.0.0.1') ||
+        window.location.hostname.startsWith('192.168.')
+      );
+      let useProxy = LYTX_FORCE_PROXY || !isLocalHost;
       
       let response: Response;
       
-      if (useProxy) {
-        // Use Vercel serverless function proxy
-        response = await fetch('/api/lytx-proxy', {
+      const makeProxyCall = async (): Promise<Response> => {
+        return fetch('/api/lytx-proxy', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             endpoint,
             method: options.method || 'GET',
@@ -132,16 +134,41 @@ class LytxApiClient {
             ...(options.body && { body: options.body })
           })
         });
-      } else {
-        // Direct API call for local development
+      };
+
+      const makeDirectCall = async (): Promise<Response> => {
         const url = `${this.baseUrl}${endpoint}`;
-        response = await fetch(url, {
+        return fetch(url, {
           ...options,
           headers: {
             ...this.defaultHeaders,
             ...options.headers
           }
         });
+      };
+
+      if (useProxy) {
+        response = await makeProxyCall();
+        // If proxy not available locally (e.g., 404), try direct as a fallback on localhost only
+        if (!response.ok && isLocalHost) {
+          try {
+            const directAttempt = await makeDirectCall();
+            if (directAttempt.ok) {
+              response = directAttempt;
+              useProxy = false;
+            }
+          } catch (_e) {
+            // keep original proxy response
+          }
+        }
+      } else {
+        try {
+          response = await makeDirectCall();
+        } catch (_e) {
+          // Likely CORS/network error on direct calls; fallback to proxy if available
+          response = await makeProxyCall();
+          useProxy = true;
+        }
       }
 
       if (!response.ok) {
@@ -161,7 +188,7 @@ class LytxApiClient {
       let responseData = data;
       
       // If using proxy, unwrap the data
-      if (useProxy && data.data !== undefined) {
+      if (useProxy && data && typeof data === 'object' && 'data' in data && (data as any).data !== undefined) {
         responseData = data.data;
       }
       

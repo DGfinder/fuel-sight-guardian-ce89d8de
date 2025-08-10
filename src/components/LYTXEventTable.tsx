@@ -185,7 +185,9 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
   const refreshMutation = useLytxRefreshData();
 
   // Use API data or fallback to mock data
-  const events = eventsQuery.data?.events || localEvents.length > 0 ? localEvents : mockLYTXEvents;
+  const events = Array.isArray(eventsQuery.data?.events)
+    ? eventsQuery.data!.events
+    : (localEvents.length > 0 ? localEvents : mockLYTXEvents);
 
   // Filter and search events
   const filteredEvents = useMemo(() => {

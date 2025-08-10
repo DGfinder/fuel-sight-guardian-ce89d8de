@@ -13,7 +13,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing endpoint parameter' });
   }
 
-  const LYTX_API_KEY = process.env.LYTX_API_KEY || 'diCeZd54DgkVzV2aPumlLG1qcZflO0GS';
+  // Support both server and vite-style envs
+  const LYTX_API_KEY = process.env.LYTX_API_KEY || process.env.VITE_LYTX_API_KEY || 'diCeZd54DgkVzV2aPumlLG1qcZflO0GS';
   const LYTX_BASE_URL = 'https://lytx-api.prod7.lv.lytx.com';
 
   try {
