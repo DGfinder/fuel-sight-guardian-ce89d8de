@@ -155,10 +155,17 @@ export function useSmartFillSummary() {
     };
   }
 
-  const allTanks = locations.flatMap(location => location.tanks || []);
+  const allTanks = locations.flatMap(location => {
+    if (Array.isArray(location.tanks)) {
+      return location.tanks;
+    }
+    console.warn('[SMARTFILL] Location tanks is not an array:', location.tanks);
+    return [];
+  });
+  
   const fillPercentages = allTanks
-    .map(tank => tank.latest_volume_percent)
-    .filter(percentage => percentage !== null && percentage !== undefined);
+    .map(tank => tank?.latest_volume_percent)
+    .filter(percentage => percentage !== null && percentage !== undefined && typeof percentage === 'number');
   
   const averageFillPercentage = fillPercentages.length > 0 
     ? fillPercentages.reduce((sum, percentage) => sum + percentage, 0) / fillPercentages.length

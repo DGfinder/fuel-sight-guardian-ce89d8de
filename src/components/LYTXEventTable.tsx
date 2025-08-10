@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Filter, Eye, Edit, UserCheck, X, AlertTriangle, Calendar, MapPin, User, Download, RefreshCw, ExternalLink, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { useLytxSafetyEvents, useLytxReferenceData, useLytxRefreshData } from '@/hooks/useLytxData';
 import { lytxDataTransformer } from '@/services/lytxDataTransform';
+import { formatPerthDisplay } from '@/utils/timezone';
 
 interface LYTXEvent {
   eventId: string;
@@ -298,11 +299,7 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
           driver: selectedDriver,
           employeeId: selectedDriver.split(' ').map(n => n.charAt(0)).join('.') + '.' + selectedDriver.split(' ').slice(-1)[0],
           status: 'Face-To-Face' as const,
-          assignedDate: new Date().toLocaleDateString('en-US', { 
-            month: 'numeric', 
-            day: 'numeric', 
-            year: '2-digit' 
-          }),
+          assignedDate: formatPerthDisplay(new Date()).split(' ')[0],
           reviewedBy: 'Safety Manager'
         };
       }

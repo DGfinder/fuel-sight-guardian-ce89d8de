@@ -282,20 +282,24 @@ export async function fetchSmartFillTankData(
       );
     
     // Validate the response structure
-    if (!result || !result.columns || !Array.isArray(result.values)) {
+    if (!result || !Array.isArray(result.columns) || !Array.isArray(result.values)) {
       const error = 'Invalid SmartFill API response: expected columns and values arrays';
       updateAPIHealth(false, error);
       throw new Error(error);
     }
     
-      // Transform column/value arrays into objects
-      const tankReadings: SmartFillTankReading[] = result.values.map((row: any[]) => {
-        const reading: any = {};
-        result.columns.forEach((column: string, index: number) => {
-          reading[column] = row[index];
+      // Transform column/value arrays into objects with safe array handling
+      const tankReadings: SmartFillTankReading[] = result.values
+        .filter((row: any) => Array.isArray(row))
+        .map((row: any[]) => {
+          const reading: any = {};
+          result.columns.forEach((column: string, index: number) => {
+            if (index < row.length) {
+              reading[column] = row[index];
+            }
+          });
+          return reading as SmartFillTankReading;
         });
-        return reading as SmartFillTankReading;
-      });
       
       // Cache the successful result with smart TTL
       const smartTTL = calculateSmartTTL('SMARTFILL_API', 'high'); // High access pattern for tank data

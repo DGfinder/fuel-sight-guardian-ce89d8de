@@ -15,6 +15,7 @@ import EditDipModal from './modals/EditDipModal';
 import { markTankServiced, unmarkTankServiced, supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTankModal } from '@/contexts/TankModalContext';
+import { formatPerthRelativeTime, formatPerthDisplay } from '@/utils/timezone';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
@@ -135,14 +136,8 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
               : '—'}</span>
             <span>Last Dip:</span>
             <span className="text-right">
-              {lastDipTs
-                ? lastDipTs.toLocaleDateString('en-AU', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })
+              {tank.last_dip?.created_at
+                ? formatPerthRelativeTime(tank.last_dip.created_at)
                 : '—'}
               {isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}
             </span>
@@ -220,14 +215,8 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
             </td>
             <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>
             <td className="px-3 py-2 text-center">
-              {lastDipTs
-                ? lastDipTs.toLocaleDateString('en-AU', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })
+              {tank.last_dip?.created_at
+                ? formatPerthRelativeTime(tank.last_dip.created_at)
                 : '—'}
               {isDipOld && <AlertTriangle className="inline ml-1 text-red-500" size={16} />}
             </td>

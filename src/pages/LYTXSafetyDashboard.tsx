@@ -5,6 +5,7 @@ import LYTXEventTable from '@/components/LYTXEventTable';
 import LytxConnectionTest from '@/components/LytxConnectionTest';
 import { useLytxDashboardData } from '@/hooks/useLytxData';
 import { lytxDataTransformer } from '@/services/lytxDataTransform';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface LYTXEvent {
   eventId: string;
@@ -822,4 +823,31 @@ const LYTXSafetyDashboard: React.FC = () => {
   );
 };
 
-export default LYTXSafetyDashboard;
+// Wrap with ErrorBoundary for better error handling
+const LYTXSafetyDashboardWithErrorBoundary: React.FC = () => (
+  <ErrorBoundary 
+    fallback={({ error, resetError }) => (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-800 mb-2">
+            <AlertTriangle className="w-5 h-5" />
+            <h3 className="font-semibold">LYTX Dashboard Error</h3>
+          </div>
+          <p className="text-red-700 mb-4">
+            Failed to load LYTX safety data. This may be due to API connectivity issues or data processing errors.
+          </p>
+          <button 
+            onClick={resetError}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+          >
+            Retry Loading
+          </button>
+        </div>
+      </div>
+    )}
+  >
+    <LYTXSafetyDashboard />
+  </ErrorBoundary>
+);
+
+export default LYTXSafetyDashboardWithErrorBoundary;

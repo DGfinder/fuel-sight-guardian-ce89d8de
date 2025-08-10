@@ -115,10 +115,14 @@ export const useLytxReferenceData = () => {
   // Initialize transformer when all reference data is loaded
   useEffect(() => {
     if (statusesQuery.data && triggersQuery.data && behaviorQuery.data) {
+      const statusesData = Array.isArray(statusesQuery.data.data) ? statusesQuery.data.data : [];
+      const triggersData = Array.isArray(triggersQuery.data.data) ? triggersQuery.data.data : [];
+      const behaviorData = Array.isArray(behaviorQuery.data.data) ? behaviorQuery.data.data : [];
+      
       lytxDataTransformer.initializeReferenceMaps(
-        statusesQuery.data.data,
-        triggersQuery.data.data,
-        behaviorQuery.data.data,
+        statusesData,
+        triggersData,
+        behaviorData,
         [] // Vehicles will be loaded separately
       );
     }

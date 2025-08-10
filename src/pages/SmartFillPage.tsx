@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,16 +96,20 @@ const SmartFillPage = () => {
 
   // Get all tanks with location info for filtering and sorting
   const allTanks = useMemo(() => {
-    if (!locations) return [];
+    if (!locations || !Array.isArray(locations)) return [];
     
-    return locations.flatMap(location => 
-      (location.tanks || []).map(tank => ({
+    return locations.flatMap(location => {
+      if (!Array.isArray(location.tanks)) {
+        console.warn('[SMARTFILL PAGE] Location tanks is not an array:', location.tanks);
+        return [];
+      }
+      return location.tanks.map(tank => ({
         ...tank,
         customer_name: location.customer_name,
         unit_number: location.unit_number,
         location: location
-      }))
-    );
+      }));
+    });
   }, [locations]);
 
   // Get unique customers for filter dropdown
@@ -1356,4 +1361,31 @@ const SmartFillPage = () => {
   );
 };
 
-export default SmartFillPage;
+// Wrap with ErrorBoundary for better error handling
+const SmartFillPageWithErrorBoundary: React.FC = () => (
+  <ErrorBoundary 
+    fallback={({ error, resetError }) => (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-800 mb-2">
+            <AlertTriangle className="w-5 h-5" />
+            <h3 className="font-semibold">SmartFill Dashboard Error</h3>
+          </div>
+          <p className="text-red-700 mb-4">
+            Failed to load SmartFill tank data. This may be due to API connectivity issues or data processing errors.
+          </p>
+          <button 
+            onClick={resetError}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+          >
+            Retry Loading
+          </button>
+        </div>
+      </div>
+    )}
+  >
+    <SmartFillPage />
+  </ErrorBoundary>
+);
+
+export default SmartFillPageWithErrorBoundary;

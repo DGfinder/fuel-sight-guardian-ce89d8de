@@ -168,13 +168,19 @@ export function useAgbotSummary() {
     };
   }
 
-  const allAssets = locations.flatMap(location => location.assets || []);
-  const onlineAssets = allAssets.filter(asset => asset.device_online);
+  const allAssets = locations.flatMap(location => {
+    if (Array.isArray(location.assets)) {
+      return location.assets;
+    }
+    console.warn('[AGBOT] Location assets is not an array:', location.assets);
+    return [];
+  });
+  const onlineAssets = allAssets.filter(asset => asset?.device_online);
   
   // Enhanced calculations
   const fillPercentages = allAssets
-    .map(asset => asset.latest_calibrated_fill_percentage)
-    .filter(percentage => percentage !== null && percentage !== undefined);
+    .map(asset => asset?.latest_calibrated_fill_percentage)
+    .filter(percentage => percentage !== null && percentage !== undefined && typeof percentage === 'number');
   
   const averageFillPercentage = fillPercentages.length > 0 
     ? fillPercentages.reduce((sum, percentage) => sum + percentage, 0) / fillPercentages.length
@@ -398,9 +404,11 @@ export function useFilteredAgbotLocations(filters: {
 
     // Filter by low fuel (if location or any asset has <20%)
     if (filters.lowFuelOnly) {
-      const hasLowFuel = location.latest_calibrated_fill_percentage < 20 ||
-        (location.assets || []).some(asset => asset.latest_calibrated_fill_percentage < 20);
-      if (!hasLowFuel) {
+      const locationHasLowFuel = location.latest_calibrated_fill_percentage < 20;
+      const assetsArray = Array.isArray(location.assets) ? location.assets : [];
+      const assetsHaveLowFuel = assetsArray.some(asset => asset?.latest_calibrated_fill_percentage < 20);
+      
+      if (!locationHasLowFuel && !assetsHaveLowFuel) {
         return false;
       }
     }
