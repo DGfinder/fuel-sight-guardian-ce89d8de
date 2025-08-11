@@ -8,7 +8,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   TrendingUp, TrendingDown, AlertTriangle, Users, Shield, 
   BarChart3, Calendar, MapPin, Target, Award, Clock, 
-  Download, Filter, Refresh, Eye, ChevronRight, Activity,
+  Download, Filter, RefreshCw, Eye, ChevronRight, Activity,
   Car, UserCheck, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { 
@@ -122,7 +122,7 @@ export const LytxHistoricalDashboard: React.FC<LytxHistoricalDashboardProps> = (
           onClick={() => window.location.reload()} 
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          <Refresh className="h-4 w-4 inline mr-2" />
+          <RefreshCw className="h-4 w-4 inline mr-2" />
           Retry
         </button>
       </div>
@@ -144,7 +144,7 @@ export const LytxHistoricalDashboard: React.FC<LytxHistoricalDashboardProps> = (
                 onClick={() => window.location.reload()}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
               >
-                <Refresh className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
                 Refresh
               </button>
               <button
