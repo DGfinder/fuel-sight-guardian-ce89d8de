@@ -269,8 +269,10 @@ const StevemacsSafetyDashboard: React.FC = () => {
           </ResponsiveContainer>
         </div>
       </div>
+      )}
 
       {/* Performance Analysis */}
+      {events.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Top Drivers Performance */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-blue-100">
@@ -304,8 +306,10 @@ const StevemacsSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Safety Focus Areas */}
+      {events.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Top Safety Triggers */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-blue-100">
