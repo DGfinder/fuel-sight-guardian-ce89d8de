@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { lytxApi, lytxQueryKeys, LytxSafetyEvent } from '@/services/lytxApi';
 import { lytxDataTransformer, LYTXEvent } from '@/services/lytxDataTransform';
 import { useEffect, useMemo } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
 // Hook for safety events with transformation
 export const useLytxSafetyEvents = (params: {
@@ -260,6 +261,40 @@ export const useLytxRealTimeEvents = (intervalMs: number = 30000) => {
     refetchIntervalInBackground: false,
     staleTime: 0, // Always consider stale for real-time
     gcTime: 1 * 60 * 1000, // 1 minute cache
+  });
+};
+
+// Historical export hook using server aggregation to fetch many pages
+export const useLytxHistoricalExport = (params: {
+  startDate: string;
+  endDate: string;
+  pageSize?: number;
+  maxPages?: number;
+  enabled?: boolean;
+}) => {
+  const { enabled = true, ...body } = params;
+  return useQuery({
+    queryKey: ['lytx', 'export', body],
+    queryFn: async () => {
+      const resp = await fetch('/api/lytx-export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Export failed: ${resp.status} ${text}`);
+      }
+      const data = await resp.json();
+      return {
+        events: lytxDataTransformer.transformSafetyEvents(data.data),
+        total: data.total,
+        pageCount: data.pageCount,
+      };
+    },
+    enabled,
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
   });
 };
 

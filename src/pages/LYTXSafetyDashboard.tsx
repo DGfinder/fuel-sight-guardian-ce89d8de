@@ -25,73 +25,6 @@ interface LYTXEvent {
   excluded?: boolean;
 }
 
-// Sample data based on 365-day LYTX export analysis
-const mockLYTXEvents: LYTXEvent[] = [
-  {
-    eventId: 'AAQZB23038',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Kewdale',
-    vehicle: '1ILI310',
-    device: 'QM40999887',
-    date: '8/3/25',
-    time: '6:31:52 PM',
-    score: 0,
-    status: 'New',
-    trigger: 'Lens Obstruction',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Stevemacs'
-  },
-  {
-    eventId: 'AAQZB09348',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Geraldton',
-    vehicle: '1GLD510',
-    device: 'MV00252104',
-    date: '8/3/25',
-    time: '4:49:47 PM',
-    score: 0,
-    status: 'New',
-    trigger: 'Food or Drink',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Great Southern Fuels'
-  },
-  {
-    eventId: 'AAQYA94405',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Kalgoorlie',
-    vehicle: '1GSF248',
-    device: 'QM40025388',
-    date: '8/3/25',
-    time: '2:54:45 PM',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Handheld Device',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Great Southern Fuels'
-  },
-  {
-    eventId: 'AAQYF72979',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Kewdale',
-    vehicle: '1IFJ910',
-    device: 'QM40999881',
-    date: '7/31/25',
-    time: '2:02:29 PM',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Driver Tagged',
-    behaviors: 'Driver Tagged',
-    eventType: 'Driver Tagged',
-    carrier: 'Stevemacs'
-  }
-];
 
 // Generate enhanced monthly trend data with fleet breakdown
 const generateMonthlyData = (events: LYTXEvent[]) => {
@@ -157,17 +90,17 @@ const LYTXSafetyDashboard: React.FC = () => {
   // Fetch dashboard data from API
   const dashboardData = useLytxDashboardData(apiDateRange);
 
-  // Use API data or fallback to mock data
+  // Use API data only - no fallback to mock data
   const allEvents = useMemo(() => {
     const apiEvents = dashboardData.events.data?.events;
-    if (Array.isArray(apiEvents) && apiEvents.length > 0) {
+    if (Array.isArray(apiEvents)) {
       return apiEvents;
     }
     const directData = dashboardData.events.data as any;
-    if (Array.isArray(directData) && directData.length > 0) {
+    if (Array.isArray(directData)) {
       return directData;
     }
-    return mockLYTXEvents;
+    return [];
   }, [dashboardData.events.data]);
 
   // Filter events based on selected carrier
@@ -312,7 +245,7 @@ const LYTXSafetyDashboard: React.FC = () => {
                 <h3 className="text-sm font-medium text-red-800">API Connection Failed</h3>
                 <p className="text-sm text-red-700">
                   {dashboardData.error?.message || 'Unable to connect to Lytx API'}. 
-                  Showing demo data instead.
+                  No data available.
                 </p>
               </div>
               <button 
@@ -334,9 +267,10 @@ const LYTXSafetyDashboard: React.FC = () => {
 
         {/* Data Source Info */}
         <div className="mb-4 text-sm text-gray-600">
-          {dashboardData.events.data ? 
+          {dashboardData.events.data && allEvents.length > 0 ? 
             `Showing live data from ${apiDateRange.startDate} to ${apiDateRange.endDate} • ${allEvents.length} total events` :
-            'Showing demo data (API connection failed)'
+            dashboardData.isError ? 'No data available (API connection failed)' :
+            dashboardData.isLoading ? 'Loading data...' : 'No events found for selected date range'
           }
         </div>
 
@@ -365,7 +299,37 @@ const LYTXSafetyDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Empty State */}
+      {!dashboardData.isLoading && allEvents.length === 0 && (
+        <div className="bg-white p-12 rounded-lg shadow-md text-center">
+          <WifiOff className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Safety Events Found</h3>
+          <p className="text-gray-600 mb-6">
+            {dashboardData.isError 
+              ? 'Unable to connect to the LYTX API. Please check your connection and try again.'
+              : 'No safety events found for the selected date range and filters.'}
+          </p>
+          <div className="flex gap-4 justify-center">
+            <button 
+              onClick={() => dashboardData.events.refetch()}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry Connection
+            </button>
+            <button 
+              onClick={() => setShowConnectionTest(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              <Settings className="h-4 w-4" />
+              Check API Settings
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Key Metrics */}
+      {allEvents.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
@@ -382,7 +346,7 @@ const LYTXSafetyDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Coachable Events</p>
               <p className="text-2xl font-bold text-orange-600">{coachableEvents}</p>
-              <p className="text-xs text-gray-500">{((coachableEvents/totalEvents)*100).toFixed(1)}% of total</p>
+              <p className="text-xs text-gray-500">{totalEvents > 0 ? ((coachableEvents/totalEvents)*100).toFixed(1) : '0'}% of total</p>
             </div>
             <TrendingUp className="h-8 w-8 text-orange-500" />
           </div>
@@ -393,7 +357,7 @@ const LYTXSafetyDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Driver Tagged</p>
               <p className="text-2xl font-bold text-blue-600">{driverTaggedEvents}</p>
-              <p className="text-xs text-gray-500">{((driverTaggedEvents/totalEvents)*100).toFixed(1)}% of total</p>
+              <p className="text-xs text-gray-500">{totalEvents > 0 ? ((driverTaggedEvents/totalEvents)*100).toFixed(1) : '0'}% of total</p>
             </div>
             <Users className="h-8 w-8 text-blue-500" />
           </div>
@@ -403,7 +367,7 @@ const LYTXSafetyDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Resolution Rate</p>
-              <p className="text-2xl font-bold text-green-600">{((resolvedEvents/totalEvents)*100).toFixed(1)}%</p>
+              <p className="text-2xl font-bold text-green-600">{totalEvents > 0 ? ((resolvedEvents/totalEvents)*100).toFixed(1) : '0'}%</p>
               <p className="text-xs text-gray-500">{resolvedEvents} resolved</p>
             </div>
             <Calendar className="h-8 w-8 text-green-500" />
@@ -420,7 +384,7 @@ const LYTXSafetyDashboard: React.FC = () => {
                 {unassignedDrivers}
               </p>
               <p className="text-xs text-gray-500 mb-2">
-                {((unassignedDrivers/totalEvents)*100).toFixed(1)}% need review
+                {totalEvents > 0 ? ((unassignedDrivers/totalEvents)*100).toFixed(1) : '0'}% need review
               </p>
               {unassignedDrivers > 0 && (
                 <button 
@@ -444,8 +408,10 @@ const LYTXSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Charts Row */}
+      {allEvents.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Enhanced Monthly Trends with Fleet Breakdown */}
         <div className="bg-white p-6 rounded-lg shadow-md">
@@ -518,8 +484,10 @@ const LYTXSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Top Triggers and Carrier Actions */}
+      {allEvents.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Top Safety Triggers */}
         <div className="bg-white p-6 rounded-lg shadow-md">
@@ -570,8 +538,10 @@ const LYTXSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Event Types Analysis Table */}
+      {allEvents.length > 0 && (
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <div className="flex items-center gap-2 mb-6">
           <BarChart3 className="h-5 w-5 text-blue-600" />
@@ -662,8 +632,10 @@ const LYTXSafetyDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
 
       {/* Action Items */}
+      {allEvents.length > 0 && (
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold mb-4">Action Items & Tools</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -683,6 +655,7 @@ const LYTXSafetyDashboard: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* LYTX Event Management Table */}
       <div className="mt-8" data-testid="lytx-event-table">
