@@ -1,11 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, TrendingUp, Users, Calendar, Filter, Download, BarChart3, PieChart, Loader2, WifiOff, Settings, RefreshCw, X, Upload } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Users, Calendar, Filter, Download, BarChart3, PieChart, Loader2, WifiOff, Settings, RefreshCw, X, Upload, Database, History } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
 import LYTXEventTable from '@/components/LYTXEventTable';
 import LytxConnectionTest from '@/components/LytxConnectionTest';
 import LytxCsvImportModal from '@/components/LytxCsvImportModal';
-import { useLytxDashboardData } from '@/hooks/useLytxData';
-import { lytxDataTransformer } from '@/services/lytxDataTransform';
+import LytxHistoricalDashboard from '@/components/LytxHistoricalDashboard';
+import { LytxAnalyticsCharts } from '@/components/LytxAnalyticsCharts';
+import { 
+  useLytxHistoricalEvents,
+  useLytxSummaryStats, 
+  useLytxMonthlyTrends,
+  useDateRanges,
+  type LytxAnalyticsFilters 
+} from '@/hooks/useLytxHistoricalData';
+import { LytxAnalyticsService } from '@/services/lytxAnalyticsService';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useToast } from '@/hooks/use-toast';
 
@@ -79,41 +87,64 @@ const generateMonthlyData = (events: LYTXEvent[]) => {
 const LYTXSafetyDashboard: React.FC = () => {
   const { toast } = useToast();
   const [selectedCarrier, setSelectedCarrier] = useState<'All' | 'Stevemacs' | 'Great Southern Fuels'>('All');
-  const [dateRange, setDateRange] = useState('30');
+  const [dateRange, setDateRange] = useState('allTime');
   const [showConnectionTest, setShowConnectionTest] = useState(false);
   const [selectedTrigger, setSelectedTrigger] = useState<string | null>(null);
   const [showTriggerModal, setShowTriggerModal] = useState(false);
   const [showCsvImportModal, setShowCsvImportModal] = useState(false);
+  const [dashboardMode, setDashboardMode] = useState<'enhanced' | 'legacy'>('enhanced');
 
-  // Get date range for API calls
-  const apiDateRange = useMemo(() => {
-    const days = parseInt(dateRange);
-    return lytxDataTransformer.createDateRange(days);
-  }, [dateRange]);
+  const dateRanges = useDateRanges();
 
-  // Fetch dashboard data from API
-  const dashboardData = useLytxDashboardData(apiDateRange);
+  // Create filters for historical data
+  const filters: LytxAnalyticsFilters = useMemo(() => ({
+    carrier: selectedCarrier,
+    dateRange: dateRanges[dateRange as keyof typeof dateRanges],
+    status: 'All',
+    eventType: 'All',
+    driverAssigned: 'All',
+    excluded: false
+  }), [selectedCarrier, dateRange, dateRanges]);
 
-  // Use API data only - no fallback to mock data
+  // Fetch historical data from database
+  const historyEvents = useLytxHistoricalEvents(filters);
+  const summaryStats = useLytxSummaryStats(filters);
+  const monthlyTrends = useLytxMonthlyTrends(filters);
+
+  // Convert historical data to legacy format for compatibility
   const allEvents = useMemo(() => {
-    const apiEvents = dashboardData.events.data?.events;
-    if (Array.isArray(apiEvents)) {
-      return apiEvents;
-    }
-    const directData = dashboardData.events.data as any;
-    if (Array.isArray(directData)) {
-      return directData;
-    }
-    return [];
-  }, [dashboardData.events.data]);
+    if (!historyEvents.data) return [];
+    
+    return historyEvents.data.map(event => ({
+      eventId: event.event_id,
+      driver: event.driver_name,
+      employeeId: event.employee_id || '',
+      group: event.group_name,
+      vehicle: event.vehicle_registration || '',
+      device: event.device_serial,
+      date: new Date(event.event_datetime).toLocaleDateString(),
+      time: new Date(event.event_datetime).toLocaleTimeString(),
+      score: event.score,
+      status: event.status,
+      trigger: event.trigger,
+      behaviors: event.behaviors || '',
+      eventType: event.event_type,
+      carrier: event.carrier,
+      excluded: event.excluded
+    }));
+  }, [historyEvents.data]);
 
-  // Filter events based on selected carrier
-  const filteredEvents = useMemo(() => {
-    return allEvents.filter(event => {
-      if (selectedCarrier === 'All') return true;
-      return event.carrier === selectedCarrier;
-    });
-  }, [allEvents, selectedCarrier]);
+  // Maintain legacy compatibility
+  const filteredEvents = allEvents;
+  const dashboardData = {
+    isLoading: historyEvents.isLoading,
+    isError: historyEvents.isError,
+    error: historyEvents.error,
+    events: {
+      data: allEvents,
+      refetch: historyEvents.refetch
+    }
+  };
 
   const monthlyData = useMemo(() => generateMonthlyData(filteredEvents), [filteredEvents]);
 
@@ -208,31 +239,67 @@ const LYTXSafetyDashboard: React.FC = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">LYTX Safety Dashboard</h1>
-              <p className="text-gray-600">Monitor safety events, driver performance, and compliance metrics</p>
-            </div>
-            {/* Loading/Connection Status */}
-            <div className="flex items-center gap-2">
-              {dashboardData.isLoading ? (
-                <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
-              ) : dashboardData.isError ? (
-                <WifiOff className="h-5 w-5 text-red-500" />
-              ) : (
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              )}
-              <span className={`text-sm ${dashboardData.isError ? 'text-red-600' : 'text-gray-500'}`}>
-                {dashboardData.isLoading ? 'Loading...' : 
-                 dashboardData.isError ? 'API Error' : 
-                 'Live Data'}
-              </span>
-            </div>
-          </div>
+      {/* Enhanced Dashboard Mode */}
+      {dashboardMode === 'enhanced' && (
+        <LytxHistoricalDashboard 
+          defaultCarrier={selectedCarrier}
+          defaultDateRange={filters.dateRange}
+          showTitle={true}
+        />
+      )}
+
+      {/* Legacy Dashboard Mode */}
+      {dashboardMode === 'legacy' && (
+        <>
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">LYTX Safety Dashboard</h1>
+                  <p className="text-gray-600">Historical analysis of {allEvents.length.toLocaleString()}+ stored safety events</p>
+                </div>
+                {/* Loading/Connection Status */}
+                <div className="flex items-center gap-2">
+                  {dashboardData.isLoading ? (
+                    <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                  ) : dashboardData.isError ? (
+                    <Database className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <Database className="h-5 w-5 text-green-500" />
+                  )}
+                  <span className={`text-sm ${dashboardData.isError ? 'text-red-600' : 'text-green-600'}`}>
+                    {dashboardData.isLoading ? 'Loading Historical Data...' : 
+                     dashboardData.isError ? 'Database Error' : 
+                     'Historical Data'}
+                  </span>
+                </div>
+              </div>
           <div className="flex gap-3">
+            {/* Dashboard Mode Toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setDashboardMode('enhanced')}
+                className={`px-3 py-1 text-sm rounded transition-colors ${
+                  dashboardMode === 'enhanced' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <History className="h-4 w-4 inline mr-1" />
+                Enhanced
+              </button>
+              <button
+                onClick={() => setDashboardMode('legacy')}
+                className={`px-3 py-1 text-sm rounded transition-colors ${
+                  dashboardMode === 'legacy' 
+                    ? 'bg-gray-600 text-white' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Legacy
+              </button>
+            </div>
             <button 
               onClick={() => setShowConnectionTest(!showConnectionTest)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
@@ -255,7 +322,33 @@ const LYTXSafetyDashboard: React.FC = () => {
               <RefreshCw className={`h-4 w-4 ${dashboardData.isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button 
+              onClick={async () => {
+                try {
+                  const blob = await LytxAnalyticsService.exportData({
+                    format: 'csv',
+                    includeCharts: false,
+                    includeRawData: true,
+                    filters
+                  });
+                  
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `lytx_safety_report_${new Date().toISOString().split('T')[0]}.csv`;
+                  link.click();
+                  URL.revokeObjectURL(url);
+                } catch (error) {
+                  console.error('Export failed:', error);
+                  toast({
+                    title: 'Export Failed',
+                    description: 'Unable to export safety report. Please try again.',
+                    variant: 'destructive'
+                  });
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
               <Download className="h-4 w-4" />
               Export Report
             </button>
@@ -292,12 +385,17 @@ const LYTXSafetyDashboard: React.FC = () => {
         )}
 
         {/* Data Source Info */}
-        <div className="mb-4 text-sm text-gray-600">
-          {dashboardData.events.data && allEvents.length > 0 ? 
-            `Showing live data from ${apiDateRange.startDate} to ${apiDateRange.endDate} • ${allEvents.length} total events` :
-            dashboardData.isError ? 'No data available (API connection failed)' :
-            dashboardData.isLoading ? 'Loading data...' : 'No events found for selected date range'
-          }
+        <div className="mb-4 text-sm text-gray-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-blue-600" />
+            <span>
+              {dashboardData.events.data && allEvents.length > 0 ? 
+                `Historical database analysis • ${allEvents.length.toLocaleString()} events across 17+ months (Jan 2024 - Aug 2025)` :
+                dashboardData.isError ? 'Database connection failed' :
+                dashboardData.isLoading ? 'Loading historical data...' : 'No events found for selected filters'
+              }
+            </span>
+          </div>
         </div>
 
         {/* Filters */}
@@ -317,10 +415,13 @@ const LYTXSafetyDashboard: React.FC = () => {
             onChange={(e) => setDateRange(e.target.value)}
             className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
           >
-            <option value="30">Last 30 Days</option>
-            <option value="90">Last 90 Days</option>
-            <option value="180">Last 180 Days</option>
-            <option value="365">Last 365 Days</option>
+            <option value="last30Days">Last 30 Days</option>
+            <option value="last90Days">Last 90 Days</option>
+            <option value="last6Months">Last 6 Months</option>
+            <option value="lastYear">Last Year</option>
+            <option value="year2024">2024 Full Year</option>
+            <option value="year2025">2025 YTD</option>
+            <option value="allTime">All Historical Data</option>
           </select>
         </div>
       </div>
@@ -691,6 +792,8 @@ const LYTXSafetyDashboard: React.FC = () => {
           carrierFilter={selectedCarrier}
         />
       </div>
+        </>
+      )}
 
       {/* Event Type Detail Modal */}
       {showTriggerModal && selectedTrigger && (
@@ -813,7 +916,7 @@ const LYTXSafetyDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* CSV Import Modal */}
+      {/* CSV Import Modal - Available in both modes */}
       <LytxCsvImportModal
         open={showCsvImportModal}
         onOpenChange={setShowCsvImportModal}
