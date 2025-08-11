@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, TrendingUp, Users, Calendar, Filter, Download, BarChart3, PieChart, Loader2, WifiOff, Settings, RefreshCw, X } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Users, Calendar, Filter, Download, BarChart3, PieChart, Loader2, WifiOff, Settings, RefreshCw, X, Upload } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
 import LYTXEventTable from '@/components/LYTXEventTable';
 import LytxConnectionTest from '@/components/LytxConnectionTest';
+import LytxCsvImportModal from '@/components/LytxCsvImportModal';
 import { useLytxDashboardData } from '@/hooks/useLytxData';
 import { lytxDataTransformer } from '@/services/lytxDataTransform';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useToast } from '@/hooks/use-toast';
 
 interface LYTXEvent {
   eventId: string;
@@ -75,11 +77,13 @@ const generateMonthlyData = (events: LYTXEvent[]) => {
 };
 
 const LYTXSafetyDashboard: React.FC = () => {
+  const { toast } = useToast();
   const [selectedCarrier, setSelectedCarrier] = useState<'All' | 'Stevemacs' | 'Great Southern Fuels'>('All');
   const [dateRange, setDateRange] = useState('30');
   const [showConnectionTest, setShowConnectionTest] = useState(false);
   const [selectedTrigger, setSelectedTrigger] = useState<string | null>(null);
   const [showTriggerModal, setShowTriggerModal] = useState(false);
+  const [showCsvImportModal, setShowCsvImportModal] = useState(false);
 
   // Get date range for API calls
   const apiDateRange = useMemo(() => {
@@ -187,6 +191,21 @@ const LYTXSafetyDashboard: React.FC = () => {
       };
     });
 
+  // Handle CSV import completion
+  const handleCsvImportComplete = (result: { imported: number; duplicates: number; failed: number }) => {
+    setShowCsvImportModal(false);
+    
+    // Refresh the dashboard data to include newly imported events
+    dashboardData.events.refetch();
+    
+    // Show success toast
+    toast({
+      title: 'CSV Import Completed',
+      description: `${result.imported} events imported successfully. ${result.duplicates} duplicates skipped.${result.failed > 0 ? ` ${result.failed} events failed to import.` : ''}`,
+      variant: result.failed > 0 ? 'destructive' : 'default',
+    });
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -220,6 +239,13 @@ const LYTXSafetyDashboard: React.FC = () => {
             >
               <Settings className="h-4 w-4" />
               API Settings
+            </button>
+            <button 
+              onClick={() => setShowCsvImportModal(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-purple-300 text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100"
+            >
+              <Upload className="h-4 w-4" />
+              Import CSV
             </button>
             <button 
               onClick={() => dashboardData.events.refetch()}
@@ -786,6 +812,14 @@ const LYTXSafetyDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* CSV Import Modal */}
+      <LytxCsvImportModal
+        open={showCsvImportModal}
+        onOpenChange={setShowCsvImportModal}
+        onImportComplete={handleCsvImportComplete}
+        userId="current-user" // TODO: Get actual user ID from auth context
+      />
     </div>
   );
 };
