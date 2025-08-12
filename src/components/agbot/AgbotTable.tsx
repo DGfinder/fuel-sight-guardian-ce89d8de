@@ -95,10 +95,14 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
     const mainAsset = location.assets?.[0];
     const deviceOnline = mainAsset?.device_online ?? false;
 
-    if (isOnline && deviceOnline) {
-      return <Badge className="bg-green-500 text-white">Online</Badge>;
+    // Check if we have recent data (within 2 hours)
+    const hasRecentData = location.latest_telemetry ? 
+      (new Date().getTime() - new Date(location.latest_telemetry).getTime()) < (2 * 60 * 60 * 1000) : false;
+
+    if (isOnline && deviceOnline && hasRecentData) {
+      return <Badge className="bg-green-500 text-white">Reliable</Badge>;
     } else {
-      return <Badge variant="secondary">Offline</Badge>;
+      return <Badge variant="destructive">Unreliable</Badge>;
     }
   };
 

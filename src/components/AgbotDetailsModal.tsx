@@ -224,17 +224,38 @@ export default function AgbotDetailsModal() {
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-blue-600">
-                          {analytics.rolling_avg_pct_per_day.toFixed(2)}%
+                          {(() => {
+                            // Estimate tank capacity based on common fuel tank sizes (50,000L average)
+                            const estimatedCapacity = 50000; // litres - can be improved with actual capacity data
+                            const dailyLitres = (analytics.rolling_avg_pct_per_day / 100) * estimatedCapacity;
+                            return dailyLitres >= 1 ? `${dailyLitres.toFixed(0)}L` : `${analytics.rolling_avg_pct_per_day.toFixed(2)}%`;
+                          })()}
                         </div>
-                        <div className="text-sm text-muted-foreground">Daily Consumption Rate</div>
-                        <div className="text-xs text-gray-500 mt-1">percentage points per day</div>
+                        <div className="text-sm text-muted-foreground">Daily Consumption</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {(() => {
+                            const estimatedCapacity = 50000;
+                            const dailyLitres = (analytics.rolling_avg_pct_per_day / 100) * estimatedCapacity;
+                            return dailyLitres >= 1 ? 'estimated litres per day' : 'percentage points per day';
+                          })()}
+                        </div>
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-bold text-purple-600">
-                          {analytics.prev_day_pct_used.toFixed(2)}%
+                          {(() => {
+                            const estimatedCapacity = 50000;
+                            const yesterdayLitres = (analytics.prev_day_pct_used / 100) * estimatedCapacity;
+                            return yesterdayLitres >= 1 ? `${yesterdayLitres.toFixed(0)}L` : `${analytics.prev_day_pct_used.toFixed(2)}%`;
+                          })()}
                         </div>
                         <div className="text-sm text-muted-foreground">Yesterday's Usage</div>
-                        <div className="text-xs text-gray-500 mt-1">percentage points consumed</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {(() => {
+                            const estimatedCapacity = 50000;
+                            const yesterdayLitres = (analytics.prev_day_pct_used / 100) * estimatedCapacity;
+                            return yesterdayLitres >= 1 ? 'estimated litres consumed' : 'percentage points consumed';
+                          })()}
+                        </div>
                       </div>
                       <div className="text-center">
                         <div className={`text-2xl font-bold ${
@@ -397,15 +418,85 @@ export default function AgbotDetailsModal() {
                 )}
               </>
             ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Analytics Available</h3>
-                  <p className="text-gray-600">
-                    Insufficient historical data to generate analytics. Data collection needs at least 2 days of readings.
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                {/* Show available current data even when analytics aren't available */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Info className="h-5 w-5" />
+                      Current Status & Available Data
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className={`text-3xl font-bold ${percentageColor}`}>
+                          {percentage !== null && percentage !== undefined 
+                            ? `${percentage.toFixed(1)}%` 
+                            : 'No Data'
+                          }
+                        </div>
+                        <div className="text-sm text-muted-foreground">Current Fuel Level</div>
+                        <div className="text-xs text-gray-500 mt-1">calibrated reading</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-medium">
+                          {formatTimestamp(selectedLocation.latest_telemetry)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Last Reading</div>
+                        {selectedLocation.latest_telemetry && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {new Date(selectedLocation.latest_telemetry).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {mainAsset && (
+                      <div className="border-t pt-4">
+                        <h4 className="font-medium mb-2">Device Information</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Device:</span>
+                            <div className="font-medium">{mainAsset.device_sku_name || 'Unknown'}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Status:</span>
+                            <div className={`font-medium ${mainAsset.device_online ? 'text-green-600' : 'text-red-600'}`}>
+                              {mainAsset.device_online ? 'Reliable' : 'Unreliable'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Serial:</span>
+                            <div className="font-medium">{mainAsset.device_serial_number || 'Unknown'}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Raw Reading:</span>
+                            <div className="font-medium">
+                              {mainAsset.latest_raw_fill_percentage !== null && mainAsset.latest_raw_fill_percentage !== undefined 
+                                ? `${mainAsset.latest_raw_fill_percentage.toFixed(1)}%` 
+                                : 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <AlertTriangle className="h-10 w-10 text-amber-400 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Analytics Unavailable</h3>
+                    <p className="text-gray-600 text-sm">
+                      Historical analytics require at least 2 days of readings. Data collection is ongoing and analytics will be available once sufficient data is collected.
+                    </p>
+                    <div className="mt-3 text-xs text-gray-500">
+                      Check the History tab to see available raw data points.
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </TabsContent>
 

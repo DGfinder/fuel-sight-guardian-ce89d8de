@@ -213,10 +213,30 @@ export function formatTimestamp(timestamp: string | null): string {
   try {
     const date = new Date(timestamp);
     const now = new Date();
+    
+    // Check if date is invalid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    // Handle future dates (clock sync issues)
+    if (diffMs < 0) {
+      const futureMins = Math.floor(Math.abs(diffMs) / (1000 * 60));
+      const futureHours = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60));
+      
+      if (futureMins < 5) {
+        return 'Just now'; // Small clock differences
+      } else if (futureMins < 60) {
+        return 'Clock sync issue';
+      } else {
+        return 'Clock sync issue';
+      }
+    }
 
     if (diffMins < 1) {
       return 'Just now';
