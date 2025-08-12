@@ -376,16 +376,24 @@ async function transformSmartFillLocationData(
   let latitude: number | null = null;
   let longitude: number | null = null;
 
-  // Attempt geocoding if enabled
+  // Attempt geocoding if enabled (with improved error handling)
   if (enableGeocoding) {
     try {
       console.log(`[SMARTFILL GEOCODING] Attempting to geocode location: ${customerName} - ${description}`);
       
-      const geocodingResult = await geocodeSmartFillLocation(
+      // Add timeout to prevent hanging
+      const geocodingPromise = geocodeSmartFillLocation(
         customerName,
         description,
         unitNumber
       );
+      
+      // Set a 15-second timeout for geocoding to prevent sync hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Geocoding timeout after 15 seconds')), 15000);
+      });
+      
+      const geocodingResult = await Promise.race([geocodingPromise, timeoutPromise]);
 
       if ('latitude' in geocodingResult && geocodingResult.confidence > 0.3) {
         // Only use results with reasonable confidence
@@ -400,7 +408,10 @@ async function transformSmartFillLocationData(
         console.warn(`[SMARTFILL GEOCODING] Low confidence or failed for ${customerName} Unit ${unitNumber}`);
       }
     } catch (error) {
-      console.error(`[SMARTFILL GEOCODING] Error geocoding ${customerName} Unit ${unitNumber}:`, error);
+      // Geocoding errors should not break the sync process
+      console.warn(`[SMARTFILL GEOCODING] Error geocoding ${customerName} Unit ${unitNumber}: ${error.message}`);
+      console.warn(`[SMARTFILL GEOCODING] Continuing sync without GPS coordinates for this location`);
+      // latitude and longitude remain null - this is acceptable
     }
   }
   
@@ -480,13 +491,15 @@ export async function syncSmartFillData(): Promise<SmartFillSyncResult> {
     // Process each customer
     for (const customer of customers) {
       try {
-        console.log(`\n🏢 Processing customer: ${customer.name}`);
+        console.log(`\n🏢 Processing customer: ${customer.name} (${customer.api_reference})`);
         
-        // Fetch tank data for this customer
-        const tankReadings = await fetchSmartFillTankData(
-          customer.api_reference, 
-          customer.api_secret
-        );
+        // Fetch tank data for this customer with timeout protection
+        const tankReadings = await Promise.race([
+          fetchSmartFillTankData(customer.api_reference, customer.api_secret),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Customer API timeout after 60 seconds')), 60000)
+          )
+        ]);
         
         if (tankReadings.length === 0) {
           console.log(`   ⚠️  No tank readings found for ${customer.name}`);
@@ -510,13 +523,14 @@ export async function syncSmartFillData(): Promise<SmartFillSyncResult> {
           try {
             console.log(`\n   📍 Processing Unit ${unitNumber} (${unitReadings.length} tanks)`);
             
-            // Upsert location (with geocoding enabled for new locations)
+            // Upsert location (geocoding disabled by default for stability)
+            // Enable geocoding only when explicitly needed to avoid sync failures
             const locationData = await transformSmartFillLocationData(
               customer.id, 
               customer.name, 
               unitNumber, 
               unitReadings,
-              true // Enable geocoding
+              false // Disable geocoding for now to ensure sync stability
             );
             
             const { data: location, error: locationError } = await supabase
@@ -609,9 +623,19 @@ export async function syncSmartFillData(): Promise<SmartFillSyncResult> {
         }
         
       } catch (customerError) {
-        const errorMsg = `Customer processing error for ${customer.name}: ${customerError}`;
+        const errorMsg = `Customer processing error for ${customer.name} (${customer.api_reference}): ${customerError.message || customerError}`;
         console.error(`   ❌ ${errorMsg}`);
+        console.error(`   🔍 Error details:`, {
+          customerName: customer.name,
+          apiReference: customer.api_reference,
+          errorType: customerError.constructor.name,
+          errorMessage: customerError.message,
+          stack: customerError.stack?.split('\n').slice(0, 3).join('\n') // First 3 lines of stack trace
+        });
         result.errors.push(errorMsg);
+        
+        // Continue processing other customers - don't let one failure break everything
+        continue;
       }
     }
 
@@ -857,4 +881,113 @@ export async function refreshSmartFillData(clientReference: string, clientSecret
   
   // Fetch fresh data (bypass cache)
   return await fetchSmartFillTankData(clientReference, clientSecret, true);
+}
+
+/**
+ * Add GPS coordinates to existing SmartFill locations using geocoding
+ * This can be run separately from the main sync to avoid disrupting data collection
+ */
+export async function geocodeSmartFillLocations(limitToCustomer?: string): Promise<{
+  success: boolean;
+  locationsProcessed: number;
+  geocodingSuccess: number;
+  errors: string[];
+}> {
+  const result = {
+    success: false,
+    locationsProcessed: 0,
+    geocodingSuccess: 0,
+    errors: []
+  };
+
+  console.log('\n🌍 SMARTFILL GEOCODING STARTED');
+  console.log('='.repeat(50));
+
+  try {
+    // Get locations that don't have GPS coordinates yet
+    const { data: locations, error } = await supabase
+      .from('smartfill_locations')
+      .select('*')
+      .or('latitude.is.null,longitude.is.null')
+      .order('customer_name, unit_number');
+
+    if (error) {
+      throw new Error(`Failed to fetch locations: ${error.message}`);
+    }
+
+    if (!locations || locations.length === 0) {
+      console.log('✅ All locations already have GPS coordinates');
+      result.success = true;
+      return result;
+    }
+
+    console.log(`📍 Found ${locations.length} locations without GPS coordinates`);
+
+    for (const location of locations) {
+      // Skip if filtering by customer
+      if (limitToCustomer && !location.customer_name.toLowerCase().includes(limitToCustomer.toLowerCase())) {
+        continue;
+      }
+
+      try {
+        console.log(`\n🔍 Geocoding: ${location.customer_name} - Unit ${location.unit_number}`);
+        result.locationsProcessed++;
+
+        const geocodingResult = await geocodeSmartFillLocation(
+          location.customer_name,
+          location.description || `Unit ${location.unit_number}`,
+          location.unit_number
+        );
+
+        if ('latitude' in geocodingResult && geocodingResult.confidence > 0.3) {
+          if (validateAustralianCoordinates(geocodingResult.latitude, geocodingResult.longitude)) {
+            // Update the location with GPS coordinates
+            const { error: updateError } = await supabase
+              .from('smartfill_locations')
+              .update({
+                latitude: geocodingResult.latitude,
+                longitude: geocodingResult.longitude,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', location.id);
+
+            if (updateError) {
+              console.error(`   ❌ Failed to update GPS: ${updateError.message}`);
+              result.errors.push(`Update failed for ${location.customer_name} Unit ${location.unit_number}: ${updateError.message}`);
+            } else {
+              console.log(`   ✅ GPS updated: ${geocodingResult.latitude}, ${geocodingResult.longitude} (confidence: ${geocodingResult.confidence.toFixed(2)})`);
+              result.geocodingSuccess++;
+            }
+          } else {
+            console.warn(`   ⚠️  Invalid coordinates: ${geocodingResult.latitude}, ${geocodingResult.longitude}`);
+          }
+        } else {
+          console.warn(`   ⚠️  Geocoding failed or low confidence`);
+        }
+
+        // Rate limiting - wait 1.5 seconds between requests to respect Nominatim limits
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+      } catch (locationError) {
+        console.error(`   ❌ Error processing ${location.customer_name}: ${locationError.message}`);
+        result.errors.push(`${location.customer_name} Unit ${location.unit_number}: ${locationError.message}`);
+      }
+    }
+
+    result.success = result.errors.length === 0;
+
+    console.log('\n📈 GEOCODING SUMMARY:');
+    console.log('-'.repeat(30));
+    console.log(`Status: ${result.success ? '✅ SUCCESS' : '⚠️  PARTIAL SUCCESS'}`);
+    console.log(`Locations processed: ${result.locationsProcessed}`);
+    console.log(`GPS coordinates added: ${result.geocodingSuccess}`);
+    console.log(`Errors: ${result.errors.length}`);
+
+    return result;
+
+  } catch (error) {
+    console.error('❌ Geocoding process failed:', error.message);
+    result.errors.push(`Geocoding process error: ${error.message}`);
+    return result;
+  }
 }
