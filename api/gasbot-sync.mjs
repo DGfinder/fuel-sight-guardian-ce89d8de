@@ -64,7 +64,8 @@ function transformLocationData(gasbotLocation) {
     installation_status_label: gasbotLocation.installationStatusLabel || 'Unknown',
     location_status: gasbotLocation.locationStatus || 0,
     location_status_label: gasbotLocation.locationStatusLabel || 'Unknown',
-    latest_telemetry_epoch: gasbotLocation.latestTelemetryEpoch || Date.now(),
+    latest_telemetry_epoch: gasbotLocation.latestTelemetryEpoch ? 
+      Math.floor(parseFloat(gasbotLocation.latestTelemetryEpoch)) : Date.now(),
     latest_telemetry: gasbotLocation.latestTelemetry || new Date().toISOString(),
     lat: gasbotLocation.lat || null,
     lng: gasbotLocation.lng || null,
@@ -95,7 +96,8 @@ function transformAssetData(gasbotAsset, locationId) {
     latest_calibrated_fill_percentage: gasbotAsset.latestCalibratedFillPercentage || 0,
     latest_raw_fill_percentage: gasbotAsset.latestRawFillPercentage || 0,
     latest_telemetry_event_timestamp: gasbotAsset.latestTelemetryEventTimestamp || new Date().toISOString(),
-    latest_telemetry_event_epoch: gasbotAsset.latestTelemetryEventEpoch || Date.now(),
+    latest_telemetry_event_epoch: gasbotAsset.latestTelemetryEventEpoch ? 
+      Math.floor(parseFloat(gasbotAsset.latestTelemetryEventEpoch)) : Date.now(),
     latest_reported_lat: gasbotAsset.latestReportedLat || null,
     latest_reported_lng: gasbotAsset.latestReportedLng || null,
     subscription_id: gasbotAsset.subscriptionId || '',
@@ -244,7 +246,8 @@ export default async function handler(req, res) {
                   raw_fill_percentage: assetData.latestRawFillPercentage || assetData.latestCalibratedFillPercentage,
                   reading_timestamp: assetData.latestTelemetryEventTimestamp || new Date().toISOString(),
                   device_online: assetData.deviceOnline || false,
-                  telemetry_epoch: assetData.latestTelemetryEventEpoch || Date.now(),
+                  telemetry_epoch: assetData.latestTelemetryEventEpoch ? 
+                    Math.floor(parseFloat(assetData.latestTelemetryEventEpoch)) : Date.now(),
                   raw_data: assetData
                 };
                 

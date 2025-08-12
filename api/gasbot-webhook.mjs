@@ -104,9 +104,10 @@ function transformGasbotLocationData(gasbotData) {
     installation_status_label: gasbotData.DeviceOnline ? 'Active' : 'Offline',
     location_status: gasbotData.DeviceOnline ? 1 : 0,
     location_status_label: gasbotData.DeviceOnline ? 'Active' : 'Offline',
-    latest_telemetry_epoch: gasbotData.LocationLastCalibratedTelemetryEpoch || 
+    latest_telemetry_epoch: gasbotData.LocationLastCalibratedTelemetryEpoch ? 
+      Math.floor(parseFloat(gasbotData.LocationLastCalibratedTelemetryEpoch)) : 
       (gasbotData.LocationLastCalibratedTelemetryTimestamp ? 
-        new Date(validateAndNormalizeTimestamp(gasbotData.LocationLastCalibratedTelemetryTimestamp, 'LocationLastCalibratedTelemetryTimestamp')).getTime() : Date.now()),
+        Math.floor(new Date(validateAndNormalizeTimestamp(gasbotData.LocationLastCalibratedTelemetryTimestamp, 'LocationLastCalibratedTelemetryTimestamp')).getTime()) : Date.now()),
     latest_telemetry: validateAndNormalizeTimestamp(
       gasbotData.LocationLastCalibratedTelemetryTimestamp || gasbotData.AssetLastCalibratedTelemetryTimestamp,
       'latest_telemetry'
@@ -160,9 +161,10 @@ function transformGasbotAssetData(gasbotData, locationId) {
     latest_telemetry_event_timestamp: validateAndNormalizeTimestamp(
       gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp'
     ),
-    latest_telemetry_event_epoch: gasbotData.AssetLastCalibratedTelemetryEpoch || 
+    latest_telemetry_event_epoch: gasbotData.AssetLastCalibratedTelemetryEpoch ? 
+      Math.floor(parseFloat(gasbotData.AssetLastCalibratedTelemetryEpoch)) : 
       (gasbotData.AssetLastCalibratedTelemetryTimestamp ? 
-        new Date(validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp')).getTime() : Date.now()),
+        Math.floor(new Date(validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp')).getTime()) : Date.now()),
     latest_reported_lat: parseFloat(gasbotData.AssetLatestReportedLat) || null,
     latest_reported_lng: parseFloat(gasbotData.AssetLatestReportedLng) || null,
     subscription_id: '',
@@ -348,9 +350,10 @@ export default async function handler(req, res) {
             'reading_timestamp'
           ),
           device_online: tankData.DeviceOnline || false,
-          telemetry_epoch: tankData.AssetLastCalibratedTelemetryEpoch || 
+          telemetry_epoch: tankData.AssetLastCalibratedTelemetryEpoch ? 
+            Math.floor(parseFloat(tankData.AssetLastCalibratedTelemetryEpoch)) : 
             (tankData.AssetLastCalibratedTelemetryTimestamp ? 
-              new Date(tankData.AssetLastCalibratedTelemetryTimestamp).getTime() : Date.now()),
+              Math.floor(new Date(tankData.AssetLastCalibratedTelemetryTimestamp).getTime()) : Date.now()),
           
           // New comprehensive reading fields
           asset_raw_fill_level: parseFloat(tankData.AssetRawFillLevel) || null,
