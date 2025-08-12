@@ -11,13 +11,16 @@ import {
   TrendingDown,
   Minus
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { 
   usePercentageColor, 
   usePercentageBackground, 
-  formatTimestamp 
+  formatTimestamp,
+  getDeviceOnlineStatus,
+  validateLocationData
 } from '@/hooks/useAgbotData';
 import { useAgbotModal } from '@/contexts/AgbotModalContext';
 import type { AgbotLocation } from '@/services/agbot-api';
@@ -33,25 +36,38 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
   
   // Use location-level percentage if available, otherwise use main asset
   const displayPercentage = location.latest_calibrated_fill_percentage ?? mainAsset?.latest_calibrated_fill_percentage;
-  const isOnline = location.location_status === 2 && (mainAsset?.device_online ?? false);
   const lastSeen = mainAsset?.latest_telemetry_event_timestamp || location.latest_telemetry;
+  
+  // Use new Perth-timezone-aware device status logic
+  const deviceStatus = getDeviceOnlineStatus(lastSeen);
+  const isOnline = deviceStatus.isOnline;
+  
+  // Data quality validation
+  const dataQuality = validateLocationData(location);
 
   // Get color classes
   const percentageColor = usePercentageColor(displayPercentage);
   const percentageBackground = usePercentageBackground(displayPercentage);
 
-  // Determine status icon and color
+  // Determine status icon and color based on device status and fuel level
   const getStatusIcon = () => {
-    if (!isOnline) {
+    if (deviceStatus.status === 'offline' || deviceStatus.status === 'no-data') {
       return <WifiOff className="h-4 w-4 text-red-500" />;
     }
+    if (deviceStatus.status === 'stale') {
+      return <Wifi className="h-4 w-4 text-yellow-500" />;
+    }
+    // Device is online, show signal strength based on fuel level
     if (displayPercentage && displayPercentage > 70) {
       return <SignalHigh className="h-4 w-4 text-green-500" />;
     }
     if (displayPercentage && displayPercentage > 30) {
       return <Signal className="h-4 w-4 text-yellow-500" />;
     }
-    return <SignalLow className="h-4 w-4 text-red-500" />;
+    if (displayPercentage && displayPercentage > 0) {
+      return <SignalLow className="h-4 w-4 text-red-500" />;
+    }
+    return <Wifi className="h-4 w-4 text-green-500" />; // Online but no fuel data
   };
 
   // Format address
@@ -80,18 +96,23 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
           <div className="flex items-center gap-1 ml-2">
             {getStatusIcon()}
             <Badge 
-              variant={isOnline ? "default" : "secondary"}
-              className="text-xs"
+              variant={deviceStatus.status === 'online' ? "default" : "secondary"}
+              className={`text-xs ${deviceStatus.colorClass}`}
             >
-              {isOnline ? 'Online' : 'Offline'}
+              {deviceStatus.displayText}
             </Badge>
+            {dataQuality.hasIssues && dataQuality.severity === 'high' && (
+              <Badge variant="destructive" className="text-xs ml-1">
+                ⚠️ Data Issues
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Main Percentage Display */}
-        <div className="text-center">
+        {/* Enhanced Fuel Level Display */}
+        <div className="text-center space-y-2">
           <div className={`text-4xl font-bold ${percentageColor}`}>
             {displayPercentage !== null && displayPercentage !== undefined 
               ? `${displayPercentage.toFixed(1)}%` 
@@ -99,6 +120,29 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
             }
           </div>
           <p className="text-sm text-muted-foreground">Current Fuel Level</p>
+          
+          {/* Volume and Capacity Information */}
+          {mainAsset && displayPercentage !== null && (
+            <div className="text-center">
+              <div className="text-lg font-semibold text-blue-600">
+                {(() => {
+                  const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
+                  const capacity = mainAsset.asset_refill_capacity_litres || 
+                                  (capacityFromName ? parseInt(capacityFromName) : 50000);
+                  const currentVolume = Math.round((displayPercentage / 100) * capacity);
+                  return `${currentVolume.toLocaleString()}L`;
+                })()}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                of {(() => {
+                  const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
+                  const capacity = mainAsset.asset_refill_capacity_litres || 
+                                  (capacityFromName ? parseInt(capacityFromName) : 50000);
+                  return capacity.toLocaleString();
+                })()}L capacity
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Progress Bar */}
@@ -129,21 +173,62 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
           </div>
         </div>
 
-        {/* Device Info */}
+        {/* Enhanced Technical Info */}
         {mainAsset && (
-          <div className="space-y-2 p-3 bg-muted rounded-lg">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Device Info</span>
-              <Badge variant="outline" className="text-xs">
-                {mainAsset.device_sku_name || 'Unknown Model'}
-              </Badge>
-            </div>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <div>Serial: {mainAsset.device_serial_number}</div>
-              {mainAsset.latest_raw_fill_percentage !== null && 
-               mainAsset.latest_raw_fill_percentage !== undefined && (
-                <div>Raw: {mainAsset.latest_raw_fill_percentage.toFixed(1)}%</div>
-              )}
+          <div className="space-y-3">
+            {/* Consumption Analytics */}
+            {(mainAsset.asset_daily_consumption || location.location_daily_consumption || mainAsset.asset_days_remaining) && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-800">Consumption</span>
+                  <TrendingDown className="h-4 w-4 text-blue-600" />
+                </div>
+                <div className="space-y-1 text-xs">
+                  {(mainAsset.asset_daily_consumption || location.location_daily_consumption) && (
+                    <div className="flex justify-between">
+                      <span className="text-blue-600">Daily Usage:</span>
+                      <span className="font-semibold text-blue-800">
+                        {(mainAsset.asset_daily_consumption || location.location_daily_consumption).toFixed(2)}L
+                      </span>
+                    </div>
+                  )}
+                  {mainAsset.asset_days_remaining && (
+                    <div className="flex justify-between">
+                      <span className="text-blue-600">Days Remaining:</span>
+                      <span className="font-semibold text-blue-800">{mainAsset.asset_days_remaining}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Device Technical Info */}
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Device Info</span>
+                <Badge variant="outline" className="text-xs">
+                  {mainAsset.device_sku_name || `Model ${mainAsset.device_sku_model || 'Unknown'}`}
+                </Badge>
+              </div>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Serial:</span>
+                  <span className="font-mono">{mainAsset.device_serial_number}</span>
+                </div>
+                {mainAsset.latest_raw_fill_percentage !== null && 
+                 mainAsset.latest_raw_fill_percentage !== undefined && (
+                  <div className="flex justify-between">
+                    <span>Raw Reading:</span>
+                    <span className="font-semibold">{mainAsset.latest_raw_fill_percentage.toFixed(1)}%</span>
+                  </div>
+                )}
+                {mainAsset.device_activation_date && (
+                  <div className="flex justify-between">
+                    <span>Activated:</span>
+                    <span>{format(new Date(mainAsset.device_activation_date), 'MMM yyyy')}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -155,17 +240,29 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
               {allAssets.length} devices at this location
             </span>
             <Badge variant="secondary" className="text-xs">
-              {allAssets.filter(asset => asset.device_online).length} online
+              {allAssets.filter(asset => getDeviceOnlineStatus(asset.latest_telemetry_event_timestamp).isOnline).length} online
             </Badge>
           </div>
         )}
 
-        {/* Last Seen */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Last reading:</span>
-          <span className={isOnline ? 'text-green-600' : 'text-red-600'}>
-            {formatTimestamp(lastSeen)}
-          </span>
+        {/* Last Seen with Data Quality Indicators */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Last reading:</span>
+            <span className={deviceStatus.colorClass}>
+              {deviceStatus.lastSeenText}
+            </span>
+          </div>
+          {dataQuality.hasIssues && (
+            <div className="text-xs text-orange-600 bg-orange-50 p-1 rounded">
+              <div className="font-medium">Data Quality Issues:</div>
+              <ul className="list-disc list-inside">
+                {dataQuality.issues.slice(0, 2).map((issue, index) => (
+                  <li key={index}>{issue}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Status Indicators */}

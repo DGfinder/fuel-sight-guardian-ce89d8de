@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Filter, Eye, Edit, UserCheck, X, AlertTriangle, Calendar, MapPin, User, Download, RefreshCw, ExternalLink, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { useLytxSafetyEvents, useLytxReferenceData, useLytxRefreshData } from '@/hooks/useLytxData';
 import { lytxDataTransformer } from '@/services/lytxDataTransform';
+import { formatPerthDisplay } from '@/utils/timezone';
 
 interface LYTXEvent {
   eventId: string;
@@ -25,119 +26,6 @@ interface LYTXEvent {
   reviewedBy?: string;
 }
 
-// Enhanced LYTX event data based on 365-day export
-const mockLYTXEvents: LYTXEvent[] = [
-  {
-    eventId: 'AAQZB23038',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Kewdale',
-    vehicle: '1ILI310',
-    device: 'QM40999887',
-    date: '8/3/25',
-    time: '6:31:52 PM',
-    timezone: 'AUW',
-    score: 0,
-    status: 'New',
-    trigger: 'Lens Obstruction',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Stevemacs'
-  },
-  {
-    eventId: 'AAQZB09348',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Geraldton',
-    vehicle: '1GLD510',
-    device: 'MV00252104',
-    date: '8/3/25',
-    time: '4:49:47 PM',
-    timezone: 'AUW',
-    score: 0,
-    status: 'New',
-    trigger: 'Food or Drink',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Great Southern Fuels'
-  },
-  {
-    eventId: 'AAQYA94405',
-    driver: 'Andrew Buchanan',
-    employeeId: 'A.Buchanan',
-    group: 'Kalgoorlie',
-    vehicle: '1GSF248',
-    device: 'QM40025388',
-    date: '8/3/25',
-    time: '2:54:45 PM',
-    timezone: 'AUW',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Handheld Device',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Great Southern Fuels',
-    assignedDate: '8/4/25',
-    reviewedBy: 'Safety Manager',
-    notes: 'Driver coached on hands-free device usage'
-  },
-  {
-    eventId: 'AAQYF72979',
-    driver: 'Craig Bean',
-    employeeId: 'C.Bean',
-    group: 'Kewdale',
-    vehicle: '1IFJ910',
-    device: 'QM40999881',
-    date: '7/31/25',
-    time: '2:02:29 PM',
-    timezone: 'AUW',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Driver Tagged',
-    behaviors: 'Driver Tagged',
-    eventType: 'Driver Tagged',
-    carrier: 'Stevemacs',
-    assignedDate: '8/1/25',
-    reviewedBy: 'Fleet Manager'
-  },
-  {
-    eventId: 'AAQYX73948',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Geraldton',
-    vehicle: '1GLD510',
-    device: 'MV00252104',
-    date: '8/2/25',
-    time: '2:16:44 PM',
-    timezone: 'AUW',
-    score: 0,
-    status: 'Face-To-Face',
-    trigger: 'No Seat Belt',
-    behaviors: 'Driver Unbelted [Roadway]',
-    eventType: 'Coachable',
-    carrier: 'Great Southern Fuels'
-  },
-  {
-    eventId: 'AAQYX68032',
-    driver: 'Matthew Ahearn',
-    employeeId: 'M.Ahearn',
-    group: 'Kalgoorlie',
-    vehicle: '1EXV411',
-    device: 'QM40025557',
-    date: '8/2/25',
-    time: '1:49:09 PM',
-    timezone: 'AUW',
-    score: 3,
-    status: 'FYI Notify',
-    trigger: 'Food or Drink',
-    behaviors: 'Food / Drink - Distraction',
-    eventType: 'Coachable',
-    carrier: 'Great Southern Fuels',
-    assignedDate: '8/3/25',
-    excluded: true,
-    notes: 'Equipment malfunction - excluded from analysis'
-  }
-];
 
 interface LYTXEventTableProps {
   showTitle?: boolean;
@@ -183,8 +71,10 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
   // Refresh mutation
   const refreshMutation = useLytxRefreshData();
 
-  // Use API data or fallback to mock data
-  const events = eventsQuery.data?.events || localEvents.length > 0 ? localEvents : mockLYTXEvents;
+  // Use API data only - no fallback to mock data
+  const events = Array.isArray(eventsQuery.data?.events)
+    ? eventsQuery.data!.events
+    : localEvents;
 
   // Filter and search events
   const filteredEvents = useMemo(() => {
@@ -298,11 +188,7 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
           driver: selectedDriver,
           employeeId: selectedDriver.split(' ').map(n => n.charAt(0)).join('.') + '.' + selectedDriver.split(' ').slice(-1)[0],
           status: 'Face-To-Face' as const,
-          assignedDate: new Date().toLocaleDateString('en-US', { 
-            month: 'numeric', 
-            day: 'numeric', 
-            year: '2-digit' 
-          }),
+          assignedDate: formatPerthDisplay(new Date()).split(' ')[0],
           reviewedBy: 'Safety Manager'
         };
       }
@@ -454,9 +340,10 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
           
           {/* Data Source Indicator */}
           <div className="mt-2 text-xs text-gray-500">
-            {eventsQuery.data ? 
-              `Showing live data from ${dateRange.startDate} to ${dateRange.endDate}` :
-              'Showing demo data (API connection failed)'
+            {eventsQuery.data && events.length > 0 ? 
+              `Showing live data from ${dateRange.startDate} to ${dateRange.endDate} • ${events.length} events loaded` :
+              eventsQuery.isError ? 'No data available (API connection failed)' :
+              eventsQuery.isLoading ? 'Loading data...' : 'No events found for selected date range'
             }
           </div>
         </div>
@@ -707,11 +594,34 @@ const LYTXEventTable: React.FC<LYTXEventTableProps> = ({
       </div>
 
       {/* Empty State */}
-      {filteredEvents.length === 0 && (
+      {!eventsQuery.isLoading && filteredEvents.length === 0 && (
         <div className="text-center py-12">
-          <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No events found</h3>
-          <p className="text-gray-600">Try adjusting your search criteria or filters</p>
+          {eventsQuery.isError ? (
+            <>
+              <WifiOff className="h-12 w-12 text-red-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Connection to LYTX API</h3>
+              <p className="text-gray-600 mb-4">Unable to load safety events data. Please check your connection and try again.</p>
+              <button 
+                onClick={() => eventsQuery.refetch()}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry Connection
+              </button>
+            </>
+          ) : events.length === 0 ? (
+            <>
+              <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Safety Events Found</h3>
+              <p className="text-gray-600">No safety events found for the selected date range. Try expanding your date range or check back later for new data.</p>
+            </>
+          ) : (
+            <>
+              <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No events match your filters</h3>
+              <p className="text-gray-600">Try adjusting your search criteria or filters to see more results.</p>
+            </>
+          )}
         </div>
       )}
 

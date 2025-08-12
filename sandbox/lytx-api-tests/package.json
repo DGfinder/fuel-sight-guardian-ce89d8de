@@ -1,0 +1,16 @@
+{
+  "name": "lytx-api-tests",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Simple HTML tester and proxy for Lytx VIDEO API",
+  "scripts": {
+    "start-proxy": "node proxy.js",
+    "start-proxy:dev": "PORT=5717 LYTX_BASE=https://lytx-api.prod7.lv.lytx.com/video node proxy.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0"
+  }
+}
+

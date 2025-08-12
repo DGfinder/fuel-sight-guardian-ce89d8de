@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { generateAlerts } from '../lib/alertService';
+import { validateTimestamp } from '../utils/timezone';
 
 // Helper functions for analytics calculations
 const calculateConsumption = (olderReading: any, newerReading: any): number => {
@@ -115,6 +116,18 @@ export const useTanks = () => {
       const latestByTank = new Map();
       latestReadings?.forEach(reading => {
         if (!latestByTank.has(reading.tank_id)) {
+          // Validate timestamp and log any data quality issues
+          if (reading.created_at) {
+            const validation = validateTimestamp(reading.created_at);
+            if (validation.issues.length > 0) {
+              console.warn(`[TANK DATA QUALITY] Tank ${reading.tank_id} reading has issues:`, {
+                timestamp: reading.created_at,
+                issues: validation.issues,
+                isFuture: validation.isFuture,
+                age: validation.age
+              });
+            }
+          }
           latestByTank.set(reading.tank_id, reading);
         }
       });

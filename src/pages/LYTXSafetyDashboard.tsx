@@ -1,10 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, TrendingUp, Users, Calendar, Filter, Download, BarChart3, PieChart, Loader2, WifiOff, Settings, RefreshCw } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Users, Calendar, Filter, Download, BarChart3, PieChart, Loader2, WifiOff, Settings, RefreshCw, X, Upload, Database, History } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
 import LYTXEventTable from '@/components/LYTXEventTable';
 import LytxConnectionTest from '@/components/LytxConnectionTest';
-import { useLytxDashboardData } from '@/hooks/useLytxData';
-import { lytxDataTransformer } from '@/services/lytxDataTransform';
+import LytxCsvImportModal from '@/components/LytxCsvImportModal';
+import LytxHistoricalDashboard from '@/components/LytxHistoricalDashboard';
+import { LytxAnalyticsCharts } from '@/components/LytxAnalyticsCharts';
+import { 
+  useLytxHistoricalEvents,
+  useLytxSummaryStats, 
+  useLytxMonthlyTrends,
+  useDateRanges,
+  type LytxAnalyticsFilters 
+} from '@/hooks/useLytxHistoricalData';
+import { LytxAnalyticsService } from '@/services/lytxAnalyticsService';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useToast } from '@/hooks/use-toast';
 
 interface LYTXEvent {
   eventId: string;
@@ -24,77 +35,18 @@ interface LYTXEvent {
   excluded?: boolean;
 }
 
-// Sample data based on 365-day LYTX export analysis
-const mockLYTXEvents: LYTXEvent[] = [
-  {
-    eventId: 'AAQZB23038',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Kewdale',
-    vehicle: '1ILI310',
-    device: 'QM40999887',
-    date: '8/3/25',
-    time: '6:31:52 PM',
-    score: 0,
-    status: 'New',
-    trigger: 'Lens Obstruction',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Stevemacs'
-  },
-  {
-    eventId: 'AAQZB09348',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Geraldton',
-    vehicle: '1GLD510',
-    device: 'MV00252104',
-    date: '8/3/25',
-    time: '4:49:47 PM',
-    score: 0,
-    status: 'New',
-    trigger: 'Food or Drink',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Great Southern Fuels'
-  },
-  {
-    eventId: 'AAQYA94405',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Kalgoorlie',
-    vehicle: '1GSF248',
-    device: 'QM40025388',
-    date: '8/3/25',
-    time: '2:54:45 PM',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Handheld Device',
-    behaviors: '',
-    eventType: 'Coachable',
-    carrier: 'Great Southern Fuels'
-  },
-  {
-    eventId: 'AAQYF72979',
-    driver: 'Driver Unassigned',
-    employeeId: '',
-    group: 'Kewdale',
-    vehicle: '1IFJ910',
-    device: 'QM40999881',
-    date: '7/31/25',
-    time: '2:02:29 PM',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Driver Tagged',
-    behaviors: 'Driver Tagged',
-    eventType: 'Driver Tagged',
-    carrier: 'Stevemacs'
-  }
-];
 
-// Generate monthly trend data
+// Generate enhanced monthly trend data with fleet breakdown
 const generateMonthlyData = (events: LYTXEvent[]) => {
-  const monthlyStats: Record<string, { month: string; coachable: number; driverTagged: number; total: number }> = {};
+  const monthlyStats: Record<string, { 
+    month: string; 
+    coachableSMB: number; 
+    coachableGSF: number;
+    driverTaggedSMB: number;
+    driverTaggedGSF: number;
+    total: number;
+    unassigned: number;
+  }> = {};
   
   events.forEach(event => {
     const date = new Date(event.date);
@@ -102,14 +54,30 @@ const generateMonthlyData = (events: LYTXEvent[]) => {
     const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     
     if (!monthlyStats[monthKey]) {
-      monthlyStats[monthKey] = { month: monthName, coachable: 0, driverTagged: 0, total: 0 };
+      monthlyStats[monthKey] = { 
+        month: monthName, 
+        coachableSMB: 0, 
+        coachableGSF: 0,
+        driverTaggedSMB: 0,
+        driverTaggedGSF: 0,
+        total: 0,
+        unassigned: 0
+      };
     }
     
+    const isSMB = event.carrier === 'Stevemacs';
+    const isGSF = event.carrier === 'Great Southern Fuels';
+    const isUnassigned = event.driver === 'Driver Unassigned';
+    
     if (event.eventType === 'Coachable') {
-      monthlyStats[monthKey].coachable++;
+      if (isSMB) monthlyStats[monthKey].coachableSMB++;
+      if (isGSF) monthlyStats[monthKey].coachableGSF++;
     } else {
-      monthlyStats[monthKey].driverTagged++;
+      if (isSMB) monthlyStats[monthKey].driverTaggedSMB++;
+      if (isGSF) monthlyStats[monthKey].driverTaggedGSF++;
     }
+    
+    if (isUnassigned) monthlyStats[monthKey].unassigned++;
     monthlyStats[monthKey].total++;
   });
   
@@ -117,45 +85,66 @@ const generateMonthlyData = (events: LYTXEvent[]) => {
 };
 
 const LYTXSafetyDashboard: React.FC = () => {
+  const { toast } = useToast();
   const [selectedCarrier, setSelectedCarrier] = useState<'All' | 'Stevemacs' | 'Great Southern Fuels'>('All');
-  const [dateRange, setDateRange] = useState('30');
+  const [dateRange, setDateRange] = useState('allTime');
   const [showConnectionTest, setShowConnectionTest] = useState(false);
+  const [selectedTrigger, setSelectedTrigger] = useState<string | null>(null);
+  const [showTriggerModal, setShowTriggerModal] = useState(false);
+  const [showCsvImportModal, setShowCsvImportModal] = useState(false);
+  const [dashboardMode, setDashboardMode] = useState<'enhanced' | 'legacy'>('enhanced');
 
-  // Get date range for API calls
-  const apiDateRange = useMemo(() => {
-    const days = parseInt(dateRange);
-    return lytxDataTransformer.createDateRange(days);
-  }, [dateRange]);
+  const dateRanges = useDateRanges();
 
-  // Fetch dashboard data from API
-  const dashboardData = useLytxDashboardData(apiDateRange);
+  // Create filters for historical data
+  const filters: LytxAnalyticsFilters = useMemo(() => ({
+    carrier: selectedCarrier,
+    dateRange: dateRanges[dateRange as keyof typeof dateRanges],
+    status: 'All',
+    eventType: 'All',
+    driverAssigned: 'All',
+    excluded: false
+  }), [selectedCarrier, dateRange, dateRanges]);
 
-  // Use API data or fallback to mock data
+  // Fetch historical data from database
+  const historyEvents = useLytxHistoricalEvents(filters);
+  const summaryStats = useLytxSummaryStats(filters);
+  const monthlyTrends = useLytxMonthlyTrends(filters);
+
+  // Convert historical data to legacy format for compatibility
   const allEvents = useMemo(() => {
-    console.log('Dashboard events data:', dashboardData.events.data);
+    if (!historyEvents.data) return [];
     
-    // Handle different possible data structures
-    let events = mockLYTXEvents; // Default fallback
-    
-    if (dashboardData.events.data?.events && Array.isArray(dashboardData.events.data.events)) {
-      events = dashboardData.events.data.events;
-    } else if (dashboardData.events.data && Array.isArray(dashboardData.events.data)) {
-      events = dashboardData.events.data;
-    } else if (dashboardData.events.isSuccess && dashboardData.events.data) {
-      console.warn('Unexpected events data structure:', dashboardData.events.data);
-    }
-    
-    console.log('Final events array:', events, 'Length:', events?.length);
-    return Array.isArray(events) ? events : mockLYTXEvents;
-  }, [dashboardData.events.data, dashboardData.events.isSuccess]);
+    return historyEvents.data.map(event => ({
+      eventId: event.event_id,
+      driver: event.driver_name,
+      employeeId: event.employee_id || '',
+      group: event.group_name,
+      vehicle: event.vehicle_registration || '',
+      device: event.device_serial,
+      date: new Date(event.event_datetime).toLocaleDateString(),
+      time: new Date(event.event_datetime).toLocaleTimeString(),
+      score: event.score,
+      status: event.status,
+      trigger: event.trigger,
+      behaviors: event.behaviors || '',
+      eventType: event.event_type,
+      carrier: event.carrier,
+      excluded: event.excluded
+    }));
+  }, [historyEvents.data]);
 
-  // Filter events based on selected carrier
-  const filteredEvents = useMemo(() => {
-    return allEvents.filter(event => {
-      if (selectedCarrier === 'All') return true;
-      return event.carrier === selectedCarrier;
-    });
-  }, [allEvents, selectedCarrier]);
+  // Maintain legacy compatibility
+  const filteredEvents = allEvents;
+  const dashboardData = {
+    isLoading: historyEvents.isLoading,
+    isError: historyEvents.isError,
+    error: historyEvents.error,
+    events: {
+      data: allEvents,
+      refetch: historyEvents.refetch
+    }
+  };
 
   const monthlyData = useMemo(() => generateMonthlyData(filteredEvents), [filteredEvents]);
 
@@ -185,39 +174,145 @@ const LYTXSafetyDashboard: React.FC = () => {
     .slice(0, 5)
     .map(([trigger, count]) => ({ trigger, count }));
 
+  // Enhanced trigger analysis for modal
+  const enhancedTriggerAnalysis = Object.entries(triggerCounts)
+    .sort(([,a], [,b]) => b - a)
+    .map(([trigger, count]) => {
+      const triggerEvents = filteredEvents.filter(e => e.trigger === trigger);
+      const avgScore = triggerEvents.reduce((sum, e) => sum + e.score, 0) / triggerEvents.length || 0;
+      const resolvedCount = triggerEvents.filter(e => e.status === 'Resolved').length;
+      const unassignedCount = triggerEvents.filter(e => e.driver === 'Driver Unassigned').length;
+      
+      // Driver breakdown
+      const driverBreakdown = triggerEvents.reduce((acc, event) => {
+        if (event.driver !== 'Driver Unassigned') {
+          acc[event.driver] = (acc[event.driver] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const topDrivers = Object.entries(driverBreakdown)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5);
+
+      // Fleet breakdown
+      const fleetBreakdown = triggerEvents.reduce((acc, event) => {
+        acc[event.carrier] = (acc[event.carrier] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Monthly trend for this trigger
+      const monthlyTrend = triggerEvents.reduce((acc, event) => {
+        const date = new Date(event.date);
+        const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        acc[monthKey] = (acc[monthKey] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      return {
+        trigger,
+        count,
+        percentage: (count / totalEvents * 100),
+        avgScore,
+        resolutionRate: (resolvedCount / count * 100),
+        unassignedCount,
+        topDrivers,
+        fleetBreakdown,
+        monthlyTrend: Object.entries(monthlyTrend).sort(([a], [b]) => a.localeCompare(b))
+      };
+    });
+
+  // Handle CSV import completion
+  const handleCsvImportComplete = (result: { imported: number; duplicates: number; failed: number }) => {
+    setShowCsvImportModal(false);
+    
+    // Refresh the dashboard data to include newly imported events
+    dashboardData.events.refetch();
+    
+    // Show success toast
+    toast({
+      title: 'CSV Import Completed',
+      description: `${result.imported} events imported successfully. ${result.duplicates} duplicates skipped.${result.failed > 0 ? ` ${result.failed} events failed to import.` : ''}`,
+      variant: result.failed > 0 ? 'destructive' : 'default',
+    });
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">LYTX Safety Dashboard</h1>
-              <p className="text-gray-600">Monitor safety events, driver performance, and compliance metrics</p>
-            </div>
-            {/* Loading/Connection Status */}
-            <div className="flex items-center gap-2">
-              {dashboardData.isLoading ? (
-                <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
-              ) : dashboardData.isError ? (
-                <WifiOff className="h-5 w-5 text-red-500" />
-              ) : (
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              )}
-              <span className={`text-sm ${dashboardData.isError ? 'text-red-600' : 'text-gray-500'}`}>
-                {dashboardData.isLoading ? 'Loading...' : 
-                 dashboardData.isError ? 'API Error' : 
-                 'Live Data'}
-              </span>
-            </div>
-          </div>
+      {/* Enhanced Dashboard Mode */}
+      {dashboardMode === 'enhanced' && (
+        <LytxHistoricalDashboard 
+          defaultCarrier={selectedCarrier}
+          defaultDateRange={filters.dateRange}
+          showTitle={true}
+        />
+      )}
+
+      {/* Legacy Dashboard Mode */}
+      {dashboardMode === 'legacy' && (
+        <>
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">LYTX Safety Dashboard</h1>
+                  <p className="text-gray-600">Historical analysis of {allEvents.length.toLocaleString()}+ stored safety events</p>
+                </div>
+                {/* Loading/Connection Status */}
+                <div className="flex items-center gap-2">
+                  {dashboardData.isLoading ? (
+                    <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                  ) : dashboardData.isError ? (
+                    <Database className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <Database className="h-5 w-5 text-green-500" />
+                  )}
+                  <span className={`text-sm ${dashboardData.isError ? 'text-red-600' : 'text-green-600'}`}>
+                    {dashboardData.isLoading ? 'Loading Historical Data...' : 
+                     dashboardData.isError ? 'Database Error' : 
+                     'Historical Data'}
+                  </span>
+                </div>
+              </div>
           <div className="flex gap-3">
+            {/* Dashboard Mode Toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setDashboardMode('enhanced')}
+                className={`px-3 py-1 text-sm rounded transition-colors ${
+                  dashboardMode === 'enhanced' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <History className="h-4 w-4 inline mr-1" />
+                Enhanced
+              </button>
+              <button
+                onClick={() => setDashboardMode('legacy')}
+                className={`px-3 py-1 text-sm rounded transition-colors ${
+                  dashboardMode === 'legacy' 
+                    ? 'bg-gray-600 text-white' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Legacy
+              </button>
+            </div>
             <button 
               onClick={() => setShowConnectionTest(!showConnectionTest)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
               <Settings className="h-4 w-4" />
               API Settings
+            </button>
+            <button 
+              onClick={() => setShowCsvImportModal(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-purple-300 text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100"
+            >
+              <Upload className="h-4 w-4" />
+              Import CSV
             </button>
             <button 
               onClick={() => dashboardData.events.refetch()}
@@ -227,7 +322,33 @@ const LYTXSafetyDashboard: React.FC = () => {
               <RefreshCw className={`h-4 w-4 ${dashboardData.isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button 
+              onClick={async () => {
+                try {
+                  const blob = await LytxAnalyticsService.exportData({
+                    format: 'csv',
+                    includeCharts: false,
+                    includeRawData: true,
+                    filters
+                  });
+                  
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `lytx_safety_report_${new Date().toISOString().split('T')[0]}.csv`;
+                  link.click();
+                  URL.revokeObjectURL(url);
+                } catch (error) {
+                  console.error('Export failed:', error);
+                  toast({
+                    title: 'Export Failed',
+                    description: 'Unable to export safety report. Please try again.',
+                    variant: 'destructive'
+                  });
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
               <Download className="h-4 w-4" />
               Export Report
             </button>
@@ -243,7 +364,7 @@ const LYTXSafetyDashboard: React.FC = () => {
                 <h3 className="text-sm font-medium text-red-800">API Connection Failed</h3>
                 <p className="text-sm text-red-700">
                   {dashboardData.error?.message || 'Unable to connect to Lytx API'}. 
-                  Showing demo data instead.
+                  No data available.
                 </p>
               </div>
               <button 
@@ -264,11 +385,17 @@ const LYTXSafetyDashboard: React.FC = () => {
         )}
 
         {/* Data Source Info */}
-        <div className="mb-4 text-sm text-gray-600">
-          {dashboardData.events.data ? 
-            `Showing live data from ${apiDateRange.startDate} to ${apiDateRange.endDate} • ${allEvents.length} total events` :
-            'Showing demo data (API connection failed)'
-          }
+        <div className="mb-4 text-sm text-gray-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-blue-600" />
+            <span>
+              {dashboardData.events.data && allEvents.length > 0 ? 
+                `Historical database analysis • ${allEvents.length.toLocaleString()} events across 17+ months (Jan 2024 - Aug 2025)` :
+                dashboardData.isError ? 'Database connection failed' :
+                dashboardData.isLoading ? 'Loading historical data...' : 'No events found for selected filters'
+              }
+            </span>
+          </div>
         </div>
 
         {/* Filters */}
@@ -288,15 +415,48 @@ const LYTXSafetyDashboard: React.FC = () => {
             onChange={(e) => setDateRange(e.target.value)}
             className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
           >
-            <option value="30">Last 30 Days</option>
-            <option value="90">Last 90 Days</option>
-            <option value="180">Last 180 Days</option>
-            <option value="365">Last 365 Days</option>
+            <option value="last30Days">Last 30 Days</option>
+            <option value="last90Days">Last 90 Days</option>
+            <option value="last6Months">Last 6 Months</option>
+            <option value="lastYear">Last Year</option>
+            <option value="year2024">2024 Full Year</option>
+            <option value="year2025">2025 YTD</option>
+            <option value="allTime">All Historical Data</option>
           </select>
         </div>
       </div>
 
+      {/* Empty State */}
+      {!dashboardData.isLoading && allEvents.length === 0 && (
+        <div className="bg-white p-12 rounded-lg shadow-md text-center">
+          <WifiOff className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Safety Events Found</h3>
+          <p className="text-gray-600 mb-6">
+            {dashboardData.isError 
+              ? 'Unable to connect to the LYTX API. Please check your connection and try again.'
+              : 'No safety events found for the selected date range and filters.'}
+          </p>
+          <div className="flex gap-4 justify-center">
+            <button 
+              onClick={() => dashboardData.events.refetch()}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry Connection
+            </button>
+            <button 
+              onClick={() => setShowConnectionTest(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              <Settings className="h-4 w-4" />
+              Check API Settings
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Key Metrics */}
+      {allEvents.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
@@ -313,7 +473,7 @@ const LYTXSafetyDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Coachable Events</p>
               <p className="text-2xl font-bold text-orange-600">{coachableEvents}</p>
-              <p className="text-xs text-gray-500">{((coachableEvents/totalEvents)*100).toFixed(1)}% of total</p>
+              <p className="text-xs text-gray-500">{totalEvents > 0 ? ((coachableEvents/totalEvents)*100).toFixed(1) : '0'}% of total</p>
             </div>
             <TrendingUp className="h-8 w-8 text-orange-500" />
           </div>
@@ -324,7 +484,7 @@ const LYTXSafetyDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Driver Tagged</p>
               <p className="text-2xl font-bold text-blue-600">{driverTaggedEvents}</p>
-              <p className="text-xs text-gray-500">{((driverTaggedEvents/totalEvents)*100).toFixed(1)}% of total</p>
+              <p className="text-xs text-gray-500">{totalEvents > 0 ? ((driverTaggedEvents/totalEvents)*100).toFixed(1) : '0'}% of total</p>
             </div>
             <Users className="h-8 w-8 text-blue-500" />
           </div>
@@ -334,43 +494,95 @@ const LYTXSafetyDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Resolution Rate</p>
-              <p className="text-2xl font-bold text-green-600">{((resolvedEvents/totalEvents)*100).toFixed(1)}%</p>
+              <p className="text-2xl font-bold text-green-600">{totalEvents > 0 ? ((resolvedEvents/totalEvents)*100).toFixed(1) : '0'}%</p>
               <p className="text-xs text-gray-500">{resolvedEvents} resolved</p>
             </div>
             <Calendar className="h-8 w-8 text-green-500" />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className={`p-6 rounded-lg shadow-md transition-colors ${
+          unassignedDrivers > 0 ? 'bg-red-50 border-2 border-red-200' : 'bg-white'
+        }`}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Unassigned Drivers</p>
-              <p className="text-2xl font-bold text-gray-600">{unassignedDrivers}</p>
-              <p className="text-xs text-gray-500">{((unassignedDrivers/totalEvents)*100).toFixed(1)}% pending</p>
+              <p className="text-sm font-medium text-gray-600">⚠️ Driver Assignment Required</p>
+              <p className={`text-3xl font-bold ${unassignedDrivers > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                {unassignedDrivers}
+              </p>
+              <p className="text-xs text-gray-500 mb-2">
+                {totalEvents > 0 ? ((unassignedDrivers/totalEvents)*100).toFixed(1) : '0'}% need review
+              </p>
+              {unassignedDrivers > 0 && (
+                <button 
+                  onClick={() => {
+                    // Scroll to event table and filter for unassigned
+                    const tableElement = document.querySelector('[data-testid="lytx-event-table"]');
+                    if (tableElement) {
+                      tableElement.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                  className="mt-2 flex items-center gap-1 text-xs bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 transition-colors"
+                >
+                  <Users className="h-3 w-3" />
+                  Assign Drivers Now
+                </button>
+              )}
             </div>
-            <Filter className="h-8 w-8 text-gray-500" />
+            <div className={`p-3 rounded-full ${unassignedDrivers > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+              <Users className={`h-8 w-8 ${unassignedDrivers > 0 ? 'text-red-600' : 'text-gray-500'}`} />
+            </div>
           </div>
         </div>
       </div>
+      )}
 
       {/* Charts Row */}
+      {allEvents.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Monthly Trends */}
+        {/* Enhanced Monthly Trends with Fleet Breakdown */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Monthly Event Trends</h3>
+            <h3 className="text-lg font-semibold">Monthly Events by Fleet & Type</h3>
+            <div className="ml-auto text-sm text-gray-500">
+              SMB = Stevemacs • GSF = Great Southern Fuels
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthlyData}>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="coachable" stroke="#f59e0b" strokeWidth={2} name="Coachable Events" />
-              <Line type="monotone" dataKey="driverTagged" stroke="#3b82f6" strokeWidth={2} name="Driver Tagged" />
-            </LineChart>
+              <Tooltip 
+                formatter={(value, name) => [value, name]}
+                labelFormatter={(label) => `Month: ${label}`}
+              />
+              {/* Legend */}
+              <Bar dataKey="coachableSMB" stackId="coachable" fill="#3b82f6" name="SMB Coachable" />
+              <Bar dataKey="coachableGSF" stackId="coachable" fill="#60a5fa" name="GSF Coachable" />
+              <Bar dataKey="driverTaggedSMB" stackId="driverTagged" fill="#f59e0b" name="SMB Driver Tagged" />
+              <Bar dataKey="driverTaggedGSF" stackId="driverTagged" fill="#fbbf24" name="GSF Driver Tagged" />
+            </BarChart>
           </ResponsiveContainer>
+          
+          {/* Fleet Summary */}
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div className="bg-blue-50 p-3 rounded">
+              <div className="font-medium text-blue-900">Stevemacs (SMB)</div>
+              <div className="text-blue-700">
+                Coachable: {monthlyData.reduce((sum, m) => sum + m.coachableSMB, 0)} | 
+                Driver Tagged: {monthlyData.reduce((sum, m) => sum + m.driverTaggedSMB, 0)}
+              </div>
+            </div>
+            <div className="bg-green-50 p-3 rounded">
+              <div className="font-medium text-green-900">Great Southern Fuels (GSF)</div>
+              <div className="text-green-700">
+                Coachable: {monthlyData.reduce((sum, m) => sum + m.coachableGSF, 0)} | 
+                Driver Tagged: {monthlyData.reduce((sum, m) => sum + m.driverTaggedGSF, 0)}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Event Status Distribution */}
@@ -399,8 +611,10 @@ const LYTXSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Top Triggers and Carrier Actions */}
+      {allEvents.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Top Safety Triggers */}
         <div className="bg-white p-6 rounded-lg shadow-md">
@@ -451,8 +665,104 @@ const LYTXSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Event Types Analysis Table */}
+      {allEvents.length > 0 && (
+      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+        <div className="flex items-center gap-2 mb-6">
+          <BarChart3 className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Safety Event Types Analysis</h3>
+          <span className="text-sm text-gray-500 ml-2">Click any row for detailed breakdown</span>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left p-3 font-medium text-gray-900">Event Type</th>
+                <th className="text-left p-3 font-medium text-gray-900">Count</th>
+                <th className="text-left p-3 font-medium text-gray-900">% of Total</th>
+                <th className="text-left p-3 font-medium text-gray-900">Avg Score</th>
+                <th className="text-left p-3 font-medium text-gray-900">Resolution Rate</th>
+                <th className="text-left p-3 font-medium text-gray-900">Unassigned</th>
+                <th className="text-left p-3 font-medium text-gray-900">Trend</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {enhancedTriggerAnalysis.slice(0, 10).map((trigger, index) => (
+                <tr 
+                  key={trigger.trigger}
+                  onClick={() => {
+                    setSelectedTrigger(trigger.trigger);
+                    setShowTriggerModal(true);
+                  }}
+                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <td className="p-3">
+                    <div className="font-medium text-gray-900">{trigger.trigger}</div>
+                    <div className="text-xs text-gray-500">Click for details</div>
+                  </td>
+                  <td className="p-3">
+                    <span className="text-lg font-bold text-gray-900">{trigger.count}</span>
+                  </td>
+                  <td className="p-3">
+                    <span className="text-sm text-gray-600">{trigger.percentage.toFixed(1)}%</span>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ width: `${Math.min(trigger.percentage, 100)}%` }}
+                      ></div>
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <span className={`font-medium ${
+                      trigger.avgScore >= 3 ? 'text-red-600' : 
+                      trigger.avgScore >= 1 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                      {trigger.avgScore.toFixed(1)}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span className={`font-medium ${
+                      trigger.resolutionRate >= 80 ? 'text-green-600' : 
+                      trigger.resolutionRate >= 50 ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {trigger.resolutionRate.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span className={`font-medium ${
+                      trigger.unassignedCount > 0 ? 'text-red-600' : 'text-gray-600'
+                    }`}>
+                      {trigger.unassignedCount}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <div className="w-16 h-8">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={trigger.monthlyTrend.map(([month, count]) => ({ month, count }))}>
+                          <Line 
+                            type="monotone" 
+                            dataKey="count" 
+                            stroke="#3b82f6" 
+                            strokeWidth={1}
+                            dot={false}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      )}
 
       {/* Action Items */}
+      {allEvents.length > 0 && (
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold mb-4">Action Items & Tools</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -472,17 +782,176 @@ const LYTXSafetyDashboard: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* LYTX Event Management Table */}
-      <div className="mt-8">
+      <div className="mt-8" data-testid="lytx-event-table">
         <LYTXEventTable 
           showTitle={true}
           maxHeight="500px"
           carrierFilter={selectedCarrier}
         />
       </div>
+        </>
+      )}
+
+      {/* Event Type Detail Modal */}
+      {showTriggerModal && selectedTrigger && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {(() => {
+              const triggerData = enhancedTriggerAnalysis.find(t => t.trigger === selectedTrigger);
+              if (!triggerData) return null;
+              
+              return (
+                <>
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">{selectedTrigger}</h3>
+                      <div className="flex gap-4 text-sm text-gray-600">
+                        <span>Total Events: <strong>{triggerData.count}</strong></span>
+                        <span>Avg Score: <strong>{triggerData.avgScore.toFixed(1)}</strong></span>
+                        <span>Resolution Rate: <strong>{triggerData.resolutionRate.toFixed(1)}%</strong></span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setShowTriggerModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    {/* Fleet Distribution */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-gray-900 mb-3">Fleet Distribution</h4>
+                      <div className="space-y-2">
+                        {Object.entries(triggerData.fleetBreakdown).map(([fleet, count]) => (
+                          <div key={fleet} className="flex justify-between items-center">
+                            <span className={`text-sm ${fleet === 'Stevemacs' ? 'text-blue-600' : 'text-green-600'}`}>
+                              {fleet}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className={`h-2 rounded-full ${fleet === 'Stevemacs' ? 'bg-blue-600' : 'bg-green-600'}`}
+                                  style={{ width: `${(count / triggerData.count) * 100}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm font-medium">{count}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Monthly Trend Chart */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-gray-900 mb-3">Monthly Trend</h4>
+                      <ResponsiveContainer width="100%" height={150}>
+                        <BarChart data={triggerData.monthlyTrend.map(([month, count]) => ({ month, count }))}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip />
+                          <Bar dataKey="count" fill="#3b82f6" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Top Drivers */}
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-gray-900 mb-3">Top Drivers for {selectedTrigger}</h4>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {triggerData.topDrivers.length > 0 ? (
+                          triggerData.topDrivers.map(([driver, count]) => (
+                            <div key={driver} className="flex justify-between items-center p-3 bg-white rounded border">
+                              <div>
+                                <div className="font-medium text-gray-900">{driver}</div>
+                                <div className="text-xs text-gray-500">{count} events</div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-orange-500 h-2 rounded-full"
+                                    style={{ width: `${(count / triggerData.count) * 100}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-sm font-bold">{count}</span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-gray-500 text-sm">All events are unassigned to drivers</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Recommendations */}
+                  <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+                    <h4 className="font-semibold text-blue-900 mb-2">Recommended Actions</h4>
+                    <div className="space-y-2 text-sm text-blue-800">
+                      {triggerData.unassignedCount > 0 && (
+                        <div>• Assign drivers to {triggerData.unassignedCount} unassigned events</div>
+                      )}
+                      {triggerData.resolutionRate < 50 && (
+                        <div>• Focus on improving resolution rate (currently {triggerData.resolutionRate.toFixed(1)}%)</div>
+                      )}
+                      {triggerData.avgScore > 2 && (
+                        <div>• High average score ({triggerData.avgScore.toFixed(1)}) indicates need for targeted coaching</div>
+                      )}
+                      {triggerData.topDrivers.length > 0 && triggerData.topDrivers[0][1] > 5 && (
+                        <div>• Consider additional training for top driver: {triggerData.topDrivers[0][0]} ({triggerData.topDrivers[0][1]} events)</div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* CSV Import Modal - Available in both modes */}
+      <LytxCsvImportModal
+        open={showCsvImportModal}
+        onOpenChange={setShowCsvImportModal}
+        onImportComplete={handleCsvImportComplete}
+        userId="current-user" // TODO: Get actual user ID from auth context
+      />
     </div>
   );
 };
 
-export default LYTXSafetyDashboard;
+// Wrap with ErrorBoundary for better error handling
+const LYTXSafetyDashboardWithErrorBoundary: React.FC = () => (
+  <ErrorBoundary 
+    fallback={({ error, resetError }) => (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-800 mb-2">
+            <AlertTriangle className="w-5 h-5" />
+            <h3 className="font-semibold">LYTX Dashboard Error</h3>
+          </div>
+          <p className="text-red-700 mb-4">
+            Failed to load LYTX safety data. This may be due to API connectivity issues or data processing errors.
+          </p>
+          <button 
+            onClick={resetError}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+          >
+            Retry Loading
+          </button>
+        </div>
+      </div>
+    )}
+  >
+    <LYTXSafetyDashboard />
+  </ErrorBoundary>
+);
+
+export default LYTXSafetyDashboardWithErrorBoundary;

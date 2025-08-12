@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, AlertTriangle, TrendingUp, Users, Award, MapPin, Truck, BarChart3 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, TrendingUp, Users, Award, MapPin, Truck, BarChart3, WifiOff, RefreshCw, Settings } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
+import { useLytxCarrierEvents } from '@/hooks/useLytxData';
+import { lytxDataTransformer } from '@/services/lytxDataTransform';
 
 interface StevemacsEvent {
   eventId: string;
@@ -15,69 +17,6 @@ interface StevemacsEvent {
   eventType: 'Coachable' | 'Driver Tagged';
 }
 
-// Sample Stevemacs safety data
-const mockStevemacsEvents: StevemacsEvent[] = [
-  {
-    eventId: 'AAQZB23038',
-    driver: 'Driver Unassigned',
-    vehicle: '1ILI310',
-    depot: 'Kewdale',
-    date: '8/3/25',
-    score: 0,
-    status: 'New',
-    trigger: 'Lens Obstruction',
-    behaviors: '',
-    eventType: 'Coachable'
-  },
-  {
-    eventId: 'AAQYF72979',
-    driver: 'Driver Unassigned',
-    vehicle: '1IFJ910',
-    depot: 'Kewdale',
-    date: '7/31/25',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'Driver Tagged',
-    behaviors: 'Driver Tagged',
-    eventType: 'Driver Tagged'
-  },
-  {
-    eventId: 'EYKP77802',
-    driver: 'Peter Aramini',
-    vehicle: '1HOO182',
-    depot: 'Kewdale',
-    date: '1/2/2024',
-    score: 0,
-    status: 'Resolved',
-    trigger: 'No Seat Belt',
-    behaviors: 'Driver Unbelted [Roadway]',
-    eventType: 'Coachable'
-  },
-  {
-    eventId: 'EYKY54453',
-    driver: 'Peter Aramini',
-    vehicle: '1HOO182',
-    depot: 'Kewdale',
-    date: '1/5/2024',
-    score: 7,
-    status: 'Resolved',
-    trigger: 'No Seat Belt',
-    behaviors: 'Cell Hands Free - Distraction,Following Distance: ≥ 1 sec to < 2 sec',
-    eventType: 'Coachable'
-  },
-  {
-    eventId: 'EYKY98890',
-    driver: 'Craig Bean',
-    vehicle: '1GDJ946',
-    depot: 'Kewdale',
-    date: '1/8/2024',
-    score: 8,
-    status: 'Resolved',
-    trigger: 'Braking',
-    behaviors: 'Failed to Keep an Out,Near Collision',
-    eventType: 'Coachable'
-  }
-];
 
 // Generate monthly safety trends
 const generateMonthlyTrends = (events: StevemacsEvent[]) => {
@@ -112,18 +51,28 @@ const generateMonthlyTrends = (events: StevemacsEvent[]) => {
 const StevemacsSafetyDashboard: React.FC = () => {
   const [dateRange, setDateRange] = useState('365');
 
-  const monthlyTrends = useMemo(() => generateMonthlyTrends(mockStevemacsEvents), []);
+  // Get date range for API calls
+  const apiDateRange = useMemo(() => {
+    const days = parseInt(dateRange);
+    return lytxDataTransformer.createDateRange(days);
+  }, [dateRange]);
+
+  // Fetch Stevemacs events from API
+  const stevemacsData = useLytxCarrierEvents('Stevemacs', apiDateRange);
+  const events = stevemacsData.data?.events || [];
+  
+  const monthlyTrends = useMemo(() => generateMonthlyTrends(events), [events]);
 
   // Calculate key metrics
-  const totalEvents = mockStevemacsEvents.length;
-  const coachableEvents = mockStevemacsEvents.filter(e => e.eventType === 'Coachable').length;
-  const driverTaggedEvents = mockStevemacsEvents.filter(e => e.eventType === 'Driver Tagged').length;
-  const resolvedEvents = mockStevemacsEvents.filter(e => e.status === 'Resolved').length;
-  const highScoreEvents = mockStevemacsEvents.filter(e => e.score >= 5).length;
-  const averageScore = totalEvents > 0 ? (mockStevemacsEvents.reduce((sum, e) => sum + e.score, 0) / totalEvents).toFixed(1) : '0';
+  const totalEvents = events.length;
+  const coachableEvents = events.filter(e => e.eventType === 'Coachable').length;
+  const driverTaggedEvents = events.filter(e => e.eventType === 'Driver Tagged').length;
+  const resolvedEvents = events.filter(e => e.status === 'Resolved').length;
+  const highScoreEvents = events.filter(e => e.score >= 5).length;
+  const averageScore = totalEvents > 0 ? (events.reduce((sum, e) => sum + e.score, 0) / totalEvents).toFixed(1) : '0';
 
   // Driver performance analysis
-  const driverStats = mockStevemacsEvents.reduce((acc, event) => {
+  const driverStats = events.reduce((acc, event) => {
     if (event.driver !== 'Driver Unassigned') {
       if (!acc[event.driver]) {
         acc[event.driver] = { events: 0, totalScore: 0, resolved: 0 };
@@ -139,14 +88,14 @@ const StevemacsSafetyDashboard: React.FC = () => {
     .map(([driver, stats]) => ({
       driver,
       events: stats.events,
-      avgScore: (stats.totalScore / stats.events).toFixed(1),
-      resolutionRate: ((stats.resolved / stats.events) * 100).toFixed(0)
+      avgScore: stats.events > 0 ? (stats.totalScore / stats.events).toFixed(1) : '0',
+      resolutionRate: stats.events > 0 ? ((stats.resolved / stats.events) * 100).toFixed(0) : '0'
     }))
     .sort((a, b) => b.events - a.events)
     .slice(0, 5);
 
   // Fleet performance by vehicle
-  const vehicleStats = mockStevemacsEvents.reduce((acc, event) => {
+  const vehicleStats = events.reduce((acc, event) => {
     if (!acc[event.vehicle]) {
       acc[event.vehicle] = { events: 0, totalScore: 0 };
     }
@@ -159,13 +108,13 @@ const StevemacsSafetyDashboard: React.FC = () => {
     .map(([vehicle, stats]) => ({
       vehicle,
       events: stats.events,
-      avgScore: (stats.totalScore / stats.events).toFixed(1)
+      avgScore: stats.events > 0 ? (stats.totalScore / stats.events).toFixed(1) : '0'
     }))
     .sort((a, b) => b.events - a.events)
     .slice(0, 5);
 
   // Safety trigger analysis
-  const triggerCounts = mockStevemacsEvents.reduce((acc, event) => {
+  const triggerCounts = events.reduce((acc, event) => {
     acc[event.trigger] = (acc[event.trigger] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -207,7 +156,30 @@ const StevemacsSafetyDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Empty State */}
+      {!stevemacsData.isLoading && events.length === 0 && (
+        <div className="bg-white p-12 rounded-lg shadow-md text-center">
+          <WifiOff className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Stevemacs Safety Events Found</h3>
+          <p className="text-gray-600 mb-6">
+            {stevemacsData.isError 
+              ? 'Unable to connect to the LYTX API. Please check your connection and try again.'
+              : 'No safety events found for Stevemacs fleet for the selected date range.'}
+          </p>
+          <div className="flex gap-4 justify-center">
+            <button 
+              onClick={() => stevemacsData.refetch()}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Key Metrics */}
+      {events.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
           <div className="flex items-center justify-between">
@@ -224,7 +196,7 @@ const StevemacsSafetyDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-orange-700">Coachable Events</p>
               <p className="text-2xl font-bold text-orange-900">{coachableEvents}</p>
-              <p className="text-xs text-orange-600">{((coachableEvents/totalEvents)*100).toFixed(1)}% of total</p>
+              <p className="text-xs text-orange-600">{totalEvents > 0 ? ((coachableEvents/totalEvents)*100).toFixed(1) : '0'}% of total</p>
             </div>
             <TrendingUp className="h-8 w-8 text-orange-600" />
           </div>
@@ -235,7 +207,7 @@ const StevemacsSafetyDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-indigo-700">Driver Tagged</p>
               <p className="text-2xl font-bold text-indigo-900">{driverTaggedEvents}</p>
-              <p className="text-xs text-indigo-600">{((driverTaggedEvents/totalEvents)*100).toFixed(1)}% of total</p>
+              <p className="text-xs text-indigo-600">{totalEvents > 0 ? ((driverTaggedEvents/totalEvents)*100).toFixed(1) : '0'}% of total</p>
             </div>
             <Users className="h-8 w-8 text-indigo-600" />
           </div>
@@ -245,7 +217,7 @@ const StevemacsSafetyDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-green-700">Resolution Rate</p>
-              <p className="text-2xl font-bold text-green-900">{((resolvedEvents/totalEvents)*100).toFixed(1)}%</p>
+              <p className="text-2xl font-bold text-green-900">{totalEvents > 0 ? ((resolvedEvents/totalEvents)*100).toFixed(1) : '0'}%</p>
               <p className="text-xs text-green-600">{resolvedEvents} resolved</p>
             </div>
             <Award className="h-8 w-8 text-green-600" />
@@ -263,8 +235,10 @@ const StevemacsSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Charts Row */}
+      {events.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Monthly Safety Trends */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-blue-100">
@@ -295,8 +269,10 @@ const StevemacsSafetyDashboard: React.FC = () => {
           </ResponsiveContainer>
         </div>
       </div>
+      )}
 
       {/* Performance Analysis */}
+      {events.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Top Drivers Performance */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-blue-100">
@@ -330,8 +306,10 @@ const StevemacsSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Safety Focus Areas */}
+      {events.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Top Safety Triggers */}
         <div className="bg-white p-6 rounded-lg shadow-md border border-blue-100">
@@ -367,8 +345,10 @@ const StevemacsSafetyDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Quick Actions */}
+      {events.length > 0 && (
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 rounded-lg text-white">
         <h3 className="text-lg font-semibold mb-4">Stevemacs Safety Management Tools</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -388,6 +368,7 @@ const StevemacsSafetyDashboard: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 };

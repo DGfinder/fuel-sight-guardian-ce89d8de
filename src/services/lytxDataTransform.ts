@@ -1,4 +1,5 @@
 import { LytxSafetyEvent, LytxVehicle, LytxEventStatus, LytxEventTrigger, LytxEventBehavior } from './lytxApi';
+import { formatPerthDisplay } from '../utils/timezone';
 
 // Existing component interfaces (from LYTXEventTable.tsx)
 export interface LYTXEvent {
@@ -37,28 +38,52 @@ export class LytxDataTransformer {
     behaviors: LytxEventBehavior[],
     vehicles: LytxVehicle[]
   ) {
-    // Build status map
-    statuses.forEach(status => {
-      this.statusMap.set(status.id, status.name);
-    });
+    // Build status map with safe array handling
+    if (Array.isArray(statuses)) {
+      statuses.forEach(status => {
+        if (status?.id && status?.name) {
+          this.statusMap.set(status.id, status.name);
+        }
+      });
+    } else {
+      console.warn('[LYTX] Statuses data is not an array:', statuses);
+    }
 
-    // Build trigger map
-    triggers.forEach(trigger => {
-      this.triggerMap.set(trigger.id, trigger.name);
-    });
+    // Build trigger map with safe array handling
+    if (Array.isArray(triggers)) {
+      triggers.forEach(trigger => {
+        if (trigger?.id && trigger?.name) {
+          this.triggerMap.set(trigger.id, trigger.name);
+        }
+      });
+    } else {
+      console.warn('[LYTX] Triggers data is not an array:', triggers);
+    }
 
-    // Build behavior map
-    behaviors.forEach(behavior => {
-      this.behaviorMap.set(behavior.id, behavior.name);
-    });
+    // Build behavior map with safe array handling
+    if (Array.isArray(behaviors)) {
+      behaviors.forEach(behavior => {
+        if (behavior?.id && behavior?.name) {
+          this.behaviorMap.set(behavior.id, behavior.name);
+        }
+      });
+    } else {
+      console.warn('[LYTX] Behaviors data is not an array:', behaviors);
+    }
 
-    // Build vehicle map
-    vehicles.forEach(vehicle => {
-      this.vehicleMap.set(vehicle.id, vehicle);
-      if (vehicle.serialNumber) {
-        this.vehicleMap.set(vehicle.serialNumber, vehicle);
-      }
-    });
+    // Build vehicle map with safe array handling
+    if (Array.isArray(vehicles)) {
+      vehicles.forEach(vehicle => {
+        if (vehicle?.id) {
+          this.vehicleMap.set(vehicle.id, vehicle);
+          if (vehicle.serialNumber) {
+            this.vehicleMap.set(vehicle.serialNumber, vehicle);
+          }
+        }
+      });
+    } else {
+      console.warn('[LYTX] Vehicles data is not an array:', vehicles);
+    }
   }
 
   // Transform Lytx Safety Event to LYTXEvent
@@ -175,11 +200,7 @@ export class LytxDataTransformer {
   private formatEventDate(dateTimeString: string): string {
     try {
       const date = new Date(dateTimeString);
-      return date.toLocaleDateString('en-US', { 
-        month: 'numeric', 
-        day: 'numeric', 
-        year: '2-digit' 
-      });
+      return formatPerthDisplay(date).split(' ')[0]; // Get only the date part
     } catch {
       return dateTimeString;
     }
@@ -210,20 +231,21 @@ export class LytxDataTransformer {
 
   // Format behaviors array into string
   private formatBehaviors(behaviors: LytxEventBehavior[]): string {
-    if (!behaviors || behaviors.length === 0) {
+    if (!behaviors || !Array.isArray(behaviors) || behaviors.length === 0) {
       return '';
     }
     
-    return behaviors.map(b => b.name).join(', ');
+    return behaviors.filter(b => b?.name).map(b => b.name).join(', ');
   }
 
   // Format notes array into string
   private formatNotes(notes?: any[]): string | undefined {
-    if (!notes || notes.length === 0) {
+    if (!notes || !Array.isArray(notes) || notes.length === 0) {
       return undefined;
     }
     
-    return notes.map(note => note.content || note.text || note.note).join('; ');
+    return notes.filter(note => note?.content || note?.text || note?.note)
+                .map(note => note.content || note.text || note.note).join('; ');
   }
 
   // Determine event type
@@ -238,10 +260,35 @@ export class LytxDataTransformer {
   }
 
   // Transform multiple events
-  transformSafetyEvents(lytxEvents: LytxSafetyEvent[]): LYTXEvent[] {
-    console.log('transformSafetyEvents - Processing', lytxEvents.length, 'events');
+  transformSafetyEvents(lytxEvents: any): LYTXEvent[] {
+    console.log('transformSafetyEvents - Input data:', lytxEvents, 'Type:', typeof lytxEvents);
     
-    const transformed = lytxEvents.map(event => this.transformSafetyEvent(event));
+    // Handle different possible data structures
+    let eventsArray: LytxSafetyEvent[] = [];
+    
+    if (Array.isArray(lytxEvents)) {
+      eventsArray = lytxEvents;
+    } else if (lytxEvents && typeof lytxEvents === 'object') {
+      // Handle nested structure like { events: [...] } or { data: [...] }
+      if (Array.isArray(lytxEvents.events)) {
+        eventsArray = lytxEvents.events;
+      } else if (Array.isArray(lytxEvents.data)) {
+        eventsArray = lytxEvents.data;
+      } else if (Array.isArray(lytxEvents.items)) {
+        eventsArray = lytxEvents.items;
+      } else {
+        console.warn('transformSafetyEvents - Unexpected data structure:', lytxEvents);
+        return [];
+      }
+    } else {
+      console.warn('transformSafetyEvents - Invalid input, not an array or object:', lytxEvents);
+      return [];
+    }
+    
+    console.log('transformSafetyEvents - Processing', eventsArray.length, 'events');
+    
+    const transformed = eventsArray.filter(event => event && typeof event === 'object')
+                                  .map(event => this.transformSafetyEvent(event));
     
     // Log carrier breakdown after transformation
     const carrierBreakdown = transformed.reduce((acc, event) => {
