@@ -62,7 +62,7 @@ async function makeSmartFillRequest(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.dumps(requestBody),
+    body: JSON.stringify(requestBody),
     signal: AbortSignal.timeout(SMARTFILL_REQUEST_CONFIG.timeout),
   };
 
