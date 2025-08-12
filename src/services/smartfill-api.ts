@@ -13,6 +13,7 @@ import {
   invalidatePattern,
   calculateSmartTTL
 } from '@/lib/vercel-kv-cache';
+import { geocodeSmartFillLocation, validateAustralianCoordinates } from '@/utils/geocoding';
 
 // SmartFill API configuration - JSON-RPC 2.0 based fuel monitoring system
 // API Base URL: https://www.fmtdata.com/API/api.php
@@ -152,6 +153,8 @@ export interface SmartFillLocation {
   unit_number: string;
   description: string;
   timezone: string;
+  latitude?: number;
+  longitude?: number;
   latest_volume: number;
   latest_volume_percent: number;
   latest_status: string;
@@ -359,14 +362,47 @@ export async function getSmartFillCustomers(): Promise<SmartFillCustomer[]> {
 }
 
 // Transform SmartFill data to our database format
-function transformSmartFillLocationData(
+async function transformSmartFillLocationData(
   customerId: number, 
   customerName: string,
   unitNumber: string, 
-  tankReadings: SmartFillTankReading[]
+  tankReadings: SmartFillTankReading[],
+  enableGeocoding: boolean = false
 ) {
   // Get the most recent reading for this unit
   const latestReading = tankReadings[0]; // Assuming first reading is most recent
+  const description = latestReading?.Description || `Unit ${unitNumber}`;
+  
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+
+  // Attempt geocoding if enabled
+  if (enableGeocoding) {
+    try {
+      console.log(`[SMARTFILL GEOCODING] Attempting to geocode location: ${customerName} - ${description}`);
+      
+      const geocodingResult = await geocodeSmartFillLocation(
+        customerName,
+        description,
+        unitNumber
+      );
+
+      if ('latitude' in geocodingResult && geocodingResult.confidence > 0.3) {
+        // Only use results with reasonable confidence
+        if (validateAustralianCoordinates(geocodingResult.latitude, geocodingResult.longitude)) {
+          latitude = geocodingResult.latitude;
+          longitude = geocodingResult.longitude;
+          console.log(`[SMARTFILL GEOCODING] Success: ${customerName} Unit ${unitNumber} -> ${latitude}, ${longitude} (confidence: ${geocodingResult.confidence.toFixed(2)})`);
+        } else {
+          console.warn(`[SMARTFILL GEOCODING] Invalid coordinates for ${customerName} Unit ${unitNumber}: ${geocodingResult.latitude}, ${geocodingResult.longitude}`);
+        }
+      } else {
+        console.warn(`[SMARTFILL GEOCODING] Low confidence or failed for ${customerName} Unit ${unitNumber}`);
+      }
+    } catch (error) {
+      console.error(`[SMARTFILL GEOCODING] Error geocoding ${customerName} Unit ${unitNumber}:`, error);
+    }
+  }
   
   return {
     location_guid: `smartfill-unit-${customerId}-${unitNumber}`,
@@ -374,8 +410,10 @@ function transformSmartFillLocationData(
     customer_guid: `smartfill-customer-${customerId}`,
     customer_id: customerId,
     unit_number: unitNumber,
-    description: latestReading?.Description || `Unit ${unitNumber}`,
+    description,
     timezone: latestReading?.Timezone || 'Australia/Perth',
+    latitude,
+    longitude,
     latest_volume: parseFloat(latestReading?.Volume?.toString() || '0'),
     latest_volume_percent: parseFloat(latestReading?.['Volume Percent']?.toString() || '0'),
     latest_status: latestReading?.Status || 'Unknown',
@@ -472,12 +510,13 @@ export async function syncSmartFillData(): Promise<SmartFillSyncResult> {
           try {
             console.log(`\n   📍 Processing Unit ${unitNumber} (${unitReadings.length} tanks)`);
             
-            // Upsert location
-            const locationData = transformSmartFillLocationData(
+            // Upsert location (with geocoding enabled for new locations)
+            const locationData = await transformSmartFillLocationData(
               customer.id, 
               customer.name, 
               unitNumber, 
-              unitReadings
+              unitReadings,
+              true // Enable geocoding
             );
             
             const { data: location, error: locationError } = await supabase

@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTanks } from '@/hooks/useTanks';
 import { useAgbotLocations } from '@/hooks/useAgbotData';
+import { useSmartFillLocations } from '@/hooks/useSmartFillData';
 import { AgbotLocation } from '@/services/agbot-api';
+import { SmartFillLocation } from '@/services/smartfill-api';
 import { Tank } from '@/hooks/useTanks';
 
-// Enhanced map item interface that can represent both tanks and agbot devices
+// Enhanced map item interface that can represent tanks, agbot devices, and smartfill locations
 export interface MapItem {
   id: string;
   location: string;
@@ -14,7 +16,7 @@ export interface MapItem {
   group_name?: string;
   product_type?: string;
   latest_dip_date?: string | null;
-  source: 'manual' | 'agbot';
+  source: 'manual' | 'agbot' | 'smartfill';
   
   // Manual tank specific fields
   safe_level?: number;
@@ -36,8 +38,13 @@ export interface MapItem {
   customer_name?: string;
   assets?: any[];
   
+  // SmartFill specific fields
+  unit_number?: string;
+  timezone?: string;
+  tanks?: any[];
+  
   // For modal integration
-  originalData?: Tank | AgbotLocation;
+  originalData?: Tank | AgbotLocation | SmartFillLocation;
 }
 
 // Transform manual tank to map item
@@ -97,17 +104,52 @@ function transformAgbotToMapItem(agbotLocation: AgbotLocation): MapItem {
   };
 }
 
-// Enhanced hook that provides both tank and agbot data for map display
+// Transform smartfill location to map item
+function transformSmartFillToMapItem(smartfillLocation: SmartFillLocation): MapItem {
+  // Calculate overall fill percentage from all tanks
+  const tanks = Array.isArray(smartfillLocation.tanks) ? smartfillLocation.tanks : [];
+  const tankFillPercentages = tanks
+    .map(tank => tank?.latest_volume_percent)
+    .filter(percent => typeof percent === 'number');
+  
+  const averageFillPercent = tankFillPercentages.length > 0
+    ? tankFillPercentages.reduce((sum, percent) => sum + percent, 0) / tankFillPercentages.length
+    : smartfillLocation.latest_volume_percent;
+
+  return {
+    id: smartfillLocation.id,
+    location: smartfillLocation.description || `Unit ${smartfillLocation.unit_number}`,
+    latitude: smartfillLocation.latitude,
+    longitude: smartfillLocation.longitude,
+    current_level_percent: averageFillPercent,
+    group_name: smartfillLocation.customer_name,
+    product_type: 'SmartFill Monitored',
+    latest_dip_date: smartfillLocation.latest_update_time,
+    source: 'smartfill',
+    
+    // SmartFill specific fields
+    unit_number: smartfillLocation.unit_number,
+    timezone: smartfillLocation.timezone,
+    customer_name: smartfillLocation.customer_name,
+    tanks: smartfillLocation.tanks,
+    
+    originalData: smartfillLocation
+  };
+}
+
+// Enhanced hook that provides tank, agbot, and smartfill data for map display
 export const useMapData = () => {
   const tanksQuery = useTanks();
   const agbotQuery = useAgbotLocations();
+  const smartfillQuery = useSmartFillLocations();
 
-  // Combine data from both sources
+  // Combine data from all three sources
   const combinedQuery = useQuery({
-    queryKey: ['map-data', tanksQuery.data, agbotQuery.data],
+    queryKey: ['map-data', tanksQuery.data, agbotQuery.data, smartfillQuery.data],
     queryFn: async () => {
       const tanks = tanksQuery.data || [];
       const agbotLocations = agbotQuery.data || [];
+      const smartfillLocations = smartfillQuery.data || [];
 
       // Transform tanks to map items
       const tankMapItems = tanks
@@ -119,48 +161,58 @@ export const useMapData = () => {
         .filter(location => location.lat && location.lng)
         .map(transformAgbotToMapItem);
 
+      // Transform smartfill locations to map items (only those with GPS coordinates)
+      const smartfillMapItems = smartfillLocations
+        .filter(location => location.latitude && location.longitude)
+        .map(transformSmartFillToMapItem);
+
       return {
-        allItems: [...tankMapItems, ...agbotMapItems],
+        allItems: [...tankMapItems, ...agbotMapItems, ...smartfillMapItems],
         manualTanks: tankMapItems,
         agbotDevices: agbotMapItems,
+        smartfillLocations: smartfillMapItems,
         counts: {
-          total: tankMapItems.length + agbotMapItems.length,
+          total: tankMapItems.length + agbotMapItems.length + smartfillMapItems.length,
           manual: tankMapItems.length,
-          agbot: agbotMapItems.length
+          agbot: agbotMapItems.length,
+          smartfill: smartfillMapItems.length
         }
       };
     },
-    enabled: !!tanksQuery.data || !!agbotQuery.data,
+    enabled: !!tanksQuery.data || !!agbotQuery.data || !!smartfillQuery.data,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Calculate loading and error states
-  const isLoading = tanksQuery.isLoading || agbotQuery.isLoading || combinedQuery.isLoading;
-  const error = tanksQuery.error || agbotQuery.error || combinedQuery.error;
+  const isLoading = tanksQuery.isLoading || agbotQuery.isLoading || smartfillQuery.isLoading || combinedQuery.isLoading;
+  const error = tanksQuery.error || agbotQuery.error || smartfillQuery.error || combinedQuery.error;
 
   return {
     data: combinedQuery.data,
     allItems: combinedQuery.data?.allItems || [],
     manualTanks: combinedQuery.data?.manualTanks || [],
     agbotDevices: combinedQuery.data?.agbotDevices || [],
-    counts: combinedQuery.data?.counts || { total: 0, manual: 0, agbot: 0 },
+    smartfillLocations: combinedQuery.data?.smartfillLocations || [],
+    counts: combinedQuery.data?.counts || { total: 0, manual: 0, agbot: 0, smartfill: 0 },
     isLoading,
     error,
     refetch: () => {
       tanksQuery.refetch();
       agbotQuery.refetch();
+      smartfillQuery.refetch();
       combinedQuery.refetch();
     },
     
     // Individual query states for debugging
     tanksQuery,
     agbotQuery,
+    smartfillQuery,
     
     // Utility functions
     invalidate: () => {
       tanksQuery.invalidate();
-      // agbotQuery uses React Query, so we need to invalidate using the same method
+      // agbotQuery and smartfillQuery use React Query, so we need to invalidate using the same method
       // This will be handled by the respective hooks
     },
     
@@ -180,6 +232,15 @@ export const useMapData = () => {
         .map(item => item.product_type)
         .filter(Boolean) as string[];
       return Array.from(new Set(types)).sort();
+    },
+    
+    // Get unique sources for filtering
+    getUniqueSources: () => {
+      const allItems = combinedQuery.data?.allItems || [];
+      const sources = allItems
+        .map(item => item.source)
+        .filter(Boolean) as string[];
+      return Array.from(new Set(sources)).sort();
     }
   };
 };
