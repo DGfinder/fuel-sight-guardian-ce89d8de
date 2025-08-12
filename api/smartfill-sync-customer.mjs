@@ -21,7 +21,7 @@ async function makeSmartFillRequest(apiReference, apiSecret, method = 'Tank:Leve
   const payload = {
     jsonrpc: '2.0',
     method: method,
-    params: {
+    parameters: {
       clientReference: apiReference,
       clientSecret: apiSecret,
       ...params
@@ -75,125 +75,142 @@ async function makeSmartFillRequest(apiReference, apiSecret, method = 'Tank:Leve
 }
 
 // Transform SmartFill API data to database format
-function transformSmartFillData(apiData, customerId, customerName) {
+function transformSmartFillData(apiResult, customerId, customerName) {
   const locations = [];
   const tanks = [];
   const readings = [];
 
-  if (!apiData || !Array.isArray(apiData)) {
+  if (!apiResult || !apiResult.columns || !Array.isArray(apiResult.values)) {
     console.warn(`[SMARTFILL CUSTOMER SYNC] No valid data for customer ${customerName}`);
     return { locations, tanks, readings };
   }
 
-  apiData.forEach(unit => {
+  const { columns, values } = apiResult;
+  
+  // Create column index mapping for easier data access
+  const columnIndex = {};
+  columns.forEach((col, index) => {
+    columnIndex[col] = index;
+  });
+
+  // Group tank data by unit number to create locations
+  const unitGroups = new Map();
+  
+  values.forEach(row => {
+    const unitNumber = row[columnIndex['Unit Number']];
+    if (!unitNumber) return;
+    
+    if (!unitGroups.has(unitNumber)) {
+      unitGroups.set(unitNumber, []);
+    }
+    
+    // Transform row data to object
+    const tankData = {};
+    columns.forEach((col, index) => {
+      tankData[col] = row[index];
+    });
+    
+    unitGroups.get(unitNumber).push(tankData);
+  });
+
+  // Process each unit as a location with multiple tanks
+  unitGroups.forEach((unitTanks, unitNumber) => {
     try {
-      // Create location record
+      // Create location record using the first tank's data for location details
+      const firstTank = unitTanks[0];
       const locationId = crypto.randomUUID();
+      
+      // Find the latest update time among all tanks in this unit
+      const latestUpdate = unitTanks.reduce((latest, tank) => {
+        const tankUpdate = tank['Last Updated'] || '1970-01-01 00:00:00';
+        return tankUpdate > latest ? tankUpdate : latest;
+      }, '1970-01-01 00:00:00');
+      
+      // Calculate unit-level averages
+      const validPercentages = unitTanks
+        .map(tank => parseFloat(tank['Volume Percent']))
+        .filter(pct => !isNaN(pct) && pct > 0);
+      const avgPercentage = validPercentages.length > 0 ? 
+        validPercentages.reduce((sum, pct) => sum + pct, 0) / validPercentages.length : null;
+      
+      const totalVolume = unitTanks
+        .map(tank => parseFloat(tank['Volume']))
+        .filter(vol => !isNaN(vol) && vol > 0)
+        .reduce((sum, vol) => sum + vol, 0);
+
       const location = {
         id: locationId,
-        location_guid: unit.unitNumber || `unit_${Date.now()}_${Math.random()}`,
+        location_guid: `smartfill-unit-${customerId}-${unitNumber}`,
         customer_name: customerName,
+        customer_guid: `smartfill-customer-${customerId}`,
         customer_id: customerId,
-        unit_number: unit.unitNumber,
-        description: unit.description || unit.unitDescription,
-        timezone: 'Australia/Perth',
-        latest_volume: unit.volume ? parseFloat(unit.volume) : null,
-        latest_volume_percent: unit.volumePercentage ? parseFloat(unit.volumePercentage) : null,
-        latest_status: unit.status || 'Unknown',
-        latest_update_time: unit.dateTime ? new Date(unit.dateTime) : new Date(),
-        raw_data: unit,
+        unit_number: unitNumber,
+        description: firstTank.Description || `Unit ${unitNumber}`,
+        timezone: firstTank.Timezone || 'Australia/Perth',
+        latest_volume: totalVolume || null,
+        latest_volume_percent: avgPercentage,
+        latest_status: firstTank.Status || 'Unknown',
+        latest_update_time: latestUpdate !== '1970-01-01 00:00:00' ? latestUpdate : new Date().toISOString(),
+        created_at: new Date(),
         updated_at: new Date()
       };
       locations.push(location);
 
-      // Create tank records for each fuel type in the unit
-      if (unit.tanks && Array.isArray(unit.tanks)) {
-        unit.tanks.forEach((tank, index) => {
-          const tankId = crypto.randomUUID();
-          const tankRecord = {
-            id: tankId,
-            location_id: locationId,
-            tank_guid: tank.tankId || `${unit.unitNumber}_tank_${index + 1}`,
-            customer_id: customerId,
-            unit_number: unit.unitNumber,
-            tank_number: (index + 1).toString(),
-            description: tank.description || tank.fuelType || `Tank ${index + 1}`,
-            capacity: tank.capacity ? parseFloat(tank.capacity) : null,
-            safe_fill_level: tank.safeLevel ? parseFloat(tank.safeLevel) : null,
-            latest_volume: tank.volume ? parseFloat(tank.volume) : null,
-            latest_volume_percent: tank.volumePercentage ? parseFloat(tank.volumePercentage) : null,
-            latest_status: tank.status || unit.status || 'Unknown',
-            latest_update_time: tank.dateTime ? new Date(tank.dateTime) : new Date(unit.dateTime),
-            raw_data: tank,
-            updated_at: new Date()
-          };
-          tanks.push(tankRecord);
-
-          // Create reading record
-          if (tank.volume !== null || tank.volumePercentage !== null) {
-            const reading = {
-              id: crypto.randomUUID(),
-              tank_id: tankId,
-              volume: tank.volume ? parseFloat(tank.volume) : null,
-              volume_percent: tank.volumePercentage ? parseFloat(tank.volumePercentage) : null,
-              status: tank.status || unit.status || 'Unknown',
-              update_time: tank.dateTime ? new Date(tank.dateTime) : new Date(unit.dateTime),
-              timezone: 'Australia/Perth',
-              capacity: tank.capacity ? parseFloat(tank.capacity) : null,
-              safe_fill_level: tank.safeLevel ? parseFloat(tank.safeLevel) : null,
-              ullage: tank.capacity && tank.volume ? 
-                      parseFloat(tank.capacity) - parseFloat(tank.volume) : null,
-              created_at: new Date()
-            };
-            readings.push(reading);
-          }
-        });
-      } else {
-        // Single tank unit - create one tank record
+      // Create tank records for each tank in this unit
+      unitTanks.forEach((tankData) => {
         const tankId = crypto.randomUUID();
+        const tankNumber = tankData['Tank Number'] || '1';
+        
         const tankRecord = {
           id: tankId,
           location_id: locationId,
-          tank_guid: unit.unitNumber || `${unit.unitNumber}_tank_1`,
+          tank_guid: `smartfill-tank-${customerId}-${unitNumber}-${tankNumber}`,
           customer_id: customerId,
-          unit_number: unit.unitNumber,
-          tank_number: '1',
-          description: unit.description || unit.fuelType || 'Main Tank',
-          capacity: unit.capacity ? parseFloat(unit.capacity) : null,
-          safe_fill_level: unit.safeLevel ? parseFloat(unit.safeLevel) : null,
-          latest_volume: unit.volume ? parseFloat(unit.volume) : null,
-          latest_volume_percent: unit.volumePercentage ? parseFloat(unit.volumePercentage) : null,
-          latest_status: unit.status || 'Unknown',
-          latest_update_time: unit.dateTime ? new Date(unit.dateTime) : new Date(),
-          raw_data: unit,
+          unit_number: unitNumber,
+          tank_number: tankNumber.toString(),
+          description: tankData.Description || `Tank ${tankNumber}`,
+          capacity: parseFloat(tankData.Capacity) || null,
+          safe_fill_level: parseFloat(tankData['Tank SFL']) || null,
+          latest_volume: parseFloat(tankData.Volume) || null,
+          latest_volume_percent: parseFloat(tankData['Volume Percent']) || null,
+          latest_status: tankData.Status || 'Unknown',
+          latest_update_time: tankData['Last Updated'] || new Date().toISOString(),
+          created_at: new Date(),
           updated_at: new Date()
         };
         tanks.push(tankRecord);
 
-        // Create reading record
-        if (unit.volume !== null || unit.volumePercentage !== null) {
+        // Create reading record if we have valid data
+        const volume = parseFloat(tankData.Volume);
+        const volumePercent = parseFloat(tankData['Volume Percent']);
+        const capacity = parseFloat(tankData.Capacity);
+        const safeLevel = parseFloat(tankData['Tank SFL']);
+        
+        if (!isNaN(volume) || !isNaN(volumePercent)) {
           const reading = {
             id: crypto.randomUUID(),
             tank_id: tankId,
-            volume: unit.volume ? parseFloat(unit.volume) : null,
-            volume_percent: unit.volumePercentage ? parseFloat(unit.volumePercentage) : null,
-            status: unit.status || 'Unknown',
-            update_time: unit.dateTime ? new Date(unit.dateTime) : new Date(),
-            timezone: 'Australia/Perth',
-            capacity: unit.capacity ? parseFloat(unit.capacity) : null,
-            safe_fill_level: unit.safeLevel ? parseFloat(unit.safeLevel) : null,
-            ullage: unit.capacity && unit.volume ? 
-                    parseFloat(unit.capacity) - parseFloat(unit.volume) : null,
+            volume: !isNaN(volume) ? volume : null,
+            volume_percent: !isNaN(volumePercent) ? volumePercent : null,
+            status: tankData.Status || 'Unknown',
+            update_time: tankData['Last Updated'] || new Date().toISOString(),
+            timezone: tankData.Timezone || 'Australia/Perth',
+            capacity: !isNaN(capacity) ? capacity : null,
+            safe_fill_level: !isNaN(safeLevel) ? safeLevel : null,
+            ullage: (!isNaN(capacity) && !isNaN(volume)) ? Math.max(0, capacity - volume) : null,
             created_at: new Date()
           };
           readings.push(reading);
         }
-      }
+      });
+      
     } catch (error) {
-      console.error(`[SMARTFILL CUSTOMER SYNC] Error transforming unit data:`, error, unit);
+      console.error(`[SMARTFILL CUSTOMER SYNC] Error transforming unit ${unitNumber}:`, error, unitTanks);
     }
   });
 
+  console.log(`[SMARTFILL CUSTOMER SYNC] ${customerName}: Transformed ${unitGroups.size} units into ${locations.length} locations, ${tanks.length} tanks, ${readings.length} readings`);
+  
   return { locations, tanks, readings };
 }
 
@@ -437,8 +454,9 @@ export default async function handler(req, res) {
       },
       dbOperations: isTestRun ? null : dbOperationSummary,
       apiData: {
-        unitsReceived: apiResult.data ? apiResult.data.length : 0,
-        rawDataSample: apiResult.data ? apiResult.data.slice(0, 2) : null
+        unitsReceived: apiResult.data && apiResult.data.values ? apiResult.data.values.length : 0,
+        rawDataSample: apiResult.data && apiResult.data.values ? apiResult.data.values.slice(0, 2) : null,
+        columnsReceived: apiResult.data && apiResult.data.columns ? apiResult.data.columns.length : 0
       },
       syncLogId: isTestRun ? null : syncLogId,
       mode: isTestRun ? 'test' : 'sync',
