@@ -120,46 +120,43 @@ export const useLytxSummaryStats = (filters: LytxAnalyticsFilters = {}) => {
   return useQuery({
     queryKey: ['lytx', 'historical', 'summary', filters],
     queryFn: async () => {
-      const { data: events } = await supabase
+      const { data, error } = await supabase
         .from('lytx_safety_events')
-        .select('carrier, status, event_type, score, driver_name, event_datetime, excluded')
-        .then(result => {
-          if (result.error) throw result.error;
-          
-          let filteredData = result.data || [];
+        .select('carrier, status, event_type, score, driver_name, event_datetime, excluded');
 
-          // Apply client-side filtering for complex queries
-          if (filters.carrier && filters.carrier !== 'All') {
-            filteredData = filteredData.filter(e => e.carrier === filters.carrier);
-          }
+      if (error) throw error;
 
-          if (filters.status && filters.status !== 'All') {
-            filteredData = filteredData.filter(e => e.status === filters.status);
-          }
+      let events = data || [];
 
-          if (filters.eventType && filters.eventType !== 'All') {
-            filteredData = filteredData.filter(e => e.event_type === filters.eventType);
-          }
+      // Apply client-side filtering for complex queries
+      if (filters.carrier && filters.carrier !== 'All') {
+        events = events.filter(e => e.carrier === filters.carrier);
+      }
 
-          if (filters.dateRange) {
-            filteredData = filteredData.filter(e => 
-              e.event_datetime >= filters.dateRange!.startDate && 
-              e.event_datetime <= filters.dateRange!.endDate
-            );
-          }
+      if (filters.status && filters.status !== 'All') {
+        events = events.filter(e => e.status === filters.status);
+      }
 
-          if (filters.driverAssigned === 'Assigned') {
-            filteredData = filteredData.filter(e => e.driver_name !== 'Driver Unassigned');
-          } else if (filters.driverAssigned === 'Unassigned') {
-            filteredData = filteredData.filter(e => e.driver_name === 'Driver Unassigned');
-          }
+      if (filters.eventType && filters.eventType !== 'All') {
+        events = events.filter(e => e.event_type === filters.eventType);
+      }
 
-          if (filters.excluded !== undefined) {
-            filteredData = filteredData.filter(e => e.excluded === filters.excluded);
-          }
+      if (filters.dateRange) {
+        events = events.filter(e => 
+          e.event_datetime >= filters.dateRange!.startDate && 
+          e.event_datetime <= filters.dateRange!.endDate
+        );
+      }
 
-          return filteredData;
-        });
+      if (filters.driverAssigned === 'Assigned') {
+        events = events.filter(e => e.driver_name !== 'Driver Unassigned');
+      } else if (filters.driverAssigned === 'Unassigned') {
+        events = events.filter(e => e.driver_name === 'Driver Unassigned');
+      }
+
+      if (filters.excluded !== undefined) {
+        events = events.filter(e => e.excluded === filters.excluded);
+      }
 
       const totalEvents = events.length;
       const resolvedEvents = events.filter(e => e.status === 'Resolved').length;
