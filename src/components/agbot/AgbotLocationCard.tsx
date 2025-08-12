@@ -188,7 +188,14 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
                     <div className="flex justify-between">
                       <span className="text-blue-600">Daily Usage:</span>
                       <span className="font-semibold text-blue-800">
-                        {(mainAsset.asset_daily_consumption || location.location_daily_consumption).toFixed(2)}L
+                        {(() => {
+                          const dailyConsumptionPct = mainAsset.asset_daily_consumption || location.location_daily_consumption;
+                          const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
+                          const capacity = mainAsset.asset_refill_capacity_litres || 
+                                          (capacityFromName ? parseInt(capacityFromName) : 50000);
+                          const dailyConsumptionLitres = Math.round((dailyConsumptionPct / 100) * capacity);
+                          return dailyConsumptionLitres.toLocaleString();
+                        })()}L
                       </span>
                     </div>
                   )}

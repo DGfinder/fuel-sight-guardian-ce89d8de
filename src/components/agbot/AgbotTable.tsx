@@ -118,11 +118,14 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
     const mainAsset = location.assets?.[0];
     const deviceOnline = mainAsset?.device_online ?? false;
 
-    // Check if we have recent data (within 2 hours)
+    // Check if we have recent data (within 12 hours - more reasonable for fuel monitoring)
     const hasRecentData = location.latest_telemetry ? 
-      (new Date().getTime() - new Date(location.latest_telemetry).getTime()) < (2 * 60 * 60 * 1000) : false;
+      (new Date().getTime() - new Date(location.latest_telemetry).getTime()) < (12 * 60 * 60 * 1000) : false;
 
-    if (isOnline && deviceOnline && hasRecentData) {
+    // More lenient reliability check - if location is online OR we have recent data with fuel percentage
+    const hasFuelData = location.latest_calibrated_fill_percentage !== null || mainAsset?.latest_calibrated_fill_percentage !== null;
+    
+    if ((isOnline || hasRecentData) && hasFuelData) {
       return <Badge className="bg-green-500 text-white">Reliable</Badge>;
     } else {
       return <Badge variant="destructive">Unreliable</Badge>;
@@ -250,8 +253,9 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
                             (capacityFromName ? parseInt(capacityFromName) : 50000);
             const currentVolume = percentage ? Math.round((percentage / 100) * capacity) : 0;
             
-            // Consumption data
-            const dailyConsumption = mainAsset?.asset_daily_consumption || location.location_daily_consumption;
+            // Consumption data - convert percentage to actual litres
+            const dailyConsumptionPct = mainAsset?.asset_daily_consumption || location.location_daily_consumption;
+            const dailyConsumptionLitres = dailyConsumptionPct ? Math.round((dailyConsumptionPct / 100) * capacity) : null;
             const daysRemaining = mainAsset?.asset_days_remaining;
             
             return (
@@ -301,9 +305,14 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
                 
                 {/* Daily Usage */}
                 <TableCell>
-                  {dailyConsumption ? (
+                  {dailyConsumptionLitres ? (
                     <div className="text-sm">
-                      <div className="font-semibold">{dailyConsumption.toFixed(2)}L</div>
+                      <div className="font-semibold">{dailyConsumptionLitres.toLocaleString()}L</div>
+                      <div className="text-xs text-muted-foreground">per day</div>
+                    </div>
+                  ) : dailyConsumptionPct ? (
+                    <div className="text-sm">
+                      <div className="font-semibold">{dailyConsumptionPct.toFixed(1)}%</div>
                       <div className="text-xs text-muted-foreground">per day</div>
                     </div>
                   ) : (
