@@ -127,7 +127,8 @@ SELECT
   COALESCE((SELECT dr.recorded_by FROM dip_readings dr WHERE dr.tank_id = t.id ORDER BY dr.created_at DESC LIMIT 1), 'System') as latest_dip_by
 
 FROM fuel_tanks t
-LEFT JOIN tank_groups tg ON tg.id = t.group_id;
+LEFT JOIN tank_groups tg ON tg.id = t.group_id
+WHERE t.status = 'active';
 
 -- ============================================================================
 -- STEP 2: Grant permissions

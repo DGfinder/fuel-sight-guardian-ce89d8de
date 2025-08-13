@@ -1,9 +1,12 @@
+export type TankStatus = 'active' | 'archived' | 'decommissioned';
+
 export interface TankRow {
   id: string;
   location?: string;
   product_type?: string;
   safe_level?: number;
   min_level?: number;
+  status?: TankStatus;
   created_at?: string;
   updated_at?: string;
   group_id?: string;

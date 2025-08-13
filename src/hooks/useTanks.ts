@@ -20,6 +20,7 @@ export interface Tank {
   product_type: string;
   safe_level: number;
   min_level: number;
+  status?: 'active' | 'archived' | 'decommissioned';
   group_id: string | null;
   group_name: string;
   subgroup: string;
@@ -85,6 +86,7 @@ export const useTanks = () => {
           notes, serviced_on, serviced_by, latitude, longitude,
           created_at, updated_at
         `)
+        .eq('status', 'active')
         .order('location');
 
       if (baseError) {
