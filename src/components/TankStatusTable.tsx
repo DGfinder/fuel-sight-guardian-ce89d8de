@@ -15,7 +15,7 @@ import EditDipModal from './modals/EditDipModal';
 import { markTankServiced, unmarkTankServiced, supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTankModal } from '@/contexts/TankModalContext';
-import { formatPerthRelativeTime, formatPerthDisplay } from '@/utils/timezone';
+import { formatPerthRelativeTime, formatPerthDisplay, getPerthToday } from '@/utils/timezone';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
@@ -651,7 +651,7 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   const queryClient = useQueryClient();
   const { openModal } = useTankModal();
   
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getPerthToday();
 
   // Check if a tank is serviced today
   const isServiced = useCallback((tankId: string) => {

@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { getPerthToday } from '@/utils/timezone';
 import { useTanks } from '@/hooks/useTanks';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { businessRules } from '@/lib/validation';
@@ -50,7 +51,7 @@ export default function BulkDipModal({ open, onOpenChange, groupId, groupName }:
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [dipDate, setDipDate] = useState(new Date());
+  const [dipDate, setDipDate] = useState(new Date(getPerthToday()));
   const [entries, setEntries] = useState<Record<string, BulkDipEntry>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState(0);
@@ -322,7 +323,7 @@ export default function BulkDipModal({ open, onOpenChange, groupId, groupName }:
               type="date"
               value={dipDate.toISOString().slice(0, 10)}
               onChange={(e) => setDipDate(new Date(e.target.value))}
-              max={new Date().toISOString().slice(0, 10)}
+              max={getPerthToday()}
               className="w-48"
             />
             <div className="ml-auto flex gap-2">

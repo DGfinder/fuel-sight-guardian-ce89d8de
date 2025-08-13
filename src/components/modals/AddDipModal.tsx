@@ -82,7 +82,7 @@ export default function AddDipModal({
   const [subgroup,   setSubgroup]   = useState("");
   const [tankId,     setTankId]     = useState(initialTankId);
   const [dipValue,   setDipValue]   = useState("");
-  const [dipDate,    setDipDate]    = useState<Date>(new Date());
+  const [dipDate,    setDipDate]    = useState<Date>(new Date(getPerthToday()));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -132,7 +132,7 @@ export default function AddDipModal({
     setSubgroup("");
     setTankId("");
     setDipValue("");
-    setDipDate(new Date());
+    setDipDate(new Date(getPerthToday()));
     setCalendarOpen(false);
   };
 
@@ -199,7 +199,7 @@ export default function AddDipModal({
       }
       // Reset form fields
       setDipValue("");
-      setDipDate(new Date());
+      setDipDate(new Date(getPerthToday()));
       setCalendarOpen(false);
     } else {
       // Modal is closing, reset everything

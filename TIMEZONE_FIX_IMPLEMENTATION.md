@@ -42,22 +42,34 @@
 
 ## 📊 Technical Implementation Details
 
-### Date Calculation Functions:
+### Date Calculation Functions (Simplified UTC+8 Approach):
 ```typescript
-// NEW: Perth timezone-aware date functions
+// OPTIMIZED: Simple UTC+8 calculation for Perth timezone
+const PERTH_UTC_OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8 in milliseconds
+
 export function getPerthToday(): string {
   const now = new Date();
-  const perthDate = new Date(now.toLocaleString("en-US", { timeZone: PERTH_TIMEZONE }));
-  return perthDate.toISOString().slice(0, 10);
+  // Simple UTC+8 calculation (Perth timezone)
+  const perthTime = new Date(now.getTime() + PERTH_UTC_OFFSET_MS);
+  return perthTime.toISOString().slice(0, 10);
 }
 
 export function getPerthTomorrow(): string {
   const now = new Date();
-  const perthDate = new Date(now.toLocaleString("en-US", { timeZone: PERTH_TIMEZONE }));
-  perthDate.setDate(perthDate.getDate() + 1);
-  return perthDate.toISOString().slice(0, 10);
+  // Simple UTC+8 calculation, then add one day
+  const perthTime = new Date(now.getTime() + PERTH_UTC_OFFSET_MS);
+  perthTime.setUTCDate(perthTime.getUTCDate() + 1);
+  return perthTime.toISOString().slice(0, 10);
 }
 ```
+
+### Why UTC+8 Instead of Timezone Libraries?
+- **Simpler**: Direct mathematical offset calculation
+- **Faster**: No complex timezone library calls or browser API dependencies
+- **More Reliable**: Works consistently across all browsers and environments
+- **Easier to Debug**: Clear, predictable UTC+8 offset logic
+- **Future-Proof**: No dependency on browser timezone implementations
+- **Perth-Specific**: Perth doesn't use daylight saving time, so UTC+8 is always correct
 
 ### Form Component Updates:
 ```typescript
@@ -128,3 +140,28 @@ To verify the fix works:
 4. **Test default values**: New dip entries should default to Perth "today"
 
 The fix eliminates the 8am delay and ensures proper timezone-aware data entry for Perth users.
+
+## 🚀 UTC+8 Optimization Benefits
+
+### Performance Improvements:
+- **Eliminated** complex `toLocaleString()` calls with timezone parameters
+- **Removed** dependency on browser timezone API implementations  
+- **Reduced** computational overhead with simple mathematical calculations
+- **Improved** consistency across different browser environments
+
+### Reliability Improvements:
+- **No browser compatibility issues** with timezone handling
+- **Predictable behavior** across all platforms and devices
+- **Simplified debugging** with clear UTC+8 offset logic
+- **Future-proof** against browser timezone API changes
+
+### Code Simplicity:
+```typescript
+// BEFORE: Complex timezone conversion
+const perthDate = new Date(now.toLocaleString("en-US", { timeZone: PERTH_TIMEZONE }));
+
+// AFTER: Simple UTC+8 math
+const perthTime = new Date(now.getTime() + PERTH_UTC_OFFSET_MS);
+```
+
+This approach is perfect for Perth because Western Australia doesn't observe daylight saving time, making UTC+8 reliable year-round.
