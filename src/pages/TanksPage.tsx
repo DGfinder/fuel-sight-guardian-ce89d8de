@@ -68,6 +68,7 @@ export default function TanksPage() {
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
   const [addDipModalOpen, setAddDipModalOpen] = useState(false);
+  const [addDipSelectedTank, setAddDipSelectedTank] = useState<Tank | null>(null);
   const queryClient = useQueryClient();
 
   // Initialize filters from URL parameters
@@ -448,7 +449,10 @@ export default function TanksPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onSelect={() => setAddDipModalOpen(true)}>
+                      <DropdownMenuItem onSelect={() => {
+                        setAddDipSelectedTank(tank); // Set tank context
+                        setAddDipModalOpen(true);
+                      }}>
                         <Plus className="w-4 h-4 mr-2" />
                         Add New Reading
                       </DropdownMenuItem>
@@ -552,6 +556,7 @@ export default function TanksPage() {
                   className="flex-1 text-xs bg-blue-600 hover:bg-blue-700"
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent card click
+                    setAddDipSelectedTank(tank); // Set tank context
                     setAddDipModalOpen(true);
                   }}
                 >
@@ -648,10 +653,16 @@ export default function TanksPage() {
 
       <AddDipModal
         open={addDipModalOpen}
-        onOpenChange={setAddDipModalOpen}
+        onOpenChange={(open) => {
+          setAddDipModalOpen(open);
+          if (!open) setAddDipSelectedTank(null); // Clear tank context when closing
+        }}
+        initialTankId={addDipSelectedTank?.id}
+        initialGroupId={addDipSelectedTank?.group_id}
         onSubmit={async () => {
           // Handle submission and close modal
           setAddDipModalOpen(false);
+          setAddDipSelectedTank(null); // Clear tank context
         }}
       />
 
