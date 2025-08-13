@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { RefreshCw, Download } from 'lucide-react';
+import LytxDebugPanel from '@/components/LytxDebugPanel';
 
 type Carrier = 'All' | 'Stevemacs' | 'Great Southern Fuels';
 
@@ -40,6 +41,17 @@ export default function LytxSimpleDashboard() {
   const query = useQuery({
     queryKey: ['lytx-simple-events', carrier, monthsBack],
     queryFn: async () => {
+      console.log('🔍 LYTX Dashboard Debug - Starting query with:', { carrier, monthsBack });
+      
+      // Check current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('👤 User session:', session ? {
+        userId: session.user.id,
+        email: session.user.email,
+        role: session.user.app_metadata?.role,
+        groups: session.user.user_metadata?.groups
+      } : 'No session');
+      
       // Read directly from events table to guarantee data visibility
       let q = supabase
         .from('lytx_safety_events')
@@ -47,19 +59,39 @@ export default function LytxSimpleDashboard() {
         .order('event_datetime', { ascending: false });
 
       if (carrier !== 'All') {
+        console.log('📊 Filtering by carrier:', carrier);
         q = q.eq('carrier', carrier);
       }
 
+      console.log('🚀 Executing query...');
       // Fetch a sizeable page of events for visible analytics
       const { data, error } = await q.range(0, 9999);
-      if (error) throw error;
+      
+      console.log('📈 Query result:', {
+        success: !error,
+        dataLength: data?.length || 0,
+        error: error?.message || 'none',
+        firstEvent: data?.[0],
+        lastEvent: data?.[data.length - 1]
+      });
+      
+      if (error) {
+        console.error('❌ Query error details:', error);
+        throw error;
+      }
 
       // Also fetch the total count for KPI even if we only loaded a page
+      console.log('🔢 Fetching total count...');
       let qc = supabase
         .from('lytx_safety_events')
         .select('*', { count: 'exact', head: true });
       if (carrier !== 'All') qc = qc.eq('carrier', carrier);
-      const { count: totalCount = 0 } = await qc;
+      const { count: totalCount = 0, error: countError } = await qc;
+      
+      console.log('📊 Count result:', {
+        totalCount,
+        countError: countError?.message || 'none'
+      });
 
       const events = (data || []) as Array<{
         carrier: 'Stevemacs' | 'Great Southern Fuels';
@@ -124,6 +156,14 @@ export default function LytxSimpleDashboard() {
         score: e.score || 0,
         event_datetime: e.event_datetime,
       }));
+
+      console.log('✅ Final result summary:', {
+        aggregatedRows: rows.length,
+        recentEvents: recent.length,
+        kpiTotal: totalCount,
+        sampleRow: rows[0],
+        sampleRecent: recent[0]
+      });
 
       return { rows: rows as AnalyticsRow[], recent, kpiTotal: totalCount };
     },
@@ -342,6 +382,9 @@ export default function LytxSimpleDashboard() {
           </table>
         </div>
       </div>
+
+      {/* Debug Panel - Remove this after troubleshooting */}
+      <LytxDebugPanel />
     </div>
   );
 }
