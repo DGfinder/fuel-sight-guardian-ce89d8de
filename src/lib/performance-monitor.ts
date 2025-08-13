@@ -290,8 +290,10 @@ class PerformanceMonitor {
 
   private getElementSelector(element: HTMLElement): string {
     if (element.id) return `#${element.id}`;
-    if (element.className) return `.${element.className.split(' ')[0]}`;
-    return element.tagName.toLowerCase();
+    // Guard for non-string className (SVGElement, components etc.)
+    const className = typeof (element as any).className === 'string' ? (element as any).className : '';
+    if (className) return `.${className.split(' ')[0]}`;
+    return element.tagName ? element.tagName.toLowerCase() : 'unknown';
   }
 
   private reportMetric(name: string, value: number): void {

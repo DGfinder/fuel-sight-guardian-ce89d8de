@@ -225,8 +225,8 @@ export const LytxHistoricalDashboard: React.FC<LytxHistoricalDashboardProps> = (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                checked={!filters.excluded}
-                onChange={(e) => handleFilterChange({ excluded: !e.target.checked })}
+                checked={filters.excluded === undefined}
+                onChange={(e) => handleFilterChange({ excluded: e.target.checked ? undefined : false })}
                 className="rounded"
               />
               Include Excluded

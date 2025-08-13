@@ -103,6 +103,7 @@ const LYTXSafetyDashboard: React.FC = () => {
     status: 'All',
     eventType: 'All',
     driverAssigned: 'All',
+    // undefined means "no filter"; keep false to exclude by default
     excluded: false
   }), [selectedCarrier, dateRange, dateRanges]);
 
