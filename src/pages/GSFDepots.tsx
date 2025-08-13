@@ -41,7 +41,7 @@ export default function GSFDepotsPage() {
   const groupFilteredTanks = (tanks || []).filter(t => t.group_name === GSF_DEPOTS_GROUP_NAME);
   
   // Only filter if permissions are loaded
-  const gsfDepotsTanks = (!permissionsLoading && permissions) ? filterTanks(groupFilteredTanks) : [];
+  const gsfDepotsTanks = (!permissionsLoading && permissions) ? filterTanks(groupFilteredTanks) : (groupFilteredTanks || []);
   const selectedTank = gsfDepotsTanks.find(t => t.id === selectedTankId) || null;
 
   // Debug subgroup filtering with safe access

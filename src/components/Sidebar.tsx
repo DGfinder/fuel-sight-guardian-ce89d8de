@@ -146,7 +146,7 @@ export const Sidebar: React.FC = () => {
   const queryClient = useQueryClient();
   
   // Calculate tank count with permission filtering applied
-  const permissionFilteredTanks = (!filterLoading && tanks) ? filterTanks(tanks) : [];
+  const permissionFilteredTanks = (!filterLoading && tanks) ? filterTanks(tanks) : (tanks || []);
   const tanksCount = permissionFilteredTanks.length;
   
   // Debug sidebar tank filtering

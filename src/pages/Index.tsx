@@ -52,7 +52,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   const { alerts, isLoading: alertsLoading } = useAlerts();
 
   // Apply subgroup filtering to tanks - only if permissions are loaded
-  const permissionFilteredTanks = (!permissionsLoading && permissions) ? filterTanks(tanks || []) : [];
+  const permissionFilteredTanks = (!permissionsLoading && permissions) ? filterTanks(tanks || []) : (tanks || []);
   
   // Debug component state including subgroup filtering
   console.log('[INDEX DEBUG] Component State:', {

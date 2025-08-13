@@ -104,7 +104,7 @@ export default function TanksPage() {
     if (!tanks) return { filteredTanks: [], stats: { total: 0, critical: 0, low: 0, normal: 0, lowFuel: 0 } };
 
     // First apply subgroup permissions filtering - only if permissions are loaded
-    const permissionFilteredTanks = !permissionsLoading ? filterTanks(tanks) : [];
+    const permissionFilteredTanks = !permissionsLoading ? filterTanks(tanks) : (tanks || []);
     
     const filtered = permissionFilteredTanks.filter(tank => {
       const matchesSearch = tank.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
