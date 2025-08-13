@@ -17,9 +17,7 @@ interface AnalyticsRow {
   driver_tagged_events: number;
   new_events: number;
   resolved_events: number;
-  avg_score: number | string;
-  unique_drivers?: number;
-  high_risk_drivers?: number;
+  avg_score: number;
 }
 
 export default function LytxSimpleDashboard() {
@@ -37,16 +35,16 @@ export default function LytxSimpleDashboard() {
   }, [location.pathname, location.search]);
 
   const [carrier, setCarrier] = useState<Carrier>(inferredCarrier);
-  const [monthsBack, setMonthsBack] = useState<number>(12);
+  const [monthsBack, setMonthsBack] = useState<number>(0);
 
   const query = useQuery({
-    queryKey: ['lytx-simple', carrier, monthsBack],
+    queryKey: ['lytx-simple-events', carrier, monthsBack],
     queryFn: async () => {
+      // Read directly from events table to guarantee data visibility
       let q = supabase
-        .from('lytx_safety_analytics')
-        .select('*')
-        .order('year', { ascending: false })
-        .order('month_num', { ascending: false });
+        .from('lytx_safety_events')
+        .select('carrier, depot, event_datetime, event_type, status, score, excluded')
+        .order('event_datetime', { ascending: false });
 
       if (carrier !== 'All') {
         q = q.eq('carrier', carrier);
@@ -54,7 +52,60 @@ export default function LytxSimpleDashboard() {
 
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as AnalyticsRow[];
+
+      const events = (data || []) as Array<{
+        carrier: 'Stevemacs' | 'Great Southern Fuels';
+        depot: string | null;
+        event_datetime: string;
+        event_type: 'Coachable' | 'Driver Tagged';
+        status: 'New' | 'Face-To-Face' | 'FYI Notify' | 'Resolved';
+        score: number | null;
+        excluded?: boolean | null;
+      }>;
+
+      // Aggregate by (year, month_num, month, carrier, depot)
+      const byKey = new Map<string, AnalyticsRow>();
+      for (const e of events) {
+        const d = new Date(e.event_datetime);
+        const year = d.getFullYear();
+        const month_num = d.getMonth() + 1;
+        const month = d.toLocaleString('en-US', { month: 'short' });
+        const depot = e.depot || null;
+        const key = `${year}-${month_num}-${e.carrier}-${depot || ''}`;
+        if (!byKey.has(key)) {
+          byKey.set(key, {
+            carrier: e.carrier,
+            depot,
+            month,
+            year,
+            month_num,
+            total_events: 0,
+            coachable_events: 0,
+            driver_tagged_events: 0,
+            new_events: 0,
+            resolved_events: 0,
+            avg_score: 0,
+          });
+        }
+        const row = byKey.get(key)!;
+        row.total_events += 1;
+        if (e.event_type === 'Coachable') row.coachable_events += 1;
+        if (e.event_type === 'Driver Tagged') row.driver_tagged_events += 1;
+        if (e.status === 'New') row.new_events += 1;
+        if (e.status === 'Resolved') row.resolved_events += 1;
+        row.avg_score += (e.score || 0);
+      }
+
+      // finalize avg score per group
+      const rows = Array.from(byKey.values()).map(r => ({
+        ...r,
+        avg_score: r.total_events > 0 ? Math.round((r.avg_score / r.total_events) * 100) / 100 : 0,
+      }));
+
+      // Sort most recent first
+      rows.sort((a, b) => (b.year - a.year) || (b.month_num - a.month_num));
+
+      return rows as AnalyticsRow[];
     },
     staleTime: 60_000,
     gcTime: 5 * 60_000,
@@ -63,13 +114,11 @@ export default function LytxSimpleDashboard() {
 
   const rows = useMemo(() => {
     const list = (query.data || [])
-      .map(r => ({
-        ...r,
-        avg_score: typeof r.avg_score === 'string' ? parseFloat(r.avg_score) : r.avg_score,
-      }))
+      .map(r => ({ ...r }))
       .sort((a, b) => (b.year - a.year) || (b.month_num - a.month_num));
 
-    if (!monthsBack) return list;
+    // monthsBack = 0 means all time
+    if (!monthsBack || monthsBack <= 0) return list;
 
     // Keep up to N months most recent
     const seen: Set<string> = new Set();
@@ -164,9 +213,9 @@ export default function LytxSimpleDashboard() {
             onChange={e => setMonthsBack(Number(e.target.value))}
             className="px-3 py-2 border rounded"
           >
+            <option value="0">All time</option>
             <option value="6">Last 6 months</option>
             <option value="12">Last 12 months</option>
-            <option value="0">All time</option>
           </select>
         </div>
       </div>

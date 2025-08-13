@@ -57,6 +57,7 @@ const DATA_CENTRE_NAV_ITEMS = [
     permission: 'view_lytx_events',
     children: [
       { path: '/data-centre/lytx-safety/stevemacs', label: 'Stevemacs Safety', icon: AlertTriangle },
+      { path: '/data-centre/lytx-safety/smb', label: 'Stevemacs (SMB)', icon: AlertTriangle },
       { path: '/data-centre/lytx-safety/gsf', label: 'GSF Safety', icon: AlertTriangle }
     ]
   },
