@@ -105,7 +105,19 @@ export default function LytxSimpleDashboard() {
       // Sort most recent first
       rows.sort((a, b) => (b.year - a.year) || (b.month_num - a.month_num));
 
-      return rows as AnalyticsRow[];
+      // Return both aggregates and a small recent sample for fallback rendering
+      const recent = events.slice(0, 100).map(e => ({
+        year: new Date(e.event_datetime).getFullYear(),
+        month: new Date(e.event_datetime).toLocaleString('en-US', { month: 'short' }),
+        carrier: e.carrier,
+        depot: e.depot || null,
+        status: e.status,
+        event_type: e.event_type,
+        score: e.score || 0,
+        event_datetime: e.event_datetime,
+      }));
+
+      return { rows: rows as AnalyticsRow[], recent };
     },
     staleTime: 60_000,
     gcTime: 5 * 60_000,
@@ -113,7 +125,7 @@ export default function LytxSimpleDashboard() {
   });
 
   const rows = useMemo(() => {
-    const list = (query.data || [])
+    const list = (query.data?.rows || [])
       .map(r => ({ ...r }))
       .sort((a, b) => (b.year - a.year) || (b.month_num - a.month_num));
 
@@ -178,7 +190,7 @@ export default function LytxSimpleDashboard() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">LYTX Safety (Simple)</h1>
-            <p className="text-gray-600 text-sm">Reading from analytics view to guarantee data appears. API can be added later.</p>
+            <p className="text-gray-600 text-sm">Reading from events table to guarantee data appears. API can be added later.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -269,9 +281,41 @@ export default function LytxSimpleDashboard() {
                 </tr>
               )}
               {!query.isLoading && !query.isError && rows.length === 0 && (
-                <tr>
-                  <td className="p-4 text-gray-500" colSpan={9}>No data available for the selected filters.</td>
-                </tr>
+                <>
+                  <tr>
+                    <td className="p-4 text-gray-700" colSpan={9}>No monthly aggregates yet. Showing recent events sample (first 100) from table.</td>
+                  </tr>
+                  <tr className="bg-gray-100">
+                    <td colSpan={9} className="p-0">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs">
+                          <thead>
+                            <tr>
+                              <th className="text-left p-2">Date</th>
+                              <th className="text-left p-2">Carrier</th>
+                              <th className="text-left p-2">Depot</th>
+                              <th className="text-left p-2">Status</th>
+                              <th className="text-left p-2">Type</th>
+                              <th className="text-right p-2">Score</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(query.data?.recent || []).map((e: any, i: number) => (
+                              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="p-2">{new Date(e.event_datetime).toLocaleString()}</td>
+                                <td className="p-2">{e.carrier}</td>
+                                <td className="p-2">{e.depot || '—'}</td>
+                                <td className="p-2">{e.status}</td>
+                                <td className="p-2">{e.event_type}</td>
+                                <td className="p-2 text-right">{e.score}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                </>
               )}
               {rows.map((r, idx) => (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
