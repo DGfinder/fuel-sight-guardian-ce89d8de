@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tank } from '@/types/fuel';
-import { useFavourites } from '@/hooks/useFavourites';
 import { useRecentDips } from '@/hooks/useRecentDips';
 import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
-import { supabase } from '@/lib/supabase';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -29,23 +27,8 @@ interface FuelInsightsPanelProps {
 }
 
 export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPanelProps) {
-  const [user, setUser] = useState(null);
   const { data: recentDips, isLoading: recentDipsLoading } = useRecentDips(30);
   const { filterTanks, permissions, isLoading: permissionsLoading } = useFilterTanksBySubgroup();
-
-  useEffect(() => {
-    const getSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setUser(data.session?.user || null);
-    };
-    getSession();
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-    });
-    return () => {
-      listener?.subscription.unsubscribe();
-    };
-  }, []);
 
   // Filter recent dips to only show readings from authorized tanks
   const authorizedTankIds = new Set(tanks.map(tank => tank.id));
@@ -83,7 +66,7 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
               <div>
                 <p className="text-sm text-gray-600 font-medium">Welcome back</p>
                 <p className="text-gray-900 font-semibold">
-                  {user?.email?.split('@')[0] || 'User'}
+                  {permissions?.display_name || 'User'}
                 </p>
               </div>
             </div>

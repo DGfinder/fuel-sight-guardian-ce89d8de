@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 export interface UserPermissions {
   role: string;
   isAdmin: boolean;
+  display_name: string;
   accessibleGroups: Array<{
     id: string;
     name: string;
@@ -27,10 +28,10 @@ export const useUserPermissions = () => {
       console.log('👤 [RBAC DEBUG] Fetching permissions for user:', user.id);
 
       try {
-        // Step 1: Get user role (direct query, no RLS)
+        // Step 1: Get user role and display name (direct query, no RLS)
         const { data: roleData, error: roleError } = await supabase
           .from('user_roles')
-          .select('role')
+          .select('role, display_name')
           .eq('user_id', user.id)
           .single();
 
@@ -40,6 +41,7 @@ export const useUserPermissions = () => {
           return {
             role: 'viewer',
             isAdmin: false,
+            display_name: user.email || 'User',
             accessibleGroups: []
           };
         }
@@ -127,6 +129,7 @@ export const useUserPermissions = () => {
         const cleanPermissions = {
           role: String(userRole || 'viewer'),
           isAdmin: Boolean(isAdmin),
+          display_name: String(roleData.display_name || user.email || 'User'),
           accessibleGroups: Array.isArray(accessibleGroups) ? 
             accessibleGroups.map(group => ({
               id: String(group?.id || ''),
@@ -161,6 +164,7 @@ export const useUserPermissions = () => {
         const fallbackPermissions = {
           role: 'viewer',
           isAdmin: false,
+          display_name: user?.email || 'User',
           accessibleGroups: []
         };
         
@@ -184,6 +188,7 @@ export const useUserPermissions = () => {
         return {
           role: 'viewer',
           isAdmin: false,
+          display_name: 'User',
           accessibleGroups: []
         };
       }
@@ -192,6 +197,7 @@ export const useUserPermissions = () => {
       return {
         role: typeof data.role === 'string' ? data.role : 'viewer',
         isAdmin: Boolean(data.isAdmin),
+        display_name: typeof data.display_name === 'string' ? data.display_name : 'User',
         accessibleGroups: Array.isArray(data.accessibleGroups) ? data.accessibleGroups : []
       };
     },
