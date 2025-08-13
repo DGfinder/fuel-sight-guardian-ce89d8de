@@ -61,6 +61,7 @@ export default function LytxSimpleDashboard() {
           depot,
           driver_name,
           vehicle_registration,
+           device_serial,
           event_datetime,
           event_type,
           status,
@@ -193,17 +194,16 @@ export default function LytxSimpleDashboard() {
   }, [query.data]);
 
   const handleExport = () => {
-    const csvHeader = ['Event ID','Date','Driver','Vehicle','Carrier','Depot','Type','Status','Score','Trigger','Behaviors'];
+     const csvHeader = ['Event ID','Date','Driver','Vehicle','Carrier','Depot','Type','Status','Trigger','Behaviors'];
     const csvRows = events.map(e => [
       e.event_id,
       new Date(e.event_datetime).toLocaleDateString(),
       e.driver_name,
-      e.vehicle_registration || '',
+       e.vehicle_registration || (e as any).device_serial || '',
       e.carrier,
-      e.depot || '',
+       e.depot || e.group_name || '',
       e.event_type,
       e.status,
-      String(e.score || 0),
       e.trigger,
       e.behaviors || ''
     ]);
@@ -381,10 +381,9 @@ export default function LytxSimpleDashboard() {
                 <th className="text-left p-3">Vehicle</th>
                 <th className="text-left p-3">Carrier</th>
                 <th className="text-left p-3">Depot</th>
-                <th className="text-left p-3">Type</th>
+                 <th className="text-left p-3">Trigger</th>
                 <th className="text-left p-3">Status</th>
-                <th className="text-right p-3">Score</th>
-                <th className="text-left p-3">Trigger</th>
+                 <th className="text-left p-3">Type</th>
                 <th className="text-left p-3">Behaviors</th>
               </tr>
             </thead>
@@ -406,13 +405,13 @@ export default function LytxSimpleDashboard() {
               )}
               {events.map((event, idx) => {
                 const behaviors = (event.behaviors || '').split(',').map(b => b.trim()).filter(b => b);
-                const statusColors = {
+                 const statusColors = {
                   'New': 'bg-blue-100 text-blue-800',
                   'Face-To-Face': 'bg-yellow-100 text-yellow-800', 
                   'FYI Notify': 'bg-purple-100 text-purple-800',
                   'Resolved': 'bg-green-100 text-green-800'
                 };
-                const typeColors = {
+                 const typeColors = {
                   'Coachable': 'bg-orange-100 text-orange-800',
                   'Driver Tagged': 'bg-red-100 text-red-800'
                 };
@@ -425,24 +424,19 @@ export default function LytxSimpleDashboard() {
                     </td>
                     <td className="p-3 font-medium">{event.driver_name}</td>
                     <td className="p-3 text-xs">{event.vehicle_registration || '—'}</td>
-                    <td className="p-3 text-xs">{event.carrier}</td>
-                    <td className="p-3 text-xs">{event.depot || '—'}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${typeColors[event.event_type] || 'bg-gray-100 text-gray-800'}`}>
-                        {event.event_type}
-                      </span>
-                    </td>
+                     <td className="p-3 text-xs">{event.carrier}</td>
+                     <td className="p-3 text-xs">{event.depot || event.group_name || '—'}</td>
+                     <td className="p-3 text-xs max-w-40 truncate" title={event.trigger}>{event.trigger || '—'}</td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[event.status] || 'bg-gray-100 text-gray-800'}`}>
                         {event.status}
                       </span>
                     </td>
-                    <td className="p-3 text-right font-mono">
-                      <span className={`font-bold ${event.score >= 7 ? 'text-red-600' : event.score >= 4 ? 'text-yellow-600' : 'text-green-600'}`}>
-                        {event.score || 0}
-                      </span>
-                    </td>
-                    <td className="p-3 text-xs max-w-32 truncate" title={event.trigger}>{event.trigger}</td>
+                     <td className="p-3">
+                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${typeColors[event.event_type] || 'bg-gray-100 text-gray-800'}`}>
+                         {event.event_type}
+                       </span>
+                     </td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1 max-w-48">
                         {behaviors.slice(0, 3).map((behavior, i) => (
