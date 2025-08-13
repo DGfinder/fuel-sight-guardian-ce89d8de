@@ -205,7 +205,7 @@ export const Sidebar: React.FC = () => {
     }
 
     return allItems.filter(item => {
-      if (permissions.isAdmin) return true;
+      if (permissions.isAdmin || permissions.role === 'scheduler') return true;
       if (!item.group) return true;
       return accessibleGroups.has(item.group);
     }).map((item, index) => ({
