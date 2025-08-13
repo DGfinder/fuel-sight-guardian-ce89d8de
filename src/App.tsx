@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from "react";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppStateProvider } from "@/contexts/AppStateContext";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import '@/lib/auth-cleanup'; // Initialize auth cleanup utilities
@@ -15,8 +15,7 @@ import { TankDetailsModal } from './components/TankDetailsModal';
 import { useGlobalModals } from './contexts/GlobalModalsContext';
 import EditDipModal from './components/modals/EditDipModal';
 import { AlertsDrawer } from './components/AlertsDrawer';
-import { Calendar } from './components/ui/calendar';
-import { AgbotModalProvider, useAgbotModal } from './contexts/AgbotModalContext';
+import { AgbotModalProvider } from './contexts/AgbotModalContext';
 import AgbotDetailsModal from './components/AgbotDetailsModal';
 import AppLayout from '@/components/AppLayout';
 import DataCentreLayout from '@/components/DataCentreLayout';
@@ -50,6 +49,7 @@ const SMBDashboard = lazy(() => import('@/pages/SMBDashboard'));
 const GSFDashboard = lazy(() => import('@/pages/GSFDashboard'));
 // LYTX Safety Analytics Platform
 const LYTXSafetyDashboard = lazy(() => import('@/pages/LYTXSafetyDashboard'));
+const LytxSimpleDashboard = lazy(() => import('@/pages/LytxSimpleDashboard'));
 const StevemacsSafetyDashboard = lazy(() => import('@/pages/StevemacsSafetyDashboard'));
 const GSFSafetyDashboard = lazy(() => import('@/pages/GSFSafetyDashboard'));
 // Fleet Management Platform
@@ -76,7 +76,9 @@ const queryClient = new QueryClient({
     queries: {
       retry: (failureCount, error) => {
         // Don't retry on 4xx errors except 408, 429
-        if (error?.status >= 400 && error?.status < 500 && ![408, 429].includes(error?.status)) {
+        const anyErr = error as any;
+        const status = typeof anyErr?.status === 'number' ? anyErr.status : anyErr?.response?.status;
+        if (status >= 400 && status < 500 && ![408, 429].includes(status)) {
           return false;
         }
         return failureCount < 3;
@@ -88,9 +90,9 @@ const queryClient = new QueryClient({
       staleTime: 2 * 60 * 1000, // 2 minutes for real-time data
       gcTime: 10 * 60 * 1000, // 10 minutes garbage collection (formerly cacheTime)
       // Background refetch for fresh data
-      refetchInterval: (data, query) => {
+      refetchInterval: (query) => {
         // Refetch tank data every 30 seconds if page is visible
-        if (query?.queryKey?.[0] === 'tanks' && document.visibilityState === 'visible') {
+        if ((query as any)?.queryKey?.[0] === 'tanks' && document.visibilityState === 'visible') {
           return 30 * 1000;
         }
         return false;
@@ -103,7 +105,9 @@ const queryClient = new QueryClient({
     mutations: {
       retry: (failureCount, error) => {
         // Only retry mutations on network errors or 5xx
-        if (error?.status >= 500 || !error?.status) {
+        const anyErr = error as any;
+        const status = typeof anyErr?.status === 'number' ? anyErr.status : anyErr?.response?.status;
+        if (status >= 500 || !status) {
           return failureCount < 2;
         }
         return false;
@@ -116,7 +120,7 @@ const queryClient = new QueryClient({
 
 // Expose queryClient globally for debugging in development
 if (import.meta.env.DEV) {
-  (window as Window & { queryClient: typeof queryClient }).queryClient = queryClient;
+  (window as unknown as Window & { queryClient?: QueryClient }).queryClient = queryClient;
 }
 
 function HashRedirector() {
@@ -133,8 +137,7 @@ function AppContent() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const { selectedTank, open, closeModal } = useTankModal();
   const { editDipOpen, editDipTank, closeEditDip, alertsOpen, closeAlerts } = useGlobalModals();
-  const today = new Date();
-  const [demoDate, setDemoDate] = useState<Date | undefined>(today);
+  // Reserved for future simulated date control on analytics pages
 
   return (
     <>
@@ -293,14 +296,14 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
-                  {/* LYTX Safety Analytics Routes */}
+                  {/* LYTX Safety Analytics Routes (simple view first; advanced later) */}
                   <Route 
                     path="/data-centre/lytx-safety" 
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="LYTX Safety Dashboard" showHomeButton={true}>
                           <DataCentreLayout>
-                            <LYTXSafetyDashboard />
+                            <LytxSimpleDashboard />
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
