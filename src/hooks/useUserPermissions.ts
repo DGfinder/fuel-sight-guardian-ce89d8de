@@ -46,15 +46,16 @@ export const useUserPermissions = () => {
 
         const userRole = roleData.role;
         const isAdmin = ['admin', 'manager'].includes(userRole);
+        const hasAllGroupAccess = ['admin', 'manager', 'scheduler'].includes(userRole);
 
         console.log('✅ [RBAC DEBUG] User role fetched successfully:', userRole);
 
         // Step 2: Get accessible groups
         let accessibleGroups: any[] = [];
 
-        if (isAdmin) {
-          // Admins can access all groups
-          console.log('👑 [RBAC DEBUG] User is admin, fetching all groups');
+        if (hasAllGroupAccess) {
+          // Admins, managers, and schedulers can access all groups
+          console.log('👑 [RBAC DEBUG] User has all group access, fetching all groups');
           
           const { data: allGroups, error: groupsError } = await supabase
             .from('tank_groups')
@@ -64,7 +65,7 @@ export const useUserPermissions = () => {
             accessibleGroups = allGroups.map(group => ({
               id: group.id,
               name: group.name,
-              subgroups: [] // Admins have access to all subgroups
+              subgroups: [] // Users with all group access have access to all subgroups
             }));
           }
         } else {
@@ -117,6 +118,7 @@ export const useUserPermissions = () => {
         console.log('🎯 [RBAC DEBUG] Final permissions calculated:', {
           role: userRole,
           isAdmin,
+          hasAllGroupAccess,
           groupCount: accessibleGroups.length,
           groups: accessibleGroups.map(g => g.name)
         });
@@ -209,8 +211,8 @@ export function useCanAccessTank(tankId: string | undefined) {
         accessibleGroups: permissions.accessibleGroups.map(g => g.name)
       });
       
-      if (permissions.isAdmin) {
-        console.log('✅ [TANK ACCESS DEBUG] Admin access granted');
+      if (permissions.isAdmin || permissions.role === 'scheduler') {
+        console.log('✅ [TANK ACCESS DEBUG] Admin/Scheduler access granted');
         return true;
       }
 
@@ -273,8 +275,8 @@ export function useCanAccessTankWithSubgroup(tankId: string | undefined) {
       
       console.log('🔍 [SUBGROUP ACCESS DEBUG] Checking subgroup access for tank:', tankId);
       
-      if (permissions.isAdmin) {
-        console.log('✅ [SUBGROUP ACCESS DEBUG] Admin access granted');
+      if (permissions.isAdmin || permissions.role === 'scheduler') {
+        console.log('✅ [SUBGROUP ACCESS DEBUG] Admin/Scheduler access granted');
         return true;
       }
 
@@ -332,8 +334,8 @@ export function useAccessibleSubgroups(groupId: string | undefined) {
   const { data: permissions } = useUserPermissions();
 
   if (!permissions || !groupId) return [];
-  if (permissions.isAdmin) {
-    // For admins, fetch all subgroups from the database
+  if (permissions.isAdmin || permissions.role === 'scheduler') {
+    // For admins and schedulers, fetch all subgroups from the database
     return useQuery({
       queryKey: ['all-subgroups', groupId],
       queryFn: async () => {
@@ -370,7 +372,7 @@ export function useFilterTanksBySubgroup() {
       return [];
     }
     
-    if (permissions.isAdmin) return tanks;
+    if (permissions.isAdmin || permissions.role === 'scheduler') return tanks;
 
     return tanks.filter(tank => {
       // Check group access first

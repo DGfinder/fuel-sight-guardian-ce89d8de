@@ -172,8 +172,8 @@ export const Sidebar: React.FC = () => {
 
     const allItems = [...ALL_NAV_ITEMS];
 
-    // Add admin-only Performance page
-    if (permissions.isAdmin) {
+    // Add admin-only Performance page (exclude scheduler)
+    if (permissions.isAdmin && permissions.role !== 'scheduler') {
       allItems.push({
         path: '/performance',
         label: 'Performance',
@@ -183,8 +183,8 @@ export const Sidebar: React.FC = () => {
       });
     }
 
-    // Add data centre for admin, manager, and compliance_manager roles (redirects to fuel dips app)
-    if (permissions.isAdmin || permissions.role === 'manager' || permissions.role === 'compliance_manager') {
+    // Add data centre for admin, manager, and compliance_manager roles (exclude scheduler)
+    if ((permissions.isAdmin && permissions.role !== 'scheduler') || permissions.role === 'manager' || permissions.role === 'compliance_manager') {
       allItems.push({
         path: '/data-centre',
         label: 'Data Centre (Fuel Dips)',
