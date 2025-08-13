@@ -198,8 +198,12 @@ export function getDeviceStatus(lastReading: Date | string | number): {
 
 /**
  * Validate timestamp and return data quality info
+ * Updated thresholds to be more appropriate for manual dip readings
  */
-export function validateTimestamp(timestamp: Date | string | number): {
+export function validateTimestamp(timestamp: Date | string | number, options?: {
+  staleThresholdHours?: number;
+  warnOnStale?: boolean;
+}): {
   isValid: boolean;
   isFuture: boolean;
   isStale: boolean;
@@ -210,20 +214,32 @@ export function validateTimestamp(timestamp: Date | string | number): {
   const minutesAgo = getMinutesFromNowInPerth(timestamp);
   const issues: string[] = [];
   
+  // Configuration with sensible defaults for fuel tank readings
+  const staleThresholdHours = options?.staleThresholdHours ?? 24; // 24 hours for manual readings
+  const warnOnStale = options?.warnOnStale ?? false; // Don't warn on stale by default
+  const staleThresholdMinutes = staleThresholdHours * 60;
+  
   const isValid = !isNaN(date.getTime());
   const isFuture = minutesAgo < 0;
-  const isStale = minutesAgo > 240; // 4 hours
+  const isStale = minutesAgo > staleThresholdMinutes;
   
   if (!isValid) {
     issues.push('Invalid timestamp format');
   }
   
   if (isFuture) {
-    issues.push('Timestamp is in the future (timezone issue?)');
+    // Future timestamps are always critical issues
+    const futureMinutes = Math.abs(minutesAgo);
+    if (futureMinutes > 60) {
+      issues.push(`Timestamp is ${Math.round(futureMinutes / 60)}h in the future (timezone issue?)`);
+    } else {
+      issues.push(`Timestamp is ${futureMinutes}min in the future (timezone issue?)`);
+    }
   }
   
-  if (isStale && isValid && !isFuture) {
-    issues.push('Data is more than 4 hours old');
+  if (isStale && isValid && !isFuture && warnOnStale) {
+    const ageHours = Math.round(minutesAgo / 60);
+    issues.push(`Data is ${ageHours} hours old (threshold: ${staleThresholdHours}h)`);
   }
   
   // Check for obviously wrong years

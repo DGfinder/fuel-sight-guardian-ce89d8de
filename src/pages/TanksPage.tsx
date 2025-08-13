@@ -20,7 +20,8 @@ import {
   CheckCircle,
   Clock,
   MoreVertical,
-  RefreshCw
+  RefreshCw,
+  Edit
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { getFuelStatus } from '@/components/ui/fuel-status';
@@ -34,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import EditDipModal from '@/components/modals/EditDipModal';
+import AddDipModal from '@/components/modals/AddDipModal';
 import { TankStatusTable } from "@/components/TankStatusTable";
 import { MobileTankCard } from "@/components/MobileTankCard";
 import { SkeletonTankGrid } from "@/components/SkeletonTankCard";
@@ -65,6 +67,7 @@ export default function TanksPage() {
   const [sortBy, setSortBy] = useState('name');
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState<Tank | null>(null);
+  const [addDipModalOpen, setAddDipModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Initialize filters from URL parameters
@@ -427,7 +430,8 @@ export default function TanksPage() {
         {filteredTanks.map((tank) => (
           <Card 
             key={tank.id} 
-            className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-0 shadow-md bg-white/80 backdrop-blur-sm overflow-hidden"
+            className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-0 shadow-md bg-white/80 backdrop-blur-sm overflow-hidden cursor-pointer"
+            onClick={() => openModal(tank)}
           >
             <CardHeader className="pb-3 bg-gradient-to-r from-gray-50 to-gray-100">
               <div className="flex items-center justify-between">
@@ -444,16 +448,16 @@ export default function TanksPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onSelect={() => openModal(tank)}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
+                      <DropdownMenuItem onSelect={() => setAddDipModalOpen(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add New Reading
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setEditDipTank(tank);
                         setEditDipModalOpen(true);
                       }}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Dip Reading
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Last Reading
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={() => openModal(tank)}>
@@ -534,17 +538,21 @@ export default function TanksPage() {
                   size="sm" 
                   variant="outline" 
                   className="flex-1 text-xs"
-                  onClick={() => openModal(tank)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent card click
+                    setEditDipTank(tank);
+                    setEditDipModalOpen(true);
+                  }}
                 >
-                  <Eye className="w-3 h-3 mr-1" />
-                  Details
+                  <Edit className="w-3 h-3 mr-1" />
+                  Edit Dip
                 </Button>
                 <Button 
                   size="sm" 
                   className="flex-1 text-xs bg-blue-600 hover:bg-blue-700"
-                  onClick={() => {
-                    setEditDipTank(tank);
-                    setEditDipModalOpen(true);
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent card click
+                    setAddDipModalOpen(true);
                   }}
                 >
                   <Plus className="w-3 h-3 mr-1" />
@@ -637,6 +645,15 @@ export default function TanksPage() {
           )}
         </div>
       </div>
+
+      <AddDipModal
+        open={addDipModalOpen}
+        onOpenChange={setAddDipModalOpen}
+        onSubmit={async () => {
+          // Handle submission and close modal
+          setAddDipModalOpen(false);
+        }}
+      />
 
       <EditDipModal
         isOpen={editDipModalOpen && !!editDipTank}

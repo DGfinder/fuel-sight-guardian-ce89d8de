@@ -52,6 +52,10 @@ export interface Tank {
   updated_at: string;
 }
 
+// Rate limiting for data quality warnings to prevent console spam
+const dataQualityWarnings = new Map<string, number>();
+const QUALITY_WARNING_COOLDOWN = 5 * 60 * 1000; // 5 minutes
+
 // Enhanced hook that provides tanks with comprehensive analytics
 export const useTanks = () => {
   const queryClient = useQueryClient();
@@ -112,25 +116,76 @@ export const useTanks = () => {
         .order('created_at', { ascending: false })
         .limit(1000); // Limit to most recent 1000 readings for performance
 
-      // Get latest reading per tank
+      // Get latest reading per tank and track data quality issues
       const latestByTank = new Map();
+      const dataQualityIssues = {
+        futureTimestamps: 0,
+        staleData: 0,
+        invalidFormat: 0,
+        suspiciousYear: 0,
+        totalIssues: 0,
+        sampleIssues: [] as Array<{tankId: string, issues: string[], timestamp: string, age: number}>
+      };
+
       latestReadings?.forEach(reading => {
         if (!latestByTank.has(reading.tank_id)) {
-          // Validate timestamp and log any data quality issues
+          // Validate timestamp and track data quality issues
           if (reading.created_at) {
-            const validation = validateTimestamp(reading.created_at);
+            const validation = validateTimestamp(reading.created_at, {
+              staleThresholdHours: 24, // 24 hours is reasonable for manual dip readings
+              warnOnStale: false // Only warn on critical issues like future timestamps
+            });
             if (validation.issues.length > 0) {
-              console.warn(`[TANK DATA QUALITY] Tank ${reading.tank_id} reading has issues:`, {
-                timestamp: reading.created_at,
-                issues: validation.issues,
-                isFuture: validation.isFuture,
-                age: validation.age
+              dataQualityIssues.totalIssues++;
+              
+              // Count specific issue types
+              validation.issues.forEach(issue => {
+                if (issue.includes('future')) dataQualityIssues.futureTimestamps++;
+                if (issue.includes('hours old')) dataQualityIssues.staleData++;
+                if (issue.includes('Invalid timestamp')) dataQualityIssues.invalidFormat++;
+                if (issue.includes('Suspicious year')) dataQualityIssues.suspiciousYear++;
               });
+              
+              // Keep sample of first 3 issues for detailed logging
+              if (dataQualityIssues.sampleIssues.length < 3) {
+                dataQualityIssues.sampleIssues.push({
+                  tankId: reading.tank_id,
+                  issues: validation.issues,
+                  timestamp: reading.created_at,
+                  age: validation.age
+                });
+              }
+              
+              // Rate-limited detailed logging for critical issues only
+              const now = Date.now();
+              const lastWarning = dataQualityWarnings.get(reading.tank_id) || 0;
+              
+              if (validation.isFuture && (now - lastWarning) > QUALITY_WARNING_COOLDOWN) {
+                console.warn(`[TANK DATA QUALITY] Critical issue - Tank ${reading.tank_id}:`, {
+                  timestamp: reading.created_at,
+                  issues: validation.issues,
+                  age: validation.age
+                });
+                dataQualityWarnings.set(reading.tank_id, now);
+              }
             }
           }
           latestByTank.set(reading.tank_id, reading);
         }
       });
+
+      // Log summary of data quality issues (only if issues found)
+      if (dataQualityIssues.totalIssues > 0) {
+        console.group(`[TANK DATA QUALITY] Summary - ${dataQualityIssues.totalIssues} tanks with issues`);
+        console.log('Issue breakdown:', {
+          staleData: dataQualityIssues.staleData,
+          futureTimestamps: dataQualityIssues.futureTimestamps,
+          invalidFormat: dataQualityIssues.invalidFormat,
+          suspiciousYear: dataQualityIssues.suspiciousYear
+        });
+        console.log('Sample issues:', dataQualityIssues.sampleIssues);
+        console.groupEnd();
+      }
 
       // Step 4: Combine tank data with latest readings
       const tankData = baseData?.map(tank => {
