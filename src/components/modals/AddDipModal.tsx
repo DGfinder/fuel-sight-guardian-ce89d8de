@@ -45,6 +45,7 @@ import { supabase } from '@/lib/supabase';
 import type { Tables } from '@/types/supabase';
 import { cn } from "@/lib/utils";
 import { Z_INDEX } from '@/lib/z-index';
+import { getPerthToday, getPerthYesterday } from '@/utils/timezone';
 
 import { schemas, businessRules, type AddDipFormData } from '@/lib/validation';
 
@@ -510,7 +511,7 @@ export default function AddDipModal({
                     setDipDate(new Date(e.target.value));
                   }
                 }}
-                max={new Date().toISOString().slice(0, 10)} // Today
+                max={getPerthToday()} // Today in Perth timezone
                 min={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)} // 1 year ago
                 className="w-full"
               />

@@ -42,6 +42,7 @@ import { format } from "date-fns";
 import { isAfter } from "date-fns/isAfter";
 import { isValid as isValidDate } from "date-fns/isValid";
 import { parseISO } from "date-fns/parseISO";
+import { getPerthToday } from '@/utils/timezone';
 
 //--------------------------------------------------
 // Schema & types
@@ -105,7 +106,7 @@ export function FuelDipForm({
     resolver: zodResolver(schema),
     mode: "onChange",
     defaultValues: {
-      date: new Date().toISOString().slice(0, 10),
+      date: getPerthToday(), // Use Perth timezone for default date
     },
   });
 
@@ -128,9 +129,13 @@ export function FuelDipForm({
 
   // Add to FuelDipForm component state:
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const today = new Date();
+  // Use Perth timezone for "today" calculation
+  const today = useMemo(() => {
+    const perthToday = getPerthToday();
+    return parseISO(perthToday);
+  }, []);
   const dateValue = watch("date");
-  const [selectedDate, setSelectedDate] = useState(() => dateValue ? parseISO(dateValue) : new Date());
+  const [selectedDate, setSelectedDate] = useState(() => dateValue ? parseISO(dateValue) : today);
   useEffect(() => {
     // Keep local state in sync with form value
     if (dateValue && (!selectedDate || format(selectedDate, "yyyy-MM-dd") !== dateValue)) {

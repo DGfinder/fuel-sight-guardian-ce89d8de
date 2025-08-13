@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { getPerthToday, getPerthTomorrow } from '@/utils/timezone';
 
 // Common validation patterns
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,10 +36,11 @@ export const validators = {
   
   dateWithinRange: (message = "Date must be within the last year and not in the future") =>
     z.date().refine((date) => {
-      const now = new Date();
-      const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      return date >= oneYearAgo && date <= tomorrow;
+      // Use Perth timezone for date validation
+      const perthToday = new Date(getPerthToday());
+      const oneYearAgo = new Date(perthToday.getFullYear() - 1, perthToday.getMonth(), perthToday.getDate());
+      const perthTomorrow = new Date(getPerthTomorrow());
+      return date >= oneYearAgo && date <= perthTomorrow;
     }, message),
 };
 
@@ -84,11 +86,12 @@ export const schemas = {
       .datetime("Invalid date format")
       .refine((date) => {
         const dipDate = new Date(date);
-        const now = new Date();
-        const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        return dipDate >= oneYearAgo && dipDate <= tomorrow;
-      }, "Date must be within the last year and not in the future"),
+        // Use Perth timezone for date validation
+        const perthToday = new Date(getPerthToday());
+        const oneYearAgo = new Date(perthToday.getFullYear() - 1, perthToday.getMonth(), perthToday.getDate());
+        const perthTomorrow = new Date(getPerthTomorrow());
+        return dipDate >= oneYearAgo && dipDate <= perthTomorrow;
+      }, "Date must be within the last year and not in the future (Perth timezone)"),
     dip: validators.positiveNumber().refine((value) => value >= 0, "Fuel level cannot be negative"),
     notes: validators.safeText().optional(),
   }),
