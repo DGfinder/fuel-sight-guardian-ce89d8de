@@ -1,11 +1,17 @@
 /**
  * Centralized timezone utility for Perth, Western Australia
- * Fixes critical data quality issues with timestamp handling
+ * Uses simple UTC+8 calculation for reliability and performance
+ * 
+ * Perth, WA is UTC+8 year-round (no daylight saving time)
+ * This approach avoids complex timezone libraries and browser compatibility issues
  */
 
-// Perth timezone constant - Western Australia uses AWST/AWDT
+// Perth timezone constant - Western Australia uses AWST (UTC+8)
 // Can be overridden via environment variable for testing/deployment flexibility
 export const PERTH_TIMEZONE = import.meta.env.VITE_TIMEZONE || 'Australia/Perth';
+
+// UTC+8 offset in milliseconds for Perth timezone calculations
+const PERTH_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 // Create timezone-aware date formatter
 const perthFormatter = new Intl.DateTimeFormat('en-AU', {
@@ -75,42 +81,44 @@ export function formatPerthDisplay(date: Date | string | number): string {
 }
 
 /**
- * Get current time in Perth timezone
+ * Get current time in Perth timezone (UTC+8)
  */
 export function getPerthNow(): Date {
-  return new Date();
+  const now = new Date();
+  // Return current time adjusted to Perth timezone (UTC+8)
+  return new Date(now.getTime() + PERTH_UTC_OFFSET_MS);
 }
 
 /**
- * Get today's date in Perth timezone as YYYY-MM-DD string
+ * Get today's date in Perth timezone (UTC+8) as YYYY-MM-DD string
  */
 export function getPerthToday(): string {
   const now = new Date();
-  // Create a date in Perth timezone
-  const perthDate = new Date(now.toLocaleString("en-US", { timeZone: PERTH_TIMEZONE }));
-  return perthDate.toISOString().slice(0, 10);
+  // Simple UTC+8 calculation (Perth timezone)
+  const perthTime = new Date(now.getTime() + PERTH_UTC_OFFSET_MS);
+  return perthTime.toISOString().slice(0, 10);
 }
 
 /**
- * Get tomorrow's date in Perth timezone as YYYY-MM-DD string
+ * Get tomorrow's date in Perth timezone (UTC+8) as YYYY-MM-DD string
  */
 export function getPerthTomorrow(): string {
   const now = new Date();
-  // Create a date in Perth timezone and add one day
-  const perthDate = new Date(now.toLocaleString("en-US", { timeZone: PERTH_TIMEZONE }));
-  perthDate.setDate(perthDate.getDate() + 1);
-  return perthDate.toISOString().slice(0, 10);
+  // Simple UTC+8 calculation, then add one day
+  const perthTime = new Date(now.getTime() + PERTH_UTC_OFFSET_MS);
+  perthTime.setUTCDate(perthTime.getUTCDate() + 1);
+  return perthTime.toISOString().slice(0, 10);
 }
 
 /**
- * Get yesterday's date in Perth timezone as YYYY-MM-DD string
+ * Get yesterday's date in Perth timezone (UTC+8) as YYYY-MM-DD string
  */
 export function getPerthYesterday(): string {
   const now = new Date();
-  // Create a date in Perth timezone and subtract one day
-  const perthDate = new Date(now.toLocaleString("en-US", { timeZone: PERTH_TIMEZONE }));
-  perthDate.setDate(perthDate.getDate() - 1);
-  return perthDate.toISOString().slice(0, 10);
+  // Simple UTC+8 calculation, then subtract one day
+  const perthTime = new Date(now.getTime() + PERTH_UTC_OFFSET_MS);
+  perthTime.setUTCDate(perthTime.getUTCDate() - 1);
+  return perthTime.toISOString().slice(0, 10);
 }
 
 /**

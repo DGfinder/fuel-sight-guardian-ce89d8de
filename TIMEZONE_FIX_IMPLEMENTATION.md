@@ -1,4 +1,4 @@
-# Perth Timezone Fix Implementation
+# Perth Timezone Fix Implementation (UTC+8 Approach)
 
 ## ✅ Problem Solved
 
