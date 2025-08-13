@@ -50,8 +50,16 @@ export default function LytxSimpleDashboard() {
         q = q.eq('carrier', carrier);
       }
 
-      const { data, error } = await q;
+      // Fetch a sizeable page of events for visible analytics
+      const { data, error } = await q.range(0, 9999);
       if (error) throw error;
+
+      // Also fetch the total count for KPI even if we only loaded a page
+      let qc = supabase
+        .from('lytx_safety_events')
+        .select('*', { count: 'exact', head: true });
+      if (carrier !== 'All') qc = qc.eq('carrier', carrier);
+      const { count: totalCount = 0 } = await qc;
 
       const events = (data || []) as Array<{
         carrier: 'Stevemacs' | 'Great Southern Fuels';
@@ -117,7 +125,7 @@ export default function LytxSimpleDashboard() {
         event_datetime: e.event_datetime,
       }));
 
-      return { rows: rows as AnalyticsRow[], recent };
+      return { rows: rows as AnalyticsRow[], recent, kpiTotal: totalCount };
     },
     staleTime: 60_000,
     gcTime: 5 * 60_000,
@@ -150,7 +158,7 @@ export default function LytxSimpleDashboard() {
   }, [query.data, monthsBack]);
 
   const totals = useMemo(() => {
-    const totalEvents = rows.reduce((s, r) => s + (r.total_events || 0), 0);
+    const totalEvents = (query.data?.kpiTotal ?? 0) || rows.reduce((s, r) => s + (r.total_events || 0), 0);
     const resolved = rows.reduce((s, r) => s + (r.resolved_events || 0), 0);
     const coachable = rows.reduce((s, r) => s + (r.coachable_events || 0), 0);
     const driverTagged = rows.reduce((s, r) => s + (r.driver_tagged_events || 0), 0);
@@ -158,7 +166,7 @@ export default function LytxSimpleDashboard() {
     const avgScore = totalEvents > 0 ? Math.round((scoreSum / totalEvents) * 100) / 100 : 0;
     const resolutionRate = totalEvents > 0 ? Math.round(((resolved / totalEvents) * 100) * 100) / 100 : 0;
     return { totalEvents, resolved, coachable, driverTagged, avgScore, resolutionRate };
-  }, [rows]);
+  }, [rows, query.data?.kpiTotal]);
 
   const handleExport = () => {
     const csvHeader = ['Carrier','Depot','Month','Year','Total','Coachable','Driver Tagged','New','Resolved','Avg Score'];
