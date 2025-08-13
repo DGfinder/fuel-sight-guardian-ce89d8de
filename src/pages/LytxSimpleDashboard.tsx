@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { RefreshCw, Download } from 'lucide-react';
@@ -22,7 +23,20 @@ interface AnalyticsRow {
 }
 
 export default function LytxSimpleDashboard() {
-  const [carrier, setCarrier] = useState<Carrier>('All');
+  const location = useLocation();
+  const inferredCarrier: Carrier = useMemo(() => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const c = sp.get('carrier');
+      if (c === 'Stevemacs' || c === 'Great Southern Fuels') return c;
+      const path = location.pathname.toLowerCase();
+      if (path.includes('/lytx-safety/gsf')) return 'Great Southern Fuels';
+      if (path.includes('/lytx-safety/stevemacs') || path.includes('/lytx-safety/smb')) return 'Stevemacs';
+    } catch {}
+    return 'All';
+  }, [location.pathname, location.search]);
+
+  const [carrier, setCarrier] = useState<Carrier>(inferredCarrier);
   const [monthsBack, setMonthsBack] = useState<number>(12);
 
   const query = useQuery({

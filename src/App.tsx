@@ -47,11 +47,11 @@ const GuardianDashboard = lazy(() => import('@/pages/GuardianDashboard'));
 const CaptivePaymentsDashboard = lazy(() => import('@/pages/CaptivePaymentsDashboard'));
 const SMBDashboard = lazy(() => import('@/pages/SMBDashboard'));
 const GSFDashboard = lazy(() => import('@/pages/GSFDashboard'));
-// LYTX Safety Analytics Platform
-const LYTXSafetyDashboard = lazy(() => import('@/pages/LYTXSafetyDashboard'));
+// LYTX Safety Analytics Platform (simple view active, advanced dashboards commented for later)
+// const LYTXSafetyDashboard = lazy(() => import('@/pages/LYTXSafetyDashboard'));
 const LytxSimpleDashboard = lazy(() => import('@/pages/LytxSimpleDashboard'));
-const StevemacsSafetyDashboard = lazy(() => import('@/pages/StevemacsSafetyDashboard'));
-const GSFSafetyDashboard = lazy(() => import('@/pages/GSFSafetyDashboard'));
+// const StevemacsSafetyDashboard = lazy(() => import('@/pages/StevemacsSafetyDashboard'));
+// const GSFSafetyDashboard = lazy(() => import('@/pages/GSFSafetyDashboard'));
 // Fleet Management Platform
 const FleetDashboard = lazy(() => import('@/pages/FleetDashboard'));
 const VehicleDatabase = lazy(() => import('@/pages/VehicleDatabase'));
@@ -309,25 +309,40 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
+                  {/* Stevemacs (aka SMB) simple view */}
                   <Route 
                     path="/data-centre/lytx-safety/stevemacs" 
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Stevemacs Safety Analytics" showHomeButton={true}>
                           <DataCentreLayout>
-                            <StevemacsSafetyDashboard />
+                            <LytxSimpleDashboard />
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 
                   />
+                  {/* SMB alias to Stevemacs */}
+                  <Route 
+                    path="/data-centre/lytx-safety/smb" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Stevemacs Safety Analytics" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <LytxSimpleDashboard />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  {/* GSF simple view */}
                   <Route 
                     path="/data-centre/lytx-safety/gsf" 
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="GSF Safety Analytics" showHomeButton={true}>
                           <DataCentreLayout>
-                            <GSFSafetyDashboard />
+                            <LytxSimpleDashboard />
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
