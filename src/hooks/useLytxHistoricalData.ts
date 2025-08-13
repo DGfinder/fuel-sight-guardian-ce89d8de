@@ -120,6 +120,7 @@ export const useLytxSummaryStats = (filters: LytxAnalyticsFilters = {}) => {
   return useQuery({
     queryKey: ['lytx', 'historical', 'summary', filters],
     queryFn: async () => {
+      // Primary source: raw events table
       const { data, error } = await supabase
         .from('lytx_safety_events')
         .select('carrier, status, event_type, score, driver_name, event_datetime, excluded');
@@ -158,16 +159,59 @@ export const useLytxSummaryStats = (filters: LytxAnalyticsFilters = {}) => {
         events = events.filter(e => e.excluded === filters.excluded);
       }
 
-      const totalEvents = events.length;
-      const resolvedEvents = events.filter(e => e.status === 'Resolved').length;
-      const coachableEvents = events.filter(e => e.event_type === 'Coachable').length;
-      const driverTaggedEvents = events.filter(e => e.event_type === 'Driver Tagged').length;
-      const unassignedDrivers = events.filter(e => e.driver_name === 'Driver Unassigned').length;
-      const stevemacsEvents = events.filter(e => e.carrier === 'Stevemacs').length;
-      const gsfEvents = events.filter(e => e.carrier === 'Great Southern Fuels').length;
-      const avgScore = events.length > 0 
+      let totalEvents = events.length;
+      let resolvedEvents = events.filter(e => e.status === 'Resolved').length;
+      let coachableEvents = events.filter(e => e.event_type === 'Coachable').length;
+      let driverTaggedEvents = events.filter(e => e.event_type === 'Driver Tagged').length;
+      let unassignedDrivers = events.filter(e => e.driver_name === 'Driver Unassigned').length;
+      let stevemacsEvents = events.filter(e => e.carrier === 'Stevemacs').length;
+      let gsfEvents = events.filter(e => e.carrier === 'Great Southern Fuels').length;
+      let avgScore = events.length > 0 
         ? events.reduce((sum, e) => sum + (e.score || 0), 0) / events.length 
         : 0;
+
+      // Fallback: if the table returns 0 (edge cases with RLS or env drift),
+      // derive summary from the aggregated view lytx_safety_analytics
+      if (totalEvents === 0) {
+        let viewQuery = supabase
+          .from('lytx_safety_analytics')
+          .select('carrier, year, month_num, total_events, coachable_events, driver_tagged_events, resolved_events, avg_score');
+
+        if (filters.carrier && filters.carrier !== 'All') {
+          viewQuery = viewQuery.eq('carrier', filters.carrier);
+        }
+        if (filters.dateRange) {
+          const start = new Date(filters.dateRange.startDate);
+          const end = new Date(filters.dateRange.endDate);
+          const startYear = start.getFullYear();
+          const startMonth = start.getMonth() + 1;
+          const endYear = end.getFullYear();
+          const endMonth = end.getMonth() + 1;
+          // Filter by year bounds first; month filter applied client-side below
+          viewQuery = viewQuery.gte('year', startYear).lte('year', endYear);
+        }
+
+        const { data: viewData, error: viewError } = await viewQuery;
+        if (!viewError && viewData && viewData.length > 0) {
+          const filteredView = (filters.dateRange ? viewData.filter(r => {
+            const y = r.year as unknown as number; // supabase-js returns number
+            const m = r.month_num as unknown as number;
+            const d = new Date(y, m - 1, 1);
+            return d >= new Date(filters.dateRange!.startDate) && d <= new Date(filters.dateRange!.endDate);
+          }) : viewData);
+
+          totalEvents = filteredView.reduce((s, r: any) => s + (r.total_events || 0), 0);
+          coachableEvents = filteredView.reduce((s, r: any) => s + (r.coachable_events || 0), 0);
+          driverTaggedEvents = filteredView.reduce((s, r: any) => s + (r.driver_tagged_events || 0), 0);
+          resolvedEvents = filteredView.reduce((s, r: any) => s + (r.resolved_events || 0), 0);
+          // Weighted average score
+          const scoreSum = filteredView.reduce((s, r: any) => s + (r.avg_score || 0) * (r.total_events || 0), 0);
+          avgScore = totalEvents > 0 ? scoreSum / totalEvents : 0;
+          stevemacsEvents = filteredView.filter(r => r.carrier === 'Stevemacs').reduce((s, r: any) => s + (r.total_events || 0), 0);
+          gsfEvents = filteredView.filter(r => r.carrier === 'Great Southern Fuels').reduce((s, r: any) => s + (r.total_events || 0), 0);
+          unassignedDrivers = 0; // Not available in the view
+        }
+      }
 
       const statusDistribution = {
         'New': events.filter(e => e.status === 'New').length,
@@ -275,13 +319,50 @@ export const useLytxMonthlyTrends = (filters: LytxAnalyticsFilters = {}) => {
       });
 
       // Calculate average scores and sort by month
-      const sortedData = Object.values(monthlyData)
+      let sortedData = Object.values(monthlyData)
         .map(data => ({
           ...data,
           avgScore: data.total > 0 ? Math.round((data.scoreSum / data.total) * 100) / 100 : 0,
           resolutionRate: data.total > 0 ? Math.round((data.resolved / data.total) * 100 * 100) / 100 : 0,
         }))
         .sort((a, b) => a.month.localeCompare(b.month));
+
+      // Fallback: derive monthly trends from the aggregated view if table yielded nothing
+      if (sortedData.length === 0) {
+        let viewQuery = supabase
+          .from('lytx_safety_analytics')
+          .select('carrier, month, year, month_num, total_events, coachable_events, driver_tagged_events, resolved_events, avg_score');
+        if (filters.carrier && filters.carrier !== 'All') {
+          viewQuery = viewQuery.eq('carrier', filters.carrier);
+        }
+        if (filters.dateRange) {
+          const start = new Date(filters.dateRange.startDate);
+          const end = new Date(filters.dateRange.endDate);
+          viewQuery = viewQuery.gte('year', start.getFullYear()).lte('year', end.getFullYear());
+        }
+        const { data: viewData } = await viewQuery;
+        if (viewData && viewData.length > 0) {
+          const rows = (filters.dateRange ? viewData.filter(r => {
+            const d = new Date(r.year as number, (r.month_num as number) - 1, 1);
+            return d >= new Date(filters.dateRange!.startDate) && d <= new Date(filters.dateRange!.endDate);
+          }) : viewData);
+
+          sortedData = rows.map((r: any) => ({
+            month: `${r.month} ${r.year}`,
+            total: r.total_events || 0,
+            coachableSMB: r.carrier === 'Stevemacs' ? (r.coachable_events || 0) : 0,
+            coachableGSF: r.carrier === 'Great Southern Fuels' ? (r.coachable_events || 0) : 0,
+            driverTaggedSMB: r.carrier === 'Stevemacs' ? (r.driver_tagged_events || 0) : 0,
+            driverTaggedGSF: r.carrier === 'Great Southern Fuels' ? (r.driver_tagged_events || 0) : 0,
+            resolved: r.resolved_events || 0,
+            unassigned: 0,
+            avgScore: r.avg_score || 0,
+            scoreSum: r.avg_score * (r.total_events || 0),
+            resolutionRate: (r.total_events || 0) > 0 ? Math.round(((r.resolved_events || 0) / r.total_events) * 100 * 100) / 100 : 0,
+          }))
+          .sort((a, b) => a.month.localeCompare(b.month));
+        }
+      }
 
       return sortedData;
     },
