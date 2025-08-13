@@ -95,10 +95,14 @@ export const useTanks = () => {
 
       // Step 2: Get group names from tank_groups table
       const uniqueGroupIds = [...new Set(baseData?.map(t => t.group_id).filter(Boolean))];
-      const { data: groupData } = await supabase
+      const { data: groupData, error: groupError } = await supabase
         .from('tank_groups')
         .select('id, name')
         .in('id', uniqueGroupIds);
+
+      if (groupError) {
+        console.error('[TANKS] Error fetching group names:', groupError);
+      }
 
       // Create a map of group_id to group_name for fast lookup
       const groupNameMap = new Map();
