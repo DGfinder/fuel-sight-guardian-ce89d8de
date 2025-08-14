@@ -52,16 +52,24 @@ function parseDeviceSerial(deviceStr) {
 }
 
 /**
- * Map CSV group to database fleet
+ * Map CSV group to database fleet and depot
  */
-function mapGroupToFleet(group) {
+function mapGroupToFleetAndDepot(group) {
   const groupMapping = {
-    'Kewdale': 'Stevemacs',
-    'GSF': 'Great Southern Fuels',
-    'Stevemacs': 'Stevemacs'
+    'Kewdale': { fleet: 'Stevemacs', depot: 'Kewdale' },
+    'Kalgoorlie': { fleet: 'Great Southern Fuels', depot: 'Kalgoorlie' },
+    'Katanning': { fleet: 'Great Southern Fuels', depot: 'Katanning' },
+    'Wongan Hills': { fleet: 'Great Southern Fuels', depot: 'Wongan Hills' },
+    'Narrogin': { fleet: 'Great Southern Fuels', depot: 'Narrogin' },
+    'Albany': { fleet: 'Great Southern Fuels', depot: 'Albany' },
+    'Merredin': { fleet: 'Great Southern Fuels', depot: 'Merredin' },
+    'Geraldton': { fleet: 'Great Southern Fuels', depot: 'Geraldton' },
+    'Quairding': { fleet: 'Great Southern Fuels', depot: 'Quairding' },
+    'GSF': { fleet: 'Great Southern Fuels', depot: 'Kewdale' },
+    'Stevemacs': { fleet: 'Stevemacs', depot: 'Kewdale' }
   };
   
-  return groupMapping[group] || 'Stevemacs'; // Default to Stevemacs
+  return groupMapping[group] || { fleet: 'Great Southern Fuels', depot: group || 'Unknown' };
 }
 
 /**
@@ -153,10 +161,12 @@ function parseCSV(csvContent) {
       console.warn(`⚠️ Row ${i + 2}: No LYTX device for ${registration}`);
     }
     
+    const fleetInfo = mapGroupToFleetAndDepot(group);
+    
     const vehicle = {
       registration,
-      fleet: mapGroupToFleet(group),
-      depot: 'Kewdale', // All vehicles in this CSV are from Kewdale
+      fleet: fleetInfo.fleet,
+      depot: fleetInfo.depot,
       status: mapStatus(status),
       lytx_device: lytxDevice,
       make: make && make !== '' ? make : null,
@@ -374,7 +384,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 export {
   parseDeviceSerial,
-  mapGroupToFleet,
+  mapGroupToFleetAndDepot,
   mapStatus,
   normalizeRegistration,
   parseCSV,

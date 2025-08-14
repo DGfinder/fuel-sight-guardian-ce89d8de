@@ -1,38 +1,7 @@
 import React, { useState } from 'react';
 import { X, Truck, User, MapPin, Calendar, Wrench, Shield, AlertTriangle, Fuel, Activity, Navigation, FileText } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-
-interface VehicleDetails {
-  registration: string;
-  fleet: 'Stevemacs' | 'Great Southern Fuels';
-  depot: string;
-  status: 'Active' | 'Maintenance' | 'Available' | 'Out of Service';
-  driver?: string;
-  make: string;
-  model: string;
-  year: number;
-  vin: string;
-  safetyScore: number;
-  fuelEfficiency: number;
-  utilization: number;
-  lastService: string;
-  nextService: string;
-  guardianUnit?: string;
-  lytxDevice?: string;
-  totalDeliveries: number;
-  totalKilometers: number;
-  fatigueEvents: number;
-  safetyEvents: number;
-  registrationExpiry: string;
-  insuranceExpiry: string;
-  inspectionDue: string;
-  routeType: string;
-  currentLocation?: string;
-  lastMaintenance: MaintenanceRecord[];
-  safetyHistory: SafetyEvent[];
-  deliveryHistory: DeliveryRecord[];
-  fuelHistory: FuelRecord[];
-}
+import type { Vehicle } from '@/types/fleet';
 
 interface MaintenanceRecord {
   date: string;
@@ -72,13 +41,13 @@ interface FuelRecord {
 }
 
 interface VehicleDetailsModalProps {
-  vehicle: VehicleDetails | null;
+  vehicle: Vehicle | null;
   open: boolean;
   onClose: () => void;
 }
 
-// Sample detailed vehicle data
-const mockVehicleDetails: VehicleDetails = {
+// Fallback mock data for richer tabs when backend data isn't available yet
+const mockVehicleDetails = {
   registration: '1GLD510',
   fleet: 'Great Southern Fuels',
   depot: 'Geraldton',
@@ -228,7 +197,38 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
   if (!open || !vehicle) return null;
 
   const performanceTrends = generatePerformanceTrends();
-  const details = mockVehicleDetails; // Use mock data for demo
+  // Map real vehicle fields to details structure; fall back to mock where richer data is needed
+  const details = {
+    registration: vehicle.registration,
+    fleet: vehicle.fleet,
+    depot: vehicle.depot,
+    status: vehicle.status,
+    driver: vehicle.current_driver,
+    make: vehicle.make || '—',
+    model: vehicle.model || '—',
+    year: vehicle.year || undefined,
+    vin: vehicle.vin || '—',
+    safetyScore: typeof vehicle.safety_score === 'number' ? Number(vehicle.safety_score.toFixed(1)) : 0,
+    fuelEfficiency: typeof vehicle.fuel_efficiency === 'number' ? Number(vehicle.fuel_efficiency.toFixed(1)) : 0,
+    utilization: vehicle.utilization || 0,
+    lastService: vehicle.last_service || mockVehicleDetails.lastService,
+    nextService: vehicle.next_service || mockVehicleDetails.nextService,
+    guardianUnit: vehicle.guardian_unit || '—',
+    lytxDevice: vehicle.lytx_device || '—',
+    totalDeliveries: vehicle.total_deliveries || 0,
+    totalKilometers: vehicle.total_kilometers || 0,
+    fatigueEvents: vehicle.fatigue_events || 0,
+    safetyEvents: vehicle.safety_events || 0,
+    registrationExpiry: vehicle.registration_expiry || mockVehicleDetails.registrationExpiry,
+    insuranceExpiry: vehicle.insurance_expiry || mockVehicleDetails.insuranceExpiry,
+    inspectionDue: vehicle.inspection_due || mockVehicleDetails.inspectionDue,
+    routeType: '—',
+    currentLocation: vehicle.depot,
+    lastMaintenance: [],
+    safetyHistory: [],
+    deliveryHistory: [],
+    fuelHistory: [],
+  } as any;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -254,7 +254,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
             <div>
               <h2 className="text-xl font-bold text-gray-900">{details.registration}</h2>
               <p className={`text-sm font-medium ${getFleetColor(details.fleet)}`}>
-                {details.make} {details.model} ({details.year}) • {details.fleet}
+                {details.make}{details.model ? ` ${details.model}` : ''}{details.year ? ` (${details.year})` : ''} • {details.fleet}
               </p>
             </div>
           </div>
@@ -313,7 +313,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     <Shield className="h-5 w-5 text-green-600" />
                     <span className="text-sm font-medium text-green-700">Safety Score</span>
                   </div>
-                  <span className="text-2xl font-bold text-green-900">{details.safetyScore}/10</span>
+                   <span className="text-2xl font-bold text-green-900">{Number(details.safetyScore).toFixed(1)}/10</span>
                 </div>
                 
                 <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
@@ -321,7 +321,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     <Fuel className="h-5 w-5 text-purple-600" />
                     <span className="text-sm font-medium text-purple-700">Efficiency</span>
                   </div>
-                  <span className="text-2xl font-bold text-purple-900">{details.fuelEfficiency} km/L</span>
+                   <span className="text-2xl font-bold text-purple-900">{Number(details.fuelEfficiency).toFixed(1)} km/L</span>
                 </div>
                 
                 <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
@@ -329,7 +329,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     <Navigation className="h-5 w-5 text-orange-600" />
                     <span className="text-sm font-medium text-orange-700">Utilization</span>
                   </div>
-                  <span className="text-2xl font-bold text-orange-900">{details.utilization}%</span>
+                   <span className="text-2xl font-bold text-orange-900">{details.utilization}%</span>
                 </div>
               </div>
 
@@ -340,19 +340,19 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">VIN:</span>
-                      <span className="font-medium text-gray-900">{details.vin}</span>
+                       <span className="font-medium text-gray-900">{details.vin || '—'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Kilometers:</span>
-                      <span className="font-medium text-gray-900">{details.totalKilometers.toLocaleString()} km</span>
+                       <span className="font-medium text-gray-900">{Number(details.totalKilometers || 0).toLocaleString()} km</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Route Type:</span>
-                      <span className="font-medium text-gray-900">{details.routeType}</span>
+                       <span className="font-medium text-gray-900">{details.routeType || '—'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Current Location:</span>
-                      <span className="font-medium text-gray-900">{details.currentLocation}</span>
+                       <span className="font-medium text-gray-900">{details.currentLocation || '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -362,7 +362,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Assigned Driver:</span>
-                      <span className="font-medium text-gray-900">{details.driver || 'Unassigned'}</span>
+                       <span className="font-medium text-gray-900">{details.driver || 'Unassigned'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Home Depot:</span>
@@ -370,11 +370,11 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Guardian Unit:</span>
-                      <span className="font-medium text-gray-900">{details.guardianUnit}</span>
+                       <span className="font-medium text-gray-900">{details.guardianUnit || '—'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">LYTX Device:</span>
-                      <span className="font-medium text-gray-900">{details.lytxDevice}</span>
+                       <span className="font-medium text-gray-900">{details.lytxDevice || '—'}</span>
                     </div>
                   </div>
                 </div>

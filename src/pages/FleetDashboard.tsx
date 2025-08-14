@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Truck, Users, AlertTriangle, Wrench, MapPin, TrendingUp, Activity, Shield, Database, Search } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { Link } from 'react-router-dom';
+import VehicleDetailsModal from '@/components/VehicleDetailsModal';
 import { useVehicles } from '@/hooks/useVehicles';
 import type { Vehicle, VehicleFilters } from '@/types/fleet';
 
@@ -401,64 +402,11 @@ const FleetDashboard: React.FC = () => {
       </div>
 
       {/* Vehicle Detail Modal */}
-      {selectedVehicle && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4" onClick={() => setSelectedVehicle(null)}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Vehicle — {selectedVehicle.registration}</h3>
-              <button onClick={() => setSelectedVehicle(null)} className="text-gray-500 hover:text-gray-700">✕</button>
-            </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="text-gray-500">Fleet</div>
-                <div className="font-medium">{selectedVehicle.fleet}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Depot</div>
-                <div className="font-medium">{selectedVehicle.depot}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Status</div>
-                <div className="font-medium">{selectedVehicle.status}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Driver</div>
-                <div className="font-medium">{selectedVehicle.current_driver || '—'}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Safety Score</div>
-                <div className="font-medium">{selectedVehicle.safety_score.toFixed(1)}/10</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Fuel Efficiency</div>
-                <div className="font-medium">{selectedVehicle.fuel_efficiency.toFixed(1)} km/L</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Utilization</div>
-                <div className="font-medium">{selectedVehicle.utilization}%</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Next Service</div>
-                <div className="font-medium">{selectedVehicle.next_service ? new Date(selectedVehicle.next_service).toLocaleDateString() : '—'}</div>
-              </div>
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-gray-500">Guardian Unit</div>
-                  <div className="font-medium break-all">{selectedVehicle.guardian_unit || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500">LYTX Device</div>
-                  <div className="font-medium break-all">{selectedVehicle.lytx_device || '—'}</div>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t flex justify-end gap-3">
-              <button onClick={() => setSelectedVehicle(null)} className="px-4 py-2 rounded border">Close</button>
-              <Link to="/data-centre/fleet/database" className="px-4 py-2 rounded bg-blue-600 text-white">Open in Database</Link>
-            </div>
-          </div>
-        </div>
-      )}
+      <VehicleDetailsModal
+        vehicle={selectedVehicle}
+        open={!!selectedVehicle}
+        onClose={() => setSelectedVehicle(null)}
+      />
     </div>
   );
 };
