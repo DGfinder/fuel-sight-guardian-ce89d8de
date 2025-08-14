@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Eye, Wrench, Shield, MapPin, Download, Plus, Edit, AlertTriangle } from 'lucide-react';
+import { Search, Filter, Eye, Wrench, Shield, MapPin, Download, Plus, Edit, AlertTriangle, Cpu } from 'lucide-react';
 import { useVehicles } from '@/hooks/useVehicles';
 import type { Vehicle, VehicleFilters } from '@/types/fleet';
+import { updateVehicle } from '@/api/vehicles';
 
 const VehicleDatabase = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,6 +20,8 @@ const VehicleDatabase = () => {
   };
 
   const { data: vehicles = [], isLoading, error } = useVehicles(filters);
+  const [editingDevice, setEditingDevice] = useState<null | { id: string; registration: string; lytx_device?: string; guardian_unit?: string }>(null);
+  const [deviceForm, setDeviceForm] = useState<{ lytx_device: string; guardian_unit: string }>({ lytx_device: '', guardian_unit: '' });
 
   // Get unique depots from vehicles
   const depots = Array.from(new Set(vehicles.map(v => v.depot))).sort();
@@ -42,6 +45,21 @@ const VehicleDatabase = () => {
         : (aValue > bValue ? -1 : 1);
     });
   }, [vehicles, sortField, sortDirection]);
+
+  const openDeviceModal = (v: Vehicle) => {
+    setEditingDevice({ id: v.id, registration: v.registration, lytx_device: v.lytx_device, guardian_unit: v.guardian_unit });
+    setDeviceForm({ lytx_device: v.lytx_device || '', guardian_unit: v.guardian_unit || '' });
+  };
+
+  const saveDeviceMapping = async () => {
+    if (!editingDevice) return;
+    const normalize = (s: string) => s.trim();
+    await updateVehicle(editingDevice.id, {
+      lytx_device: deviceForm.lytx_device ? normalize(deviceForm.lytx_device) : null as any,
+      guardian_unit: deviceForm.guardian_unit ? normalize(deviceForm.guardian_unit) : null as any,
+    });
+    setEditingDevice(null);
+  };
 
   const handleSort = (field: keyof Vehicle) => {
     if (sortField === field) {
@@ -340,15 +358,15 @@ const VehicleDatabase = () => {
                   </td>
                   <td className="py-4 px-4">
                     <div className="text-xs space-y-1">
-                      {vehicle.guardian_unit && (
-                        <div className="text-blue-600">G: {vehicle.guardian_unit}</div>
-                      )}
-                      {vehicle.lytx_device && (
-                        <div className="text-green-600">L: {vehicle.lytx_device}</div>
-                      )}
-                      {!vehicle.guardian_unit && !vehicle.lytx_device && (
-                        <div className="text-gray-400">No devices</div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Cpu className="h-3 w-3 text-gray-400" />
+                        <span className="text-blue-600">G: {vehicle.guardian_unit || '—'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Cpu className="h-3 w-3 text-gray-400" />
+                        <span className="text-green-600">L: {vehicle.lytx_device || '—'}</span>
+                        <button onClick={() => openDeviceModal(vehicle)} className="text-blue-600 underline ml-2">edit</button>
+                      </div>
                     </div>
                   </td>
                   <td className="py-4 px-4">
@@ -394,6 +412,42 @@ const VehicleDatabase = () => {
           </div>
         )}
       </div>
+
+      {/* Device Mapping Modal */}
+      {editingDevice && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Edit Devices — {editingDevice.registration}</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">LYTX Device Serial</label>
+                <input
+                  value={deviceForm.lytx_device}
+                  onChange={(e) => setDeviceForm({ ...deviceForm, lytx_device: e.target.value })}
+                  placeholder="e.g. QM40999652"
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Unit</label>
+                <input
+                  value={deviceForm.guardian_unit}
+                  onChange={(e) => setDeviceForm({ ...deviceForm, guardian_unit: e.target.value })}
+                  placeholder="e.g. P04025-S00013423"
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              <p className="text-xs text-gray-500">These IDs are used to match safety events to this vehicle automatically.</p>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button onClick={() => setEditingDevice(null)} className="px-4 py-2 rounded border">Cancel</button>
+              <button onClick={saveDeviceMapping} className="px-4 py-2 rounded bg-blue-600 text-white">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">

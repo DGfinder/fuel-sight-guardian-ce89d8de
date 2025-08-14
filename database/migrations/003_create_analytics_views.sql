@@ -74,6 +74,19 @@ WHERE NOT excluded
 GROUP BY carrier, depot, DATE_TRUNC('month', event_datetime), EXTRACT(YEAR FROM event_datetime), EXTRACT(MONTH FROM event_datetime), TO_CHAR(event_datetime, 'Mon')
 ORDER BY year DESC, month_num DESC;
 
+-- Enriched LYTX events view mapping to vehicles by registration or device
+CREATE OR REPLACE VIEW lytx_events_enriched AS
+SELECT
+  e.*,
+  v.id AS vehicle_id,
+  COALESCE(NULLIF(e.vehicle_registration, ''), v.registration) AS resolved_registration,
+  v.fleet AS resolved_fleet,
+  v.depot AS resolved_depot
+FROM lytx_safety_events e
+LEFT JOIN vehicles v
+  ON UPPER(e.vehicle_registration) = UPPER(v.registration)
+  OR (e.device_serial IS NOT NULL AND e.device_serial = v.lytx_device);
+
 -- Cross-Analytics Summary View (combining all data sources)
 CREATE OR REPLACE VIEW cross_analytics_summary AS
 WITH monthly_captive AS (
@@ -119,13 +132,13 @@ monthly_guardian AS (
     SELECT 
         fleet,
         depot,
-        TO_CHAR(occurred_at, 'Mon') as month,
-        EXTRACT(YEAR FROM occurred_at)::INTEGER as year,
-        EXTRACT(MONTH FROM occurred_at)::INTEGER as month_num,
+        TO_CHAR(detection_time, 'Mon') as month,
+        EXTRACT(YEAR FROM detection_time)::INTEGER as year,
+        EXTRACT(MONTH FROM detection_time)::INTEGER as month_num,
         COUNT(*) as guardian_events
     FROM guardian_events
     WHERE verified = true
-    GROUP BY fleet, depot, DATE_TRUNC('month', occurred_at), EXTRACT(YEAR FROM occurred_at), EXTRACT(MONTH FROM occurred_at), TO_CHAR(occurred_at, 'Mon')
+    GROUP BY fleet, depot, DATE_TRUNC('month', detection_time), EXTRACT(YEAR FROM detection_time), EXTRACT(MONTH FROM detection_time), TO_CHAR(detection_time, 'Mon')
 ),
 monthly_vehicles AS (
     SELECT 

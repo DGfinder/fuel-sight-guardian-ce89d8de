@@ -49,7 +49,7 @@ export function toPerthTime(date: Date | string | number): Date {
     console.warn('Invalid date provided to toPerthTime:', date);
     return new Date();
   }
-  return inputDate;
+  return new Date(inputDate.getTime() + PERTH_UTC_OFFSET_MS);
 }
 
 /**
