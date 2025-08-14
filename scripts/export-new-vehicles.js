@@ -45,7 +45,7 @@ function mapGroupToFleetAndDepot(group) {
     'Albany': { fleet: 'Great Southern Fuels', depot: 'Albany' },
     'Merredin': { fleet: 'Great Southern Fuels', depot: 'Merredin' },
     'Geraldton': { fleet: 'Great Southern Fuels', depot: 'Geraldton' },
-    'Quairding': { fleet: 'Great Southern Fuels', depot: 'Quairding' },
+    'Quairading': { fleet: 'Great Southern Fuels', depot: 'Quairading' },
     'GSF': { fleet: 'Great Southern Fuels', depot: 'Kewdale' },
     'Stevemacs': { fleet: 'Stevemacs', depot: 'Kewdale' },
     'Stevemacs GSF': { fleet: 'Stevemacs', depot: 'Kewdale' }
