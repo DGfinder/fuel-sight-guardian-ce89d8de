@@ -79,6 +79,14 @@ export interface Tank {
   min_level?: number | null;
 }
 
+// Narrow type for the minimal fields we read when checking same-day dips
+type ExistingDipSummary = {
+  id: string;
+  value: number;
+  created_at: string;
+  created_by_name: string | null;
+};
+
 type DipReading = { value: number; created_at: string };
 
 const LOCAL_STORAGE_KEY = "fuel-dip-form-last-used";
@@ -123,7 +131,7 @@ export function FuelDipForm({
   const [tanksLoading, setTanksLoading] = useState(false);
 
   // same-day dip handling
-  const [existingSameDayDip, setExistingSameDayDip] = useState<Tables<'fuel_dips'> | null>(null);
+  const [existingSameDayDip, setExistingSameDayDip] = useState<ExistingDipSummary | null>(null);
   const [showSameDayDialog, setShowSameDayDialog] = useState(false);
   const [safeFillError, setSafeFillError] = useState<string>("");
 
@@ -341,11 +349,13 @@ export function FuelDipForm({
         }
       }
 
-      // Insert new dip reading
+      // Insert new dip reading - use user's local time (Perth-based users)
+      const createdAtIso = new Date().toISOString();
+
       const { error } = await supabase.from("dip_readings").insert({
         tank_id: data.tank,
         value: data.dip,
-        created_at: data.date,
+        created_at: createdAtIso,
         recorded_by: user?.id ?? "unknown",
         created_by_name: userProfile?.full_name || null,
         notes: data.notes ?? null,

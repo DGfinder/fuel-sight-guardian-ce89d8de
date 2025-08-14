@@ -182,10 +182,13 @@ export default function BulkDipModal({ open, onOpenChange, groupId, groupName }:
     for (let i = 0; i < validEntries.length; i += batchSize) {
       const batch = validEntries.slice(i, i + batchSize);
       
+      // Use user's local time (Perth-based users)
+      const createdAtIso = new Date().toISOString();
+
       const batchData = batch.map(entry => ({
         tank_id: entry.tankId,
         value: Number(entry.dipValue),
-        created_at: dipDate.toISOString(),
+        created_at: createdAtIso,
         recorded_by: userId,
         created_by_name: userProfile?.full_name || null,
         notes: `Bulk entry for ${groupName}`,
