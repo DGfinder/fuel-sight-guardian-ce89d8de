@@ -264,20 +264,27 @@ export const useTanks = () => {
         // Get pre-grouped readings for this tank (already time-ordered from query)
         const allTankReadings = readingsByTank.get(tank.id) || [];
 
-        // Group readings by date and select most recent per day for burn rate calculations
-        const readingsByDate = new Map<string, any>();
-        allTankReadings.forEach(reading => {
-          const dateKey = new Date(reading.created_at).toISOString().slice(0, 10); // YYYY-MM-DD
-          const existing = readingsByDate.get(dateKey);
-          // Keep the most recent reading for each date
-          if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
-            readingsByDate.set(dateKey, reading);
+        // Filter readings with minimum time threshold to avoid artificially close readings
+        // while preserving data granularity for accurate rolling averages
+        const MINIMUM_HOURS_BETWEEN_READINGS = 4;
+        const tankReadings: any[] = [];
+        
+        for (let i = 0; i < allTankReadings.length; i++) {
+          const currentReading = allTankReadings[i];
+          
+          if (tankReadings.length === 0) {
+            // Always include the first reading
+            tankReadings.push(currentReading);
+          } else {
+            const lastIncluded = tankReadings[tankReadings.length - 1];
+            const hoursBetween = (new Date(lastIncluded.created_at).getTime() - new Date(currentReading.created_at).getTime()) / (1000 * 60 * 60);
+            
+            // Include reading if it's been at least MINIMUM_HOURS since the last included reading
+            if (hoursBetween >= MINIMUM_HOURS_BETWEEN_READINGS) {
+              tankReadings.push(currentReading);
+            }
           }
-        });
-
-        // Convert back to array and sort by date (most recent first)
-        const tankReadings = Array.from(readingsByDate.values())
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        }
 
         // Calculate rolling average
         let totalConsumption = 0;

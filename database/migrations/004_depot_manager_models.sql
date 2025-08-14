@@ -5,9 +5,6 @@ create table if not exists drivers (
   id uuid primary key default gen_random_uuid(),
   first_name text,
   last_name text,
-  full_name text generated always as (
-    trim(both ' ' from coalesce(first_name,'') || ' ' || coalesce(last_name,''))
-  ) stored,
   employee_id text,
   fleet text not null check (fleet in ('Stevemacs','Great Southern Fuels')),
   depot text not null,
@@ -16,7 +13,32 @@ create table if not exists drivers (
   updated_at timestamptz default now()
 );
 
-create index if not exists idx_drivers_full_name on drivers (lower(full_name));
+-- Ensure full_name exists even if table was previously created without it
+alter table drivers add column if not exists full_name text;
+
+-- Backfill full_name where missing
+update drivers
+set full_name = trim(both ' ' from coalesce(first_name,'') || ' ' || coalesce(last_name,''))
+where full_name is null;
+
+-- Keep full_name in sync on insert/update
+create or replace function drivers_set_full_name()
+returns trigger as $$
+begin
+  new.full_name := trim(both ' ' from coalesce(new.first_name,'') || ' ' || coalesce(new.last_name,''));
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_drivers_set_full_name on drivers;
+create trigger trg_drivers_set_full_name
+before insert or update of first_name, last_name on drivers
+for each row execute function drivers_set_full_name();
+
+-- Index supports both existing and newly computed names
+create index if not exists idx_drivers_full_name on drivers (
+  lower(coalesce(full_name, trim(both ' ' from coalesce(first_name,'') || ' ' || coalesce(last_name,''))))
+);
 create index if not exists idx_drivers_fleet_depot on drivers (fleet, depot);
 
 -- 2) System name mappings (LYTX, Guardian, etc.)
