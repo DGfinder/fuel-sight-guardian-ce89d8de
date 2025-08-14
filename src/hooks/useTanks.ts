@@ -262,7 +262,22 @@ export const useTanks = () => {
       
       const tanksWithAnalytics = (tankData || []).map(tank => {
         // Get pre-grouped readings for this tank (already time-ordered from query)
-        const tankReadings = readingsByTank.get(tank.id) || [];
+        const allTankReadings = readingsByTank.get(tank.id) || [];
+
+        // Group readings by date and select most recent per day for burn rate calculations
+        const readingsByDate = new Map<string, any>();
+        allTankReadings.forEach(reading => {
+          const dateKey = new Date(reading.created_at).toISOString().slice(0, 10); // YYYY-MM-DD
+          const existing = readingsByDate.get(dateKey);
+          // Keep the most recent reading for each date
+          if (!existing || new Date(reading.created_at) > new Date(existing.created_at)) {
+            readingsByDate.set(dateKey, reading);
+          }
+        });
+
+        // Convert back to array and sort by date (most recent first)
+        const tankReadings = Array.from(readingsByDate.values())
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         // Calculate rolling average
         let totalConsumption = 0;
@@ -300,12 +315,13 @@ export const useTanks = () => {
         }
 
         // Calculate previous day usage (latest minus previous reading)
+        // Use original readings to get actual latest vs previous, not filtered by date
         let prev_day_used = 0;
         let isRefill = false;
         
-        if (tankReadings.length >= 2) {
-          const latestReading = tankReadings[tankReadings.length - 1];
-          const previousReading = tankReadings[tankReadings.length - 2];
+        if (allTankReadings.length >= 2) {
+          const latestReading = allTankReadings[allTankReadings.length - 1];
+          const previousReading = allTankReadings[allTankReadings.length - 2];
           const rawDifference = latestReading.value - previousReading.value;
           
           // Business logic: Detect if this is likely a refill
@@ -320,7 +336,7 @@ export const useTanks = () => {
           // Debug logging for Alkimos tank specifically
           if (tank.location && tank.location.toLowerCase().includes('alkimos')) {
             console.log(`[ALKIMOS DEBUG] Tank: ${tank.location}`);
-            console.log(`[ALKIMOS DEBUG] Total readings: ${tankReadings.length}`);
+            console.log(`[ALKIMOS DEBUG] Total readings: ${allTankReadings.length}`);
             console.log(`[ALKIMOS DEBUG] Latest reading: ${JSON.stringify({
               value: latestReading.value,
               date: latestReading.created_at,
