@@ -105,7 +105,7 @@ export default function SubgroupQuickEntry({
     const readings = validEntries.map(entry => ({
       tank_id: entry.tankId,
       value: Number(entry.dipValue),
-      created_at: dipDate.toISOString(),
+      created_at: new Date().toISOString(), // Use user's local time (Perth-based users)
       recorded_by: userId,
       created_by_name: userProfile?.full_name || null,
       notes: `Quick entry for ${subgroup}`,
