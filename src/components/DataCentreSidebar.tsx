@@ -87,6 +87,16 @@ const DATA_CENTRE_NAV_ITEMS = [
       { path: '/data-centre/fleet/gsf', label: 'GSF Fleet', icon: TrendingUp },
       { path: '/data-centre/fleet/maintenance', label: 'Maintenance & Assets', icon: TrendingUp }
     ]
+  },
+  { 
+    path: '/data-centre/mtdata', 
+    label: 'MtData Analytics', 
+    icon: Navigation,
+    permission: 'view_analytics_dashboard',
+    children: [
+      { path: '/data-centre/mtdata/stevemacs', label: 'Stevemacs Operations', icon: Navigation },
+      { path: '/data-centre/mtdata/gsf', label: 'GSF Operations', icon: Navigation }
+    ]
   }
 ];
 

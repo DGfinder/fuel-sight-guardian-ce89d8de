@@ -8,7 +8,8 @@ import {
   BarChart3, 
   TrendingUp,
   Users,
-  FileText
+  FileText,
+  Navigation
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -96,6 +97,15 @@ const DataCentrePage = () => {
         efficiency: `${fleetStats.averageEfficiency} km/L`
       },
       color: 'bg-teal-500',
+      available: true
+    },
+    {
+      title: 'MtData Trip Analytics',
+      description: 'Operational insights from vehicle trip data and route optimization',
+      icon: Navigation,
+      href: '/data-centre/mtdata',
+      metrics: { trips: '4,141+', vehicles: '56' },
+      color: 'bg-emerald-500',
       available: true
     }
   ];

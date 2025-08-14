@@ -61,6 +61,10 @@ const MaintenanceDashboard = lazy(() => import('@/pages/MaintenanceDashboard'));
 const DriverManagement = lazy(() => import('@/pages/DriverManagement'));
 const TripAnalyticsPage = lazy(() => import('@/pages/TripAnalyticsPage'));
 const SmartFillPage = lazy(() => import('@/pages/SmartFillPage'));
+// MtData Analytics Platform
+const MtDataDashboard = lazy(() => import('@/pages/MtDataDashboard'));
+const MtDataStevemacsDashboard = lazy(() => import('@/pages/MtDataStevemacsDashboard'));
+const MtDataGSFDashboard = lazy(() => import('@/pages/MtDataGSFDashboard'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -429,6 +433,43 @@ function AppContent() {
                         <RouteErrorBoundary routeName="Trip Analytics" showHomeButton={true}>
                           <DataCentreLayout>
                             <TripAnalyticsPage />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  {/* MtData Analytics Platform */}
+                  <Route 
+                    path="/data-centre/mtdata" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="MtData Analytics" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <MtDataDashboard />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/mtdata/stevemacs" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Stevemacs MtData Analytics" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <MtDataStevemacsDashboard />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/mtdata/gsf" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="GSF MtData Analytics" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <MtDataGSFDashboard />
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
