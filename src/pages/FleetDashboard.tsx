@@ -17,6 +17,7 @@ const FleetDashboard: React.FC = () => {
   };
 
   const { data: vehicles = [], isLoading, error } = useVehicles(filters);
+  const [selectedVehicle, setSelectedVehicle] = useState<null | Vehicle>(null);
 
   // Get unique depots
   const depots = Array.from(new Set(vehicles.map(v => v.depot))).sort();
@@ -318,7 +319,7 @@ const FleetDashboard: React.FC = () => {
               Showing {filteredFleet.length} of {stats.totalVehicles} vehicles
             </span>
             <Link 
-              to="/vehicle-database"
+              to="/data-centre/fleet/database"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Database className="h-4 w-4 inline mr-2" />
@@ -343,7 +344,11 @@ const FleetDashboard: React.FC = () => {
             </thead>
             <tbody>
               {filteredFleet.slice(0, 20).map((vehicle) => (
-                <tr key={vehicle.id} className="border-b hover:bg-gray-50">
+                <tr
+                  key={vehicle.id}
+                  className="border-b hover:bg-gray-50 cursor-pointer"
+                  onClick={() => setSelectedVehicle(vehicle)}
+                >
                   <td className="py-3 px-4 font-medium text-gray-900">{vehicle.registration}</td>
                   <td className="py-3 px-4 text-gray-600">{vehicle.fleet}</td>
                   <td className="py-3 px-4 text-gray-600">
@@ -394,6 +399,66 @@ const FleetDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Vehicle Detail Modal */}
+      {selectedVehicle && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4" onClick={() => setSelectedVehicle(null)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Vehicle — {selectedVehicle.registration}</h3>
+              <button onClick={() => setSelectedVehicle(null)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="text-gray-500">Fleet</div>
+                <div className="font-medium">{selectedVehicle.fleet}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Depot</div>
+                <div className="font-medium">{selectedVehicle.depot}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Status</div>
+                <div className="font-medium">{selectedVehicle.status}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Driver</div>
+                <div className="font-medium">{selectedVehicle.current_driver || '—'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Safety Score</div>
+                <div className="font-medium">{selectedVehicle.safety_score.toFixed(1)}/10</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Fuel Efficiency</div>
+                <div className="font-medium">{selectedVehicle.fuel_efficiency.toFixed(1)} km/L</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Utilization</div>
+                <div className="font-medium">{selectedVehicle.utilization}%</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Next Service</div>
+                <div className="font-medium">{selectedVehicle.next_service ? new Date(selectedVehicle.next_service).toLocaleDateString() : '—'}</div>
+              </div>
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-gray-500">Guardian Unit</div>
+                  <div className="font-medium break-all">{selectedVehicle.guardian_unit || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500">LYTX Device</div>
+                  <div className="font-medium break-all">{selectedVehicle.lytx_device || '—'}</div>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button onClick={() => setSelectedVehicle(null)} className="px-4 py-2 rounded border">Close</button>
+              <Link to="/data-centre/fleet/database" className="px-4 py-2 rounded bg-blue-600 text-white">Open in Database</Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
