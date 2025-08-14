@@ -9,9 +9,7 @@ import { AlertTriangle, Eye, MoreVertical, ChevronDown, ChevronRight, ChevronUp,
 import { Tank } from '@/types/fuel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-// react-window lacks bundled TS types in some setups; use any to avoid build break
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { FixedSizeList: List }: any = require('react-window');
+import { FixedSizeList as List } from 'react-window';
 import PercentBar from './tables/PercentBar';
 import EditDipModal from './modals/EditDipModal';
 import { markTankServiced, unmarkTankServiced, supabase } from '@/lib/supabase';
