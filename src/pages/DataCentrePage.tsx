@@ -107,6 +107,15 @@ const DataCentrePage = () => {
       metrics: { trips: '4,141+', vehicles: '56' },
       color: 'bg-emerald-500',
       available: true
+    },
+    {
+      title: 'Driver Profiles',
+      description: 'Comprehensive driver analytics with LYTX, Guardian, and trip data',
+      icon: Users,
+      href: '/data-centre/drivers',
+      metrics: { drivers: '120+', profiles: 'Deep Analytics' },
+      color: 'bg-cyan-500',
+      available: true
     }
   ];
 

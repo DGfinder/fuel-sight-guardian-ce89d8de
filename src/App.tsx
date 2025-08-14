@@ -65,6 +65,8 @@ const SmartFillPage = lazy(() => import('@/pages/SmartFillPage'));
 const MtDataDashboard = lazy(() => import('@/pages/MtDataDashboard'));
 const MtDataStevemacsDashboard = lazy(() => import('@/pages/MtDataStevemacsDashboard'));
 const MtDataGSFDashboard = lazy(() => import('@/pages/MtDataGSFDashboard'));
+// Enhanced Driver Management with Profile Modals
+const DriverManagementPage = lazy(() => import('@/pages/DriverManagementPage'));
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -471,6 +473,37 @@ function AppContent() {
                           <DataCentreLayout>
                             <MtDataGSFDashboard />
                           </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  {/* Enhanced Driver Management with Profile Modals */}
+                  <Route 
+                    path="/data-centre/drivers" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Driver Management" showHomeButton={true}>
+                          <DriverManagementPage />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/drivers/stevemacs" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Stevemacs Driver Management" showHomeButton={true}>
+                          <DriverManagementPage fleet="Stevemacs" />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/drivers/gsf" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="GSF Driver Management" showHomeButton={true}>
+                          <DriverManagementPage fleet="Great Southern Fuels" />
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     } 

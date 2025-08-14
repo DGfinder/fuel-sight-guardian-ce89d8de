@@ -97,6 +97,16 @@ const DATA_CENTRE_NAV_ITEMS = [
       { path: '/data-centre/mtdata/stevemacs', label: 'Stevemacs Operations', icon: Navigation },
       { path: '/data-centre/mtdata/gsf', label: 'GSF Operations', icon: Navigation }
     ]
+  },
+  { 
+    path: '/data-centre/drivers', 
+    label: 'Driver Profiles', 
+    icon: Users,
+    permission: 'view_analytics_dashboard',
+    children: [
+      { path: '/data-centre/drivers/stevemacs', label: 'Stevemacs Drivers', icon: Users },
+      { path: '/data-centre/drivers/gsf', label: 'GSF Drivers', icon: Users }
+    ]
   }
 ];
 
