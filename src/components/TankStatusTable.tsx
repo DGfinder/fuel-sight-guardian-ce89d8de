@@ -358,9 +358,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
 
   // Track expanded state for all subgroup accordions per group
   const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({});
+  const [expandedSubgroups, setExpandedSubgroups] = React.useState<Record<string, string[]>>({});
 
   const toggleAllSubgroups = (groupId: string, expand: boolean) => {
     setExpandedGroups(prev => ({ ...prev, [groupId]: expand }));
+    const group = grouped.find(g => g.id === groupId);
+    if (group) {
+      const subgroupIds = group.subGroups.map(sg => sg.id);
+      setExpandedSubgroups(prev => ({
+        ...prev,
+        [groupId]: expand ? subgroupIds : []
+      }));
+    }
   };
 
   return (
@@ -407,7 +416,12 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
             <AccordionContent className="bg-white dark:bg-gray-900 border-l-4 border-l-gray-200 ml-2">
               {/* Subgroups - only show if shouldShowSubgroups is true */}
               {group.shouldShowSubgroups && group.subGroups.length > 0 ? (
-                <Accordion type="multiple" defaultValue={expandedGroups[group.id] ? group.subGroups.map(sg => sg.id) : []} className="w-full">
+                <Accordion 
+                  type="multiple" 
+                  value={expandedSubgroups[group.id] || []} 
+                  onValueChange={(value) => setExpandedSubgroups(prev => ({...prev, [group.id]: value}))}
+                  className="w-full"
+                >
                   {group.subGroups.map(sub => (
                     <AccordionItem value={sub.id} key={sub.id} className="border-none">
                       <AccordionTrigger className="bg-gray-100 px-4 py-2 font-semibold text-gray-700 flex items-center gap-3">
