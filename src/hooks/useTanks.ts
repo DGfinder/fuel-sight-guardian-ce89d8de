@@ -269,7 +269,7 @@ export const useTanks = () => {
         const MINIMUM_HOURS_BETWEEN_READINGS = 4;
         const tankReadings: any[] = [];
         
-        for (let i = 0; i < allTankReadings.length; i++) {
+	        for (let i = 0; i < allTankReadings.length; i++) {
           const currentReading = allTankReadings[i];
           
           if (tankReadings.length === 0) {
@@ -277,7 +277,8 @@ export const useTanks = () => {
             tankReadings.push(currentReading);
           } else {
             const lastIncluded = tankReadings[tankReadings.length - 1];
-            const hoursBetween = (new Date(lastIncluded.created_at).getTime() - new Date(currentReading.created_at).getTime()) / (1000 * 60 * 60);
+	            // allTankReadings are ascending; compute time from last included to current
+	            const hoursBetween = (new Date(currentReading.created_at).getTime() - new Date(lastIncluded.created_at).getTime()) / (1000 * 60 * 60);
             
             // Include reading if it's been at least MINIMUM_HOURS since the last included reading
             if (hoursBetween >= MINIMUM_HOURS_BETWEEN_READINGS) {
@@ -360,10 +361,8 @@ export const useTanks = () => {
           }
         }
 
-        // Convert rolling average to negative to indicate fuel usage
-        // (User logic: negative = consumption, positive = refill)
-        const rolling_avg_display = rolling_avg > 0 ? -rolling_avg : rolling_avg;
-        // prev_day_used already has correct sign from latest - previous calculation
+	        // Keep rolling average as a positive daily consumption rate (L/day)
+	        // prev_day_used preserves its natural sign (negative = consumption, positive = refill)
 
         // Calculate days to minimum
         const currentLevel = tank.current_level;
@@ -374,10 +373,10 @@ export const useTanks = () => {
           ? Math.round((Math.max(0, currentLevel - minLevel) / rolling_avg) * 10) / 10
           : null;
 
-        return {
+	        return {
           ...tank,
-          // ✅ Analytics calculated and included in tank data (negative = consumption, positive = refill)
-          rolling_avg: rolling_avg_display,
+	          // ✅ Analytics calculated and included in tank data
+	          rolling_avg: rolling_avg,
           prev_day_used: prev_day_used,
           is_recent_refill: isRefill,
           days_to_min_level,
