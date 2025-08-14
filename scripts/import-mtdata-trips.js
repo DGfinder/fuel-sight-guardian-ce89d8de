@@ -247,6 +247,7 @@ function parseCSV(csvContent) {
   return trips;
 }
 
+
 /**
  * Correlate trips with existing vehicles and drivers
  */
@@ -262,12 +263,20 @@ async function correlateTripsWithDatabase(trips) {
     throw new Error(`Failed to fetch vehicles: ${vehicleError.message}`);
   }
   
-  // Create lookup maps
+  // Create lookup maps with normalized registrations
   const vehicleByRego = new Map();
+  const vehicleByNormalizedRego = new Map();
   const vehicleBySerial = new Map();
   
   vehicles.forEach(vehicle => {
     vehicleByRego.set(vehicle.registration, vehicle);
+    
+    // Add normalized registration lookup
+    const normalized = normalizeRegistration(vehicle.registration);
+    if (normalized) {
+      vehicleByNormalizedRego.set(normalized, vehicle);
+    }
+    
     if (vehicle.guardian_unit) {
       vehicleBySerial.set(vehicle.guardian_unit, vehicle);
     }
@@ -295,10 +304,18 @@ async function correlateTripsWithDatabase(trips) {
   };
   
   for (const trip of trips) {
-    // Try to match vehicle by registration first
+    // Try to match vehicle by exact registration first
     let vehicle = vehicleByRego.get(trip.vehicle_registration);
     
-    // If no match by registration, try by unit serial number
+    // If no exact match, try normalized registration matching
+    if (!vehicle) {
+      const normalized = normalizeRegistration(trip.vehicle_registration);
+      if (normalized) {
+        vehicle = vehicleByNormalizedRego.get(normalized);
+      }
+    }
+    
+    // If still no match, try by unit serial number
     if (!vehicle && trip.unit_serial_number) {
       vehicle = vehicleBySerial.get(trip.unit_serial_number);
     }
@@ -308,7 +325,12 @@ async function correlateTripsWithDatabase(trips) {
       correlationStats.vehicleMatched++;
     } else {
       correlationStats.vehicleUnmatched++;
-      console.warn(`⚠️ No vehicle found for registration: ${trip.vehicle_registration}`);
+      // Only warn if it's not an obviously invalid registration
+      if (trip.vehicle_registration && 
+          trip.vehicle_registration !== 'UNREG' && 
+          !trip.vehicle_registration.includes('on-trip')) {
+        console.warn(`⚠️ No vehicle found for registration: ${trip.vehicle_registration}`);
+      }
     }
     
     // Try to match driver by name

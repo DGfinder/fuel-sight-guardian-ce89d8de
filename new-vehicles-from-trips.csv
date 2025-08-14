@@ -1,0 +1,2 @@
+registration,fleet,depot,status,mtdata_vehicle_id,guardian_unit,trip_count,total_distance_km,avg_distance_km,first_seen,last_seen,most_common_driver,unique_drivers,group_name,unit_serial_number
+"1GCE176","Stevemacs","Kewdale","Active","1GCE176","",105,12958.89,123.42,"2025-07-04T06:43:00+00:00","2025-07-31T04:22:00+00:00","Simon Rankin",1,"Stevemacs","574000497"
