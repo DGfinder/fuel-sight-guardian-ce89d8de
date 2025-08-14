@@ -59,6 +59,7 @@ const StevemacsFleetDashboard = lazy(() => import('@/pages/StevemacsFleetDashboa
 const GSFFleetDashboard = lazy(() => import('@/pages/GSFFleetDashboard'));
 const MaintenanceDashboard = lazy(() => import('@/pages/MaintenanceDashboard'));
 const DriverManagement = lazy(() => import('@/pages/DriverManagement'));
+const TripAnalyticsPage = lazy(() => import('@/pages/TripAnalyticsPage'));
 const SmartFillPage = lazy(() => import('@/pages/SmartFillPage'));
 
 // Enhanced loading component
@@ -416,6 +417,18 @@ function AppContent() {
                         <RouteErrorBoundary routeName="Driver Management" showHomeButton={true}>
                           <DataCentreLayout>
                             <DriverManagement />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/fleet/trip-analytics" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Trip Analytics" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <TripAnalyticsPage />
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>

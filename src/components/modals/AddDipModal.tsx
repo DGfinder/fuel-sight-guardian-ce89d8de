@@ -14,8 +14,6 @@ import { z } from 'zod';
 
 import {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -31,23 +29,17 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
 
 import { useTankGroups } from "@/hooks/useTankGroups";
 import { useTanks }      from "@/hooks/useTanks";
 import type { Tank }     from "@/types/fuel";
 import { supabase } from '@/lib/supabase';
 import type { Tables } from '@/types/supabase';
-import { cn } from "@/lib/utils";
 import { Z_INDEX } from '@/lib/z-index';
-import { getPerthToday, getPerthYesterday } from '@/utils/timezone';
+import { getPerthToday, perthTimeFormatter } from '@/utils/timezone';
 
-import { schemas, businessRules, type AddDipFormData } from '@/lib/validation';
+import { schemas, businessRules } from '@/lib/validation';
 
 // Use centralized validation schema
 const dipReadingSchema = schemas.addDip;
@@ -67,7 +59,6 @@ interface Props {
 export default function AddDipModal({
   open,
   onOpenChange,
-  onSubmit,
   initialGroupId = "",
   initialTankId = "",
 }: Props) {
@@ -83,7 +74,9 @@ export default function AddDipModal({
   const [tankId,     setTankId]     = useState(initialTankId);
   const [dipValue,   setDipValue]   = useState("");
   const [dipDate,    setDipDate]    = useState<Date>(new Date(getPerthToday()));
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [dipTime,    setDipTime]    = useState<string>(perthTimeFormatter.format(new Date()).slice(0,5)); // HH:MM in Perth
+  const [manualTime, setManualTime] = useState<boolean>(false);
+  // const [calendarOpen, setCalendarOpen] = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
@@ -117,13 +110,11 @@ export default function AddDipModal({
   );
 
   /* ─────────── Helpers ─────────────────────────────────────────── */
-  const selectedTank: Tank | undefined = tanks.find(
-    t => t.id === tankId
-  );
+  const selectedTank = tanks.find(t => t.id === tankId) as (Tank | undefined);
 
   console.log('AddDipModal state:', { groupId, subgroup, tankId, selectedTankLocation: selectedTank?.location });
   const ullage =
-    selectedTank && dipValue
+    selectedTank && dipValue && typeof selectedTank.safe_level === 'number'
       ? Math.max(0, selectedTank.safe_level - Number(dipValue))
       : null;
 
@@ -133,7 +124,9 @@ export default function AddDipModal({
     setTankId("");
     setDipValue("");
     setDipDate(new Date(getPerthToday()));
-    setCalendarOpen(false);
+		setDipTime(perthTimeFormatter.format(new Date()).slice(0,5));
+    setManualTime(false);
+    // setCalendarOpen(false);
   };
 
   useEffect(() => {
@@ -197,10 +190,12 @@ export default function AddDipModal({
         setSubgroup("");
         setTankId(initialTankId || "");
       }
-      // Reset form fields
+			// Reset form fields
       setDipValue("");
       setDipDate(new Date(getPerthToday()));
-      setCalendarOpen(false);
+			setDipTime(perthTimeFormatter.format(new Date()).slice(0,5));
+      setManualTime(false);
+      // setCalendarOpen(false);
     } else {
       // Modal is closing, reset everything
       resetForm();
@@ -209,7 +204,7 @@ export default function AddDipModal({
 
   // Enhanced validation for safe fill level
   useEffect(() => {
-    if (selectedTank && dipValue && !isNaN(Number(dipValue))) {
+    if (selectedTank && typeof selectedTank.safe_level === 'number' && dipValue && !isNaN(Number(dipValue))) {
       const validation = businessRules.validateDipReading(Number(dipValue), selectedTank.safe_level);
       setSafeFillError(validation.valid ? "" : validation.error || "");
     } else {
@@ -262,10 +257,19 @@ export default function AddDipModal({
       setSaving(true);
       
       const dipValueAsNumber = Number(formData.dipValue);
-      const insertData = {
+    // Combine Perth date (YYYY-MM-DD from dipDate) with selected time (HH:MM) and fix timezone to +08:00
+    const datePart = formData.dipDate.toISOString().slice(0, 10);
+    // If manual time not selected, capture the current Perth time at submit
+    const nowPerthHHMM = perthTimeFormatter.format(new Date()).slice(0,5);
+    const effectiveTime = manualTime ? dipTime : nowPerthHHMM;
+    const timePart = (effectiveTime && /^\d{2}:\d{2}$/.test(effectiveTime)) ? effectiveTime : '08:00';
+		const perthIso = `${datePart}T${timePart}:00+08:00`;
+		const createdAtIso = new Date(perthIso).toISOString();
+
+		const insertData = {
         tank_id: formData.tankId,
         value: Math.round(dipValueAsNumber), // Ensure integer for database schema
-        created_at: formData.dipDate.toISOString(),
+			created_at: createdAtIso,
         recorded_by: userId,
         created_by_name: userProfile?.full_name || null,
         notes: null
@@ -283,9 +287,7 @@ export default function AddDipModal({
       console.log('💾 [DIP SUBMISSION] Inserting to database:', insertData);
       console.log('🔐 [DIP SUBMISSION] Authentication state:', {
         userId: userId,
-        hasUserProfile: !!userProfile,
-        supabaseUrl: supabase.supabaseUrl,
-        supabaseKey: supabase.supabaseKey?.substring(0, 20) + '...'
+        hasUserProfile: !!userProfile
       });
       
       // Check network connectivity
@@ -496,12 +498,12 @@ export default function AddDipModal({
             </Select>
           </div>
 
-          {/* Date picker - Fallback to native HTML5 date input */}
+          {/* Date & optional manual time inputs */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
               Date <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
+            <div className="relative flex gap-2">
               <Input
                 type="date"
                 value={dipDate ? dipDate.toISOString().slice(0, 10) : ''}
@@ -511,14 +513,24 @@ export default function AddDipModal({
                     setDipDate(new Date(e.target.value));
                   }
                 }}
-                max={getPerthToday()} // Today in Perth timezone
-                min={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)} // 1 year ago
+                max={getPerthToday()}
+                min={new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
                 className="w-full"
               />
+              {manualTime && (
+                <Input
+                  type="time"
+                  value={dipTime}
+                  onChange={(e) => setDipTime(e.target.value)}
+                  step={60}
+                  className="w-28"
+                  aria-label="Time"
+                />
+              )}
             </div>
-            {/* Alternative: Popover Calendar (currently disabled for debugging) */}
-            <div className="text-xs text-gray-500">
-              Fallback to HTML5 date picker due to calendar component issues
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <input id="manual-time" type="checkbox" checked={manualTime} onChange={(e) => setManualTime(e.target.checked)} />
+              <label htmlFor="manual-time">Set time manually (otherwise current Perth time is used)</label>
             </div>
           </div>
 

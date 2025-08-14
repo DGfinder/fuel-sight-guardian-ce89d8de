@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Truck, User, MapPin, Calendar, Wrench, Shield, AlertTriangle, Fuel, Activity, Navigation, FileText } from 'lucide-react';
+import { X, Truck, User, MapPin, Calendar, Wrench, Shield, AlertTriangle, Fuel, Activity, Navigation, FileText, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import type { Vehicle } from '@/types/fleet';
 
@@ -46,164 +46,28 @@ interface VehicleDetailsModalProps {
   onClose: () => void;
 }
 
-// Fallback mock data for richer tabs when backend data isn't available yet
-const mockVehicleDetails = {
-  registration: '1GLD510',
-  fleet: 'Great Southern Fuels',
-  depot: 'Geraldton',
-  status: 'Active',
-  driver: 'Andrew Buchanan',
-  make: 'Scania',
-  model: 'R730',
-  year: 2020,
-  vin: 'YS2R8X20002123457',
-  safetyScore: 9.1,
-  fuelEfficiency: 3.8,
-  utilization: 92,
-  lastService: '2025-06-20',
-  nextService: '2025-09-20',
-  guardianUnit: 'P04025-S00013423',
-  lytxDevice: 'MV00252104',
-  totalDeliveries: 203,
-  totalKilometers: 342180,
-  fatigueEvents: 1,
-  safetyEvents: 3,
-  registrationExpiry: '2026-03-10',
-  insuranceExpiry: '2025-10-15',
-  inspectionDue: '2025-08-25',
-  routeType: 'Regional',
-  currentLocation: 'Geraldton Depot',
-  lastMaintenance: [
-    {
-      date: '2025-06-20',
-      type: 'Preventive',
-      description: 'Full service - engine oil, filters, brake inspection',
-      cost: 1250,
-      workshop: 'Geraldton Workshop',
-      kilometers: 335000
-    },
-    {
-      date: '2025-04-15',
-      type: 'Corrective',
-      description: 'Replace rear brake pads and rotors',
-      cost: 890,
-      workshop: 'Geraldton Workshop',
-      kilometers: 328000
-    },
-    {
-      date: '2025-03-10',
-      type: 'Inspection',
-      description: 'Annual safety inspection and compliance check',
-      cost: 350,
-      workshop: 'Certified Inspection Centre',
-      kilometers: 325000
-    }
-  ],
-  safetyHistory: [
-    {
-      date: '2025-08-03',
-      type: 'LYTX',
-      severity: 0,
-      trigger: 'Food or Drink',
-      status: 'New',
-      driver: 'Andrew Buchanan'
-    },
-    {
-      date: '2025-07-28',
-      type: 'Guardian',
-      severity: 3,
-      trigger: 'Fatigue Detection',
-      status: 'Resolved',
-      driver: 'Andrew Buchanan'
-    },
-    {
-      date: '2025-07-15',
-      type: 'LYTX',
-      severity: 0,
-      trigger: 'Following Distance',
-      status: 'Face-To-Face',
-      driver: 'Andrew Buchanan'
-    }
-  ],
-  deliveryHistory: [
-    {
-      date: '2025-08-03',
-      bol: 'D2125489',
-      customer: 'BP Wonthella',
-      product: 'Diesel',
-      volume: 17000,
-      distance: 45,
-      driver: 'Andrew Buchanan'
-    },
-    {
-      date: '2025-08-02',
-      bol: 'D2125488',
-      customer: 'Shell Geraldton',
-      product: 'Unleaded 91',
-      volume: 12500,
-      distance: 28,
-      driver: 'Andrew Buchanan'
-    },
-    {
-      date: '2025-08-01',
-      bol: 'D2125487',
-      customer: 'Caltex Industrial',
-      product: 'Diesel',
-      volume: 20000,
-      distance: 67,
-      driver: 'Andrew Buchanan'
-    }
-  ],
-  fuelHistory: [
-    {
-      date: '2025-08-03',
-      liters: 180,
-      cost: 324,
-      location: 'Geraldton Depot',
-      efficiency: 3.8,
-      distance: 140,
-      
-    },
-    {
-      date: '2025-08-01',
-      liters: 165,
-      cost: 297,
-      location: 'Geraldton Depot',
-      efficiency: 4.1,
-      distance: 162,
-    },
-    {
-      date: '2025-07-30',
-      liters: 195,
-      cost: 351,
-      location: 'Roadhouse Stop',
-      efficiency: 3.5,
-      distance: 198,
-    }
-  ]
+// Helper function to format dates for display
+const formatDate = (dateString: string | undefined) => {
+  if (!dateString) return 'Not Available';
+  try {
+    return new Date(dateString).toLocaleDateString();
+  } catch {
+    return 'Invalid Date';
+  }
 };
-
-// Generate performance trends
-const generatePerformanceTrends = () => [
-  { month: 'May 25', efficiency: 3.6, utilization: 88, safety: 9.2, deliveries: 18 },
-  { month: 'Jun 25', efficiency: 3.7, utilization: 91, safety: 9.0, deliveries: 22 },
-  { month: 'Jul 25', efficiency: 3.8, utilization: 94, safety: 9.1, deliveries: 24 },
-  { month: 'Aug 25', efficiency: 3.8, utilization: 92, safety: 9.1, deliveries: 28 }
-];
 
 const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open, onClose }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'maintenance' | 'safety' | 'deliveries' | 'fuel'>('overview');
 
   if (!open || !vehicle) return null;
 
-  const performanceTrends = generatePerformanceTrends();
-  // Map real vehicle fields to details structure; fall back to mock where richer data is needed
+  // Map real vehicle fields to details structure - no more mock data fallbacks
   const details = {
     registration: vehicle.registration,
     fleet: vehicle.fleet,
     depot: vehicle.depot,
     status: vehicle.status,
-    driver: vehicle.current_driver,
+    driver: vehicle.current_driver || 'Not Assigned',
     make: vehicle.make || '—',
     model: vehicle.model || '—',
     year: vehicle.year || undefined,
@@ -211,24 +75,20 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
     safetyScore: typeof vehicle.safety_score === 'number' ? Number(vehicle.safety_score.toFixed(1)) : 0,
     fuelEfficiency: typeof vehicle.fuel_efficiency === 'number' ? Number(vehicle.fuel_efficiency.toFixed(1)) : 0,
     utilization: vehicle.utilization || 0,
-    lastService: vehicle.last_service || mockVehicleDetails.lastService,
-    nextService: vehicle.next_service || mockVehicleDetails.nextService,
+    lastService: vehicle.last_service,
+    nextService: vehicle.next_service,
     guardianUnit: vehicle.guardian_unit || '—',
     lytxDevice: vehicle.lytx_device || '—',
     totalDeliveries: vehicle.total_deliveries || 0,
     totalKilometers: vehicle.total_kilometers || 0,
     fatigueEvents: vehicle.fatigue_events || 0,
     safetyEvents: vehicle.safety_events || 0,
-    registrationExpiry: vehicle.registration_expiry || mockVehicleDetails.registrationExpiry,
-    insuranceExpiry: vehicle.insurance_expiry || mockVehicleDetails.insuranceExpiry,
-    inspectionDue: vehicle.inspection_due || mockVehicleDetails.inspectionDue,
+    registrationExpiry: vehicle.registration_expiry,
+    insuranceExpiry: vehicle.insurance_expiry,
+    inspectionDue: vehicle.inspection_due,
     routeType: '—',
     currentLocation: vehicle.depot,
-    lastMaintenance: [],
-    safetyHistory: [],
-    deliveryHistory: [],
-    fuelHistory: [],
-  } as any;
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -383,16 +243,13 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
               {/* Performance Trends */}
               <div className="bg-white p-6 rounded-lg border border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Trends</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={performanceTrends}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="efficiency" stroke="#8b5cf6" strokeWidth={2} name="Efficiency (km/L)" />
-                    <Line type="monotone" dataKey="utilization" stroke="#10b981" strokeWidth={2} name="Utilization %" />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="flex items-center justify-center h-64 text-gray-500">
+                  <div className="text-center">
+                    <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-lg font-medium">Performance Trends</p>
+                    <p className="text-sm">Historical performance data will be available here</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -405,7 +262,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     <Calendar className="h-5 w-5 text-blue-600" />
                     <span className="text-sm font-medium text-blue-700">Last Service</span>
                   </div>
-                  <span className="text-lg font-bold text-blue-900">{new Date(details.lastService).toLocaleDateString()}</span>
+                  <span className="text-lg font-bold text-blue-900">{formatDate(details.lastService)}</span>
                 </div>
                 
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
@@ -413,7 +270,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     <Wrench className="h-5 w-5 text-yellow-600" />
                     <span className="text-sm font-medium text-yellow-700">Next Service</span>
                   </div>
-                  <span className="text-lg font-bold text-yellow-900">{new Date(details.nextService).toLocaleDateString()}</span>
+                  <span className="text-lg font-bold text-yellow-900">{formatDate(details.nextService)}</span>
                 </div>
                 
                 <div className="bg-red-50 p-4 rounded-lg border border-red-200">
@@ -421,7 +278,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     <AlertTriangle className="h-5 w-5 text-red-600" />
                     <span className="text-sm font-medium text-red-700">Inspection Due</span>
                   </div>
-                  <span className="text-lg font-bold text-red-900">{new Date(details.inspectionDue).toLocaleDateString()}</span>
+                  <span className="text-lg font-bold text-red-900">{formatDate(details.inspectionDue)}</span>
                 </div>
               </div>
 
@@ -429,26 +286,14 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">Maintenance History</h3>
                 </div>
-                <div className="divide-y divide-gray-200">
-                  {details.lastMaintenance.map((record, index) => (
-                    <div key={index} className="p-6">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            record.type === 'Preventive' ? 'bg-green-100 text-green-800' :
-                            record.type === 'Corrective' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
-                            {record.type}
-                          </span>
-                          <p className="text-sm text-gray-600 mt-1">{new Date(record.date).toLocaleDateString()}</p>
-                        </div>
-                        <span className="text-lg font-bold text-gray-900">${record.cost.toLocaleString()}</span>
-                      </div>
-                      <p className="text-gray-900 font-medium mb-1">{record.description}</p>
-                      <p className="text-sm text-gray-600">{record.workshop} • {record.kilometers.toLocaleString()} km</p>
+                <div className="p-6">
+                  <div className="flex items-center justify-center h-32 text-gray-500">
+                    <div className="text-center">
+                      <Wrench className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm">No maintenance records available</p>
+                      <p className="text-xs text-gray-400">Maintenance history will appear here when available</p>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -486,41 +331,14 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">Recent Safety Events</h3>
                 </div>
-                <div className="divide-y divide-gray-200">
-                  {details.safetyHistory.map((event, index) => (
-                    <div key={index} className="p-6">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            event.type === 'LYTX' ? 'bg-blue-100 text-blue-800' :
-                            event.type === 'Guardian' ? 'bg-purple-100 text-purple-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {event.type}
-                          </span>
-                          <p className="text-sm text-gray-600 mt-1">{new Date(event.date).toLocaleDateString()}</p>
-                        </div>
-                        <span className={`text-lg font-bold ${
-                          event.severity >= 5 ? 'text-red-600' :
-                          event.severity >= 3 ? 'text-yellow-600' :
-                          'text-green-600'
-                        }`}>
-                          Score: {event.severity}
-                        </span>
-                      </div>
-                      <p className="text-gray-900 font-medium mb-1">{event.trigger}</p>
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-gray-600">Driver: {event.driver || 'Unknown'}</p>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          event.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                          event.status === 'Face-To-Face' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {event.status}
-                        </span>
-                      </div>
+                <div className="p-6">
+                  <div className="flex items-center justify-center h-32 text-gray-500">
+                    <div className="text-center">
+                      <Shield className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm">No safety events available</p>
+                      <p className="text-xs text-gray-400">Safety history will appear here when available</p>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -542,7 +360,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     <FileText className="h-5 w-5 text-green-600" />
                     <span className="text-sm font-medium text-green-700">This Month</span>
                   </div>
-                  <span className="text-2xl font-bold text-green-900">{details.deliveryHistory.length}</span>
+                  <span className="text-2xl font-bold text-green-900">0</span>
                 </div>
               </div>
 
@@ -550,23 +368,14 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">Recent Deliveries</h3>
                 </div>
-                <div className="divide-y divide-gray-200">
-                  {details.deliveryHistory.map((delivery, index) => (
-                    <div key={index} className="p-6">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="text-gray-900 font-medium">{delivery.bol}</p>
-                          <p className="text-sm text-gray-600">{new Date(delivery.date).toLocaleDateString()}</p>
-                        </div>
-                        <span className="text-lg font-bold text-gray-900">{delivery.volume.toLocaleString()}L</span>
-                      </div>
-                      <p className="text-gray-900 mb-1">{delivery.customer}</p>
-                      <div className="flex justify-between items-center text-sm text-gray-600">
-                        <span>{delivery.product}</span>
-                        <span>{delivery.distance}km • {delivery.driver}</span>
-                      </div>
+                <div className="p-6">
+                  <div className="flex items-center justify-center h-32 text-gray-500">
+                    <div className="text-center">
+                      <Navigation className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm">No delivery records available</p>
+                      <p className="text-xs text-gray-400">Delivery history will appear here when available</p>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -596,44 +405,34 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, open
                     <Calendar className="h-5 w-5 text-green-600" />
                     <span className="text-sm font-medium text-green-700">Recent Fill-ups</span>
                   </div>
-                  <span className="text-2xl font-bold text-green-900">{details.fuelHistory.length}</span>
+                  <span className="text-2xl font-bold text-green-900">0</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-lg border border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Fuel Efficiency Trend</h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={details.fuelHistory}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="efficiency" fill="#8b5cf6" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className="flex items-center justify-center h-64 text-gray-500">
+                    <div className="text-center">
+                      <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p className="text-lg font-medium">Efficiency Trends</p>
+                      <p className="text-sm">Historical fuel efficiency data will be available here</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-900">Recent Fuel Records</h3>
                   </div>
-                  <div className="divide-y divide-gray-200">
-                    {details.fuelHistory.map((record, index) => (
-                      <div key={index} className="p-6">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="text-gray-900 font-medium">{record.liters}L</p>
-                            <p className="text-sm text-gray-600">{new Date(record.date).toLocaleDateString()}</p>
-                          </div>
-                          <span className="text-lg font-bold text-gray-900">${record.cost.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm text-gray-600">
-                          <span>{record.location}</span>
-                          <span>{record.efficiency} km/L • {record.distance}km</span>
-                        </div>
+                  <div className="p-6">
+                    <div className="flex items-center justify-center h-32 text-gray-500">
+                      <div className="text-center">
+                        <Fuel className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm">No fuel records available</p>
+                        <p className="text-xs text-gray-400">Fuel history will appear here when available</p>
                       </div>
-                    ))}
+                    </div>
                   </div>
                 </div>
               </div>
