@@ -49,7 +49,7 @@ export function toPerthTime(date: Date | string | number): Date {
     console.warn('Invalid date provided to toPerthTime:', date);
     return new Date();
   }
-  return new Date(inputDate.getTime() + PERTH_UTC_OFFSET_MS);
+  return inputDate;
 }
 
 /**
@@ -85,8 +85,8 @@ export function formatPerthDisplay(date: Date | string | number): string {
  */
 export function getPerthNow(): Date {
   const now = new Date();
-  // Return current time adjusted to Perth timezone (UTC+8)
-  return new Date(now.getTime() + PERTH_UTC_OFFSET_MS);
+  // Return current UTC time for accurate time calculations
+  return now;
 }
 
 /**
