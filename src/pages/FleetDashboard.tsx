@@ -72,37 +72,83 @@ const FleetDashboard: React.FC = () => {
     ];
   }, [stats]);
 
-  // Depot performance
+  // Enhanced depot performance with weighted scoring
   const depotStats = filteredFleet.reduce((acc, vehicle) => {
     if (!acc[vehicle.depot]) {
-      acc[vehicle.depot] = { vehicles: 0, utilization: 0, safety: 0, efficiency: 0 };
+      acc[vehicle.depot] = { 
+        vehicles: 0, 
+        utilization: 0, 
+        safety: 0, 
+        efficiency: 0,
+        safetyEvents: 0,
+        fatigueEvents: 0,
+        totalDeliveries: 0,
+        totalKilometers: 0
+      };
     }
     acc[vehicle.depot].vehicles++;
     acc[vehicle.depot].utilization += vehicle.utilization;
     acc[vehicle.depot].safety += vehicle.safety_score;
     acc[vehicle.depot].efficiency += vehicle.fuel_efficiency;
+    acc[vehicle.depot].safetyEvents += vehicle.safety_events;
+    acc[vehicle.depot].fatigueEvents += vehicle.fatigue_events;
+    acc[vehicle.depot].totalDeliveries += vehicle.total_deliveries;
+    acc[vehicle.depot].totalKilometers += vehicle.total_kilometers;
     return acc;
-  }, {} as Record<string, { vehicles: number; utilization: number; safety: number; efficiency: number }>);
+  }, {} as Record<string, { 
+    vehicles: number; 
+    utilization: number; 
+    safety: number; 
+    efficiency: number;
+    safetyEvents: number;
+    fatigueEvents: number;
+    totalDeliveries: number;
+    totalKilometers: number;
+  }>);
 
-  const depotPerformance = Object.entries(depotStats).map(([depot, depotData]) => ({
-    depot,
-    vehicles: depotData.vehicles,
-    avgUtilization: (depotData.utilization / depotData.vehicles).toFixed(1),
-    avgSafety: (depotData.safety / depotData.vehicles).toFixed(1),
-    avgEfficiency: (depotData.efficiency / depotData.vehicles).toFixed(1)
-  }));
+  // Calculate weighted performance scores and rankings
+  const depotPerformance = useMemo(() => {
+    const depotEntries = Object.entries(depotStats).map(([depot, data]) => {
+      const avgUtilization = data.utilization / data.vehicles;
+      const avgSafety = data.safety / data.vehicles;
+      const avgEfficiency = data.efficiency / data.vehicles;
+      const eventsPerVehicle = (data.safetyEvents + data.fatigueEvents) / data.vehicles;
+      const deliveriesPerVehicle = data.totalDeliveries / data.vehicles;
+      const kmPerVehicle = data.totalKilometers / data.vehicles;
 
-  // Mock trend data for charts (would come from historical data in real implementation)
-  const trendData = [
-    { month: 'Jan 25', utilization: 85, efficiency: 3.2, safety: 8.5, maintenance: 12 },
-    { month: 'Feb 25', utilization: 88, efficiency: 3.3, safety: 8.6, maintenance: 8 },
-    { month: 'Mar 25', utilization: 86, efficiency: 3.1, safety: 8.4, maintenance: 15 },
-    { month: 'Apr 25', utilization: 92, efficiency: 3.4, safety: 8.8, maintenance: 6 },
-    { month: 'May 25', utilization: 90, efficiency: 3.6, safety: 8.7, maintenance: 10 },
-    { month: 'Jun 25', utilization: 87, efficiency: 3.4, safety: 8.9, maintenance: 9 },
-    { month: 'Jul 25', utilization: 89, efficiency: 3.5, safety: 8.6, maintenance: 7 },
-    { month: 'Aug 25', utilization: 91, efficiency: 3.7, safety: 8.8, maintenance: 11 }
-  ];
+      // Weighted performance score (0-100)
+      // Safety: 40%, Efficiency: 30%, Utilization: 20%, Events (inverse): 10%
+      const safetyScore = (avgSafety / 10) * 40;
+      const efficiencyScore = Math.min((avgEfficiency / 15) * 30, 30); // Cap at 15 km/L
+      const utilizationScore = Math.min((avgUtilization / 100) * 20, 20);
+      const eventsScore = Math.max(10 - (eventsPerVehicle * 2), 0); // Penalty for events
+      
+      const weightedScore = safetyScore + efficiencyScore + utilizationScore + eventsScore;
+
+      return {
+        depot,
+        vehicles: data.vehicles,
+        avgUtilization: avgUtilization.toFixed(1),
+        avgSafety: avgSafety.toFixed(1),
+        avgEfficiency: avgEfficiency.toFixed(1),
+        weightedScore: weightedScore.toFixed(1),
+        eventsPerVehicle: eventsPerVehicle.toFixed(1),
+        deliveriesPerVehicle: deliveriesPerVehicle.toFixed(0),
+        kmPerVehicle: kmPerVehicle.toFixed(0),
+        rank: 0 // Will be calculated after sorting
+      };
+    });
+
+    // Sort by weighted score and assign ranks
+    const sortedDepots = depotEntries.sort((a, b) => parseFloat(b.weightedScore) - parseFloat(a.weightedScore));
+    return sortedDepots.map((depot, index) => ({
+      ...depot,
+      rank: index + 1
+    }));
+  }, [depotStats]);
+
+  // Historical trend data would be calculated from real vehicle performance data
+  // Currently showing empty state until historical data collection is implemented
 
   if (isLoading) {
     return (
@@ -264,51 +310,100 @@ const FleetDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Performance Trends */}
+      {/* Performance Trends - Empty State */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Trends</h3>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="utilization" stroke="#3b82f6" strokeWidth={2} name="Utilization %" />
-              <Line type="monotone" dataKey="efficiency" stroke="#10b981" strokeWidth={2} name="Fuel Efficiency" />
-              <Line type="monotone" dataKey="safety" stroke="#f59e0b" strokeWidth={2} name="Safety Score" />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="h-80 flex flex-col items-center justify-center text-gray-500">
+          <TrendingUp className="w-16 h-16 text-gray-400 mb-4" />
+          <p className="text-lg text-center">Historical trend data not available</p>
+          <p className="text-sm text-center mt-2 max-w-md">
+            Performance trend charts will be displayed when historical fleet data is collected over time
+          </p>
         </div>
       </div>
 
-      {/* Depot Performance */}
+      {/* Depot Performance Rankings */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Depot Performance</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Depot Performance Rankings</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Weighted scoring: Safety (40%), Efficiency (30%), Utilization (20%), Events Impact (10%)
+        </p>
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
               <tr className="border-b">
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Rank</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-900">Depot</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-900">Vehicles</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Avg Utilization</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Avg Safety</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Avg Efficiency</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Performance Score</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Safety</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Efficiency</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Utilization</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Events/Vehicle</th>
               </tr>
             </thead>
             <tbody>
               {depotPerformance.map((depot) => (
                 <tr key={depot.depot} className="border-b hover:bg-gray-50">
+                  <td className="py-3 px-4">
+                    <div className="flex items-center">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                        depot.rank === 1 ? 'bg-yellow-500' : 
+                        depot.rank === 2 ? 'bg-gray-400' : 
+                        depot.rank === 3 ? 'bg-orange-600' : 'bg-blue-600'
+                      }`}>
+                        {depot.rank}
+                      </span>
+                    </div>
+                  </td>
                   <td className="py-3 px-4 font-medium text-gray-900">{depot.depot}</td>
                   <td className="py-3 px-4 text-gray-600">{depot.vehicles}</td>
-                  <td className="py-3 px-4 text-gray-600">{depot.avgUtilization}%</td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center">
+                      <span className={`font-semibold ${
+                        parseFloat(depot.weightedScore) >= 80 ? 'text-green-600' :
+                        parseFloat(depot.weightedScore) >= 60 ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        {depot.weightedScore}/100
+                      </span>
+                    </div>
+                  </td>
                   <td className="py-3 px-4 text-gray-600">{depot.avgSafety}/10</td>
                   <td className="py-3 px-4 text-gray-600">{depot.avgEfficiency} km/L</td>
+                  <td className="py-3 px-4 text-gray-600">{depot.avgUtilization}%</td>
+                  <td className="py-3 px-4">
+                    <span className={`text-sm ${
+                      parseFloat(depot.eventsPerVehicle) <= 1 ? 'text-green-600' :
+                      parseFloat(depot.eventsPerVehicle) <= 3 ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {depot.eventsPerVehicle}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        
+        {/* Performance Insights */}
+        {depotPerformance.length > 1 && (
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">Performance Insights</h4>
+            <div className="space-y-1 text-sm text-gray-700">
+              <p>🥇 Top Performer: <span className="font-medium">{depotPerformance[0]?.depot}</span> (Score: {depotPerformance[0]?.weightedScore}/100)</p>
+              {depotPerformance.length > 1 && (
+                <p>📈 Performance Gap: {(parseFloat(depotPerformance[0]?.weightedScore || '0') - parseFloat(depotPerformance[depotPerformance.length - 1]?.weightedScore || '0')).toFixed(1)} points</p>
+              )}
+              <p>📊 Focus Area: {
+                depotPerformance.reduce((min, depot) => 
+                  parseFloat(depot.avgSafety) < parseFloat(min.avgSafety) ? depot : min
+                ).depot === depotPerformance.reduce((min, depot) => 
+                  parseFloat(depot.avgEfficiency) < parseFloat(min.avgEfficiency) ? depot : min
+                ).depot ? 'Safety & Efficiency training needed' : 'Individual metrics vary by depot'
+              }</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Vehicle List */}

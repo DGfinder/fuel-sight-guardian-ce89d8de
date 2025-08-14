@@ -5,8 +5,9 @@ import {
 } from 'recharts';
 import { 
   Truck, MapPin, Clock, Fuel, TrendingUp, TrendingDown, 
-  Users, Navigation, AlertTriangle, Activity 
+  Users, Navigation, AlertTriangle, Activity, User 
 } from 'lucide-react';
+import DriverProfileModal from '@/components/DriverProfileModal';
 import { 
   getFleetSummaryAnalytics, 
   getDailyFleetPerformance,
@@ -34,6 +35,8 @@ const TripAnalyticsDashboard: React.FC<TripAnalyticsDashboardProps> = ({
   const [routeOpportunities, setRouteOpportunities] = useState<RouteOptimization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [selectedDriverName, setSelectedDriverName] = useState<string>('');
 
   useEffect(() => {
     loadAnalytics();
@@ -56,6 +59,16 @@ const TripAnalyticsDashboard: React.FC<TripAnalyticsDashboardProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDriverClick = (driverId: string, driverName: string) => {
+    setSelectedDriverId(driverId);
+    setSelectedDriverName(driverName);
+  };
+
+  const handleCloseDriverModal = () => {
+    setSelectedDriverId(null);
+    setSelectedDriverName('');
   };
 
   if (loading) {
@@ -236,9 +249,13 @@ const TripAnalyticsDashboard: React.FC<TripAnalyticsDashboardProps> = ({
                     {index + 1}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <button
+                      onClick={() => handleDriverClick(driver.driver_id, `${driver.driver_first_name} ${driver.driver_last_name}`)}
+                      className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                    >
+                      <User className="w-4 h-4" />
                       {driver.driver_first_name} {driver.driver_last_name}
-                    </p>
+                    </button>
                     <p className="text-sm text-gray-600">{driver.fleet} • {driver.depot}</p>
                   </div>
                 </div>
@@ -319,6 +336,16 @@ const TripAnalyticsDashboard: React.FC<TripAnalyticsDashboardProps> = ({
           <p className="text-sm text-gray-600">Different destinations</p>
         </div>
       </div>
+
+      {/* Driver Profile Modal */}
+      {selectedDriverId && selectedDriverName && (
+        <DriverProfileModal
+          driverId={selectedDriverId}
+          driverName={selectedDriverName}
+          isOpen={!!selectedDriverId}
+          onClose={handleCloseDriverModal}
+        />
+      )}
     </div>
   );
 };

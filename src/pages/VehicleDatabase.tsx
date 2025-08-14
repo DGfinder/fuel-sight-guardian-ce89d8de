@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Eye, Wrench, Shield, MapPin, Download, Plus, Edit, AlertTriangle, Cpu } from 'lucide-react';
+import { Search, Filter, Eye, Wrench, Shield, MapPin, Download, Plus, Edit, AlertTriangle, Cpu, User } from 'lucide-react';
 import { useVehicles } from '@/hooks/useVehicles';
+import DriverProfileModal from '@/components/DriverProfileModal';
 import type { Vehicle, VehicleFilters } from '@/types/fleet';
 import { updateVehicle } from '@/api/vehicles';
 
@@ -22,6 +23,8 @@ const VehicleDatabase = () => {
   const { data: vehicles = [], isLoading, error } = useVehicles(filters);
   const [editingDevice, setEditingDevice] = useState<null | { id: string; registration: string; lytx_device?: string; guardian_unit?: string }>(null);
   const [deviceForm, setDeviceForm] = useState<{ lytx_device: string; guardian_unit: string }>({ lytx_device: '', guardian_unit: '' });
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [selectedDriverName, setSelectedDriverName] = useState<string>('');
 
   // Get unique depots from vehicles
   const depots = Array.from(new Set(vehicles.map(v => v.depot))).sort();
@@ -59,6 +62,16 @@ const VehicleDatabase = () => {
       guardian_unit: deviceForm.guardian_unit ? normalize(deviceForm.guardian_unit) : null as any,
     });
     setEditingDevice(null);
+  };
+
+  const handleDriverClick = (driverId: string, driverName: string) => {
+    setSelectedDriverId(driverId);
+    setSelectedDriverName(driverName);
+  };
+
+  const handleCloseDriverModal = () => {
+    setSelectedDriverId(null);
+    setSelectedDriverName('');
   };
 
   const handleSort = (field: keyof Vehicle) => {
@@ -318,8 +331,18 @@ const VehicleDatabase = () => {
                       {vehicle.status}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-gray-600">
-                    {vehicle.current_driver || '-'}
+                  <td className="py-4 px-4">
+                    {vehicle.current_driver ? (
+                      <button
+                        onClick={() => handleDriverClick(vehicle.current_driver!, vehicle.current_driver!)}
+                        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        <User className="w-4 h-4" />
+                        {vehicle.current_driver}
+                      </button>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
                   </td>
                   <td className="py-4 px-4">
                     <div className="text-sm">
@@ -474,6 +497,16 @@ const VehicleDatabase = () => {
           </div>
         </div>
       </div>
+
+      {/* Driver Profile Modal */}
+      {selectedDriverId && selectedDriverName && (
+        <DriverProfileModal
+          driverId={selectedDriverId}
+          driverName={selectedDriverName}
+          isOpen={!!selectedDriverId}
+          onClose={handleCloseDriverModal}
+        />
+      )}
     </div>
   );
 };

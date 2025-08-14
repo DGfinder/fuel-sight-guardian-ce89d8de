@@ -13,6 +13,7 @@ import {
   Filter,
   Download
 } from 'lucide-react';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,6 +96,70 @@ export default function DriverPerformanceDashboard() {
       improvingDrivers: performanceSummary.filter(d => d.trend === 'Improving').length,
       decliningDrivers: performanceSummary.filter(d => d.trend === 'Declining').length
     };
+  }, [performanceSummary]);
+
+  // Performance correlation analysis
+  const correlationAnalysis = React.useMemo(() => {
+    const driversWithBothScores = performanceSummary.filter(d => 
+      d.lytx_safety_score !== undefined && d.lytx_safety_score !== null &&
+      d.guardian_safety_score !== undefined && d.guardian_safety_score !== null
+    );
+
+    if (driversWithBothScores.length < 2) {
+      return { correlation: 0, scatterData: [], insights: [] };
+    }
+
+    // Calculate correlation coefficient between LYTX and Guardian scores
+    const lytxScores = driversWithBothScores.map(d => d.lytx_safety_score!);
+    const guardianScores = driversWithBothScores.map(d => d.guardian_safety_score!);
+    
+    const n = lytxScores.length;
+    const sumLytx = lytxScores.reduce((a, b) => a + b, 0);
+    const sumGuardian = guardianScores.reduce((a, b) => a + b, 0);
+    const sumLytxSq = lytxScores.reduce((a, b) => a + b * b, 0);
+    const sumGuardianSq = guardianScores.reduce((a, b) => a + b * b, 0);
+    const sumProduct = lytxScores.reduce((sum, lytx, i) => sum + lytx * guardianScores[i], 0);
+    
+    const numerator = n * sumProduct - sumLytx * sumGuardian;
+    const denominator = Math.sqrt((n * sumLytxSq - sumLytx * sumLytx) * (n * sumGuardianSq - sumGuardian * sumGuardian));
+    const correlation = denominator === 0 ? 0 : numerator / denominator;
+
+    // Create scatter plot data
+    const scatterData = driversWithBothScores.map(d => ({
+      lytx: d.lytx_safety_score!,
+      guardian: d.guardian_safety_score!,
+      name: `${d.first_name} ${d.last_name}`,
+      risk: d.risk_level,
+      incidents: d.ytd_incidents || 0
+    }));
+
+    // Generate insights
+    const insights = [];
+    if (Math.abs(correlation) > 0.7) {
+      insights.push(`Strong ${correlation > 0 ? 'positive' : 'negative'} correlation (${(correlation * 100).toFixed(0)}%) between LYTX and Guardian scores`);
+    } else if (Math.abs(correlation) > 0.3) {
+      insights.push(`Moderate ${correlation > 0 ? 'positive' : 'negative'} correlation (${(correlation * 100).toFixed(0)}%) between safety systems`);
+    } else {
+      insights.push(`Low correlation (${(correlation * 100).toFixed(0)}%) suggests different safety aspects being measured`);
+    }
+
+    // Identify outliers (drivers with significant score differences)
+    const outliers = driversWithBothScores.filter(d => 
+      Math.abs(d.lytx_safety_score! - d.guardian_safety_score!) > 20
+    );
+    if (outliers.length > 0) {
+      insights.push(`${outliers.length} drivers show significant safety score differences (>20 points) - review needed`);
+    }
+
+    // Performance vs incidents correlation
+    const lowScoreHighIncidents = driversWithBothScores.filter(d => 
+      (d.lytx_safety_score! < 60 || d.guardian_safety_score! < 60) && (d.ytd_incidents || 0) > 3
+    );
+    if (lowScoreHighIncidents.length > 0) {
+      insights.push(`${lowScoreHighIncidents.length} high-risk drivers identified (low scores + high incidents)`);
+    }
+
+    return { correlation, scatterData, insights };
   }, [performanceSummary]);
 
   // Handle errors
@@ -340,6 +405,99 @@ export default function DriverPerformanceDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Performance Correlation Analysis */}
+      {correlationAnalysis.scatterData.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>LYTX vs Guardian Score Correlation</CardTitle>
+              <CardDescription>
+                Analysis of safety score relationships across systems
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart data={correlationAnalysis.scatterData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="lytx" 
+                      domain={[0, 100]}
+                      label={{ value: 'LYTX Score', position: 'insideBottom', offset: -5 }}
+                    />
+                    <YAxis 
+                      dataKey="guardian" 
+                      domain={[0, 100]}
+                      label={{ value: 'Guardian Score', angle: -90, position: 'insideLeft' }}
+                    />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload[0]) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 border rounded shadow">
+                              <p className="font-medium">{data.name}</p>
+                              <p>LYTX: {data.lytx}</p>
+                              <p>Guardian: {data.guardian}</p>
+                              <p>Risk: {data.risk}</p>
+                              <p>Incidents: {data.incidents}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Scatter 
+                      dataKey="guardian" 
+                      fill="#3b82f6"
+                      stroke="#1d4ed8"
+                      strokeWidth={1}
+                    />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Correlation Coefficient: <span className="font-medium">{(correlationAnalysis.correlation * 100).toFixed(0)}%</span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Insights</CardTitle>
+              <CardDescription>
+                Key findings from safety score analysis
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {correlationAnalysis.insights.map((insight, index) => (
+                  <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                    {insight.includes('high-risk') ? (
+                      <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    ) : insight.includes('Strong') ? (
+                      <TrendingUp className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    ) : insight.includes('differences') ? (
+                      <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <BarChart3 className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                    )}
+                    <p className="text-sm">{insight}</p>
+                  </div>
+                ))}
+                {correlationAnalysis.insights.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Insufficient data for correlation analysis
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

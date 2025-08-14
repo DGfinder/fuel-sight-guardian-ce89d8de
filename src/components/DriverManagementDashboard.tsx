@@ -45,6 +45,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useDrivers } from '@/hooks/useDrivers';
 import DriverCSVImportModal from './DriverCSVImportModal';
+import DriverProfileModal from '@/components/DriverProfileModal';
 import type { 
   DriverProfile, 
   DriverFilters, 
@@ -58,6 +59,8 @@ export default function DriverManagementDashboard() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [filters, setFilters] = useState<DriverFilters>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [selectedDriverName, setSelectedDriverName] = useState<string>('');
 
   // Use the React Query hook for data fetching
   const { data: drivers = [], isLoading: loading, error, refetch } = useDrivers({ 
@@ -161,6 +164,16 @@ export default function DriverManagementDashboard() {
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+
+  const handleDriverClick = (driverId: string, driverName: string) => {
+    setSelectedDriverId(driverId);
+    setSelectedDriverName(driverName);
+  };
+
+  const handleCloseDriverModal = () => {
+    setSelectedDriverId(null);
+    setSelectedDriverName('');
   };
 
   if (loading) {
@@ -368,7 +381,12 @@ export default function DriverManagementDashboard() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{driver.first_name} {driver.last_name}</p>
+                          <button
+                            onClick={() => handleDriverClick(driver.id, `${driver.first_name} ${driver.last_name}`)}
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                          >
+                            {driver.first_name} {driver.last_name}
+                          </button>
                           {driver.employee_id && (
                             <p className="text-xs text-muted-foreground">{driver.employee_id}</p>
                           )}
@@ -487,6 +505,16 @@ export default function DriverManagementDashboard() {
           refetch();
         }}
       />
+
+      {/* Driver Profile Modal */}
+      {selectedDriverId && selectedDriverName && (
+        <DriverProfileModal
+          driverId={selectedDriverId}
+          driverName={selectedDriverName}
+          isOpen={!!selectedDriverId}
+          onClose={handleCloseDriverModal}
+        />
+      )}
     </div>
   );
 }

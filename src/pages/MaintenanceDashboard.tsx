@@ -61,28 +61,8 @@ const MaintenanceDashboard = () => {
     ];
   }, [stats]);
 
-  // Mock trend data for charts (would come from historical maintenance data)
-  const maintenanceTrends = [
-    { month: 'Jan', preventive: 12, corrective: 8, inspection: 5, emergency: 2 },
-    { month: 'Feb', preventive: 10, corrective: 6, inspection: 4, emergency: 1 },
-    { month: 'Mar', preventive: 15, corrective: 10, inspection: 6, emergency: 3 },
-    { month: 'Apr', preventive: 13, corrective: 7, inspection: 5, emergency: 2 },
-    { month: 'May', preventive: 11, corrective: 9, inspection: 4, emergency: 1 },
-    { month: 'Jun', preventive: 14, corrective: 8, inspection: 7, emergency: 2 },
-    { month: 'Jul', preventive: 16, corrective: 11, inspection: 5, emergency: 4 },
-    { month: 'Aug', preventive: 12, corrective: 6, inspection: 8, emergency: 1 }
-  ];
-
-  const costTrends = [
-    { month: 'Jan', cost: 45000 },
-    { month: 'Feb', cost: 38000 },
-    { month: 'Mar', cost: 52000 },
-    { month: 'Apr', cost: 41000 },
-    { month: 'May', cost: 47000 },
-    { month: 'Jun', cost: 43000 },
-    { month: 'Jul', cost: 49000 },
-    { month: 'Aug', cost: 36000 }
-  ];
+  // Historical maintenance trends would be calculated from real maintenance records
+  // Currently showing empty state until historical trend analysis is implemented
 
   // Calculate compliance alerts
   const complianceAlerts = useMemo(() => {
@@ -302,22 +282,15 @@ const MaintenanceDashboard = () => {
         </div>
       </div>
 
-      {/* Maintenance Trends */}
+      {/* Maintenance Trends - Empty State */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Maintenance Trends</h3>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={maintenanceTrends}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="preventive" stroke="#10b981" strokeWidth={2} name="Preventive" />
-              <Line type="monotone" dataKey="corrective" stroke="#f59e0b" strokeWidth={2} name="Corrective" />
-              <Line type="monotone" dataKey="inspection" stroke="#3b82f6" strokeWidth={2} name="Inspection" />
-              <Line type="monotone" dataKey="emergency" stroke="#ef4444" strokeWidth={2} name="Emergency" />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="h-80 flex flex-col items-center justify-center text-gray-500">
+          <TrendingUp className="w-16 h-16 text-gray-400 mb-4" />
+          <p className="text-lg text-center">Historical maintenance trend data not available</p>
+          <p className="text-sm text-center mt-2 max-w-md">
+            Maintenance trend charts will be displayed when historical data is collected over time
+          </p>
         </div>
       </div>
 
