@@ -182,8 +182,12 @@ export default function BulkDipModal({ open, onOpenChange, groupId, groupName }:
     for (let i = 0; i < validEntries.length; i += batchSize) {
       const batch = validEntries.slice(i, i + batchSize);
       
-      // Use user's local time (Perth-based users)
-      const createdAtIso = new Date().toISOString();
+      // Always use Perth time regardless of user's computer timezone
+      const now = new Date();
+      const perthOffset = 8 * 60; // Perth is UTC+8
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const perthTime = new Date(utc + (perthOffset * 60000));
+      const createdAtIso = perthTime.toISOString();
 
       const batchData = batch.map(entry => ({
         tank_id: entry.tankId,

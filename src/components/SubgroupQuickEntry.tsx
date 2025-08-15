@@ -105,7 +105,14 @@ export default function SubgroupQuickEntry({
     const readings = validEntries.map(entry => ({
       tank_id: entry.tankId,
       value: Number(entry.dipValue),
-      created_at: new Date().toISOString(), // Use user's local time (Perth-based users)
+      created_at: (() => {
+        // Always use Perth time regardless of user's computer timezone
+        const now = new Date();
+        const perthOffset = 8 * 60; // Perth is UTC+8
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const perthTime = new Date(utc + (perthOffset * 60000));
+        return perthTime.toISOString();
+      })(),
       recorded_by: userId,
       created_by_name: userProfile?.full_name || null,
       notes: `Quick entry for ${subgroup}`,

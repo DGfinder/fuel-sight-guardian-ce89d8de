@@ -349,8 +349,12 @@ export function FuelDipForm({
         }
       }
 
-      // Insert new dip reading - use user's local time (Perth-based users)
-      const createdAtIso = new Date().toISOString();
+      // Insert new dip reading - always use Perth time regardless of user's computer timezone
+      const now = new Date();
+      const perthOffset = 8 * 60; // Perth is UTC+8
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const perthTime = new Date(utc + (perthOffset * 60000));
+      const createdAtIso = perthTime.toISOString();
 
       const { error } = await supabase.from("dip_readings").insert({
         tank_id: data.tank,
