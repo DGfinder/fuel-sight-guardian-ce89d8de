@@ -30,7 +30,9 @@ const Settings = lazy(() => import('@/pages/Settings'));
 const Login = lazy(() => import("@/pages/Login"));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const Geraldton = lazy(() => import('@/pages/Geraldton'));
+const GeraldtonBulkEntry = lazy(() => import('@/pages/GeraldtonBulkEntry'));
 const GeraldtonLinehaul = lazy(() => import('@/pages/GeraldtonLinehaul'));
+const GeraldtonLinehaulBulkEntry = lazy(() => import('@/pages/GeraldtonLinehaulBulkEntry'));
 const GSFDepots = lazy(() => import('@/pages/GSFDepots'));
 const BGC = lazy(() => import('@/pages/BGC'));
 const TanksPage = lazy(() => import('@/pages/TanksPage'));
@@ -539,10 +541,24 @@ function AppContent() {
                       </RouteErrorBoundary>
                     </ProtectedRoute>
                   } />
+                  <Route path="/geraldton/bulk-entry" element={
+                    <ProtectedRoute>
+                      <RouteErrorBoundary routeName="Geraldton Bulk Entry" showHomeButton={true}>
+                        <GeraldtonBulkEntry />
+                      </RouteErrorBoundary>
+                    </ProtectedRoute>
+                  } />
                   <Route path="/geraldton-linehaul" element={
                     <ProtectedRoute>
                       <RouteErrorBoundary routeName="Geraldton Linehaul" showHomeButton={true}>
                         <GeraldtonLinehaul />
+                      </RouteErrorBoundary>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/geraldton-linehaul/bulk-entry" element={
+                    <ProtectedRoute>
+                      <RouteErrorBoundary routeName="Geraldton Linehaul Bulk Entry" showHomeButton={true}>
+                        <GeraldtonLinehaulBulkEntry />
                       </RouteErrorBoundary>
                     </ProtectedRoute>
                   } />
