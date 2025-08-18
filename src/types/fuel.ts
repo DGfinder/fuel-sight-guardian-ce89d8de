@@ -84,6 +84,7 @@ export type GroupSnapshot = {
   totalTanks: number;
   criticalTanks: number;
   averageLevel: number;
+  totalVolume: number | null;
   lastUpdated: string;
 };
 

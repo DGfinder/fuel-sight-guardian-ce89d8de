@@ -8,6 +8,17 @@ import type { GroupSnapshot } from '@/types/fuel';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
+// Helper function to format volume display
+const formatVolume = (volume: number): string => {
+  if (volume >= 1000000) {
+    return `${(volume / 1000000).toFixed(1)}M L`;
+  } else if (volume >= 1000) {
+    return `${(volume / 1000).toFixed(1)}K L`;
+  } else {
+    return `${Math.round(volume)} L`;
+  }
+};
+
 interface GroupSnapshotCardsProps {
   groups: GroupSnapshot[];
   onGroupClick: (groupId: string) => void;
@@ -48,8 +59,6 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
         const isSelected = selectedGroup === group.id;
         const criticalTanks = group.criticalTanks || 0;
         const lowTanks = Math.max(0, Math.floor(group.totalTanks * 0.2) - criticalTanks);
-        // TODO: Calculate actual total volume from real tank capacities (safe_level + min_level)
-        // Cannot display volume without real tank capacity data - removed fake calculation
         
         return (
           <Card
@@ -121,8 +130,11 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
 
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Volume</p>
-                <p className="text-sm font-bold text-gray-400">
-                  Data unavailable
+                <p className={cn(
+                  "text-sm font-bold",
+                  group.totalVolume !== null ? "text-gray-900" : "text-gray-400"
+                )}>
+                  {group.totalVolume !== null ? formatVolume(group.totalVolume) : "No data"}
                 </p>
               </div>
               

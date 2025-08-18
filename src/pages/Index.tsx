@@ -20,6 +20,32 @@ import { supabase } from '@/lib/supabase';
 import { useGlobalModals } from '@/contexts/GlobalModalsContext';
 import EditDipModal from '@/components/modals/EditDipModal';
 
+// Helper function to format volume display
+const formatVolume = (volume: number): string => {
+  if (volume >= 1000000) {
+    return `${(volume / 1000000).toFixed(1)}M L`;
+  } else if (volume >= 1000) {
+    return `${(volume / 1000).toFixed(1)}K L`;
+  } else {
+    return `${Math.round(volume)} L`;
+  }
+};
+
+// Helper function to calculate total volume for a group of tanks
+const calculateTotalVolume = (tanks: Tank[]): number | null => {
+  const tanksWithValidData = tanks.filter(t => 
+    t.current_level != null && 
+    t.current_level > 0 && 
+    t.last_dip?.created_at
+  );
+  
+  if (tanksWithValidData.length === 0) {
+    return null;
+  }
+  
+  return tanksWithValidData.reduce((total, tank) => total + (tank.current_level || 0), 0);
+};
+
 interface IndexProps {
   selectedGroup?: string | null;
 }
@@ -105,6 +131,7 @@ export default function Index({ selectedGroup }: IndexProps) {
             permissionFilteredTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length
           )
         : 0,
+      totalVolume: calculateTotalVolume(permissionFilteredTanks),
       lastUpdated: new Date().toISOString()
     },
     ...allGroupNames.map(groupName => {
@@ -118,6 +145,7 @@ export default function Index({ selectedGroup }: IndexProps) {
         averageLevel: groupTanksWithDip.length > 0
           ? Math.round(groupTanksWithDip.reduce((acc, t) => acc + ((t.current_level / t.safe_level) * 100), 0) / groupTanksWithDip.length)
           : 0,
+        totalVolume: calculateTotalVolume(groupTanks),
         lastUpdated: new Date().toISOString()
       };
     })
