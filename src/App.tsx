@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
-import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { QueryClientProvider, QueryClient, Query } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
@@ -67,6 +67,9 @@ const SmartFillPage = lazy(() => import('@/pages/SmartFillPage'));
 const MtDataDashboard = lazy(() => import('@/pages/MtDataDashboard'));
 const MtDataStevemacsDashboard = lazy(() => import('@/pages/MtDataStevemacsDashboard'));
 const MtDataGSFDashboard = lazy(() => import('@/pages/MtDataGSFDashboard'));
+// Trip-Delivery Correlation Pages
+const CorrelationPaymentsPage = lazy(() => import('@/pages/CorrelationPaymentsPage'));
+const CorrelationTripsPage = lazy(() => import('@/pages/CorrelationTripsPage'));
 // Enhanced Driver Management with Profile Modals
 const DriverManagementPage = lazy(() => import('@/pages/DriverManagementPage'));
 
@@ -85,8 +88,8 @@ const queryClient = new QueryClient({
     queries: {
       retry: (failureCount, error) => {
         // Don't retry on 4xx errors except 408, 429
-        const anyErr = error as any;
-        const status = typeof anyErr?.status === 'number' ? anyErr.status : anyErr?.response?.status;
+        const errorWithStatus = error as { status?: number; response?: { status?: number } };
+        const status = typeof errorWithStatus?.status === 'number' ? errorWithStatus.status : errorWithStatus?.response?.status;
         if (status >= 400 && status < 500 && ![408, 429].includes(status)) {
           return false;
         }
@@ -101,7 +104,7 @@ const queryClient = new QueryClient({
       // Background refetch for fresh data
       refetchInterval: (query) => {
         // Refetch tank data every 30 seconds if page is visible
-        if ((query as any)?.queryKey?.[0] === 'tanks' && document.visibilityState === 'visible') {
+        if ((query as Query)?.queryKey?.[0] === 'tanks' && document.visibilityState === 'visible') {
           return 30 * 1000;
         }
         return false;
@@ -114,8 +117,8 @@ const queryClient = new QueryClient({
     mutations: {
       retry: (failureCount, error) => {
         // Only retry mutations on network errors or 5xx
-        const anyErr = error as any;
-        const status = typeof anyErr?.status === 'number' ? anyErr.status : anyErr?.response?.status;
+        const errorWithStatus = error as { status?: number; response?: { status?: number } };
+        const status = typeof errorWithStatus?.status === 'number' ? errorWithStatus.status : errorWithStatus?.response?.status;
         if (status >= 500 || !status) {
           return failureCount < 2;
         }
@@ -474,6 +477,31 @@ function AppContent() {
                         <RouteErrorBoundary routeName="GSF MtData Analytics" showHomeButton={true}>
                           <DataCentreLayout>
                             <MtDataGSFDashboard />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  {/* Trip-Delivery Correlation Routes */}
+                  <Route 
+                    path="/data-centre/captive-payments/correlation" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Payment Trip Correlation" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <CorrelationPaymentsPage />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/data-centre/mtdata/correlation" 
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Trip Delivery Correlation" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <CorrelationTripsPage />
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>

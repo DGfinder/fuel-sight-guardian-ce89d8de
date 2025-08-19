@@ -5,7 +5,7 @@
  * Provides analysis results, confidence scoring, and manual verification capabilities
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,7 @@ import {
   CheckCircle,
   AlertTriangle,
   BarChart3,
-  RefreshCw,
-  Calendar
+  RefreshCw
 } from 'lucide-react';
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter';
 import CompactDateFilter from '@/components/CompactDateFilter';
@@ -77,7 +76,7 @@ const TripDeliveryCorrelationDashboard: React.FC = () => {
   const { startDate, endDate, setDateRange, isFiltered, clearDateRange } = useDateRangeFilter();
 
   // Load correlation data
-  const loadCorrelations = async () => {
+  const loadCorrelations = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -103,7 +102,7 @@ const TripDeliveryCorrelationDashboard: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isFiltered, startDate, endDate, selectedCarrier, minConfidence]);
 
   // Load summary analytics
   const loadSummary = async () => {
@@ -197,7 +196,7 @@ const TripDeliveryCorrelationDashboard: React.FC = () => {
   useEffect(() => {
     loadCorrelations();
     loadSummary();
-  }, [isFiltered, startDate, endDate, selectedCarrier, minConfidence]);
+  }, [loadCorrelations]);
 
   // Helper function to get confidence badge color
   const getConfidenceBadgeColor = (score: number) => {

@@ -16,7 +16,9 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
-  Navigation
+  Navigation,
+  Target,
+  GitMerge
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
@@ -48,7 +50,8 @@ const DATA_CENTRE_NAV_ITEMS = [
     permission: 'view_myob_deliveries',
     children: [
       { path: '/data-centre/captive-payments/smb', label: 'SMB Analytics', icon: CreditCard },
-      { path: '/data-centre/captive-payments/gsf', label: 'GSF Analytics', icon: CreditCard }
+      { path: '/data-centre/captive-payments/gsf', label: 'GSF Analytics', icon: CreditCard },
+      { path: '/data-centre/captive-payments/correlation', label: 'Trip Correlation', icon: Target }
     ]
   },
   { 
@@ -95,7 +98,8 @@ const DATA_CENTRE_NAV_ITEMS = [
     permission: 'view_analytics_dashboard',
     children: [
       { path: '/data-centre/mtdata/stevemacs', label: 'Stevemacs Operations', icon: Navigation },
-      { path: '/data-centre/mtdata/gsf', label: 'GSF Operations', icon: Navigation }
+      { path: '/data-centre/mtdata/gsf', label: 'GSF Operations', icon: Navigation },
+      { path: '/data-centre/mtdata/correlation', label: 'Delivery Correlation', icon: GitMerge }
     ]
   },
   { 
