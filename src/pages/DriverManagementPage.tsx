@@ -620,8 +620,9 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                 <p className="text-gray-600 mt-2">Loading drivers...</p>
               </div>
             ) : filteredAndSortedDrivers.length > 0 ? (
-              {/* Mobile Card View (hidden on desktop) */}
-              <div className="block lg:hidden">
+              <>
+                {/* Mobile Card View (hidden on desktop) */}
+                <div className="block lg:hidden">
                 <div className="space-y-3 p-4">
                   {paginatedDrivers.map((driver) => {
                     const riskLevel = getRiskLevel(driver);
@@ -1123,6 +1124,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                   </div>
                 </div>
               )}
+              </>
             ) : (
               <div className="text-center py-12">
                 <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
