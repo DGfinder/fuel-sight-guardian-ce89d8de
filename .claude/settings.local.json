@@ -86,7 +86,8 @@
       "Bash(timeout 30s npm run build:*)",
       "Bash(git add -A)",
       "Bash(git commit -m \"Remove mock data fallbacks from LYTX safety components\n\n- Remove mockLYTXEvents arrays from all dashboard components\n- Update data selection logic to return empty arrays instead of mock data\n- Add comprehensive empty state handling for API connection failures\n- Fix percentage calculations to handle division by zero\n- Update error messaging to show ''No data available'' instead of ''demo data''\n- Wrap dashboard content in conditionals to only show when data exists\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(source .env)"
+      "Bash(source .env)",
+      "Bash(timeout 60 npm run build:dev:*)"
     ],
     "deny": []
   }

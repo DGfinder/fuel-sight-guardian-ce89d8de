@@ -139,6 +139,24 @@ export class DriverProfileService {
   }
   
   /**
+   * Update driver status (Active/Inactive/Terminated)
+   */
+  static async updateDriverStatus(
+    driverId: string,
+    status: 'Active' | 'Inactive' | 'Terminated'
+  ): Promise<{ id: string; status: 'Active' | 'Inactive' | 'Terminated' }> {
+    const { data, error } = await supabase
+      .from('drivers')
+      .update({ status })
+      .eq('id', driverId)
+      .select('id, status')
+      .single();
+
+    if (error) throw error;
+    return data as { id: string; status: 'Active' | 'Inactive' | 'Terminated' };
+  }
+
+  /**
    * Get driver summary with aggregate metrics
    */
   private static async getDriverSummary(

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import DataCentreLayout from '@/components/DataCentreLayout';
 import { useDriverManagementData, useDriverAlerts, useDriverSearch } from '@/hooks/useDriverProfile';
+import DriverAnalyticsModal from '@/components/modals/DriverAnalyticsModal';
 
 interface DriverManagementPageProps {
   fleet?: 'Stevemacs' | 'Great Southern Fuels';
@@ -22,6 +23,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
   const [showOnlyHighRisk, setShowOnlyHighRisk] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFleet, setSelectedFleet] = useState<string>(fleet || '');
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
   // Fetch driver management data
   const {
@@ -108,11 +110,11 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
   };
 
   const handleDriverClick = (driverId: string) => {
-    // TODO: Open driver profile modal or navigate to driver detail page
-    console.log('Opening driver profile:', driverId);
+    setSelectedDriverId(driverId);
   };
 
   return (
+    <>
     <DataCentreLayout>
       <div className="space-y-6">
         {/* Page Header */}
@@ -441,7 +443,8 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                       alert.severity === 'critical' ? 'border-red-500 bg-red-50' :
                       alert.severity === 'high' ? 'border-orange-500 bg-orange-50' :
                       'border-yellow-500 bg-yellow-50'
-                    }`}
+                    } hover:bg-opacity-70 cursor-pointer`}
+                    onClick={() => handleDriverClick(alert.id)}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -533,6 +536,12 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
         </Card>
       </div>
     </DataCentreLayout>
+    <DriverAnalyticsModal
+      driverId={selectedDriverId}
+      open={!!selectedDriverId}
+      onClose={() => setSelectedDriverId(null)}
+    />
+    </>
   );
 };
 

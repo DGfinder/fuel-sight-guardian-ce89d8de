@@ -8,6 +8,9 @@ export const CONFIG_KEYS = {
     CROSS_SYSTEM_DATA: 'cross_system_data',
     BLOB_UPLOADS: 'blob_uploads'
   },
+  FEATURES: {
+    ADVANCED_ANALYTICS: 'analytics_enabled' // Alias for compatibility
+  },
   LIMITS: {
     MAX_UPLOAD_SIZE: 'max_upload_size',
     MAX_API_CALLS: 'max_api_calls'

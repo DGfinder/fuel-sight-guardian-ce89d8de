@@ -16,6 +16,7 @@ export const CACHE_CONFIG = {
   USER_SESSIONS: 86400, // 24 hours
   QUERY_RESULTS: 600, // 10 minutes for dashboard analytics
   RATE_LIMITING: 3600, // 1 hour for rate limit counters
+  UNIFIED_DATA: 900, // 15 minutes for unified location data
   
   // Deduplication windows
   REQUEST_DEDUP: 30, // 30 seconds to prevent concurrent identical requests
