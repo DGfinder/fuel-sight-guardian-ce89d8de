@@ -10,7 +10,8 @@ import { supabase } from './lib/supabase';
 
 // Request/Response Types
 interface CorrelationAnalysisRequest {
-  action: 'analyze' | 'analyze_hybrid' | 'get_correlations' | 'get_summary' | 'verify_correlation' | 'get_quality_report' | 'run_validation';
+  action: 'analyze' | 'analyze_hybrid' | 'get_correlations' | 'get_summary' | 'verify_correlation' | 'get_quality_report' | 'run_validation' | 
+          'analyze_customer_distance' | 'get_customer_analytics' | 'get_bp_performance' | 'refresh_analytics';
   trip_id?: string;
   date_from?: string;
   date_to?: string;
@@ -27,6 +28,13 @@ interface CorrelationAnalysisRequest {
   fleet_filter?: string;
   max_trips?: number;
   clear_existing?: boolean;
+  
+  // Customer distance tracking options
+  correlation_type?: 'terminal' | 'customer' | 'both';
+  customer_type?: string;
+  region?: string;
+  is_bp_customer?: boolean;
+  max_search_radius_km?: number;
 }
 
 interface TripCorrelationSummary {
@@ -137,6 +145,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleGetQualityReport(req, res, requestData);
       case 'run_validation':
         return await handleRunValidation(req, res, requestData);
+      case 'analyze_customer_distance':
+        return await handleAnalyzeCustomerDistance(req, res, requestData);
+      case 'get_customer_analytics':
+        return await handleGetCustomerAnalytics(req, res, requestData);
+      case 'get_bp_performance':
+        return await handleGetBPPerformance(req, res, requestData);
+      case 'refresh_analytics':
+        return await handleRefreshAnalytics(req, res, requestData);
       default:
         return res.status(400).json({ error: 'Invalid action' });
     }
@@ -586,6 +602,173 @@ async function handleRunValidation(
     console.error('Validation error:', error);
     return res.status(500).json({
       error: 'Failed to run validation tests',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Analyze customer distance for trips
+ */
+async function handleAnalyzeCustomerDistance(
+  req: VercelRequest, 
+  res: VercelResponse, 
+  data: CorrelationAnalysisRequest
+) {
+  const { 
+    date_from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    date_to = new Date().toISOString().split('T')[0],
+    max_search_radius_km = 50
+  } = data;
+
+  try {
+    const { data: result, error } = await supabase.rpc(
+      'calculate_customer_delivery_distance_batch',
+      {
+        date_from,
+        date_to,
+        max_trips: 100,
+        max_search_radius_km
+      }
+    );
+
+    if (error) throw error;
+
+    return res.status(200).json({
+      success: true,
+      analysis_date_range: { from: date_from, to: date_to },
+      trips_processed: result?.trips_processed || 0,
+      correlations_created: result?.correlations_created || 0,
+      processing_time_seconds: result?.processing_time_seconds || 0
+    });
+
+  } catch (error) {
+    console.error('Customer distance analysis error:', error);
+    return res.status(500).json({
+      error: 'Failed to analyze customer distances',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Get customer analytics data
+ */
+async function handleGetCustomerAnalytics(
+  req: VercelRequest, 
+  res: VercelResponse, 
+  data: CorrelationAnalysisRequest
+) {
+  try {
+    let query = supabase
+      .from('customer_distance_analytics')
+      .select('*');
+
+    // Apply filters
+    if (data.customer_type) {
+      query = query.eq('customer_type', data.customer_type);
+    }
+    if (data.region) {
+      query = query.eq('region', data.region);
+    }
+    if (data.is_bp_customer !== undefined) {
+      query = query.eq('is_bp_customer', data.is_bp_customer);
+    }
+
+    const { data: analytics, error } = await query
+      .order('total_correlated_trips', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+
+    return res.status(200).json({
+      success: true,
+      customer_analytics: analytics || [],
+      total_customers: analytics?.length || 0,
+      filters_applied: { 
+        customer_type: data.customer_type, 
+        region: data.region, 
+        is_bp_customer: data.is_bp_customer 
+      }
+    });
+
+  } catch (error) {
+    console.error('Customer analytics error:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch customer analytics',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Get BP customer performance data
+ */
+async function handleGetBPPerformance(
+  req: VercelRequest, 
+  res: VercelResponse, 
+  data: CorrelationAnalysisRequest
+) {
+  try {
+    const { data: bpPerformance, error } = await supabase
+      .from('bp_customer_performance')
+      .select('*')
+      .order('total_trip_distance_km', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    // Calculate summary metrics
+    const totalDistance = bpPerformance?.reduce((sum, customer) => 
+      sum + (customer.total_trip_distance_km || 0), 0) || 0;
+    const totalTrips = bpPerformance?.reduce((sum, customer) => 
+      sum + (customer.total_correlated_trips || 0), 0) || 0;
+    const avgEfficiency = bpPerformance?.length > 0 ? 
+      bpPerformance.reduce((sum, customer) => sum + (customer.avg_delivery_efficiency || 0), 0) / bpPerformance.length : 0;
+
+    return res.status(200).json({
+      success: true,
+      bp_customers: bpPerformance || [],
+      summary: {
+        total_bp_customers: bpPerformance?.length || 0,
+        total_distance_km: totalDistance,
+        total_trips: totalTrips,
+        avg_delivery_efficiency: Math.round(avgEfficiency * 100) / 100
+      }
+    });
+
+  } catch (error) {
+    console.error('BP performance error:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch BP customer performance',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Refresh analytics materialized views
+ */
+async function handleRefreshAnalytics(
+  req: VercelRequest, 
+  res: VercelResponse, 
+  data: CorrelationAnalysisRequest
+) {
+  try {
+    const { error } = await supabase.rpc('refresh_customer_analytics');
+    
+    if (error) throw error;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Analytics refreshed successfully',
+      refreshed_at: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Analytics refresh error:', error);
+    return res.status(500).json({
+      error: 'Failed to refresh analytics',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
