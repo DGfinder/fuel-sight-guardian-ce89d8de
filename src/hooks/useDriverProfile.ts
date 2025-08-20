@@ -62,18 +62,19 @@ export function useDriverSearch(
 }
 
 /**
- * Hook to get drivers requiring attention (high risk, unresolved events)
+ * Hook to get all driver summaries with performance metrics
  */
-export function useDriversRequiringAttention(
+export function useDriverSummaries(
   fleet?: string,
   options?: {
     enabled?: boolean;
     refetchInterval?: number;
+    limit?: number;
   }
 ) {
   return useQuery({
-    queryKey: driverProfileKeys.attention(fleet),
-    queryFn: () => DriverProfileService.getDriversRequiringAttention(fleet),
+    queryKey: [...driverProfileKeys.all, 'summaries', fleet, options?.limit],
+    queryFn: () => DriverProfileService.getDriverSummaries(fleet, options?.limit),
     enabled: options?.enabled ?? true,
     staleTime: 10 * 60 * 1000, // 10 minutes
     refetchInterval: options?.refetchInterval ?? 5 * 60 * 1000, // Refresh every 5 minutes
@@ -144,15 +145,15 @@ export function useInvalidateDriverProfile() {
  * Combined hook for driver management dashboard
  */
 export function useDriverManagementData(fleet?: string) {
-  const driversAttention = useDriversRequiringAttention(fleet, {
+  const driverSummaries = useDriverSummaries(fleet, {
     refetchInterval: 5 * 60 * 1000, // 5 minutes
   });
 
   return {
-    driversRequiringAttention: driversAttention.data || [],
-    isLoadingAttention: driversAttention.isLoading,
-    errorAttention: driversAttention.error,
-    refetchAttention: driversAttention.refetch,
+    drivers: driverSummaries.data || [],
+    isLoading: driverSummaries.isLoading,
+    error: driverSummaries.error,
+    refetch: driverSummaries.refetch,
   };
 }
 
@@ -227,7 +228,7 @@ export function useDriverAlerts(fleet?: string) {
 export default {
   useDriverProfile,
   useDriverSearch,
-  useDriversRequiringAttention,
+  useDriverSummaries,
   usePrefetchDriverProfile,
   useInvalidateDriverProfile,
   useDriverManagementData,

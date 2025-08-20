@@ -330,38 +330,172 @@ export class DriverProfileService {
   }
   
   /**
-   * Get drivers requiring attention (high risk, unresolved events)
+   * Get all driver summaries with their actual performance metrics
    */
-  static async getDriversRequiringAttention(fleet?: string): Promise<DriverProfileSummary[]> {
+  static async getDriverSummaries(fleet?: string, limit: number = 50): Promise<DriverProfileSummary[]> {
     
-    const { data, error } = await supabase
-      .rpc('get_drivers_requiring_attention', {
-        p_fleet: fleet
-      });
+    // Get drivers with real metrics from multiple data sources
+    let driversQuery = supabase
+      .from('drivers')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        employee_id,
+        fleet,
+        depot,
+        status,
+        safety_score,
+        lytx_score
+      `)
+      .eq('status', 'Active');
     
-    if (error) throw error;
+    if (fleet) {
+      driversQuery = driversQuery.eq('fleet', fleet);
+    }
     
-    return data.map((driver: any) => ({
-      id: driver.driver_id,
-      first_name: driver.first_name,
-      last_name: driver.last_name,
-      full_name: `${driver.first_name} ${driver.last_name}`,
-      employee_id: driver.employee_id,
-      fleet: driver.fleet,
-      depot: driver.depot,
-      status: driver.status,
-      overall_safety_score: driver.overall_safety_score || 0,
-      lytx_safety_score: driver.lytx_safety_score,
-      guardian_risk_level: driver.guardian_risk_level || 'Low',
-      total_trips_30d: driver.total_trips || 0,
-      total_km_30d: driver.total_km || 0,
-      active_days_30d: driver.active_days || 0,
-      last_activity_date: driver.last_activity_date,
-      lytx_events_30d: driver.lytx_events || 0,
-      guardian_events_30d: driver.guardian_events || 0,
-      high_risk_events_30d: driver.high_risk_events || 0,
-      coaching_sessions_30d: driver.coaching_sessions || 0,
-    }));
+    const { data: drivers, error: driversError } = await driversQuery.limit(limit);
+    
+    if (driversError) throw driversError;
+    
+    // Get trip data for each driver in parallel
+    const driverSummaries = await Promise.all(
+      drivers.map(async (driver: any) => {
+        // Get trip metrics from MtData
+        const { data: tripData } = await supabase
+          .from('mtdata_trip_history')
+          .select('start_time, distance_km, duration_hours')
+          .ilike('driver_name', `%${driver.first_name}%${driver.last_name}%`)
+          .gte('start_time', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+          .order('start_time', { ascending: false });
+        
+        // Get LYTX events
+        const { data: lytxEvents } = await supabase
+          .from('lytx_safety_events')
+          .select('event_datetime, trigger_type, score, status')
+          .ilike('driver_name', `%${driver.first_name}%${driver.last_name}%`)
+          .gte('event_datetime', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+        
+        // Get Guardian events
+        const { data: guardianEvents } = await supabase
+          .from('guardian_events')
+          .select('detection_time, event_type, severity')
+          .ilike('driver_name', `%${driver.first_name}%${driver.last_name}%`)
+          .gte('detection_time', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+        
+        // Calculate metrics
+        const totalTrips = tripData?.length || 0;
+        const totalKm = tripData?.reduce((sum, trip) => sum + (trip.distance_km || 0), 0) || 0;
+        const totalHours = tripData?.reduce((sum, trip) => sum + (trip.duration_hours || 0), 0) || 0;
+        const activeDays = new Set(tripData?.map(trip => trip.start_time?.split('T')[0])).size || 0;
+        const lastActivity = tripData?.[0]?.start_time;
+        
+        const lytxEventCount = lytxEvents?.length || 0;
+        const guardianEventCount = guardianEvents?.length || 0;
+        const coachingSessions = lytxEvents?.filter(e => e.status === 'Face-To-Face').length || 0;
+        
+        return {
+          id: driver.id,
+          first_name: driver.first_name,
+          last_name: driver.last_name,
+          full_name: `${driver.first_name} ${driver.last_name}`,
+          employee_id: driver.employee_id,
+          fleet: driver.fleet,
+          depot: driver.depot,
+          status: driver.status,
+          overall_safety_score: driver.safety_score || 0,
+          lytx_safety_score: driver.lytx_score || 0,
+          guardian_risk_level: 'Low' as const, // Remove meaningless risk classification
+          total_trips_30d: totalTrips,
+          total_km_30d: Math.round(totalKm),
+          active_days_30d: activeDays,
+          last_activity_date: lastActivity,
+          lytx_events_30d: lytxEventCount,
+          guardian_events_30d: guardianEventCount,
+          high_risk_events_30d: lytxEvents?.filter(e => (e.score || 0) >= 7).length || 0,
+          coaching_sessions_30d: coachingSessions,
+        };
+      })
+    );
+    
+    return driverSummaries;
+  }
+  
+  /**
+   * Get detailed event breakdown for a specific driver
+   */
+  static async getDriverEventDetails(
+    driverId: string,
+    timeframe: '30d' | '90d' = '30d'
+  ): Promise<{
+    lytx_events: Array<{ date: string; trigger_type: string; score: number; status: string }>;
+    guardian_events: Array<{ date: string; event_type: string; severity: string }>;
+    trip_summary: { total_trips: number; total_km: number; total_hours: number; avg_km_per_trip: number };
+  }> {
+    
+    const days = timeframe === '30d' ? 30 : 90;
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Get driver name for queries
+    const { data: driver } = await supabase
+      .from('drivers')
+      .select('first_name, last_name')
+      .eq('id', driverId)
+      .single();
+    
+    if (!driver) throw new Error('Driver not found');
+    
+    const driverName = `${driver.first_name} ${driver.last_name}`;
+    
+    // Get detailed events and trips
+    const [lytxResult, guardianResult, tripResult] = await Promise.all([
+      supabase
+        .from('lytx_safety_events')
+        .select('event_datetime, trigger_type, score, status')
+        .ilike('driver_name', `%${driverName}%`)
+        .gte('event_datetime', startDate)
+        .order('event_datetime', { ascending: false }),
+      
+      supabase
+        .from('guardian_events')
+        .select('detection_time, event_type, severity')
+        .ilike('driver_name', `%${driverName}%`)
+        .gte('detection_time', startDate)
+        .order('detection_time', { ascending: false }),
+      
+      supabase
+        .from('mtdata_trip_history')
+        .select('start_time, distance_km, duration_hours')
+        .ilike('driver_name', `%${driverName}%`)
+        .gte('start_time', startDate)
+    ]);
+    
+    const lytxEvents = lytxResult.data || [];
+    const guardianEvents = guardianResult.data || [];
+    const trips = tripResult.data || [];
+    
+    const totalKm = trips.reduce((sum, trip) => sum + (trip.distance_km || 0), 0);
+    const totalHours = trips.reduce((sum, trip) => sum + (trip.duration_hours || 0), 0);
+    
+    return {
+      lytx_events: lytxEvents.map(e => ({
+        date: e.event_datetime,
+        trigger_type: e.trigger_type || 'Unknown',
+        score: e.score || 0,
+        status: e.status || 'Pending'
+      })),
+      guardian_events: guardianEvents.map(e => ({
+        date: e.detection_time,
+        event_type: e.event_type || 'Unknown',
+        severity: e.severity || 'Low'
+      })),
+      trip_summary: {
+        total_trips: trips.length,
+        total_km: Math.round(totalKm),
+        total_hours: Math.round(totalHours * 10) / 10,
+        avg_km_per_trip: trips.length > 0 ? Math.round((totalKm / trips.length) * 10) / 10 : 0
+      }
+    };
   }
   
   // Private helper methods

@@ -25,10 +25,10 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
 
   // Fetch driver management data
   const {
-    driversRequiringAttention,
-    isLoadingAttention,
-    errorAttention,
-    refetchAttention
+    drivers,
+    isLoading,
+    error,
+    refetch
   } = useDriverManagementData(selectedFleet);
 
   // Get real-time alerts
@@ -49,20 +49,30 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
-    const drivers = driversRequiringAttention;
+    if (!drivers.length) {
+      return {
+        totalDrivers: 0,
+        totalTrips: 0,
+        totalKm: 0,
+        averageSafetyScore: 0,
+        totalLytxEvents: 0,
+        totalGuardianEvents: 0,
+        totalHighRiskEvents: 0,
+        activeDrivers: 0
+      };
+    }
     
     return {
-      totalDriversAttention: drivers.length,
-      criticalRisk: drivers.filter(d => d.guardian_risk_level === 'Critical').length,
-      highRisk: drivers.filter(d => d.guardian_risk_level === 'High').length,
-      averageSafetyScore: drivers.length > 0 
-        ? Math.round(drivers.reduce((sum, d) => sum + d.overall_safety_score, 0) / drivers.length)
-        : 0,
-      totalHighRiskEvents: drivers.reduce((sum, d) => sum + d.high_risk_events_30d, 0),
+      totalDrivers: drivers.length,
+      totalTrips: drivers.reduce((sum, d) => sum + d.total_trips_30d, 0),
+      totalKm: drivers.reduce((sum, d) => sum + d.total_km_30d, 0),
+      averageSafetyScore: Math.round(drivers.reduce((sum, d) => sum + d.overall_safety_score, 0) / drivers.length),
       totalLytxEvents: drivers.reduce((sum, d) => sum + d.lytx_events_30d, 0),
       totalGuardianEvents: drivers.reduce((sum, d) => sum + d.guardian_events_30d, 0),
+      totalHighRiskEvents: drivers.reduce((sum, d) => sum + d.high_risk_events_30d, 0),
+      activeDrivers: drivers.filter(d => d.active_days_30d > 0).length
     };
-  }, [driversRequiringAttention]);
+  }, [drivers]);
 
   const handleExportReport = async () => {
     try {
@@ -72,7 +82,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
         timeframe: selectedTimeframe,
         summary: summaryStats,
         alerts: alerts,
-        driversRequiringAttention: driversRequiringAttention.map(driver => ({
+        drivers: drivers.map(driver => ({
           name: driver.full_name,
           employee_id: driver.employee_id,
           fleet: driver.fleet,
@@ -147,7 +157,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
             
             <Button
               onClick={handleExportReport}
-              disabled={isLoadingAttention}
+              disabled={isLoading}
               variant="outline"
               className="flex items-center gap-2"
             >
@@ -156,8 +166,8 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
             </Button>
             
             <Button
-              onClick={() => refetchAttention()}
-              disabled={isLoadingAttention}
+              onClick={() => refetch()}
+              disabled={isLoading}
               className="flex items-center gap-2"
             >
               <TrendingUp className="h-4 w-4" />
@@ -189,15 +199,15 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Requiring Attention</p>
-                  <p className="text-2xl font-bold text-orange-600">{summaryStats.totalDriversAttention}</p>
+                  <p className="text-sm font-medium text-gray-600">Total Drivers</p>
+                  <p className="text-2xl font-bold text-blue-600">{summaryStats.totalDrivers}</p>
                 </div>
-                <AlertTriangle className="h-8 w-8 text-orange-500" />
+                <Users className="h-8 w-8 text-blue-500" />
               </div>
               <div className="mt-2 text-sm text-gray-600">
-                <span className="text-red-600 font-medium">{summaryStats.criticalRisk} Critical</span>
+                <span className="text-green-600 font-medium">{summaryStats.activeDrivers} Active</span>
                 <span className="mx-1">•</span>
-                <span className="text-orange-600 font-medium">{summaryStats.highRisk} High Risk</span>
+                <span className="text-gray-600">{summaryStats.totalTrips} Trips</span>
               </div>
             </CardContent>
           </Card>
@@ -226,13 +236,13 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">High Risk Events</p>
-                  <p className="text-2xl font-bold text-red-600">{summaryStats.totalHighRiskEvents}</p>
+                  <p className="text-sm font-medium text-gray-600">Total KM (30d)</p>
+                  <p className="text-2xl font-bold text-green-600">{summaryStats.totalKm.toLocaleString()}</p>
                 </div>
-                <AlertTriangle className="h-8 w-8 text-red-500" />
+                <TrendingUp className="h-8 w-8 text-green-500" />
               </div>
               <div className="mt-2 text-sm text-gray-600">
-                <span>LYTX: {summaryStats.totalLytxEvents}</span>
+                <span>LYTX Events: {summaryStats.totalLytxEvents}</span>
                 <span className="mx-1">•</span>
                 <span>Guardian: {summaryStats.totalGuardianEvents}</span>
               </div>
@@ -243,13 +253,13 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Active Alerts</p>
-                  <p className="text-2xl font-bold text-purple-600">{alertCount}</p>
+                  <p className="text-sm font-medium text-gray-600">Safety Events</p>
+                  <p className="text-2xl font-bold text-orange-600">{summaryStats.totalHighRiskEvents}</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-purple-500" />
+                <AlertTriangle className="h-8 w-8 text-orange-500" />
               </div>
               <p className="text-sm text-gray-600 mt-2">
-                Real-time safety notifications
+                High-risk events requiring attention
               </p>
             </CardContent>
           </Card>
@@ -320,72 +330,90 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
             </CardContent>
           </Card>
 
-          {/* Drivers Requiring Attention */}
+          {/* Driver Performance Summary */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-500" />
-                Drivers Requiring Attention
-                {driversRequiringAttention.length > 0 && (
-                  <Badge variant="destructive" className="ml-2">
-                    {driversRequiringAttention.length}
+                <Users className="h-5 w-5 text-blue-500" />
+                Driver Performance Summary
+                {drivers.length > 0 && (
+                  <Badge variant="outline" className="ml-2">
+                    {drivers.length} drivers
                   </Badge>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoadingAttention ? (
+              {isLoading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="text-gray-600 mt-2">Loading drivers...</p>
                 </div>
-              ) : driversRequiringAttention.length > 0 ? (
+              ) : drivers.length > 0 ? (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {driversRequiringAttention.map((driver) => (
-                    <div
-                      key={driver.id}
-                      className={`p-3 rounded-lg border-l-4 cursor-pointer transition-colors ${
-                        driver.guardian_risk_level === 'Critical' ? 'border-red-500 bg-red-50' :
-                        driver.guardian_risk_level === 'High' ? 'border-orange-500 bg-orange-50' :
-                        'border-yellow-500 bg-yellow-50'
-                      }`}
-                      onClick={() => handleDriverClick(driver.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className={`font-medium ${
-                            driver.guardian_risk_level === 'Critical' ? 'text-red-800' :
-                            driver.guardian_risk_level === 'High' ? 'text-orange-800' :
-                            'text-yellow-800'
-                          }`}>
-                            {driver.full_name}
-                          </p>
-                          <p className={`text-sm ${
-                            driver.guardian_risk_level === 'Critical' ? 'text-red-600' :
-                            driver.guardian_risk_level === 'High' ? 'text-orange-600' :
-                            'text-yellow-600'
-                          }`}>
-                            {driver.fleet} • {driver.depot} • Safety Score: {driver.overall_safety_score}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            LYTX: {driver.lytx_events_30d} • Guardian: {driver.guardian_events_30d} • High Risk: {driver.high_risk_events_30d}
-                          </p>
+                  {drivers.map((driver) => {
+                    const hasHighRisk = driver.high_risk_events_30d > 0;
+                    const hasEvents = driver.lytx_events_30d > 0 || driver.guardian_events_30d > 0;
+                    const isActive = driver.active_days_30d > 0;
+                    
+                    return (
+                      <div
+                        key={driver.id}
+                        className={`p-3 rounded-lg border-l-4 cursor-pointer transition-colors ${
+                          hasHighRisk ? 'border-red-500 bg-red-50' :
+                          hasEvents ? 'border-yellow-500 bg-yellow-50' :
+                          isActive ? 'border-green-500 bg-green-50' :
+                          'border-gray-300 bg-gray-50'
+                        }`}
+                        onClick={() => handleDriverClick(driver.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className={`font-medium ${
+                              hasHighRisk ? 'text-red-800' :
+                              hasEvents ? 'text-yellow-800' :
+                              isActive ? 'text-green-800' :
+                              'text-gray-800'
+                            }`}>
+                              {driver.full_name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {driver.fleet} • {driver.depot} • Safety: {driver.overall_safety_score || 'N/A'}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Trips: {driver.total_trips_30d} • KM: {driver.total_km_30d} • Active Days: {driver.active_days_30d}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              LYTX: {driver.lytx_events_30d} • Guardian: {driver.guardian_events_30d} • High Risk: {driver.high_risk_events_30d}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            {hasHighRisk && (
+                              <Badge variant="destructive" className="text-xs mb-1">
+                                HIGH RISK
+                              </Badge>
+                            )}
+                            {hasEvents && !hasHighRisk && (
+                              <Badge variant="default" className="text-xs mb-1">
+                                EVENTS
+                              </Badge>
+                            )}
+                            {isActive && !hasEvents && (
+                              <Badge variant="secondary" className="text-xs mb-1">
+                                ACTIVE
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                        <Badge 
-                          variant={driver.guardian_risk_level === 'Critical' ? 'destructive' : 'default'}
-                          className="text-xs"
-                        >
-                          {driver.guardian_risk_level.toUpperCase()}
-                        </Badge>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Shield className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                  <p className="text-gray-600">No drivers require immediate attention</p>
-                  <p className="text-sm text-gray-500">All drivers are performing well</p>
+                  <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No driver data available</p>
+                  <p className="text-sm text-gray-500">Try selecting a different fleet or check data sources</p>
                 </div>
               )}
             </CardContent>
@@ -460,7 +488,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
         )}
 
         {/* Error State */}
-        {errorAttention && (
+        {error && (
           <Card>
             <CardContent className="p-6 text-center">
               <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
@@ -468,7 +496,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
               <p className="text-gray-600 mb-4">
                 Unable to load driver management data. Please try again.
               </p>
-              <Button onClick={() => refetchAttention()} variant="outline">
+              <Button onClick={() => refetch()} variant="outline">
                 Retry
               </Button>
             </CardContent>
