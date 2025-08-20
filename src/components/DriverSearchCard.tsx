@@ -11,14 +11,12 @@ import { useDriverSearch } from '@/hooks/useDriverProfile';
 
 interface DriverSearchCardProps {
   fleet?: string;
-  showRequiringAttention?: boolean;
   title: string;
   className?: string;
 }
 
 export const DriverSearchCard: React.FC<DriverSearchCardProps> = ({
   fleet,
-  showRequiringAttention = false,
   title,
   className = ''
 }) => {

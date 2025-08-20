@@ -15,7 +15,7 @@ export const driverProfileKeys = {
   all: ['driverProfile'] as const,
   profile: (driverId: string, timeframe: string) => [...driverProfileKeys.all, 'profile', driverId, timeframe] as const,
   search: (searchTerm: string, fleet?: string) => [...driverProfileKeys.all, 'search', searchTerm, fleet] as const,
-  attention: (fleet?: string) => [...driverProfileKeys.all, 'attention', fleet] as const,
+  summaries: (fleet?: string, limit?: number) => [...driverProfileKeys.all, 'summaries', fleet, limit] as const,
 };
 
 /**
@@ -128,16 +128,16 @@ export function useInvalidateDriverProfile() {
     });
   };
 
-  const invalidateDriversAttention = (fleet?: string) => {
+  const invalidateDriverSummaries = (fleet?: string) => {
     queryClient.invalidateQueries({
-      queryKey: driverProfileKeys.attention(fleet),
+      queryKey: [...driverProfileKeys.all, 'summaries', fleet],
     });
   };
 
   return {
     invalidateDriverProfile,
     invalidateDriverSearch,
-    invalidateDriversAttention,
+    invalidateDriverSummaries,
   };
 }
 
@@ -189,39 +189,70 @@ export function useOptimizedDriverProfile(
 
 /**
  * Hook for real-time driver alerts and notifications
+ * Uses actual driver data to identify drivers requiring attention
  */
 export function useDriverAlerts(fleet?: string) {
-  const driversAttention = useDriversRequiringAttention(fleet, {
+  const driverSummaries = useDriverSummaries(fleet, {
     refetchInterval: 2 * 60 * 1000, // Check every 2 minutes for alerts
   });
 
   const alerts = React.useMemo(() => {
-    if (!driversAttention.data) return [];
+    if (!driverSummaries.data) return [];
 
-    return driversAttention.data
-      .filter(driver => 
-        driver.high_risk_events_30d > 3 || 
-        driver.guardian_risk_level === 'Critical' ||
-        driver.overall_safety_score < 50
-      )
-      .map(driver => ({
-        id: driver.id,
-        driverName: driver.full_name,
-        severity: driver.guardian_risk_level === 'Critical' ? 'critical' as const :
-                 driver.high_risk_events_30d > 5 ? 'high' as const : 'medium' as const,
-        message: `${driver.full_name} has ${driver.high_risk_events_30d} high-risk events`,
-        fleet: driver.fleet,
-        depot: driver.depot,
-        timestamp: new Date().toISOString(),
-      }));
-  }, [driversAttention.data]);
+    return driverSummaries.data
+      .filter(driver => {
+        // Define conditions that require attention based on actual metrics
+        const hasHighLytxEvents = (driver.lytxEvents?.total || 0) > 5;
+        const hasHighGuardianEvents = (driver.guardianEvents?.total || 0) > 3;
+        const hasExcessiveHours = (driver.totalHours || 0) > 60; // Weekly limit
+        const hasLowSafetyScore = (driver.safetyScore || 100) < 70;
+        
+        return hasHighLytxEvents || hasHighGuardianEvents || hasExcessiveHours || hasLowSafetyScore;
+      })
+      .map(driver => {
+        // Determine severity based on multiple factors
+        const lytxCount = driver.lytxEvents?.total || 0;
+        const guardianCount = driver.guardianEvents?.total || 0;
+        const safetyScore = driver.safetyScore || 100;
+        
+        let severity: 'critical' | 'high' | 'medium' = 'medium';
+        let message = '';
+        
+        if (lytxCount > 10 || guardianCount > 5 || safetyScore < 50) {
+          severity = 'critical';
+          message = `${driver.name} requires immediate attention: ${lytxCount} LYTX events, ${guardianCount} Guardian events`;
+        } else if (lytxCount > 5 || guardianCount > 3 || safetyScore < 70) {
+          severity = 'high';
+          message = `${driver.name} has elevated risk: ${lytxCount} LYTX events, ${guardianCount} Guardian events`;
+        } else {
+          message = `${driver.name} needs monitoring: Performance outside normal ranges`;
+        }
+
+        return {
+          id: driver.id,
+          driverName: driver.name,
+          severity,
+          message,
+          fleet: driver.fleet || fleet || 'Unknown',
+          depot: driver.depot || 'Unknown',
+          timestamp: new Date().toISOString(),
+          metrics: {
+            lytxEvents: lytxCount,
+            guardianEvents: guardianCount,
+            safetyScore,
+            totalKm: driver.totalKm,
+            totalHours: driver.totalHours,
+          }
+        };
+      });
+  }, [driverSummaries.data, fleet]);
 
   return {
     alerts,
     alertCount: alerts.length,
     criticalCount: alerts.filter(a => a.severity === 'critical').length,
-    isLoading: driversAttention.isLoading,
-    error: driversAttention.error,
+    isLoading: driverSummaries.isLoading,
+    error: driverSummaries.error,
   };
 }
 
