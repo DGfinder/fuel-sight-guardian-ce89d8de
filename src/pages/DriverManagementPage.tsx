@@ -5,13 +5,13 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Users, AlertTriangle, TrendingUp, Shield, Download, Search, Filter } from 'lucide-react';
+import { Users, AlertTriangle, TrendingUp, Shield, Download, Search, Filter, Eye, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import DataCentreLayout from '@/components/DataCentreLayout';
-import DriverSearchCard from '@/components/DriverSearchCard';
-import { useDriverManagementData, useDriverAlerts } from '@/hooks/useDriverProfile';
+import { useDriverManagementData, useDriverAlerts, useDriverSearch } from '@/hooks/useDriverProfile';
 
 interface DriverManagementPageProps {
   fleet?: 'Stevemacs' | 'Great Southern Fuels';
@@ -20,6 +20,8 @@ interface DriverManagementPageProps {
 export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ fleet }) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'30d' | '90d' | '1y'>('30d');
   const [showOnlyHighRisk, setShowOnlyHighRisk] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFleet, setSelectedFleet] = useState<string>(fleet || '');
 
   // Fetch driver management data
   const {
@@ -27,7 +29,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
     isLoadingAttention,
     errorAttention,
     refetchAttention
-  } = useDriverManagementData(fleet);
+  } = useDriverManagementData(selectedFleet);
 
   // Get real-time alerts
   const {
@@ -35,7 +37,15 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
     alertCount,
     criticalCount,
     isLoading: isLoadingAlerts
-  } = useDriverAlerts(fleet);
+  } = useDriverAlerts(selectedFleet);
+
+  // Search drivers
+  const {
+    data: searchResults,
+    isLoading: isSearching
+  } = useDriverSearch(searchTerm, selectedFleet, {
+    enabled: searchTerm.length >= 2
+  });
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -57,7 +67,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
   const handleExportReport = async () => {
     try {
       const report = {
-        fleet: fleet || 'All Fleets',
+        fleet: selectedFleet || 'All Fleets',
         generated: new Date().toISOString(),
         timeframe: selectedTimeframe,
         summary: summaryStats,
@@ -79,12 +89,17 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `driver_management_report_${fleet?.replace(/\s+/g, '_') || 'all_fleets'}_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `driver_management_report_${selectedFleet?.replace(/\s+/g, '_') || 'all_fleets'}_${new Date().toISOString().split('T')[0]}.json`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export failed:', error);
     }
+  };
+
+  const handleDriverClick = (driverId: string) => {
+    // TODO: Open driver profile modal or navigate to driver detail page
+    console.log('Opening driver profile:', driverId);
   };
 
   return (
@@ -96,9 +111,9 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Users className="h-6 w-6 text-blue-600" />
               Driver Management
-              {fleet && (
+              {selectedFleet && (
                 <Badge variant="outline" className="ml-2">
-                  {fleet}
+                  {selectedFleet}
                 </Badge>
               )}
             </h1>
@@ -108,6 +123,17 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Fleet Filter */}
+            <select
+              value={selectedFleet}
+              onChange={(e) => setSelectedFleet(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Fleets</option>
+              <option value="Stevemacs">Stevemacs</option>
+              <option value="Great Southern Fuels">Great Southern Fuels</option>
+            </select>
+            
             {/* Timeframe Selector */}
             <select
               value={selectedTimeframe}
@@ -232,20 +258,138 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Driver Search */}
-          <DriverSearchCard
-            fleet={fleet}
-            showRequiringAttention={false}
-            title="Driver Search & Profiles"
-            className="h-fit"
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-blue-500" />
+                Driver Search & Profiles
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search drivers by name or ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {searchTerm.length < 2 ? (
+                <div className="text-center py-8">
+                  <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600">Search for drivers to view their profiles</p>
+                  <p className="text-sm text-gray-500">Enter at least 2 characters to search</p>
+                </div>
+              ) : isSearching ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-600 mt-2">Searching...</p>
+                </div>
+              ) : searchResults && searchResults.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {searchResults.map((driver) => (
+                    <div
+                      key={driver.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => handleDriverClick(driver.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{driver.full_name}</p>
+                          <p className="text-sm text-gray-600">
+                            {driver.employee_id} • {driver.fleet} • {driver.depot}
+                          </p>
+                        </div>
+                      </div>
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600">No drivers found</p>
+                  <p className="text-sm text-gray-500">Try a different search term</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Drivers Requiring Attention */}
-          <DriverSearchCard
-            fleet={fleet}
-            showRequiringAttention={true}
-            title="Drivers Requiring Attention"
-            className="h-fit"
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                Drivers Requiring Attention
+                {driversRequiringAttention.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {driversRequiringAttention.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingAttention ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
+                  <p className="text-gray-600 mt-2">Loading drivers...</p>
+                </div>
+              ) : driversRequiringAttention.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {driversRequiringAttention.map((driver) => (
+                    <div
+                      key={driver.id}
+                      className={`p-3 rounded-lg border-l-4 cursor-pointer transition-colors ${
+                        driver.guardian_risk_level === 'Critical' ? 'border-red-500 bg-red-50' :
+                        driver.guardian_risk_level === 'High' ? 'border-orange-500 bg-orange-50' :
+                        'border-yellow-500 bg-yellow-50'
+                      }`}
+                      onClick={() => handleDriverClick(driver.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className={`font-medium ${
+                            driver.guardian_risk_level === 'Critical' ? 'text-red-800' :
+                            driver.guardian_risk_level === 'High' ? 'text-orange-800' :
+                            'text-yellow-800'
+                          }`}>
+                            {driver.full_name}
+                          </p>
+                          <p className={`text-sm ${
+                            driver.guardian_risk_level === 'Critical' ? 'text-red-600' :
+                            driver.guardian_risk_level === 'High' ? 'text-orange-600' :
+                            'text-yellow-600'
+                          }`}>
+                            {driver.fleet} • {driver.depot} • Safety Score: {driver.overall_safety_score}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            LYTX: {driver.lytx_events_30d} • Guardian: {driver.guardian_events_30d} • High Risk: {driver.high_risk_events_30d}
+                          </p>
+                        </div>
+                        <Badge 
+                          variant={driver.guardian_risk_level === 'Critical' ? 'destructive' : 'default'}
+                          className="text-xs"
+                        >
+                          {driver.guardian_risk_level.toUpperCase()}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Shield className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                  <p className="text-gray-600">No drivers require immediate attention</p>
+                  <p className="text-sm text-gray-500">All drivers are performing well</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Recent Alerts */}

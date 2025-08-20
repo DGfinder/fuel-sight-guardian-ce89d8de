@@ -69,9 +69,9 @@ BEGIN
   -- Get LYTX statistics
   SELECT 
     COUNT(*) as event_count,
-    COUNT(*) FILTER (WHERE score >= 7) as high_risk_count,
-    COUNT(*) FILTER (WHERE status = 'Face-To-Face') as coaching_count,
-    AVG(score) as avg_score
+    COUNT(*) FILTER (WHERE lse.score >= 7) as high_risk_count,
+    COUNT(*) FILTER (WHERE lse.status = 'Face-To-Face') as coaching_count,
+    AVG(lse.score) as avg_score
   INTO lytx_stats
   FROM lytx_safety_events lse
   WHERE lse.driver_name = driver_record.first_name || ' ' || driver_record.last_name
@@ -327,27 +327,27 @@ BEGIN
       ) ORDER BY event_datetime DESC
     ) as coaching
     FROM lytx_data
-    WHERE status = 'Face-To-Face'
+    WHERE lytx_data.status = 'Face-To-Face'
     LIMIT 10
   )
   SELECT 
     COUNT(*)::INTEGER,
     (SELECT triggers FROM trigger_stats),
     CASE 
-      WHEN COUNT(*) > 0 THEN (COUNT(*) FILTER (WHERE status = 'Resolved') * 100.0 / COUNT(*))
+      WHEN COUNT(*) > 0 THEN (COUNT(*) FILTER (WHERE ld.status = 'Resolved') * 100.0 / COUNT(*))
       ELSE 0
     END,
     (SELECT coaching FROM coaching_data),
     -- Calculate trend (simplified - compare first and second half of period)
     CASE 
       WHEN COUNT(*) > 10 THEN
-        (COUNT(*) FILTER (WHERE event_datetime >= start_date + (NOW() - start_date) / 2) * 100.0 / 
-         NULLIF(COUNT(*) FILTER (WHERE event_datetime < start_date + (NOW() - start_date) / 2), 0)) - 100
+        (COUNT(*) FILTER (WHERE ld.event_datetime >= start_date + (NOW() - start_date) / 2) * 100.0 / 
+         NULLIF(COUNT(*) FILTER (WHERE ld.event_datetime < start_date + (NOW() - start_date) / 2), 0)) - 100
       ELSE 0
     END,
-    COUNT(*) FILTER (WHERE score >= 7)::INTEGER,
-    COUNT(*) FILTER (WHERE trigger ILIKE '%speed%')::INTEGER
-  FROM lytx_data;
+    COUNT(*) FILTER (WHERE ld.score >= 7)::INTEGER,
+    COUNT(*) FILTER (WHERE ld.trigger ILIKE '%speed%')::INTEGER
+  FROM lytx_data ld;
 END;
 $$;
 
@@ -497,38 +497,52 @@ DECLARE
   driver_rank INTEGER;
   total_drivers INTEGER;
 BEGIN
-  -- Get driver's fleet and basic metrics
+  -- Get driver's fleet and basic metrics (simplified to avoid recursion)
   SELECT 
     dp.fleet,
-    COALESCE(dp.lytx_score, 0),
-    summary.total_trips,
-    summary.total_km
-  INTO driver_fleet, driver_safety_score, driver_trips, driver_km
+    COALESCE(dp.lytx_score, 0)
+  INTO driver_fleet, driver_safety_score
   FROM driver_profiles dp
-  CROSS JOIN LATERAL (
-    SELECT * FROM get_driver_profile_summary(p_driver_id, NOW() - INTERVAL '30 days', p_timeframe)
-  ) summary
   WHERE dp.id = p_driver_id;
   
-  -- Get fleet averages
+  -- Get trip metrics directly
   SELECT 
-    AVG(COALESCE(lytx_score, 0)),
-    AVG(summary.total_trips),
-    AVG(summary.total_km),
+    COUNT(*),
+    COALESCE(SUM(distance_km), 0)
+  INTO driver_trips, driver_km
+  FROM mtdata_trip_history mth
+  JOIN driver_profiles dp ON dp.first_name || ' ' || dp.last_name = mth.driver_name
+  WHERE dp.id = p_driver_id
+    AND mth.start_time >= NOW() - INTERVAL '30 days';
+  
+  -- Get fleet averages (simplified)
+  SELECT 
+    AVG(COALESCE(dp.lytx_score, 0)),
     COUNT(*)
-  INTO fleet_avg_safety, fleet_avg_trips, fleet_avg_km, total_drivers
+  INTO fleet_avg_safety, total_drivers
   FROM driver_profiles dp
-  CROSS JOIN LATERAL (
-    SELECT * FROM get_driver_profile_summary(dp.id, NOW() - INTERVAL '30 days', p_timeframe)
-  ) summary
   WHERE dp.fleet = driver_fleet AND dp.status = 'Active';
+  
+  -- Calculate fleet trip averages
+  SELECT 
+    AVG(trip_count),
+    AVG(total_distance)
+  INTO fleet_avg_trips, fleet_avg_km
+  FROM (
+    SELECT 
+      COUNT(*) as trip_count,
+      COALESCE(SUM(distance_km), 0) as total_distance
+    FROM mtdata_trip_history mth
+    JOIN driver_profiles dp ON dp.first_name || ' ' || dp.last_name = mth.driver_name
+    WHERE dp.fleet = driver_fleet 
+      AND dp.status = 'Active'
+      AND mth.start_time >= NOW() - INTERVAL '30 days'
+    GROUP BY dp.id
+  ) fleet_stats;
   
   -- Calculate rank
   SELECT COUNT(*) + 1 INTO driver_rank
   FROM driver_profiles dp
-  CROSS JOIN LATERAL (
-    SELECT * FROM get_driver_profile_summary(dp.id, NOW() - INTERVAL '30 days', p_timeframe)
-  ) summary
   WHERE dp.fleet = driver_fleet 
     AND dp.status = 'Active'
     AND COALESCE(dp.lytx_score, 0) > driver_safety_score;
