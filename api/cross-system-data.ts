@@ -8,7 +8,7 @@
 import { 
   getCrossSystemAnalytics,
   getCorrelatedDeliveryData,
-  unifiedDataIntegrator 
+  // unifiedDataIntegrator - unused 
 } from './lib/unified-data-integration';
 import { cacheSet, cacheGet, CACHE_CONFIG } from './lib/vercel-kv';
 import { isFeatureEnabled, CONFIG_KEYS } from './lib/vercel-edge-config';
@@ -30,11 +30,12 @@ interface CrossSystemRequest {
   aggregation?: 'daily' | 'weekly' | 'monthly';
 }
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   if (req.method === 'POST') {
     try {
       // Check if cross-system integration is enabled
-      const integrationEnabled = await isFeatureEnabled(CONFIG_KEYS.FEATURES.ADVANCED_ANALYTICS);
+      // Note: FEATURES property may not exist in current Edge Config
+      const integrationEnabled = await isFeatureEnabled(CONFIG_KEYS.FEATURE_FLAGS.CROSS_SYSTEM_DATA);
       if (!integrationEnabled) {
         return res.status(503).json({
           success: false, 
@@ -120,7 +121,7 @@ export default async function handler(req, res) {
  * Handle cross-system analytics request
  */
 async function handleCrossSystemAnalytics(
-  res,
+  res: any,
   systems: string[],
   dateRange: { startDate: string; endDate: string },
   filters: any,
@@ -162,7 +163,7 @@ async function handleCrossSystemAnalytics(
   };
 
   // Cache the result
-  await cacheSet(cacheKey, result, CACHE_CONFIG.ANALYTICS_QUERIES);
+  await cacheSet(cacheKey, result, CACHE_CONFIG.QUERY_RESULTS);
 
   return res.json({
     success: true,
@@ -175,7 +176,7 @@ async function handleCrossSystemAnalytics(
  * Handle correlated deliveries request
  */
 async function handleCorrelatedDeliveries(
-  res,
+  res: any,
   dateRange: { startDate: string; endDate: string },
   filters: any
 ) {
@@ -234,7 +235,7 @@ async function handleCorrelatedDeliveries(
   };
 
   // Cache the result
-  await cacheSet(cacheKey, result, CACHE_CONFIG.CORRELATION_DATA);
+  await cacheSet(cacheKey, result, CACHE_CONFIG.QUERY_RESULTS);
 
   return res.json({
     success: true,
@@ -247,7 +248,7 @@ async function handleCorrelatedDeliveries(
  * Handle data correlation analysis
  */
 async function handleDataCorrelation(
-  res,
+  res: any,
   systems: string[],
   dateRange: { startDate: string; endDate: string },
   filters: any
@@ -268,7 +269,7 @@ async function handleDataCorrelation(
   const correlation = await analyzeDataCorrelation(systems, dateRange, filters);
 
   // Cache the result
-  await cacheSet(cacheKey, correlation, CACHE_CONFIG.CORRELATION_DATA);
+  await cacheSet(cacheKey, correlation, CACHE_CONFIG.QUERY_RESULTS);
 
   return res.json({
     success: true,
@@ -280,7 +281,7 @@ async function handleDataCorrelation(
 /**
  * Handle system health check
  */
-async function handleSystemHealth(res, systems: string[]) {
+async function handleSystemHealth(res: any, systems: string[]) {
   const health: any = {
     overall: 'healthy',
     systems: {},

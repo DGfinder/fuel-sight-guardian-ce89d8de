@@ -15,7 +15,7 @@ interface DeleteRequest {
   reason?: string;
 }
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   if (req.method === 'DELETE') {
     try {
       // Validate Vercel environment
@@ -23,8 +23,7 @@ export default async function handler(req, res) {
       if (!envStatus.blob.available) {
         return res.status(503).json({
           success: false, 
-          error: 'Blob storage not available',
-          details: envStatus.blob.error
+          error: 'Blob storage not available'
         });
       }
 

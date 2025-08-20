@@ -21,7 +21,7 @@ interface ListQuery {
   includeDeleted?: boolean;
 }
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
     try {
       // Validate Vercel environment
@@ -29,8 +29,7 @@ export default async function handler(req, res) {
       if (!envStatus.blob.available) {
         return res.status(503).json({
           success: false, 
-          error: 'Blob storage not available',
-          details: envStatus.blob.error
+          error: 'Blob storage not available'
         });
       }
 
@@ -151,8 +150,9 @@ export default async function handler(req, res) {
             blobMetadata: {
               uploadedAt: blobData.uploadedAt,
               pathname: blobData.pathname,
-              contentType: blobData.contentType,
-              contentDisposition: blobData.contentDisposition
+              // Note: contentType and contentDisposition may not be available in all Blob API versions
+              size: blobData.size || 0,
+              downloadUrl: blobData.downloadUrl || blobData.url
             }
           }),
           

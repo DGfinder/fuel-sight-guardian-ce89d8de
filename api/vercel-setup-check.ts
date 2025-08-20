@@ -7,7 +7,7 @@
 
 import { runVercelSetupCheck, printSetupReport } from './lib/vercel-setup-check';
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
     try {
       console.log('🚀 Running Vercel setup verification...');

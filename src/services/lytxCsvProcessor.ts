@@ -35,7 +35,8 @@ interface CsvRowData {
 
 export class LytxCsvProcessor {
   private static readonly CSV_DELIMITER = ',';
-  private static readonly EXPECTED_HEADERS = [
+  // Expected headers for CSV validation
+  private static readonly COMMON_HEADERS = [
     'event_id', 'eventId', 'id', 'Event ID',
     'vehicle', 'vehicleId', 'name', 'Vehicle', 'Vehicle Registration',
     'driver', 'driverName', 'Driver', 'Driver Name',
@@ -195,6 +196,7 @@ export class LytxCsvProcessor {
     })();
 
     return {
+      id: crypto.randomUUID(), // Generate unique ID for database
       event_id: eventId,
       vehicle_registration: vehicle,
       device_serial: device,
@@ -257,7 +259,7 @@ export class LytxCsvProcessor {
   /**
    * Process LYTX CSV file and return transformed records
    */
-  static async processCsv(csvContent: string, userId: string): Promise<LytxCsvProcessingResult> {
+  static async processCsv(csvContent: string, _userId: string): Promise<LytxCsvProcessingResult> {
     const result: LytxCsvProcessingResult = {
       success: false,
       records: [],
@@ -356,7 +358,7 @@ export class LytxCsvProcessor {
   /**
    * Import processed records to database with duplicate checking
    */
-  static async importToDatabase(records: LytxSafetyEventDB[], batchId: string): Promise<{
+  static async importToDatabase(records: LytxSafetyEventDB[], _batchId: string): Promise<{
     imported: number;
     duplicates: number;
     failed: number;

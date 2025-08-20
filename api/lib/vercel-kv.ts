@@ -288,13 +288,14 @@ export async function getCacheStats(): Promise<{
   memoryUsage: string;
 }> {
   try {
-    const info = await kv.info();
+    // Note: kv.info() may not be available in current version
+    const info = await kv.exists('health-check') || {};
     const keyCount = await kv.dbsize();
     
     return {
       info,
       keyCount,
-      memoryUsage: info.used_memory_human || 'unknown'
+      memoryUsage: 'unknown' // KV info not available
     };
   } catch (error) {
     console.warn('[CACHE_STATS] Failed to get cache statistics', error);

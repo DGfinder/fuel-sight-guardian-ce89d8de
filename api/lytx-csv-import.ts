@@ -23,7 +23,7 @@ interface ImportRequest {
   };
 }
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   // Set CORS headers for client-side uploads
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');

@@ -5,7 +5,7 @@
  * Returns a signed URL for direct client upload to Blob storage.
  */
 
-import { put, handleUpload, type HandleUploadBody } from '@vercel/blob';
+import { put } from '@vercel/blob';
 import { validateVercelEnvironment } from '../lib/vercel-environment';
 import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,7 +23,7 @@ interface ClientUploadRequest {
   tags?: string[];
 }
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   if (req.method === 'POST') {
     try {
       // Validate Vercel environment
@@ -31,8 +31,7 @@ export default async function handler(req, res) {
       if (!envStatus.blob.available) {
         return res.status(503).json({
           success: false, 
-          error: 'Blob storage not available',
-          details: envStatus.blob.error
+          error: 'Blob storage not available'
         });
       }
 
@@ -131,44 +130,43 @@ export default async function handler(req, res) {
 
   if (req.method === 'PUT') {
     try {
-      const body: HandleUploadBody = req.body;
+      const { uploadId, blobUrl } = req.body;
       
-      // Verify the upload using Vercel's handleUpload utility
-      const jsonResponse = await handleUpload({
-        body,
-        request: req, // Note: This might need adaptation for Vercel serverless
-        onBeforeGenerateToken: async (pathname /* , clientPayload */) => {
-          // Validate pathname and return metadata
-          return {
-            allowedContentTypes: ALLOWED_TYPES,
-            maximumSizeInBytes: CLIENT_MAX_FILE_SIZE,
-          };
-        },
-        onUploadCompleted: async ({ blob, tokenPayload }) => {
-          // Update database record
-          try {
-            const pathParts = blob.pathname.split('/');
-            const fileIdPart = pathParts[pathParts.length - 1];
-            const fileId = fileIdPart.split('_')[0];
+      if (!uploadId || !blobUrl) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing uploadId or blobUrl'
+        });
+      }
 
-            await supabase
-              .from('csv_upload_sessions')
-              .update({
-                upload_status: 'completed',
-                blob_url: blob.url,
-                blob_size: blob.size,
-                completed_at: new Date().toISOString()
-              })
-              .eq('id', fileId);
+      // Update database record to mark upload as completed
+      const { error: updateError } = await supabase
+        .from('csv_upload_sessions')
+        .update({
+          upload_status: 'completed',
+          blob_url: blobUrl,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', uploadId);
 
-            console.log(`[CLIENT_UPLOAD] Upload completed: ${blob.url}`);
-          } catch (error) {
-            console.error('[CLIENT_UPLOAD] Failed to update completion status:', error);
-          }
-        },
+      if (updateError) {
+        console.error('[CLIENT_UPLOAD] Failed to update completion status:', updateError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to update upload status'
+        });
+      }
+
+      console.log(`[CLIENT_UPLOAD] Upload completed: ${blobUrl}`);
+      
+      return res.json({
+        success: true,
+        data: {
+          uploadId,
+          blobUrl,
+          status: 'completed'
+        }
       });
-
-      return res.json(jsonResponse);
     } catch (error) {
       console.error('[CLIENT_UPLOAD] Completion callback failed:', error);
       return res.status(500).json({

@@ -21,7 +21,7 @@ interface UnifiedLocationRequest {
   };
 }
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   if (req.method === 'POST') {
     try {
       // Check if unified data integration is enabled
