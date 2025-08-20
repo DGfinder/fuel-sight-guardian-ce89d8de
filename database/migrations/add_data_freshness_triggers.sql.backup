@@ -1,0 +1,361 @@
+-- =====================================================
+-- DATA FRESHNESS AUTO-UPDATE TRIGGERS
+-- =====================================================
+-- This migration adds triggers to automatically update data freshness
+-- when new data is uploaded to any tracked data source
+-- =====================================================
+
+-- Function to update data availability calendar when data is inserted
+CREATE OR REPLACE FUNCTION update_data_availability_on_insert()
+RETURNS TRIGGER AS $$
+DECLARE
+  source_key_var TEXT;
+  data_date_var DATE;
+  user_id_var UUID;
+  filename_var TEXT;
+BEGIN
+  -- Determine source key based on table name
+  CASE TG_TABLE_NAME
+    WHEN 'guardian_events' THEN source_key_var := 'guardian_events';
+    WHEN 'captive_payment_records' THEN source_key_var := 'captive_payments';
+    WHEN 'csv_upload_sessions' THEN source_key_var := 'data_import';
+    ELSE source_key_var := TG_TABLE_NAME;
+  END CASE;
+
+  -- Determine data date based on table structure
+  CASE TG_TABLE_NAME
+    WHEN 'guardian_events' THEN data_date_var := NEW.detection_time::DATE;
+    WHEN 'captive_payment_records' THEN data_date_var := NEW.delivery_date;
+    WHEN 'csv_upload_sessions' THEN data_date_var := NEW.created_at::DATE;
+    ELSE data_date_var := COALESCE(NEW.created_at::DATE, CURRENT_DATE);
+  END CASE;
+
+  -- Get user info
+  CASE TG_TABLE_NAME
+    WHEN 'guardian_events' THEN 
+      user_id_var := NULL; -- Guardian events don't have direct user association
+      filename_var := NULL;
+    WHEN 'captive_payment_records' THEN 
+      user_id_var := NEW.created_by;
+      filename_var := NEW.source_file;
+    WHEN 'csv_upload_sessions' THEN 
+      user_id_var := NEW.user_id;
+      filename_var := NEW.original_filename;
+    ELSE 
+      user_id_var := NULL;
+      filename_var := NULL;
+  END CASE;
+
+  -- Update or insert into data availability calendar
+  INSERT INTO data_availability_calendar (
+    source_key,
+    data_date,
+    record_count,
+    upload_count,
+    latest_upload_at,
+    latest_upload_user_id,
+    latest_upload_filename,
+    updated_at
+  ) VALUES (
+    source_key_var,
+    data_date_var,
+    1, -- Will be updated by the update clause
+    1, -- Will be updated by the update clause
+    NOW(),
+    user_id_var,
+    filename_var,
+    NOW()
+  ) ON CONFLICT (source_key, data_date) DO UPDATE SET
+    record_count = data_availability_calendar.record_count + 1,
+    upload_count = CASE 
+      WHEN filename_var IS NOT NULL AND filename_var != data_availability_calendar.latest_upload_filename 
+      THEN data_availability_calendar.upload_count + 1
+      ELSE data_availability_calendar.upload_count
+    END,
+    latest_upload_at = GREATEST(data_availability_calendar.latest_upload_at, NOW()),
+    latest_upload_user_id = COALESCE(user_id_var, data_availability_calendar.latest_upload_user_id),
+    latest_upload_filename = COALESCE(filename_var, data_availability_calendar.latest_upload_filename),
+    updated_at = NOW();
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to refresh freshness tracking for a specific source
+CREATE OR REPLACE FUNCTION refresh_source_freshness(source_key_param TEXT)
+RETURNS VOID AS $$
+DECLARE
+  source_config RECORD;
+  latest_timestamp TIMESTAMPTZ;
+  record_count_val BIGINT;
+  hours_since DECIMAL;
+  freshness_status_val freshness_status;
+BEGIN
+  -- Get source configuration
+  SELECT * INTO source_config
+  FROM data_source_registry
+  WHERE source_key = source_key_param AND is_active = TRUE;
+
+  IF NOT FOUND THEN
+    RETURN; -- Source not found or not active
+  END IF;
+
+  -- Get latest timestamp and record count based on table
+  EXECUTE format('
+    SELECT MAX(%I) as latest_timestamp, COUNT(*) as record_count
+    FROM %I
+    WHERE %I IS NOT NULL
+  ', source_config.timestamp_column, source_config.table_name, source_config.timestamp_column)
+  INTO latest_timestamp, record_count_val;
+
+  -- Calculate hours since update
+  hours_since := EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_timestamp, '1970-01-01'::TIMESTAMPTZ))) / 3600;
+
+  -- Calculate freshness status
+  freshness_status_val := calculate_freshness_status(
+    hours_since,
+    source_config.fresh_threshold_hours,
+    source_config.stale_threshold_hours,
+    source_config.critical_threshold_hours
+  );
+
+  -- Delete old tracking record for this source
+  DELETE FROM data_freshness_tracking 
+  WHERE source_key = source_key_param;
+
+  -- Insert new tracking record
+  INSERT INTO data_freshness_tracking (
+    source_key,
+    last_updated_at,
+    record_count,
+    total_records,
+    freshness_status,
+    hours_since_update,
+    checked_at
+  ) VALUES (
+    source_key_param,
+    COALESCE(latest_timestamp, '1970-01-01'::TIMESTAMPTZ),
+    record_count_val,
+    record_count_val,
+    freshness_status_val,
+    hours_since,
+    NOW()
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to be called by triggers to update freshness
+CREATE OR REPLACE FUNCTION trigger_update_freshness()
+RETURNS TRIGGER AS $$
+DECLARE
+  source_key_var TEXT;
+BEGIN
+  -- Map table name to source key
+  CASE TG_TABLE_NAME
+    WHEN 'guardian_events' THEN source_key_var := 'guardian_events';
+    WHEN 'captive_payment_records' THEN source_key_var := 'captive_payments';
+    WHEN 'csv_upload_sessions' THEN source_key_var := 'data_import';
+    ELSE source_key_var := TG_TABLE_NAME;
+  END CASE;
+
+  -- Update freshness for this source (async to avoid blocking)
+  PERFORM refresh_source_freshness(source_key_var);
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- CREATE TRIGGERS ON DATA TABLES
+-- =====================================================
+
+-- Guardian Events triggers (only if table exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'guardian_events') THEN
+    DROP TRIGGER IF EXISTS guardian_events_availability_trigger ON guardian_events;
+    CREATE TRIGGER guardian_events_availability_trigger
+      AFTER INSERT ON guardian_events
+      FOR EACH ROW EXECUTE FUNCTION update_data_availability_on_insert();
+
+    DROP TRIGGER IF EXISTS guardian_events_freshness_trigger ON guardian_events;
+    CREATE TRIGGER guardian_events_freshness_trigger
+      AFTER INSERT OR UPDATE ON guardian_events
+      FOR EACH STATEMENT EXECUTE FUNCTION trigger_update_freshness();
+  END IF;
+END $$;
+
+-- Captive Payment Records triggers (only if table exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'captive_payment_records') THEN
+    DROP TRIGGER IF EXISTS captive_payment_records_availability_trigger ON captive_payment_records;
+    CREATE TRIGGER captive_payment_records_availability_trigger
+      AFTER INSERT ON captive_payment_records
+      FOR EACH ROW EXECUTE FUNCTION update_data_availability_on_insert();
+
+    DROP TRIGGER IF EXISTS captive_payment_records_freshness_trigger ON captive_payment_records;
+    CREATE TRIGGER captive_payment_records_freshness_trigger
+      AFTER INSERT OR UPDATE ON captive_payment_records
+      FOR EACH STATEMENT EXECUTE FUNCTION trigger_update_freshness();
+  END IF;
+END $$;
+
+-- CSV Upload Sessions triggers (only if table exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'csv_upload_sessions') THEN
+    DROP TRIGGER IF EXISTS csv_upload_sessions_availability_trigger ON csv_upload_sessions;
+    CREATE TRIGGER csv_upload_sessions_availability_trigger
+      AFTER INSERT ON csv_upload_sessions
+      FOR EACH ROW EXECUTE FUNCTION update_data_availability_on_insert();
+
+    DROP TRIGGER IF EXISTS csv_upload_sessions_freshness_trigger ON csv_upload_sessions;
+    CREATE TRIGGER csv_upload_sessions_freshness_trigger
+      AFTER INSERT OR UPDATE ON csv_upload_sessions
+      FOR EACH STATEMENT EXECUTE FUNCTION trigger_update_freshness();
+  END IF;
+END $$;
+
+-- =====================================================
+-- BATCH UPDATE FUNCTION
+-- =====================================================
+
+-- Function to update data availability for batch uploads
+CREATE OR REPLACE FUNCTION update_data_availability_batch(
+  source_key_param TEXT,
+  data_date_param DATE,
+  record_count_param INTEGER,
+  user_id_param UUID DEFAULT NULL,
+  filename_param TEXT DEFAULT NULL
+) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO data_availability_calendar (
+    source_key,
+    data_date,
+    record_count,
+    upload_count,
+    latest_upload_at,
+    latest_upload_user_id,
+    latest_upload_filename,
+    updated_at
+  ) VALUES (
+    source_key_param,
+    data_date_param,
+    record_count_param,
+    1,
+    NOW(),
+    user_id_param,
+    filename_param,
+    NOW()
+  ) ON CONFLICT (source_key, data_date) DO UPDATE SET
+    record_count = data_availability_calendar.record_count + record_count_param,
+    upload_count = data_availability_calendar.upload_count + 1,
+    latest_upload_at = NOW(),
+    latest_upload_user_id = COALESCE(user_id_param, data_availability_calendar.latest_upload_user_id),
+    latest_upload_filename = COALESCE(filename_param, data_availability_calendar.latest_upload_filename),
+    updated_at = NOW();
+
+  -- Update freshness for this source
+  PERFORM refresh_source_freshness(source_key_param);
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- SCHEDULED REFRESH FUNCTION
+-- =====================================================
+
+-- Function to be called by a scheduled job (e.g., every hour)
+CREATE OR REPLACE FUNCTION scheduled_freshness_refresh()
+RETURNS TEXT AS $$
+DECLARE
+  source_record RECORD;
+  refresh_count INTEGER := 0;
+BEGIN
+  -- Refresh all active sources
+  FOR source_record IN 
+    SELECT source_key FROM data_source_registry WHERE is_active = TRUE
+  LOOP
+    PERFORM refresh_source_freshness(source_record.source_key);
+    refresh_count := refresh_count + 1;
+  END LOOP;
+
+  RETURN format('Refreshed freshness data for %s sources', refresh_count);
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- INITIAL DATA POPULATION
+-- =====================================================
+
+-- Populate initial data availability calendar for existing data
+DO $$
+DECLARE
+  source_record RECORD;
+BEGIN
+  FOR source_record IN 
+    SELECT * FROM data_source_registry WHERE is_active = TRUE
+  LOOP
+    -- This is a simplified version - in production you'd want more sophisticated logic
+    -- to populate historical data based on the actual data in each table
+    
+    CASE source_record.source_key
+      WHEN 'guardian_events' THEN
+        -- Only if guardian_events table exists
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'guardian_events') THEN
+          INSERT INTO data_availability_calendar (source_key, data_date, record_count, upload_count, latest_upload_at)
+          SELECT 
+            'guardian_events',
+            detection_time::DATE,
+            COUNT(*),
+            1,
+            MAX(created_at)
+          FROM guardian_events
+          WHERE detection_time >= CURRENT_DATE - INTERVAL '90 days'
+          GROUP BY detection_time::DATE
+          ON CONFLICT (source_key, data_date) DO NOTHING;
+        END IF;
+        
+      WHEN 'captive_payments' THEN
+        -- Only if captive_payment_records table exists
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'captive_payment_records') THEN
+          INSERT INTO data_availability_calendar (source_key, data_date, record_count, upload_count, latest_upload_at)
+          SELECT 
+            'captive_payments',
+            delivery_date,
+            COUNT(*),
+            1,
+            MAX(created_at)
+          FROM captive_payment_records
+          WHERE delivery_date >= CURRENT_DATE - INTERVAL '90 days'
+          GROUP BY delivery_date
+          ON CONFLICT (source_key, data_date) DO NOTHING;
+        END IF;
+        
+      WHEN 'data_import' THEN
+        -- Only if csv_upload_sessions table exists
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'csv_upload_sessions') THEN
+          INSERT INTO data_availability_calendar (source_key, data_date, record_count, upload_count, latest_upload_at, latest_upload_filename)
+          SELECT 
+            'data_import',
+            created_at::DATE,
+            COUNT(*),
+            COUNT(*),
+            MAX(created_at),
+            (array_agg(original_filename ORDER BY created_at DESC))[1]
+          FROM csv_upload_sessions
+          WHERE created_at >= CURRENT_DATE - INTERVAL '90 days'
+          GROUP BY created_at::DATE
+          ON CONFLICT (source_key, data_date) DO NOTHING;
+        END IF;
+      ELSE
+        -- Skip unknown source keys
+        NULL;
+    END CASE;
+  END LOOP;
+END $$;
+
+-- Initial freshness refresh
+SELECT refresh_data_freshness();
+
+SELECT 'Data freshness auto-update triggers created successfully' as result;
