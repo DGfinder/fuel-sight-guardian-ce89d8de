@@ -409,11 +409,11 @@ export class DriverProfileService {
           .gte('start_time', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
           .order('start_time', { ascending: false });
         
-        // Get LYTX events
+        // Get LYTX events using foreign key relationship
         const { data: lytxEvents } = await supabase
           .from('lytx_safety_events')
           .select('event_datetime, trigger_type, score, status')
-          .ilike('driver_name', `%${driver.first_name}%${driver.last_name}%`)
+          .eq('driver_id', driverId)
           .gte('event_datetime', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
         
         // Get Guardian events
@@ -487,12 +487,12 @@ export class DriverProfileService {
     
     const driverName = `${driver.first_name} ${driver.last_name}`;
     
-    // Get detailed events and trips
+    // Get detailed events and trips using foreign key relationships
     const [lytxResult, guardianResult, tripResult] = await Promise.all([
       supabase
         .from('lytx_safety_events')
         .select('event_datetime, trigger_type, score, status')
-        .ilike('driver_name', `%${driverName}%`)
+        .eq('driver_id', driverId)
         .gte('event_datetime', startDate)
         .order('event_datetime', { ascending: false }),
       

@@ -82,31 +82,39 @@ async function processDrivers(drivers) {
         continue;
       }
       
-      // Check if driver already exists
-      const { data: existingDriver } = await supabase
+      // Normalize fleet name to match database constraint
+      const normalizedFleet = driver.fleet === 'Great Southern' ? 'Great Southern Fuels' : driver.fleet;
+      
+      // Check if driver already exists (use proper query without .single())
+      const { data: existingDrivers, error: queryError } = await supabase
         .from('drivers')
-        .select('id')
+        .select('id, employee_id')
         .eq('first_name', firstName)
         .eq('last_name', lastName)
-        .eq('fleet', driver.fleet)
-        .single();
+        .eq('fleet', normalizedFleet);
       
-      if (existingDriver) {
-        console.log(`Driver already exists: ${driver.standard_driver_name}`);
+      if (queryError) {
+        console.error(`Error checking for existing driver ${driver.standard_driver_name}: ${queryError.message}`);
         skippedCount++;
         continue;
       }
       
-      // Insert the driver
+      if (existingDrivers && existingDrivers.length > 0) {
+        console.log(`Driver already exists: ${driver.standard_driver_name} (${existingDrivers.length} existing record(s))`);
+        skippedCount++;
+        continue;
+      }
+      
+      // Insert the driver (without auto-generated employee_id)
       const { data: newDriver, error: insertError } = await supabase
         .from('drivers')
         .insert({
           first_name: firstName,
           last_name: lastName,
-          fleet: driver.fleet,
+          fleet: normalizedFleet,
           depot: driver.depot || 'Unknown',
-          status: 'Active',
-          employee_id: generateEmployeeId(firstName, lastName)
+          status: 'Active'
+          // employee_id will be set manually when needed or from LYTX data
         })
         .select()
         .single();
@@ -225,10 +233,16 @@ async function insertNameMappings(driverId, driver) {
 }
 
 function generateEmployeeId(firstName, lastName) {
-  // Generate a simple employee ID based on name
+  // Generate a deterministic employee ID based on name (no timestamp)
   const prefix = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
-  const timestamp = Date.now().toString().slice(-4);
-  return `${prefix}${timestamp}`;
+  // Use a hash of the full name for consistency
+  const nameHash = (firstName + lastName).toLowerCase()
+    .split('')
+    .reduce((hash, char) => {
+      return ((hash << 5) - hash) + char.charCodeAt(0);
+    }, 0);
+  const suffix = Math.abs(nameHash).toString().padStart(4, '0').slice(-4);
+  return `${prefix}${suffix}`;
 }
 
 async function verifyImport() {
