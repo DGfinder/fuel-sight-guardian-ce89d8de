@@ -398,51 +398,60 @@ export class DriverProfileService {
     
     if (driversError) throw driversError;
     
-    // Get trip data for each driver in parallel
+    // Bulk fetch trip data for ALL drivers to reduce queries (optimized approach)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const driverIds = drivers.map(d => d.id);
+    
+    // Single query for all correlated trips
+    const { data: allCorrelatedTrips } = await supabase
+      .from('mtdata_trip_history')
+      .select('driver_id, start_time, distance_km, travel_time_hours')
+      .in('driver_id', driverIds)
+      .gte('start_time', thirtyDaysAgo);
+    
+    // Group trips by driver_id for fast lookup
+    const tripsByDriverId = new Map();
+    allCorrelatedTrips?.forEach(trip => {
+      if (!tripsByDriverId.has(trip.driver_id)) {
+        tripsByDriverId.set(trip.driver_id, []);
+      }
+      tripsByDriverId.get(trip.driver_id).push(trip);
+    });
+
+    // Bulk fetch LYTX events for all drivers
+    const { data: allLytxEvents } = await supabase
+      .from('lytx_safety_events')
+      .select('driver_id, event_datetime, trigger_type, score, status')
+      .in('driver_id', driverIds)
+      .gte('event_datetime', thirtyDaysAgo);
+    
+    // Group LYTX events by driver_id
+    const lytxEventsByDriverId = new Map();
+    allLytxEvents?.forEach(event => {
+      if (!lytxEventsByDriverId.has(event.driver_id)) {
+        lytxEventsByDriverId.set(event.driver_id, []);
+      }
+      lytxEventsByDriverId.get(event.driver_id).push(event);
+    });
+
+    // Get trip data for each driver using the bulk data
     const driverSummaries = await Promise.all(
       drivers.map(async (driver: any) => {
-        // Get trip metrics from MtData - unified approach using foreign keys and fallback
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        // Get trips and LYTX events for this driver from bulk data
+        const tripData = tripsByDriverId.get(driver.id) || [];
+        const lytxEvents = lytxEventsByDriverId.get(driver.id) || [];
         
-        // Primary: Get correlated trips via foreign key (much faster)
-        const { data: correlatedTrips } = await supabase
-          .from('mtdata_trip_history')
-          .select('start_time, distance_km, duration_hours, total_volume_litres')
-          .eq('driver_id', driver.id)
-          .gte('start_time', thirtyDaysAgo)
-          .order('start_time', { ascending: false });
-        
-        // Fallback: Get uncorrelated trips via name matching
-        const { data: uncorrelatedTrips } = await supabase
-          .from('mtdata_trip_history')
-          .select('start_time, distance_km, duration_hours, total_volume_litres')
-          .is('driver_id', null)
-          .ilike('driver_name', `%${driver.first_name}%${driver.last_name}%`)
-          .gte('start_time', thirtyDaysAgo)
-          .order('start_time', { ascending: false });
-        
-        // Combine both datasets for complete picture
-        const tripData = [...(correlatedTrips || []), ...(uncorrelatedTrips || [])];
-        
-        // Get LYTX events using foreign key relationship
-        const { data: lytxEvents } = await supabase
-          .from('lytx_safety_events')
-          .select('event_datetime, trigger_type, score, status')
-          .eq('driver_id', driverId)
-          .gte('event_datetime', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-        
-        // Get Guardian events
+        // Guardian events still need individual queries (no driver_id foreign key yet)
         const { data: guardianEvents } = await supabase
           .from('guardian_events')
           .select('detection_time, event_type, severity')
           .ilike('driver_name', `%${driver.first_name}%${driver.last_name}%`)
-          .gte('detection_time', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+          .gte('detection_time', thirtyDaysAgo);
         
-        // Calculate metrics including volume
+        // Calculate metrics - no volume data available in MtData
         const totalTrips = tripData?.length || 0;
         const totalKm = tripData?.reduce((sum, trip) => sum + (trip.distance_km || 0), 0) || 0;
-        const totalHours = tripData?.reduce((sum, trip) => sum + (trip.duration_hours || 0), 0) || 0;
-        const totalVolume = tripData?.reduce((sum, trip) => sum + (trip.total_volume_litres || 0), 0) || 0;
+        const totalHours = tripData?.reduce((sum, trip) => sum + (trip.travel_time_hours || 0), 0) || 0;
         const activeDays = new Set(tripData?.map(trip => trip.start_time?.split('T')[0])).size || 0;
         const lastActivity = tripData?.[0]?.start_time;
         
@@ -465,7 +474,7 @@ export class DriverProfileService {
           total_trips_30d: totalTrips,
           total_km_30d: Math.round(totalKm),
           total_hours_30d: Math.round(totalHours * 10) / 10,
-          total_volume_30d: Math.round(totalVolume),
+          total_volume_30d: 0, // Volume data not available in MtData
           active_days_30d: activeDays,
           last_activity_date: lastActivity,
           lytx_events_30d: lytxEventCount,
@@ -523,12 +532,12 @@ export class DriverProfileService {
       
       // Get MtData trips using unified approach (foreign key + name fallback)
       supabase.from('mtdata_trip_history')
-        .select('start_time, distance_km, duration_hours, total_volume_litres')
+        .select('start_time, distance_km, travel_time_hours')
         .eq('driver_id', driverId)
         .gte('start_time', startDate),
       
       supabase.from('mtdata_trip_history')
-        .select('start_time, distance_km, duration_hours, total_volume_litres')
+        .select('start_time, distance_km, travel_time_hours')
         .is('driver_id', null)
         .ilike('driver_name', `%${driverName}%`)
         .gte('start_time', startDate)
@@ -540,8 +549,7 @@ export class DriverProfileService {
     const trips = [...(correlatedTripsResult.data || []), ...(uncorrelatedTripsResult.data || [])];
     
     const totalKm = trips.reduce((sum, trip) => sum + (trip.distance_km || 0), 0);
-    const totalHours = trips.reduce((sum, trip) => sum + (trip.duration_hours || 0), 0);
-    const totalVolume = trips.reduce((sum, trip) => sum + (trip.total_volume_litres || 0), 0);
+    const totalHours = trips.reduce((sum, trip) => sum + (trip.travel_time_hours || 0), 0);
     
     return {
       lytx_events: lytxEvents.map(e => ({
