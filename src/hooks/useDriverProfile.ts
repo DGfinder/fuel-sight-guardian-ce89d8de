@@ -142,18 +142,52 @@ export function useInvalidateDriverProfile() {
 }
 
 /**
+ * Hook to get coachable LYTX events count
+ */
+export function useCoachableEventsCount(fleet?: string) {
+  return useQuery({
+    queryKey: [...driverProfileKeys.all, 'coachableEvents', fleet],
+    queryFn: () => DriverProfileService.getCoachableEventsCount(fleet),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
+}
+
+/**
+ * Hook to get Guardian fatigue events count
+ */
+export function useGuardianFatigueEventsCount(fleet?: string) {
+  return useQuery({
+    queryKey: [...driverProfileKeys.all, 'fatigueEvents', fleet],
+    queryFn: () => DriverProfileService.getGuardianFatigueEventsCount(fleet),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
+}
+
+/**
  * Combined hook for driver management dashboard
  */
 export function useDriverManagementData(fleet?: string) {
   const driverSummaries = useDriverSummaries(fleet, {
     refetchInterval: 5 * 60 * 1000, // 5 minutes
+    limit: 200, // Ensure we fetch all drivers for management view
   });
+
+  const coachableEvents = useCoachableEventsCount(fleet);
+  const fatigueEvents = useGuardianFatigueEventsCount(fleet);
 
   return {
     drivers: driverSummaries.data || [],
-    isLoading: driverSummaries.isLoading,
-    error: driverSummaries.error,
-    refetch: driverSummaries.refetch,
+    isLoading: driverSummaries.isLoading || coachableEvents.isLoading || fatigueEvents.isLoading,
+    error: driverSummaries.error || coachableEvents.error || fatigueEvents.error,
+    refetch: () => {
+      driverSummaries.refetch();
+      coachableEvents.refetch();
+      fatigueEvents.refetch();
+    },
+    coachableEventsCount: coachableEvents.data || 0,
+    fatigueEventsCount: fatigueEvents.data || 0,
   };
 }
 

@@ -370,9 +370,80 @@ export class DriverProfileService {
   }
   
   /**
+   * Get coachable LYTX events count (events that need coaching)
+   */
+  static async getCoachableEventsCount(fleet?: string): Promise<number> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    
+    let query = supabase
+      .from('lytx_safety_events')
+      .select('id', { count: 'exact', head: true })
+      .gte('event_datetime', thirtyDaysAgo)
+      .or('status.is.null,status.neq.Face-To-Face'); // Events that haven't been coached yet
+    
+    if (fleet) {
+      // Filter by fleet if specified
+      const { data: driverIds } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('fleet', fleet);
+      
+      if (driverIds?.length) {
+        query = query.in('driver_id', driverIds.map(d => d.id));
+      }
+    }
+    
+    const { count, error } = await query;
+    
+    if (error) {
+      console.error('Error getting coachable events:', error);
+      return 0;
+    }
+    
+    return count || 0;
+  }
+
+  /**
+   * Get Guardian fatigue events count (verified fatigue alerts only)
+   */
+  static async getGuardianFatigueEventsCount(fleet?: string): Promise<number> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    
+    let query = supabase
+      .from('guardian_events')
+      .select('id', { count: 'exact', head: true })
+      .gte('detection_time', thirtyDaysAgo)
+      .eq('event_type', 'Fatigue') // Filter specifically for fatigue events
+      .eq('confirmation', 'verified'); // Only count verified/confirmed fatigue events
+    
+    if (fleet) {
+      // Guardian events use name matching since no driver_id foreign key yet
+      const { data: drivers } = await supabase
+        .from('drivers')
+        .select('first_name, last_name')
+        .eq('fleet', fleet);
+      
+      if (drivers?.length) {
+        const nameFilters = drivers.map(d => `%${d.first_name}%${d.last_name}%`);
+        // Use OR condition for name matching
+        query = query.or(nameFilters.map(name => `driver_name.ilike.${name}`).join(','));
+      }
+    }
+    
+    const { count, error } = await query;
+    
+    if (error) {
+      console.error('Error getting Guardian fatigue events:', error);
+      return 0;
+    }
+    
+    return count || 0;
+  }
+
+  /**
    * Get all driver summaries with their actual performance metrics
    */
-  static async getDriverSummaries(fleet?: string, limit: number = 50): Promise<DriverProfileSummary[]> {
+  static async getDriverSummaries(fleet?: string, limit: number = 200): Promise<DriverProfileSummary[]> {
     
     // Get drivers with real metrics from multiple data sources
     let driversQuery = supabase

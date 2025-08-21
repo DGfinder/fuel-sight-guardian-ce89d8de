@@ -56,7 +56,9 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
     drivers,
     isLoading,
     error,
-    refetch
+    refetch,
+    coachableEventsCount,
+    fatigueEventsCount
   } = useDriverManagementData(selectedFleet);
 
   // Get real-time alerts
@@ -182,32 +184,39 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
     setCurrentPage(1);
   }, [searchTerm, riskFilter, statusFilter, selectedFleet]);
 
-  // Calculate summary statistics
+  // Calculate summary statistics with meaningful metrics
   const summaryStats = useMemo(() => {
     if (!drivers.length) {
       return {
         totalDrivers: 0,
         totalTrips: 0,
         totalKm: 0,
-        averageSafetyScore: 0,
+        activeDrivers: 0,
         totalLytxEvents: 0,
         totalGuardianEvents: 0,
-        totalHighRiskEvents: 0,
-        activeDrivers: 0
+        coachableEvents: 0,
+        guardianFatigueEvents: 0,
+        inactiveDrivers: 0
       };
     }
+    
+    const activeDrivers = drivers.filter(d => d.active_days_30d > 0);
+    const inactiveDrivers = drivers.filter(d => d.active_days_30d === 0);
     
     return {
       totalDrivers: drivers.length,
       totalTrips: drivers.reduce((sum, d) => sum + d.total_trips_30d, 0),
       totalKm: drivers.reduce((sum, d) => sum + d.total_km_30d, 0),
-      averageSafetyScore: Math.round(drivers.reduce((sum, d) => sum + d.overall_safety_score, 0) / drivers.length),
+      activeDrivers: activeDrivers.length,
+      inactiveDrivers: inactiveDrivers.length,
       totalLytxEvents: drivers.reduce((sum, d) => sum + d.lytx_events_30d, 0),
       totalGuardianEvents: drivers.reduce((sum, d) => sum + d.guardian_events_30d, 0),
-      totalHighRiskEvents: drivers.reduce((sum, d) => sum + d.high_risk_events_30d, 0),
-      activeDrivers: drivers.filter(d => d.active_days_30d > 0).length
+      // Coachable events - Actual LYTX events that need coaching (not yet Face-To-Face)
+      coachableEvents: coachableEventsCount,
+      // Guardian fatigue events - Actual Guardian events filtered for fatigue type
+      guardianFatigueEvents: fatigueEventsCount
     };
-  }, [drivers]);
+  }, [drivers, coachableEventsCount, fatigueEventsCount]);
 
   // Selection handlers
   const handleSelectAll = () => {
@@ -478,26 +487,8 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
               <div className="mt-2 text-xs text-gray-600">
                 <span className="text-green-600 font-medium">{summaryStats.activeDrivers} Active</span>
                 <span className="mx-1">•</span>
-                <span className="text-gray-600">{summaryStats.totalTrips} Trips</span>
+                <span className="text-gray-500">{summaryStats.inactiveDrivers} Inactive</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Avg Safety Score</p>
-                  <p className={`text-2xl font-bold ${
-                    summaryStats.averageSafetyScore >= 80 ? 'text-green-600' :
-                    summaryStats.averageSafetyScore >= 60 ? 'text-yellow-600' : 'text-red-600'
-                  }`}>
-                    {summaryStats.averageSafetyScore}
-                  </p>
-                </div>
-                <Shield className="h-6 w-6 text-blue-500" />
-              </div>
-              <p className="text-xs text-gray-600 mt-2">Fleet average</p>
             </CardContent>
           </Card>
 
@@ -511,9 +502,9 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                 <TrendingUp className="h-6 w-6 text-green-500" />
               </div>
               <div className="mt-2 text-xs text-gray-600">
-                <span>LYTX: {summaryStats.totalLytxEvents}</span>
+                <span className="text-blue-600 font-medium">{summaryStats.totalTrips.toLocaleString()} Trips</span>
                 <span className="mx-1">•</span>
-                <span>Guardian: {summaryStats.totalGuardianEvents}</span>
+                <span className="text-gray-600">{summaryStats.activeDrivers} Active Drivers</span>
               </div>
             </CardContent>
           </Card>
@@ -522,12 +513,33 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Safety Events</p>
-                  <p className="text-2xl font-bold text-orange-600">{summaryStats.totalHighRiskEvents}</p>
+                  <p className="text-sm font-medium text-gray-600">Coachable Events</p>
+                  <p className="text-2xl font-bold text-orange-600">{summaryStats.coachableEvents}</p>
                 </div>
                 <AlertTriangle className="h-6 w-6 text-orange-500" />
               </div>
-              <p className="text-xs text-gray-600 mt-2">High-risk events</p>
+              <div className="mt-2 text-xs text-gray-600">
+                <span className="text-orange-600 font-medium">LYTX events</span>
+                <span className="mx-1">•</span>
+                <span className="text-gray-600">Need coaching</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Fatigue Events</p>
+                  <p className="text-2xl font-bold text-red-600">{summaryStats.guardianFatigueEvents}</p>
+                </div>
+                <Shield className="h-6 w-6 text-red-500" />
+              </div>
+              <div className="mt-2 text-xs text-gray-600">
+                <span className="text-red-600 font-medium">Confirmed fatigue</span>
+                <span className="mx-1">•</span>
+                <span className="text-gray-600">Verified events</span>
+              </div>
             </CardContent>
           </Card>
         </div>

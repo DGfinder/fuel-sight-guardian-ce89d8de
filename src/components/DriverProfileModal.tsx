@@ -4,7 +4,7 @@
  * Integrates MtData trips, LYTX safety events, and Guardian distraction/fatigue monitoring
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, User, BarChart3, Car, Shield, TrendingUp, 
   MapPin, Clock, Award, AlertTriangle, FileText,
@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import DriverProfileService, { type UnifiedDriverProfile } from '@/services/driverProfileService';
+import { useOptimizedDriverProfile } from '@/hooks/useDriverProfile';
 
 interface DriverProfileModalProps {
   driverId: string;
@@ -40,17 +41,26 @@ export const DriverProfileModal: React.FC<DriverProfileModalProps> = ({
   const [selectedTab, setSelectedTab] = useState<TabId>('overview');
   const [currentTimeframe, setCurrentTimeframe] = useState(timeframe);
 
-  // Fetch comprehensive driver profile
+  // Fetch comprehensive driver profile using optimized hook
   const { 
     data: driverProfile, 
     isLoading, 
     error 
-  } = useQuery({
-    queryKey: ['driverProfile', driverId, currentTimeframe],
-    queryFn: () => DriverProfileService.getDriverProfile(driverId, currentTimeframe),
-    enabled: isOpen && !!driverId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  } = useOptimizedDriverProfile(
+    driverId, 
+    currentTimeframe
+  );
+
+  // Only show modal when valid driver ID is provided
+  const shouldShowModal = isOpen && !!driverId && driverId.trim() !== '';
+  
+  // Reset tab when modal opens
+  useEffect(() => {
+    if (shouldShowModal) {
+      setSelectedTab('overview');
+      setCurrentTimeframe(timeframe);
+    }
+  }, [shouldShowModal, timeframe]);
 
   const handleExportReport = async () => {
     if (!driverProfile) return;
@@ -79,7 +89,7 @@ export const DriverProfileModal: React.FC<DriverProfileModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!shouldShowModal) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
