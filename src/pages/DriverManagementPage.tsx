@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import DataCentreLayout from '@/components/DataCentreLayout';
 import { useDriverManagementData, useDriverAlerts, useDriverSearch } from '@/hooks/useDriverProfile';
-import DriverAnalyticsModal from '@/components/modals/DriverAnalyticsModal';
+import { DriverProfileModal } from '@/components/DriverProfileModal';
 
 type SortField = 'name' | 'fleet' | 'safety_score' | 'lytx_events' | 'guardian_events' | 'high_risk_events' | 'last_activity' | 'total_trips';
 type SortDirection = 'asc' | 'desc';
@@ -255,6 +255,45 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
       case 'low': return 'bg-green-100 text-green-800 border-green-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  // Calculate meaningful safety score display
+  const getSafetyScoreDisplay = (driver: any) => {
+    // Use LYTX score if available
+    if (driver.lytx_safety_score && driver.lytx_safety_score > 0) {
+      return driver.lytx_safety_score;
+    }
+    
+    // Use overall safety score if available
+    if (driver.overall_safety_score && driver.overall_safety_score > 0) {
+      return driver.overall_safety_score;
+    }
+    
+    // Calculate basic score from events if we have activity data
+    if (driver.total_trips_30d > 0) {
+      // Start with a base score and deduct for events
+      const eventPenalty = (driver.lytx_events_30d * 5) + (driver.guardian_events_30d * 3) + (driver.high_risk_events_30d * 10);
+      const calculatedScore = Math.max(0, Math.min(100, 85 - eventPenalty));
+      return calculatedScore;
+    }
+    
+    return null; // No data available
+  };
+
+  // Get safety score status and color
+  const getSafetyScoreStatus = (score: number | null, driver: any) => {
+    if (score === null) {
+      if (driver.total_trips_30d === 0) {
+        return { display: 'No Activity', color: 'bg-gray-100 text-gray-600', badge: 'INACTIVE' };
+      }
+      return { display: 'Pending', color: 'bg-blue-100 text-blue-600', badge: 'PENDING' };
+    }
+    
+    if (score >= 90) return { display: score.toString(), color: 'bg-green-100 text-green-600', badge: 'EXCELLENT' };
+    if (score >= 80) return { display: score.toString(), color: 'bg-green-100 text-green-700', badge: 'GOOD' };
+    if (score >= 70) return { display: score.toString(), color: 'bg-yellow-100 text-yellow-700', badge: 'FAIR' };
+    if (score >= 60) return { display: score.toString(), color: 'bg-orange-100 text-orange-700', badge: 'NEEDS IMPROVEMENT' };
+    return { display: score.toString(), color: 'bg-red-100 text-red-700', badge: 'CRITICAL' };
   };
 
   // Days since last activity
@@ -689,14 +728,26 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                           <div>
                             <span className="text-gray-500">Safety Score:</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{driver.overall_safety_score || 'N/A'}</span>
-                              <Badge 
-                                variant={riskLevel === 'critical' ? 'destructive' : 
-                                        riskLevel === 'high' ? 'default' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {riskLevel.toUpperCase()}
-                              </Badge>
+                              {(() => {
+                                const safetyScore = getSafetyScoreDisplay(driver);
+                                const safetyStatus = getSafetyScoreStatus(safetyScore, driver);
+                                return (
+                                  <>
+                                    <span className="font-medium">{safetyStatus.display}</span>
+                                    <Badge 
+                                      variant={
+                                        safetyStatus.badge === 'CRITICAL' ? 'destructive' :
+                                        safetyStatus.badge === 'NEEDS IMPROVEMENT' ? 'default' :
+                                        safetyStatus.badge === 'EXCELLENT' || safetyStatus.badge === 'GOOD' ? 'secondary' :
+                                        'outline'
+                                      }
+                                      className="text-xs"
+                                    >
+                                      {safetyStatus.badge}
+                                    </Badge>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                           <div>
@@ -861,7 +912,16 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                       return (
                         <tr
                           key={driver.id}
-                          className={`hover:bg-gray-50 transition-colors ${
+                          onClick={(e) => {
+                            // Don't trigger row click if clicking on checkbox or action buttons
+                            if ((e.target as HTMLElement).closest('input[type="checkbox"]') || 
+                                (e.target as HTMLElement).closest('button') ||
+                                (e.target as HTMLElement).closest('[role="menuitem"]')) {
+                              return;
+                            }
+                            handleDriverClick(driver.id);
+                          }}
+                          className={`hover:bg-gray-50 transition-colors cursor-pointer ${
                             riskLevel === 'critical' ? 'bg-red-50' :
                             riskLevel === 'high' ? 'bg-orange-50' :
                             riskLevel === 'medium' ? 'bg-yellow-50' :
@@ -897,16 +957,28 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <div className={`px-2 py-1 text-xs font-medium rounded-full border ${riskColor}`}>
-                                {driver.overall_safety_score || 'N/A'}
-                              </div>
-                              <Badge 
-                                variant={riskLevel === 'critical' ? 'destructive' : 
-                                        riskLevel === 'high' ? 'default' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {riskLevel.toUpperCase()}
-                              </Badge>
+                              {(() => {
+                                const safetyScore = getSafetyScoreDisplay(driver);
+                                const safetyStatus = getSafetyScoreStatus(safetyScore, driver);
+                                return (
+                                  <>
+                                    <div className={`px-2 py-1 text-xs font-medium rounded-full border ${safetyStatus.color}`}>
+                                      {safetyStatus.display}
+                                    </div>
+                                    <Badge 
+                                      variant={
+                                        safetyStatus.badge === 'CRITICAL' ? 'destructive' :
+                                        safetyStatus.badge === 'NEEDS IMPROVEMENT' ? 'default' :
+                                        safetyStatus.badge === 'EXCELLENT' || safetyStatus.badge === 'GOOD' ? 'secondary' :
+                                        'outline'
+                                      }
+                                      className="text-xs"
+                                    >
+                                      {safetyStatus.badge}
+                                    </Badge>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -1296,9 +1368,10 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
         </Card>
       </div>
     </DataCentreLayout>
-    <DriverAnalyticsModal
-      driverId={selectedDriverId}
-      open={!!selectedDriverId}
+    <DriverProfileModal
+      driverId={selectedDriverId || ''}
+      driverName={selectedDriverId ? (drivers.find(d => d.id === selectedDriverId)?.full_name || 'Driver') : ''}
+      isOpen={!!selectedDriverId}
       onClose={() => setSelectedDriverId(null)}
     />
     </>

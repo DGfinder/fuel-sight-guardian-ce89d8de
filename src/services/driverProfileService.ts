@@ -5,7 +5,6 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import type { DriverProfile } from '@/types/fleet';
 
 // Core interfaces for unified driver profile data
 export interface DriverProfileSummary {
@@ -27,6 +26,8 @@ export interface DriverProfileSummary {
   // Activity Summary
   total_trips_30d: number;
   total_km_30d: number;
+  total_hours_30d: number;
+  total_volume_30d: number; // in litres
   active_days_30d: number;
   last_activity_date?: string;
   
@@ -41,8 +42,11 @@ export interface DriverTripAnalytics {
   // Trip Statistics
   total_trips: number;
   total_km: number;
+  total_hours: number;
+  total_volume: number; // in litres
   avg_trip_distance: number;
   avg_trip_duration: number;
+  avg_trip_volume: number; // in litres
   
   // Vehicle Utilization
   vehicles_driven: number;
@@ -51,13 +55,19 @@ export interface DriverTripAnalytics {
   
   // Time Analysis
   most_active_hours: { hour: number; trip_count: number }[];
-  daily_patterns: { day: string; trips: number; km: number }[];
-  monthly_trends: { month: string; trips: number; km: number }[];
+  daily_patterns: { day: string; trips: number; km: number; hours: number; volume: number }[];
+  monthly_trends: { month: string; trips: number; km: number; hours: number; volume: number }[];
+  
+  // Productivity Metrics
+  volume_per_hour: number; // litres per hour
+  km_per_hour: number;
+  deliveries_per_trip: number;
   
   // Performance Metrics
   fuel_efficiency_score?: number;
   route_optimization_score?: number;
   vehicle_care_score?: number;
+  volume_efficiency_score?: number;
 }
 
 export interface DriverSafetyAnalytics {
@@ -95,6 +105,9 @@ export interface DriverPerformanceComparison {
     safety_score_vs_fleet: number;
     trips_vs_fleet: number;
     km_vs_fleet: number;
+    volume_vs_fleet: number;
+    productivity_vs_fleet: number;
+    hours_vs_fleet: number;
   };
   improvement_areas: string[];
   strengths: string[];
@@ -193,6 +206,8 @@ export class DriverProfileService {
       guardian_risk_level: result.guardian_risk_level || 'Low',
       total_trips_30d: result.total_trips || 0,
       total_km_30d: result.total_km || 0,
+      total_hours_30d: result.total_hours || 0,
+      total_volume_30d: result.total_volume || 0,
       active_days_30d: result.active_days || 0,
       last_activity_date: result.last_activity_date,
       lytx_events_30d: result.lytx_events || 0,
@@ -222,17 +237,24 @@ export class DriverProfileService {
     return {
       total_trips: result.total_trips || 0,
       total_km: result.total_km || 0,
+      total_hours: result.total_hours || 0,
+      total_volume: result.total_volume || 0,
       avg_trip_distance: result.avg_trip_distance || 0,
       avg_trip_duration: result.avg_trip_duration || 0,
+      avg_trip_volume: result.avg_trip_volume || 0,
       vehicles_driven: result.vehicles_driven || 0,
       primary_vehicle: result.primary_vehicle,
       depot_coverage: result.depot_coverage || [],
       most_active_hours: result.most_active_hours || [],
       daily_patterns: result.daily_patterns || [],
       monthly_trends: result.monthly_trends || [],
+      volume_per_hour: result.volume_per_hour || 0,
+      km_per_hour: result.km_per_hour || 0,
+      deliveries_per_trip: result.deliveries_per_trip || 0,
       fuel_efficiency_score: result.fuel_efficiency_score,
       route_optimization_score: result.route_optimization_score,
       vehicle_care_score: result.vehicle_care_score,
+      volume_efficiency_score: result.volume_efficiency_score,
     };
   }
   

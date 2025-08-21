@@ -4,14 +4,14 @@
  * Integrates MtData trips, LYTX safety events, and Guardian distraction/fatigue monitoring
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
   X, User, BarChart3, Car, Shield, TrendingUp, 
   MapPin, Clock, Award, AlertTriangle, FileText,
-  Calendar, Activity, Target, CheckCircle
+  Calendar, Activity, Target, CheckCircle, Droplet, Gauge, Zap
 } from 'lucide-react';
 import { 
-  LineChart, Line, BarChart, Bar, PieChart, Cell,
+  Line, BarChart, Bar, PieChart, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ComposedChart, Area, AreaChart
 } from 'recharts';
@@ -29,12 +29,6 @@ interface DriverProfileModalProps {
 type TabId = 'overview' | 'trips' | 'safety' | 'guardian' | 'performance';
 
 const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
-const RISK_COLORS = {
-  'Low': '#10B981',
-  'Medium': '#F59E0B', 
-  'High': '#EF4444',
-  'Critical': '#DC2626'
-};
 
 export const DriverProfileModal: React.FC<DriverProfileModalProps> = ({
   driverId,
@@ -264,8 +258,23 @@ const OverviewTab: React.FC<{ driverProfile: UnifiedDriverProfile }> = ({ driver
     ? Math.round(driverProfile.summary.total_km_30d / driverProfile.summary.total_trips_30d)
     : 0;
 
-  // Estimate hours worked (assuming 8 hours per active day - this could be improved with actual data)
-  const estimatedHours = driverProfile.summary.active_days_30d * 8;
+  // Use actual hours from data, fallback to estimated if not available
+  const actualHours = driverProfile.summary.total_hours_30d || (driverProfile.summary.active_days_30d * 8);
+  
+  // Volume metrics
+  const totalVolumeKL = driverProfile.summary.total_volume_30d / 1000; // Convert litres to kilolitres
+  const volumePerTrip = driverProfile.summary.total_trips_30d > 0 
+    ? Math.round(driverProfile.summary.total_volume_30d / driverProfile.summary.total_trips_30d)
+    : 0;
+  
+  // Productivity metrics
+  const volumePerHour = actualHours > 0 
+    ? Math.round(driverProfile.summary.total_volume_30d / actualHours)
+    : 0;
+  
+  const kmPerHour = actualHours > 0 
+    ? Math.round(driverProfile.summary.total_km_30d / actualHours * 10) / 10
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -279,29 +288,29 @@ const OverviewTab: React.FC<{ driverProfile: UnifiedDriverProfile }> = ({ driver
             </div>
             <Car className="h-8 w-8 text-blue-500" />
           </div>
-          <p className="text-xs text-blue-500 mt-1">Last 30 days</p>
+          <p className="text-xs text-blue-500 mt-1">{kmPerHour} km/hr average</p>
         </div>
 
         <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-green-700">{estimatedHours}</p>
+              <p className="text-2xl font-bold text-green-700">{Math.round(actualHours)}</p>
               <p className="text-sm text-green-600">Hours Worked</p>
             </div>
             <Clock className="h-8 w-8 text-green-500" />
           </div>
-          <p className="text-xs text-green-500 mt-1">Estimated</p>
+          <p className="text-xs text-green-500 mt-1">{driverProfile.summary.total_hours_30d ? 'Actual hours' : 'Estimated'}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200">
+        <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 p-4 rounded-xl border border-cyan-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-orange-700">{driverProfile.summary.total_trips_30d}</p>
-              <p className="text-sm text-orange-600">Total Trips</p>
+              <p className="text-2xl font-bold text-cyan-700">{totalVolumeKL.toFixed(1)}</p>
+              <p className="text-sm text-cyan-600">Volume (kL)</p>
             </div>
-            <MapPin className="h-8 w-8 text-orange-500" />
+            <Droplet className="h-8 w-8 text-cyan-500" />
           </div>
-          <p className="text-xs text-orange-500 mt-1">{averageTripsPerDay} per day avg</p>
+          <p className="text-xs text-cyan-500 mt-1">{volumePerHour} L/hr productivity</p>
         </div>
 
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
@@ -313,6 +322,53 @@ const OverviewTab: React.FC<{ driverProfile: UnifiedDriverProfile }> = ({ driver
             <Shield className="h-8 w-8 text-purple-500" />
           </div>
           <p className="text-xs text-purple-500 mt-1">Out of 100</p>
+        </div>
+      </div>
+
+      {/* Additional Productivity Metrics - Second Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-orange-700">{driverProfile.summary.total_trips_30d}</p>
+              <p className="text-sm text-orange-600">Total Trips</p>
+            </div>
+            <MapPin className="h-8 w-8 text-orange-500" />
+          </div>
+          <p className="text-xs text-orange-500 mt-1">{averageTripsPerDay} per day avg</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-xl border border-indigo-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-indigo-700">{volumePerTrip.toLocaleString()}</p>
+              <p className="text-sm text-indigo-600">Litres/Trip</p>
+            </div>
+            <Gauge className="h-8 w-8 text-indigo-500" />
+          </div>
+          <p className="text-xs text-indigo-500 mt-1">Volume efficiency</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-teal-50 to-teal-100 p-4 rounded-xl border border-teal-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-teal-700">{averageKmPerTrip}</p>
+              <p className="text-sm text-teal-600">KM/Trip</p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-teal-500" />
+          </div>
+          <p className="text-xs text-teal-500 mt-1">Route efficiency</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-xl border border-yellow-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-yellow-700">{Math.round((volumePerHour / 1000) * 10) / 10}</p>
+              <p className="text-sm text-yellow-600">kL/Hour</p>
+            </div>
+            <Zap className="h-8 w-8 text-yellow-500" />
+          </div>
+          <p className="text-xs text-yellow-500 mt-1">Productivity rate</p>
         </div>
       </div>
 
@@ -367,16 +423,18 @@ const OverviewTab: React.FC<{ driverProfile: UnifiedDriverProfile }> = ({ driver
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-gray-600" />
-            Fleet Ranking
+            Fleet Ranking & Benchmarks
           </h3>
           <div className="space-y-4">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-blue-600">#{driverProfile.performance_comparison.fleet_rank}</p>
-              <p className="text-sm text-gray-600">Fleet Rank</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-green-600">{driverProfile.performance_comparison.fleet_percentile}%</p>
-              <p className="text-sm text-gray-600">Percentile</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-blue-600">#{driverProfile.performance_comparison.fleet_rank}</p>
+                <p className="text-sm text-gray-600">Fleet Rank</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-green-600">{driverProfile.performance_comparison.fleet_percentile}%</p>
+                <p className="text-sm text-gray-600">Percentile</p>
+              </div>
             </div>
             
             <div className="space-y-2">
@@ -399,6 +457,38 @@ const OverviewTab: React.FC<{ driverProfile: UnifiedDriverProfile }> = ({ driver
                   {driverProfile.performance_comparison.peer_comparison.km_vs_fleet > 0 ? '+' : ''}
                   {driverProfile.performance_comparison.peer_comparison.km_vs_fleet}%
                 </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">vs Fleet Avg (Volume):</span>
+                <span className={`font-medium ${
+                  driverProfile.performance_comparison.peer_comparison.volume_vs_fleet > 0 
+                    ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {driverProfile.performance_comparison.peer_comparison.volume_vs_fleet > 0 ? '+' : ''}
+                  {driverProfile.performance_comparison.peer_comparison.volume_vs_fleet || 0}%
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">vs Fleet Avg (Productivity):</span>
+                <span className={`font-medium ${
+                  driverProfile.performance_comparison.peer_comparison.productivity_vs_fleet > 0 
+                    ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {driverProfile.performance_comparison.peer_comparison.productivity_vs_fleet > 0 ? '+' : ''}
+                  {driverProfile.performance_comparison.peer_comparison.productivity_vs_fleet || 0}%
+                </span>
+              </div>
+            </div>
+
+            {/* Performance Indicators */}
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              <div className="text-center p-2 bg-cyan-50 rounded">
+                <p className="text-sm font-bold text-cyan-700">{Math.round((volumePerHour / 1000) * 10) / 10}</p>
+                <p className="text-xs text-cyan-600">kL/hr Rate</p>
+              </div>
+              <div className="text-center p-2 bg-blue-50 rounded">
+                <p className="text-sm font-bold text-blue-700">{kmPerHour}</p>
+                <p className="text-xs text-blue-600">km/hr Rate</p>
               </div>
             </div>
           </div>
@@ -517,6 +607,135 @@ const OverviewTab: React.FC<{ driverProfile: UnifiedDriverProfile }> = ({ driver
           </div>
         </div>
       </div>
+
+      {/* Performance Trends Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Monthly Performance Trends */}
+        {driverProfile.trip_analytics.monthly_trends.length > 0 && (
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-gray-600" />
+              Monthly Performance Trends
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={driverProfile.trip_analytics.monthly_trends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis yAxisId="primary" orientation="left" />
+                  <YAxis yAxisId="secondary" orientation="right" />
+                  <Tooltip 
+                    formatter={(value, name) => {
+                      if (name === 'volume') return [`${Math.round(value / 1000)} kL`, 'Volume'];
+                      if (name === 'hours') return [`${Math.round(value)} hrs`, 'Hours'];
+                      if (name === 'km') return [`${Math.round(value)} km`, 'Distance'];
+                      return [value, name];
+                    }}
+                  />
+                  <Bar yAxisId="primary" dataKey="volume" fill="#06B6D4" name="volume" />
+                  <Line yAxisId="secondary" type="monotone" dataKey="km" stroke="#3B82F6" strokeWidth={2} name="km" />
+                  <Line yAxisId="secondary" type="monotone" dataKey="hours" stroke="#10B981" strokeWidth={2} name="hours" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Productivity Analysis */}
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Zap className="h-5 w-5 text-gray-600" />
+            Productivity Analysis
+          </h3>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg">
+                <p className="text-2xl font-bold text-cyan-700">{volumePerHour}</p>
+                <p className="text-sm text-cyan-600">Litres/Hour</p>
+                <p className="text-xs text-cyan-500 mt-1">Volume Rate</p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                <p className="text-2xl font-bold text-blue-700">{kmPerHour}</p>
+                <p className="text-sm text-blue-600">KM/Hour</p>
+                <p className="text-xs text-blue-500 mt-1">Travel Rate</p>
+              </div>
+            </div>
+            
+            {driverProfile.trip_analytics.deliveries_per_trip > 0 && (
+              <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
+                <p className="text-2xl font-bold text-green-700">{driverProfile.trip_analytics.deliveries_per_trip.toFixed(1)}</p>
+                <p className="text-sm text-green-600">Deliveries/Trip</p>
+                <p className="text-xs text-green-500 mt-1">Efficiency Rate</p>
+              </div>
+            )}
+
+            {/* Efficiency Scores */}
+            <div className="space-y-2">
+              {driverProfile.trip_analytics.fuel_efficiency_score && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Fuel Efficiency:</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full" 
+                        style={{ width: `${driverProfile.trip_analytics.fuel_efficiency_score}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium">{driverProfile.trip_analytics.fuel_efficiency_score}%</span>
+                  </div>
+                </div>
+              )}
+              
+              {driverProfile.trip_analytics.volume_efficiency_score && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Volume Efficiency:</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-cyan-500 h-2 rounded-full" 
+                        style={{ width: `${driverProfile.trip_analytics.volume_efficiency_score}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium">{driverProfile.trip_analytics.volume_efficiency_score}%</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Daily Patterns with Volume */}
+      {driverProfile.trip_analytics.daily_patterns.length > 0 && (
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-gray-600" />
+            Daily Activity Patterns
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={driverProfile.trip_analytics.daily_patterns}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" />
+                <YAxis yAxisId="left" orientation="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <Tooltip 
+                  formatter={(value, name) => {
+                    if (name === 'volume') return [`${Math.round(value / 1000)} kL`, 'Volume'];
+                    if (name === 'hours') return [`${Math.round(value)} hrs`, 'Hours'];
+                    if (name === 'trips') return [`${value}`, 'Trips'];
+                    if (name === 'km') return [`${Math.round(value)} km`, 'Distance'];
+                    return [value, name];
+                  }}
+                />
+                <Bar yAxisId="left" dataKey="trips" fill="#6366F1" name="trips" />
+                <Bar yAxisId="right" dataKey="volume" fill="#06B6D4" name="volume" />
+                <Line yAxisId="right" type="monotone" dataKey="hours" stroke="#10B981" strokeWidth={2} name="hours" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
