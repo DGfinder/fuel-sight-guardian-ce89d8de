@@ -526,7 +526,8 @@ export class DriverProfileService {
         const activeDays = new Set(tripData?.map(trip => trip.start_time?.split('T')[0])).size || 0;
         const lastActivity = tripData?.[0]?.start_time;
         
-        const lytxEventCount = lytxEvents?.length || 0;
+        // Count only coachable events (not "Face-To-Face" status)
+        const coachableEventCount = lytxEvents?.filter(e => !e.status || e.status !== 'Face-To-Face').length || 0;
         const guardianEventCount = guardianEvents?.length || 0;
         const coachingSessions = lytxEvents?.filter(e => e.status === 'Face-To-Face').length || 0;
         
@@ -548,7 +549,7 @@ export class DriverProfileService {
           total_volume_30d: 0, // Volume data not available in MtData
           active_days_30d: activeDays,
           last_activity_date: lastActivity,
-          lytx_events_30d: lytxEventCount,
+          lytx_events_30d: coachableEventCount,
           guardian_events_30d: guardianEventCount,
           high_risk_events_30d: lytxEvents?.filter(e => (e.score || 0) >= 7).length || 0,
           coaching_sessions_30d: coachingSessions,

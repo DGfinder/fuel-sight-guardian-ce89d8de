@@ -77,6 +77,12 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
     enabled: searchTerm.length >= 2
   });
 
+  // Days since last activity helper function
+  const getDaysSinceActivity = (lastActivity: string | null): number | null => {
+    if (!lastActivity) return null;
+    return Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24));
+  };
+
   // Filter, sort, and paginate drivers
   const filteredAndSortedDrivers = useMemo(() => {
     let filtered = drivers.filter(driver => {
@@ -313,11 +319,6 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
     return { display: score.toString(), color: 'bg-red-100 text-red-700', badge: 'CRITICAL' };
   };
 
-  // Days since last activity
-  const getDaysSinceActivity = (lastActivity: string | null): number | null => {
-    if (!lastActivity) return null;
-    return Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24));
-  };
 
   // Export selected drivers
   const handleExportSelected = async () => {
