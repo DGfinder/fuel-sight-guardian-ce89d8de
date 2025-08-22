@@ -8,7 +8,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   Users, AlertTriangle, TrendingUp, Shield, Download, Search, Filter, Eye, User,
   ChevronDown, ChevronUp, ArrowUpDown, MoreVertical, CheckSquare, Square,
-  Calendar, Activity, Phone, Mail, FileText, Settings
+  Calendar, Activity, Phone, Mail, FileText, Settings, Cog
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -249,6 +249,16 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
       newSelection.add(driverId);
     }
     setSelectedDrivers(newSelection);
+  };
+
+  const handleSelectAllPages = () => {
+    if (selectedDrivers.size === filteredAndSortedDrivers.length) {
+      // All are selected, so deselect all
+      setSelectedDrivers(new Set());
+    } else {
+      // Select all drivers across all pages
+      setSelectedDrivers(new Set(filteredAndSortedDrivers.map(d => d.id)));
+    }
   };
 
   // Sorting handler
@@ -1081,7 +1091,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                                     Contact Driver
                                   </DropdownMenuItem>
                                   <DropdownMenuItem>
-                                    <Settings className="h-4 w-4 mr-2" />
+                                    <Cog className="h-4 w-4 mr-2" />
                                     Manage
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
