@@ -43,7 +43,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
   const [sortField, setSortField] = useState<SortField>('safety_score');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [selectedDrivers, setSelectedDrivers] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   
@@ -99,9 +99,17 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
         if (riskLevel !== riskFilter) return false;
       }
       
-      // Status filter
+      // Status filter with enhanced activity detection
       if (statusFilter !== 'all') {
-        const isActive = driver.active_days_30d > 0;
+        // Enhanced activity detection - check multiple indicators
+        const hasRecentActivity = driver.active_days_30d > 0;
+        const hasRecentTrips = driver.total_trips_30d > 0;
+        const hasRecentEvents = (driver.lytx_events_30d + driver.guardian_events_30d) > 0;
+        const daysSinceActivity = getDaysSinceActivity(driver.last_activity_date);
+        
+        // Consider active if any recent activity within 90 days
+        const isActive = hasRecentActivity || hasRecentTrips || hasRecentEvents || daysSinceActivity <= 90;
+        
         const needsAttention = driver.high_risk_events_30d > 0 || 
                               (driver.lytx_events_30d + driver.guardian_events_30d) > 2;
         
@@ -387,6 +395,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
     }
   };
 
+  // Handler to open driver profile modal
   const handleDriverClick = (driverId: string) => {
     setSelectedDriverId(driverId);
   };
@@ -952,9 +961,24 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                                 <User className="h-4 w-4 text-blue-600" />
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {driver.full_name}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {driver.full_name}
+                                  </p>
+                                  {(() => {
+                                    const daysSinceActivity = getDaysSinceActivity(driver.last_activity_date);
+                                    // Show caution if no data for 90+ days or never
+                                    if (daysSinceActivity === null || daysSinceActivity >= 90) {
+                                      return (
+                                        <AlertTriangle 
+                                          className="h-4 w-4 text-amber-500" 
+                                          title={daysSinceActivity === null ? 'No activity data available' : `No activity for ${daysSinceActivity} days`}
+                                        />
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </div>
                                 <p className="text-xs text-gray-500 truncate">
                                   ID: {driver.employee_id || 'N/A'}
                                 </p>
