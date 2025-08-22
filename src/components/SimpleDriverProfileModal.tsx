@@ -30,6 +30,7 @@ import {
   Clock,
   FileText,
   X,
+  Cog,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import DriverProfileService from '@/services/driverProfileService';
@@ -252,7 +253,7 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                 Performance
               </TabsTrigger>
               <TabsTrigger value="settings">
-                <Settings className="w-4 h-4 mr-2" />
+                <Cog className="w-4 h-4 mr-2" />
                 Settings
               </TabsTrigger>
             </TabsList>
@@ -923,7 +924,7 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                       </div>
                       {!isEditing ? (
                         <Button onClick={() => setIsEditing(true)}>
-                          <Settings className="w-4 h-4 mr-2" />
+                          <Cog className="w-4 h-4 mr-2" />
                           Edit Driver
                         </Button>
                       ) : (

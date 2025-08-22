@@ -8,7 +8,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   Users, AlertTriangle, TrendingUp, Shield, Download, Search, Filter, Eye, User,
   ChevronDown, ChevronUp, ArrowUpDown, MoreVertical, CheckSquare, Square,
-  Calendar, Activity, Phone, Mail, FileText, Settings, Cog
+  Calendar, Activity, Phone, Mail, FileText, Cog
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
