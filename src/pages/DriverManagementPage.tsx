@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import DataCentreLayout from '@/components/DataCentreLayout';
 import { useDriverManagementData, useDriverAlerts, useDriverSearch } from '@/hooks/useDriverProfile';
-import { DriverProfileModal } from '@/components/DriverProfileModal';
+import { SimpleDriverProfileModal } from '@/components/SimpleDriverProfileModal';
 
 type SortField = 'name' | 'fleet' | 'depot' | 'lytx_events' | 'guardian_events' | 'high_risk_events' | 'last_activity' | 'total_trips';
 type SortDirection = 'asc' | 'desc';
@@ -1379,7 +1379,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
         </Card>
       </div>
     </DataCentreLayout>
-    <DriverProfileModal
+    <SimpleDriverProfileModal
       driverId={selectedDriverId || ''}
       driverName={selectedDriverId ? (drivers.find(d => d.id === selectedDriverId)?.full_name || 'Driver') : ''}
       isOpen={!!selectedDriverId}
