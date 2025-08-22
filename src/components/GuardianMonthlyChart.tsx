@@ -99,7 +99,7 @@ const GuardianMonthlyChart: React.FC<GuardianMonthlyChartProps> = ({
   };
 
   const monthlyData = useMemo(() => {
-    let filteredEvents = filterEventsByType(events, selectedEventType);
+    const filteredEvents = filterEventsByType(events, selectedEventType);
     
     // Note: Future date filtering is now handled at import time for better data integrity
     

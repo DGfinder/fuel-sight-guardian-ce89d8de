@@ -114,7 +114,7 @@ export const LytxDriverPerformanceTracker: React.FC<LytxDriverPerformanceTracker
 
   // Filter and sort drivers
   const filteredDrivers = useMemo(() => {
-    let filtered = enhancedDriverData.filter(driver => {
+    const filtered = enhancedDriverData.filter(driver => {
       const matchesSearch = driver.driver.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesPerformance = performanceFilter === 'all' || driver.performanceLevel === performanceFilter;
       return matchesSearch && matchesPerformance;

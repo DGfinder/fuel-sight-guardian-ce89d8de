@@ -46,7 +46,7 @@ app.get('*', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
+   
   console.log(`Lytx proxy listening on http://localhost:${PORT} -> ${LYTX_BASE}`);
 });
 

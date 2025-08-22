@@ -228,7 +228,7 @@ export async function getDriverEfficiencyRankings(
 export async function getRouteOptimizationOpportunities(
   minTrips?: number
 ): Promise<RouteOptimization[]> {
-  let query = supabase
+  const query = supabase
     .from('route_optimization_opportunities')
     .select('*');
 

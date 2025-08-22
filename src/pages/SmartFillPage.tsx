@@ -119,7 +119,7 @@ const SmartFillPage = () => {
 
   // Filter and sort tanks based on current filters
   const filteredTanks = useMemo(() => {
-    let filtered = allTanks.filter(tank => {
+    const filtered = allTanks.filter(tank => {
       const matchesSearch = !searchTerm || 
         tank.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         tank.unit_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||

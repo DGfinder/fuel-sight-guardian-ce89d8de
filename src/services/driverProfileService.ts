@@ -489,20 +489,20 @@ export class DriverProfileService {
       tripsByDriverId.get(trip.driver_id).push(trip);
     });
 
-    // Bulk fetch LYTX events for all drivers
+    // Bulk fetch LYTX events for all drivers using enhanced view with driver matching
     const { data: allLytxEvents } = await supabase
-      .from('lytx_safety_events')
-      .select('driver_id, event_datetime, trigger_type, score, status')
-      .in('driver_id', driverIds)
+      .from('lytx_events_driver_enriched')
+      .select('resolved_driver_id, event_datetime, trigger, score, status')
+      .in('resolved_driver_id', driverIds)
       .gte('event_datetime', thirtyDaysAgo);
     
-    // Group LYTX events by driver_id
+    // Group LYTX events by resolved_driver_id
     const lytxEventsByDriverId = new Map();
     allLytxEvents?.forEach(event => {
-      if (!lytxEventsByDriverId.has(event.driver_id)) {
-        lytxEventsByDriverId.set(event.driver_id, []);
+      if (!lytxEventsByDriverId.has(event.resolved_driver_id)) {
+        lytxEventsByDriverId.set(event.resolved_driver_id, []);
       }
-      lytxEventsByDriverId.get(event.driver_id).push(event);
+      lytxEventsByDriverId.get(event.resolved_driver_id).push(event);
     });
 
     // Get trip data for each driver using the bulk data
