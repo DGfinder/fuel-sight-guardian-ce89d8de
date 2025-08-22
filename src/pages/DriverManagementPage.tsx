@@ -20,7 +20,7 @@ import DataCentreLayout from '@/components/DataCentreLayout';
 import { useDriverManagementData, useDriverAlerts, useDriverSearch } from '@/hooks/useDriverProfile';
 import { DriverProfileModal } from '@/components/DriverProfileModal';
 
-type SortField = 'name' | 'fleet' | 'safety_score' | 'lytx_events' | 'guardian_events' | 'high_risk_events' | 'last_activity' | 'total_trips';
+type SortField = 'name' | 'fleet' | 'depot' | 'lytx_events' | 'guardian_events' | 'high_risk_events' | 'last_activity' | 'total_trips';
 type SortDirection = 'asc' | 'desc';
 type RiskFilter = 'all' | 'critical' | 'high' | 'medium' | 'low';
 type StatusFilter = 'all' | 'active' | 'inactive' | 'needs_attention';
@@ -40,7 +40,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   
   // Table state
-  const [sortField, setSortField] = useState<SortField>('safety_score');
+  const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
@@ -140,9 +140,9 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
           aValue = a.fleet;
           bValue = b.fleet;
           break;
-        case 'safety_score':
-          aValue = a.overall_safety_score || 0;
-          bValue = b.overall_safety_score || 0;
+        case 'depot':
+          aValue = a.depot || '';
+          bValue = b.depot || '';
           break;
         case 'lytx_events':
           aValue = a.lytx_events_30d;
@@ -856,11 +856,11 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <button
-                          onClick={() => handleSort('safety_score')}
+                          onClick={() => handleSort('depot')}
                           className="flex items-center gap-1 hover:text-gray-700"
                         >
-                          Safety Score
-                          {sortField === 'safety_score' ? (
+                          Depot
+                          {sortField === 'depot' ? (
                             sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
                           ) : (
                             <ArrowUpDown className="h-3 w-3 opacity-50" />
@@ -943,12 +943,7 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                             }
                             handleDriverClick(driver.id);
                           }}
-                          className={`hover:bg-gray-50 transition-colors cursor-pointer ${
-                            riskLevel === 'critical' ? 'bg-red-50' :
-                            riskLevel === 'high' ? 'bg-orange-50' :
-                            riskLevel === 'medium' ? 'bg-yellow-50' :
-                            'bg-white'
-                          } ${isSelected ? 'ring-2 ring-blue-200' : ''}`}
+                          className={`hover:bg-gray-50 transition-colors cursor-pointer bg-white ${isSelected ? 'ring-2 ring-blue-200' : ''}`}
                         >
                           <td className="w-12 px-4 py-3">
                             <Checkbox
@@ -993,29 +988,8 @@ export const DriverManagementPage: React.FC<DriverManagementPageProps> = ({ flee
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {(() => {
-                                const safetyScore = getSafetyScoreDisplay(driver);
-                                const safetyStatus = getSafetyScoreStatus(safetyScore, driver);
-                                return (
-                                  <>
-                                    <div className={`px-2 py-1 text-xs font-medium rounded-full border ${safetyStatus.color}`}>
-                                      {safetyStatus.display}
-                                    </div>
-                                    <Badge 
-                                      variant={
-                                        safetyStatus.badge === 'CRITICAL' ? 'destructive' :
-                                        safetyStatus.badge === 'NEEDS IMPROVEMENT' ? 'default' :
-                                        safetyStatus.badge === 'EXCELLENT' || safetyStatus.badge === 'GOOD' ? 'secondary' :
-                                        'outline'
-                                      }
-                                      className="text-xs"
-                                    >
-                                      {safetyStatus.badge}
-                                    </Badge>
-                                  </>
-                                );
-                              })()}
+                            <div className="text-sm font-medium text-gray-900">
+                              {driver.depot || 'No depot'}
                             </div>
                           </td>
                           <td className="px-4 py-3">
