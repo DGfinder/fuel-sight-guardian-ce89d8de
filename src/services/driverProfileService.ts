@@ -590,7 +590,7 @@ export class DriverProfileService {
     const [lytxResult, guardianResult, correlatedTripsResult, uncorrelatedTripsResult] = await Promise.all([
       supabase
         .from('lytx_safety_events')
-        .select('event_datetime, trigger_type, score, status')
+        .select('id, event_id, driver_name, vehicle_registration, event_datetime, trigger, behaviors, score, status, depot')
         .eq('driver_id', driverId)
         .gte('event_datetime', startDate)
         .order('event_datetime', { ascending: false }),
@@ -625,10 +625,16 @@ export class DriverProfileService {
     
     return {
       lytx_events: lytxEvents.map(e => ({
+        id: e.id,
+        event_id: e.event_id,
+        driver_name: e.driver_name,
+        vehicle_registration: e.vehicle_registration,
         date: e.event_datetime,
-        trigger_type: e.trigger_type || 'Unknown',
+        trigger_type: e.trigger || 'Unknown',
+        behaviors: e.behaviors,
         score: e.score || 0,
-        status: e.status || 'Pending'
+        status: e.status || 'Pending',
+        depot: e.depot
       })),
       guardian_events: guardianEvents.map(e => ({
         date: e.detection_time,

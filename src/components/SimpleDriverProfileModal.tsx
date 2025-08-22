@@ -70,7 +70,18 @@ interface SimpleDriverProfileModalProps {
 interface EnhancedDriverData {
   summary: SimpleDriverProfile | null;
   events: {
-    lytx_events: Array<{ date: string; trigger_type: string; score: number; status: string }>;
+    lytx_events: Array<{ 
+      id: string; 
+      event_id: string; 
+      driver_name: string; 
+      vehicle_registration: string | null; 
+      date: string; 
+      trigger_type: string; 
+      behaviors: string; 
+      score: number; 
+      status: string; 
+      depot: string; 
+    }>;
     guardian_events: Array<{ date: string; event_type: string; severity: string }>;
     trip_summary: { total_trips: number; total_km: number; total_hours: number; avg_km_per_trip: number };
   } | null;
@@ -194,8 +205,8 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                     </>
                   )}
                   <Badge 
-                    variant={driver.status === 'Active' ? 'secondary' : 'outline'}
-                    className="ml-2"
+                    variant="outline"
+                    className={`ml-2 ${driver.status === 'Active' ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
                   >
                     {driver.status}
                   </Badge>
@@ -627,6 +638,105 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                         </CardContent>
                       </Card>
                     </div>
+
+                    {/* Comprehensive LYTX Events Table */}
+                    {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 && (
+                      <Card className="mt-6">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Shield className="h-5 w-5 text-orange-600" />
+                            All LYTX Safety Events ({eventDetails.lytx_events.length})
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="bg-gray-50 border-b">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Event ID
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Driver
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Vehicle
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Behavior/Trigger
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Score
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Date
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Depot
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {eventDetails.lytx_events.map((event, index) => (
+                                  <tr key={event.id || index} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm font-mono text-gray-900">
+                                      {event.event_id}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-900">
+                                      {event.driver_name}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-900">
+                                      {event.vehicle_registration || 'Unknown'}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-900">
+                                      <div>
+                                        <div className="font-medium">{event.trigger_type}</div>
+                                        {event.behaviors && (
+                                          <div className="text-xs text-gray-500 mt-1">{event.behaviors}</div>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
+                                      <Badge 
+                                        variant={event.score >= 7 ? 'destructive' : event.score >= 4 ? 'default' : 'secondary'}
+                                        className="text-xs"
+                                      >
+                                        {event.score}
+                                      </Badge>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
+                                      <Badge 
+                                        variant={
+                                          event.status === 'Face-To-Face' ? 'secondary' : 
+                                          event.status === 'New' ? 'destructive' : 'outline'
+                                        }
+                                        className="text-xs"
+                                      >
+                                        {event.status}
+                                      </Badge>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-900">
+                                      <div>
+                                        <div>{new Date(event.date).toLocaleDateString()}</div>
+                                        <div className="text-xs text-gray-500">
+                                          {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-900">
+                                      {event.depot}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </TabsContent>
 
                   {/* Guardian Tab */}
