@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import DriverProfileService from '@/services/driverProfileService';
+import SafetySignals from '@/components/safety/SafetySignals';
 
 // Human-readable labels for machine-generated event names
 const HUMAN_LABELS: Record<string, string> = {
@@ -652,75 +653,22 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                         </CardContent>
                       </Card>
 
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Safety Summary</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div>
-                            <span className="text-sm text-gray-500">Risk Level</span>
-                            <div className="mt-1">
-                              <Badge 
-                                className={`text-sm font-semibold px-3 py-1 ${
-                                  getRiskLevel(driver) === 'critical' ? 'bg-red-100 text-red-800' :
-                                  getRiskLevel(driver) === 'high' ? 'bg-rose-100 text-rose-800' :
-                                  getRiskLevel(driver) === 'medium' ? 'bg-amber-100 text-amber-800' :
-                                  'bg-emerald-100 text-emerald-800'
-                                }`}
-                              >
-                                {getRiskLevel(driver).toUpperCase()} RISK
-                              </Badge>
-                            </div>
-                          </div>
-                          
-                          {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 && (
-                            <>
-                              <div>
-                                <span className="text-sm text-gray-500">Most Common Event</span>
-                                <p className="text-lg font-semibold">
-                                  {(() => {
-                                    const triggers = eventDetails.lytx_events.map(e => e.trigger_type || 'Unknown');
-                                    const counts = triggers.reduce((acc, trigger) => {
-                                      acc[trigger] = (acc[trigger] || 0) + 1;
-                                      return acc;
-                                    }, {} as Record<string, number>);
-                                    const mostCommon = Object.entries(counts).sort(([,a], [,b]) => b - a)[0]?.[0] || 'None';
-                                    return humanizeLabel(mostCommon);
-                                  })()}
-                                </p>
-                              </div>
-                              
-                              <div>
-                                <span className="text-sm text-gray-500">Average Event Score</span>
-                                <p className="text-lg font-semibold">
-                                  {(eventDetails.lytx_events.reduce((sum, e) => sum + (e.score || 0), 0) / eventDetails.lytx_events.length).toFixed(1)}
-                                </p>
-                              </div>
-                            </>
-                          )}
-
-                          {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 && eventDetails.lytx_events.filter(e => e.status === 'Face-To-Face').length > 0 && (
-                            <div>
-                              <span className="text-sm text-gray-500">Coaching Progress</span>
-                              <div className="mt-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                    <div 
-                                      className="bg-emerald-500 h-2 rounded-full" 
-                                      style={{ 
-                                        width: `${(eventDetails.lytx_events.filter(e => e.status === 'Face-To-Face').length / eventDetails.lytx_events.length) * 100}%` 
-                                      }}
-                                    ></div>
-                                  </div>
-                                  <span className="text-sm text-gray-500">
-                                    {Math.round((eventDetails.lytx_events.filter(e => e.status === 'Face-To-Face').length / eventDetails.lytx_events.length) * 100)}%
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                      <SafetySignals
+                        events30={driver?.lytx_events_30d || 0}
+                        km30={driver?.total_km_30d || 0}
+                        events90={0} // TODO: Add 90-day data when available
+                        fleetMedianPer1k={2.1} // TODO: Calculate actual fleet median
+                        mostCommonEvent={(() => {
+                          if (!eventDetails?.lytx_events || eventDetails.lytx_events.length === 0) return undefined;
+                          const triggers = eventDetails.lytx_events.map(e => e.trigger_type || 'Unknown');
+                          const counts = triggers.reduce((acc, trigger) => {
+                            acc[trigger] = (acc[trigger] || 0) + 1;
+                            return acc;
+                          }, {} as Record<string, number>);
+                          return Object.entries(counts).sort(([,a], [,b]) => b - a)[0]?.[0] || undefined;
+                        })()}
+                        driverName={driver ? `${driver.first_name} ${driver.last_name}` : undefined}
+                      />
                     </div>
 
                     {/* Comprehensive LYTX Events Table */}
