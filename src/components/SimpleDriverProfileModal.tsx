@@ -35,6 +35,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import DriverProfileService from '@/services/driverProfileService';
 import SafetySignals from '@/components/safety/SafetySignals';
+import CompactSafetySignals from '@/components/safety/CompactSafetySignals';
 
 // Human-readable labels for machine-generated event names
 const HUMAN_LABELS: Record<string, string> = {
@@ -583,81 +584,11 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                         icon={<AlertTriangle className="w-4 h-4" />}
                         color={(eventDetails?.lytx_events?.filter(e => e.score >= 7).length || driver.high_risk_events_30d || 0) > 0 ? 'text-red-600' : 'text-green-600'}
                       />
-                      <StatCard 
-                        title="Coaching Sessions" 
-                        value={eventDetails?.lytx_events?.filter(e => e.status === 'Face-To-Face').length || driver.coaching_sessions_30d || 0} 
-                        icon={<FileText className="w-4 h-4" />}
-                      />
-                      <StatCard 
-                        title="Coachable Events" 
-                        value={eventDetails?.lytx_events?.filter(e => !e.status || e.status !== 'Face-To-Face').length || 0} 
-                        icon={<TrendingUp className="w-4 h-4" />}
-                        color={(eventDetails?.lytx_events?.filter(e => !e.status || e.status !== 'Face-To-Face').length || 0) > 0 ? 'text-red-600' : 'text-green-600'}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Recent LYTX Events</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 ? (
-                            <div className="space-y-3">
-                              {eventDetails.lytx_events.slice(0, 5).map((event, index) => (
-                                <div key={index} className="p-3 border rounded-lg hover:bg-gray-50">
-                                  <div className="flex justify-between items-start mb-2">
-                                    <span className="font-medium text-sm">
-                                      {humanizeLabel(event.trigger_type || 'Unknown Event')}
-                                    </span>
-                                    <div className="flex gap-2">
-                                      <Badge 
-                                        className={`text-xs ${
-                                          event.score >= 5 ? 'bg-rose-100 text-rose-800' :
-                                          event.score >= 2 ? 'bg-amber-100 text-amber-800' :
-                                          'bg-emerald-100 text-emerald-800'
-                                        }`}
-                                      >
-                                        {event.score}
-                                      </Badge>
-                                      {event.status && (
-                                        <Badge 
-                                          className={`text-xs ${
-                                            event.status === 'Resolved' ? 'bg-blue-100 text-blue-800' :
-                                            event.status === 'New' ? 'bg-red-100 text-red-800' :
-                                            'bg-gray-100 text-gray-800'
-                                          }`}
-                                        >
-                                          {event.status}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {formatDateAU(event.date)}
-                                  </div>
-                                </div>
-                              ))}
-                              {eventDetails.lytx_events.length > 5 && (
-                                <div className="text-center text-sm text-blue-600 py-2">
-                                  View all {eventDetails.lytx_events.length} events in table below
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-center text-gray-500 py-8">
-                              <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                              <p>No LYTX events in the last 30 days</p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      <SafetySignals
+                      <CompactSafetySignals
                         events30={driver?.lytx_events_30d || 0}
                         km30={driver?.total_km_30d || 0}
-                        events90={0} // TODO: Add 90-day data when available
-                        fleetMedianPer1k={2.1} // TODO: Calculate actual fleet median
+                        events90={0}
+                        fleetMedianPer1k={2.1}
                         mostCommonEvent={(() => {
                           if (!eventDetails?.lytx_events || eventDetails.lytx_events.length === 0) return undefined;
                           const triggers = eventDetails.lytx_events.map(e => e.trigger_type || 'Unknown');
@@ -669,11 +600,18 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                         })()}
                         driverName={driver ? `${driver.first_name} ${driver.last_name}` : undefined}
                       />
+                      <StatCard 
+                        title="Coachable Events" 
+                        value={eventDetails?.lytx_events?.filter(e => !e.status || e.status !== 'Face-To-Face').length || 0} 
+                        icon={<TrendingUp className="w-4 h-4" />}
+                        color={(eventDetails?.lytx_events?.filter(e => !e.status || e.status !== 'Face-To-Face').length || 0) > 0 ? 'text-red-600' : 'text-green-600'}
+                      />
                     </div>
+
 
                     {/* Comprehensive LYTX Events Table */}
                     {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 && (
-                      <Card className="mt-6">
+                      <Card>
                         <CardHeader>
                           <CardTitle className="flex items-center gap-2">
                             <Shield className="h-5 w-5 text-orange-600" />
@@ -681,8 +619,8 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
-                          <div className="overflow-x-auto">
-                            <table className="w-full">
+                          <div className="overflow-x-auto max-w-full">
+                            <table className="w-full min-w-[800px]">
                               <thead className="bg-gray-50 border-b">
                                 <tr>
                                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
