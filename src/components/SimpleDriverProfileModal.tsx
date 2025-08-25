@@ -4,7 +4,7 @@
  * Uses reliable data fetching without complex database functions
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,43 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import DriverProfileService from '@/services/driverProfileService';
+
+// Human-readable labels for machine-generated event names
+const HUMAN_LABELS: Record<string, string> = {
+  food_or_drink: "Food or drink",
+  mobile_phone: "Mobile phone use",
+  seatbelt: "Seatbelt violation",
+  distracted_driving: "Distracted driving", 
+  harsh_acceleration: "Harsh acceleration",
+  harsh_braking: "Harsh braking",
+  harsh_cornering: "Harsh cornering",
+  speeding: "Speeding",
+  following_too_close: "Following too close",
+  drowsy_driving: "Drowsy driving",
+  fatigue: "Driver fatigue",
+  cell_phone: "Cell phone use",
+  smoking: "Smoking",
+  not_wearing_seatbelt: "Not wearing seatbelt",
+  camera_obstruction: "Camera obstruction",
+};
+
+// Transform machine labels to human-readable format
+const humanizeLabel = (label: string): string => {
+  if (HUMAN_LABELS[label]) return HUMAN_LABELS[label];
+  return label.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};
+
+// Format dates in Australian format with time
+const formatDateAU = (dateString: string): string => {
+  return new Date(dateString).toLocaleString('en-AU', {
+    day: '2-digit',
+    month: '2-digit', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+};
 
 interface SimpleDriverProfile {
   id: string;
@@ -159,6 +196,26 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
   const driver = enhancedData?.summary;
   const eventDetails = enhancedData?.events;
 
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const getDaysSinceActivity = (lastActivity: string | null): number | null => {
@@ -185,14 +242,19 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
-        <DialogHeader className="flex flex-row items-center justify-between py-4 border-b">
+      <DialogContent 
+        className="max-w-6xl max-h-[90vh] flex flex-col p-0"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="driver-modal-title"
+      >
+        <DialogHeader className="sticky top-0 z-10 flex flex-row items-center justify-between py-4 px-6 border-b bg-white">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
               <User className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-semibold">
+              <DialogTitle id="driver-modal-title" className="text-xl font-semibold">
                 {driverName || 'Loading...'}
               </DialogTitle>
               {driver && (
@@ -232,8 +294,13 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
           </div>
         ) : (
           <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex-grow flex flex-col">
-            <TabsList className="px-6 py-2 border-b bg-gray-50">
-              <TabsTrigger value="overview">
+            <TabsList className="px-6 py-2 border-b bg-gray-50" role="tablist">
+              <TabsTrigger 
+                value="overview" 
+                className="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                role="tab"
+                aria-selected={selectedTab === 'overview'}
+              >
                 <User className="w-4 h-4 mr-2" />
                 Overview
               </TabsTrigger>
@@ -269,9 +336,9 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
               </TabsTrigger>
             </TabsList>
 
-            <div className="flex-grow overflow-y-auto">
+            <div className="flex-grow overflow-y-auto px-6">
               {isLoading ? (
-                <div className="p-6 space-y-6">
+                <div className="py-6 space-y-6">
                   {/* Loading skeletons */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[...Array(4)].map((_, i) => (
@@ -535,35 +602,44 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                         </CardHeader>
                         <CardContent>
                           {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 ? (
-                            <div className="space-y-3 max-h-64 overflow-y-auto">
-                              {eventDetails.lytx_events.slice(0, 10).map((event, index) => (
-                                <div key={index} className="p-3 border rounded-lg">
+                            <div className="space-y-3">
+                              {eventDetails.lytx_events.slice(0, 5).map((event, index) => (
+                                <div key={index} className="p-3 border rounded-lg hover:bg-gray-50">
                                   <div className="flex justify-between items-start mb-2">
                                     <span className="font-medium text-sm">
-                                      {event.trigger_type || 'Unknown Event'}
+                                      {humanizeLabel(event.trigger_type || 'Unknown Event')}
                                     </span>
                                     <div className="flex gap-2">
                                       <Badge 
-                                        variant={event.score >= 7 ? 'destructive' : event.score >= 4 ? 'default' : 'secondary'}
-                                        className="text-xs"
+                                        className={`text-xs ${
+                                          event.score >= 5 ? 'bg-rose-100 text-rose-800' :
+                                          event.score >= 2 ? 'bg-amber-100 text-amber-800' :
+                                          'bg-emerald-100 text-emerald-800'
+                                        }`}
                                       >
-                                        Score: {event.score}
+                                        {event.score}
                                       </Badge>
                                       {event.status && (
-                                        <Badge variant="outline" className="text-xs">
+                                        <Badge 
+                                          className={`text-xs ${
+                                            event.status === 'Resolved' ? 'bg-blue-100 text-blue-800' :
+                                            event.status === 'New' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800'
+                                          }`}
+                                        >
                                           {event.status}
                                         </Badge>
                                       )}
                                     </div>
                                   </div>
                                   <div className="text-xs text-gray-500">
-                                    {new Date(event.date).toLocaleDateString()}
+                                    {formatDateAU(event.date)}
                                   </div>
                                 </div>
                               ))}
-                              {eventDetails.lytx_events.length > 10 && (
-                                <div className="text-center text-sm text-gray-500 py-2">
-                                  ... and {eventDetails.lytx_events.length - 10} more events
+                              {eventDetails.lytx_events.length > 5 && (
+                                <div className="text-center text-sm text-blue-600 py-2">
+                                  View all {eventDetails.lytx_events.length} events in table below
                                 </div>
                               )}
                             </div>
@@ -582,10 +658,19 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div>
-                            <span className="text-sm text-gray-500">Safety Performance</span>
-                            <p className={`text-lg font-semibold ${getRiskColor(getRiskLevel(driver))}`}>
-                              {getRiskLevel(driver).toUpperCase()}
-                            </p>
+                            <span className="text-sm text-gray-500">Risk Level</span>
+                            <div className="mt-1">
+                              <Badge 
+                                className={`text-sm font-semibold px-3 py-1 ${
+                                  getRiskLevel(driver) === 'critical' ? 'bg-red-100 text-red-800' :
+                                  getRiskLevel(driver) === 'high' ? 'bg-rose-100 text-rose-800' :
+                                  getRiskLevel(driver) === 'medium' ? 'bg-amber-100 text-amber-800' :
+                                  'bg-emerald-100 text-emerald-800'
+                                }`}
+                              >
+                                {getRiskLevel(driver).toUpperCase()} RISK
+                              </Badge>
+                            </div>
                           </div>
                           
                           {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 && (
@@ -599,7 +684,8 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                                       acc[trigger] = (acc[trigger] || 0) + 1;
                                       return acc;
                                     }, {} as Record<string, number>);
-                                    return Object.entries(counts).sort(([,a], [,b]) => b - a)[0]?.[0] || 'None';
+                                    const mostCommon = Object.entries(counts).sort(([,a], [,b]) => b - a)[0]?.[0] || 'None';
+                                    return humanizeLabel(mostCommon);
                                   })()}
                                 </p>
                               </div>
@@ -613,14 +699,14 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                             </>
                           )}
 
-                          <div>
-                            <span className="text-sm text-gray-500">Coaching Progress</span>
-                            <div className="mt-2">
-                              {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 ? (
+                          {eventDetails?.lytx_events && eventDetails.lytx_events.length > 0 && eventDetails.lytx_events.filter(e => e.status === 'Face-To-Face').length > 0 && (
+                            <div>
+                              <span className="text-sm text-gray-500">Coaching Progress</span>
+                              <div className="mt-2">
                                 <div className="flex items-center gap-2">
                                   <div className="flex-1 bg-gray-200 rounded-full h-2">
                                     <div 
-                                      className="bg-green-500 h-2 rounded-full" 
+                                      className="bg-emerald-500 h-2 rounded-full" 
                                       style={{ 
                                         width: `${(eventDetails.lytx_events.filter(e => e.status === 'Face-To-Face').length / eventDetails.lytx_events.length) * 100}%` 
                                       }}
@@ -630,11 +716,9 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                                     {Math.round((eventDetails.lytx_events.filter(e => e.status === 'Face-To-Face').length / eventDetails.lytx_events.length) * 100)}%
                                   </span>
                                 </div>
-                              ) : (
-                                <p className="text-sm text-gray-500">No events to coach</p>
-                              )}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </CardContent>
                       </Card>
                     </div>
@@ -665,7 +749,7 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Behavior/Trigger
                                   </th>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Score
                                   </th>
                                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -693,38 +777,36 @@ export const SimpleDriverProfileModal: React.FC<SimpleDriverProfileModalProps> =
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-900">
                                       <div>
-                                        <div className="font-medium">{event.trigger_type}</div>
+                                        <div className="font-medium">{humanizeLabel(event.trigger_type)}</div>
                                         {event.behaviors && (
-                                          <div className="text-xs text-gray-500 mt-1">{event.behaviors}</div>
+                                          <div className="text-xs text-gray-500 mt-1">{humanizeLabel(event.behaviors)}</div>
                                         )}
                                       </div>
                                     </td>
-                                    <td className="px-4 py-3 text-sm">
+                                    <td className="px-4 py-3 text-sm text-right">
                                       <Badge 
-                                        variant={event.score >= 7 ? 'destructive' : event.score >= 4 ? 'default' : 'secondary'}
-                                        className="text-xs"
+                                        className={`text-xs ${
+                                          event.score >= 5 ? 'bg-rose-100 text-rose-800' :
+                                          event.score >= 2 ? 'bg-amber-100 text-amber-800' :
+                                          'bg-emerald-100 text-emerald-800'
+                                        }`}
                                       >
                                         {event.score}
                                       </Badge>
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       <Badge 
-                                        variant={
-                                          event.status === 'Face-To-Face' ? 'secondary' : 
-                                          event.status === 'New' ? 'destructive' : 'outline'
-                                        }
-                                        className="text-xs"
+                                        className={`text-xs ${
+                                          event.status === 'Resolved' || event.status === 'Face-To-Face' ? 'bg-blue-100 text-blue-800' : 
+                                          event.status === 'New' ? 'bg-red-100 text-red-800' : 
+                                          'bg-gray-100 text-gray-800'
+                                        }`}
                                       >
                                         {event.status}
                                       </Badge>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-900">
-                                      <div>
-                                        <div>{new Date(event.date).toLocaleDateString()}</div>
-                                        <div className="text-xs text-gray-500">
-                                          {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                      </div>
+                                      <div className="text-sm">{formatDateAU(event.date)}</div>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-900">
                                       {event.depot}
