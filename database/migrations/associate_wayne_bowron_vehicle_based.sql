@@ -48,7 +48,7 @@ BEGIN
     END IF;
 
 -- =====================================================
--- 1. CREATE DRIVER-VEHICLE ASSIGNMENT (if vehicle exists)
+-- 1. VERIFY DRIVER AND VEHICLE (skip driver_assignments - not used)
 -- =====================================================
 
     -- Create or update driver assignment if vehicle exists in vehicles table
