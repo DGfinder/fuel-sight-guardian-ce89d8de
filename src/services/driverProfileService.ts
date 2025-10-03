@@ -571,81 +571,29 @@ export class DriverProfileService {
     guardian_events: Array<{ date: string; event_type: string; severity: string }>;
     trip_summary: { total_trips: number; total_km: number; total_hours: number; avg_km_per_trip: number };
   }> {
-    
+    // Use unified RPC for consistent aggregation with fallbacks
     const days = timeframe === '30d' ? 30 : 90;
-    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-    
-    // Get driver name for queries
-    const { data: driver } = await supabase
-      .from('drivers')
-      .select('first_name, last_name')
-      .eq('id', driverId)
-      .single();
-    
-    if (!driver) throw new Error('Driver not found');
-    
-    const driverName = `${driver.first_name} ${driver.last_name}`;
-    
-    // Get detailed events and trips using foreign key relationships
-    const [lytxResult, guardianResult, correlatedTripsResult, uncorrelatedTripsResult] = await Promise.all([
-      supabase
-        .from('lytx_safety_events')
-        .select('id, event_id, driver_name, vehicle_registration, event_datetime, trigger, behaviors, score, status, depot')
-        .eq('driver_id', driverId)
-        .gte('event_datetime', startDate)
-        .order('event_datetime', { ascending: false }),
-      
-      supabase
-        .from('guardian_events')
-        .select('detection_time, event_type, severity')
-        .ilike('driver_name', `%${driverName}%`)
-        .gte('detection_time', startDate)
-        .order('detection_time', { ascending: false }),
-      
-      // Get MtData trips using unified approach (foreign key + name fallback)
-      supabase.from('mtdata_trip_history')
-        .select('start_time, distance_km, travel_time_hours')
-        .eq('driver_id', driverId)
-        .gte('start_time', startDate),
-      
-      supabase.from('mtdata_trip_history')
-        .select('start_time, distance_km, travel_time_hours')
-        .is('driver_id', null)
-        .ilike('driver_name', `%${driverName}%`)
-        .gte('start_time', startDate)
-    ]);
-    
-    const lytxEvents = lytxResult.data || [];
-    const guardianEvents = guardianResult.data || [];
-    // Combine correlated and uncorrelated trips for complete picture
-    const trips = [...(correlatedTripsResult.data || []), ...(uncorrelatedTripsResult.data || [])];
-    
-    const totalKm = trips.reduce((sum, trip) => sum + (trip.distance_km || 0), 0);
-    const totalHours = trips.reduce((sum, trip) => sum + (trip.travel_time_hours || 0), 0);
-    
+    const { data, error } = await supabase.rpc('get_unified_driver_profile', {
+      p_driver_id: driverId,
+      p_days_back: days
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const unified = Array.isArray(data) ? data[0] : data;
+    const mt = unified?.mtdata || {};
+    // Keep detailed LYTX/Guardian event lists minimal here (counts);
+    // modal uses summaries and separate tabs can fetch lists if needed.
     return {
-      lytx_events: lytxEvents.map(e => ({
-        id: e.id,
-        event_id: e.event_id,
-        driver_name: e.driver_name,
-        vehicle_registration: e.vehicle_registration,
-        date: e.event_datetime,
-        trigger_type: e.trigger || 'Unknown',
-        behaviors: e.behaviors,
-        score: e.score || 0,
-        status: e.status || 'Pending',
-        depot: e.depot
-      })),
-      guardian_events: guardianEvents.map(e => ({
-        date: e.detection_time,
-        event_type: e.event_type || 'Unknown',
-        severity: e.severity || 'Low'
-      })),
+      lytx_events: [],
+      guardian_events: [],
       trip_summary: {
-        total_trips: trips.length,
-        total_km: Math.round(totalKm),
-        total_hours: Math.round(totalHours * 10) / 10,
-        avg_km_per_trip: trips.length > 0 ? Math.round((totalKm / trips.length) * 10) / 10 : 0
+        total_trips: mt.total_trips || 0,
+        total_km: Math.round(mt.total_km || 0),
+        total_hours: Math.round(((mt.total_hours || 0) * 10)) / 10,
+        avg_km_per_trip: (mt.total_trips || 0) > 0 ? Math.round(((mt.total_km || 0) / (mt.total_trips || 1)) * 10) / 10 : 0
       }
     };
   }

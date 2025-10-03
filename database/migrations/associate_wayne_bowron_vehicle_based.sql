@@ -51,41 +51,9 @@ BEGIN
 -- 1. VERIFY DRIVER AND VEHICLE (skip driver_assignments - not used)
 -- =====================================================
 
-    -- Create or update driver assignment if vehicle exists in vehicles table
-    IF vehicle_exists THEN
-        -- First, unassign any current driver from this vehicle
-        UPDATE driver_assignments 
-        SET 
-            unassigned_at = NOW(),
-            updated_at = NOW()
-        WHERE vehicle_id = (SELECT id FROM vehicles WHERE registration = vehicle_reg)
-        AND unassigned_at IS NULL
-        AND driver_id != wayne_uuid;
-        
-        -- Create or update assignment for Wayne Bowron
-        INSERT INTO driver_assignments (
-            vehicle_id,
-            driver_id,
-            driver_name,
-            assigned_at,
-            created_at,
-            updated_at
-        ) VALUES (
-            (SELECT id FROM vehicles WHERE registration = vehicle_reg),
-            wayne_uuid,
-            'Wayne Bowron',
-            NOW(),
-            NOW(),
-            NOW()
-        )
-        ON CONFLICT (vehicle_id, driver_id) 
-        WHERE unassigned_at IS NULL
-        DO UPDATE SET
-            assigned_at = EXCLUDED.assigned_at,
-            updated_at = EXCLUDED.updated_at;
-            
-        RAISE NOTICE '✅ Created/updated vehicle assignment: Wayne Bowron ↔ %', vehicle_reg;
-    END IF;
+    -- Log that we're skipping driver assignments since it's mock data
+    RAISE NOTICE 'ℹ️  Skipping driver_assignments table - contains mock data only';
+    RAISE NOTICE 'ℹ️  Using direct vehicle-based event association instead';
 
 -- =====================================================
 -- 2. ASSOCIATE MTDATA TRIPS VIA VEHICLE
@@ -99,7 +67,7 @@ BEGIN
         SET 
             driver_id = wayne_uuid,
             driver_association_confidence = 1.0,
-            driver_association_method = 'vehicle_assignment',
+            driver_association_method = 'manual_assignment',
             driver_association_updated_at = NOW()
         WHERE 
             vehicle_registration = vehicle_reg
@@ -107,56 +75,59 @@ BEGIN
         
         GET DIAGNOSTICS mtdata_row_count = ROW_COUNT;
         RAISE NOTICE '✅ Associated % MTData trips for vehicle % with Wayne Bowron', mtdata_row_count, vehicle_reg;
+    END;
 
 -- =====================================================
 -- 3. ASSOCIATE GUARDIAN EVENTS VIA VEHICLE
 -- =====================================================
 
-        -- Associate all Guardian events for vehicle 1IDB419 with Wayne Bowron
-        DECLARE 
-            guardian_row_count INTEGER;
-        BEGIN
-            UPDATE guardian_events 
-            SET 
-                driver_id = wayne_uuid,
-                driver_association_confidence = 1.0,
-                driver_association_method = 'vehicle_assignment',
-                driver_association_updated_at = NOW()
-            WHERE 
-                vehicle_registration = vehicle_reg
-                AND (driver_id IS NULL OR driver_id != wayne_uuid);
-            
-            GET DIAGNOSTICS guardian_row_count = ROW_COUNT;
-            RAISE NOTICE '✅ Associated % Guardian events for vehicle % with Wayne Bowron', guardian_row_count, vehicle_reg;
+    -- Associate all Guardian events for vehicle 1IDB419 with Wayne Bowron
+    DECLARE 
+        guardian_row_count INTEGER;
+    BEGIN
+        UPDATE guardian_events 
+        SET 
+            driver_id = wayne_uuid,
+            driver_association_confidence = 1.0,
+            driver_association_method = 'manual_assignment',
+            driver_association_updated_at = NOW()
+        WHERE 
+            vehicle_registration = vehicle_reg
+            AND (driver_id IS NULL OR driver_id != wayne_uuid);
+        
+        GET DIAGNOSTICS guardian_row_count = ROW_COUNT;
+        RAISE NOTICE '✅ Associated % Guardian events for vehicle % with Wayne Bowron', guardian_row_count, vehicle_reg;
+    END;
 
 -- =====================================================
 -- 4. ASSOCIATE LYTX EVENTS BY NAME (fallback)
 -- =====================================================
 
-            -- Associate LYTX events by Wayne Bowron's name variations
-            -- (since LYTX events don't have vehicle registration)
-            DECLARE 
-                lytx_row_count INTEGER;
-            BEGIN
-                UPDATE lytx_safety_events 
-                SET 
-                    driver_id = wayne_uuid,
-                    driver_association_confidence = 0.95,
-                    driver_association_method = 'vehicle_assignment_name_match',
-                    driver_association_updated_at = NOW()
-                WHERE 
-                    (driver_id IS NULL OR driver_id != wayne_uuid)
-                    AND (
-                        driver_name ILIKE '%wayne%bowron%' OR
-                        driver_name ILIKE '%bowron%wayne%' OR
-                        driver_name ILIKE 'wayne bowron' OR
-                        driver_name ILIKE 'bowron wayne' OR
-                        driver_name ILIKE 'w%bowron' OR
-                        driver_name ILIKE 'wayne b%'
-                    );
-                
-                GET DIAGNOSTICS lytx_row_count = ROW_COUNT;
-                RAISE NOTICE '✅ Associated % LYTX events with Wayne Bowron by name matching', lytx_row_count;
+    -- Associate LYTX events by Wayne Bowron's name variations
+    -- (since LYTX events don't have vehicle registration)
+    DECLARE 
+        lytx_row_count INTEGER;
+    BEGIN
+        UPDATE lytx_safety_events 
+        SET 
+            driver_id = wayne_uuid,
+            driver_association_confidence = 0.95,
+            driver_association_method = 'manual_assignment',
+            driver_association_updated_at = NOW()
+        WHERE 
+            (driver_id IS NULL OR driver_id != wayne_uuid)
+            AND (
+                driver_name ILIKE '%wayne%bowron%' OR
+                driver_name ILIKE '%bowron%wayne%' OR
+                driver_name ILIKE 'wayne bowron' OR
+                driver_name ILIKE 'bowron wayne' OR
+                driver_name ILIKE 'w%bowron' OR
+                driver_name ILIKE 'wayne b%'
+            );
+        
+        GET DIAGNOSTICS lytx_row_count = ROW_COUNT;
+        RAISE NOTICE '✅ Associated % LYTX events with Wayne Bowron by name matching', lytx_row_count;
+    END;
 
 -- =====================================================
 -- 5. VERIFICATION & SUMMARY
