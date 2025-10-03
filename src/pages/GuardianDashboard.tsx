@@ -348,27 +348,34 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
     <DataCentreLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              {getDashboardTitle()}
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              {fleet 
+            <div className="flex items-center gap-3 mb-2">
+              <Shield className="w-8 h-8 text-slate-600 dark:text-slate-400" />
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                {getDashboardTitle()}
+              </h1>
+            </div>
+            <p className="text-slate-600 dark:text-slate-400">
+              {fleet
                 ? `${fleet} distraction and fatigue events with verification workflows`
                 : 'Monitor distraction and fatigue events with verification workflows'
               }
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExportReport}>
+            <Button
+              variant="outline"
+              onClick={handleExportReport}
+              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
               <Download className="w-4 h-4 mr-2" />
               Export Report
             </Button>
-            <Badge variant="secondary" className="text-green-700 bg-green-100">
-              <Shield className="w-4 h-4 mr-1" />
-              Live Data
-            </Badge>
+            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>Live Data</span>
+            </div>
           </div>
         </div>
 
@@ -378,14 +385,14 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
             <Button
               variant="outline"
               onClick={() => window.location.href = '/data-centre/guardian/smb'}
-              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Stevemacs Analytics ({currentMonth.stevemacsEvents} events)
             </Button>
             <Button
               variant="outline"
               onClick={() => window.location.href = '/data-centre/guardian/gsf'}
-              className="text-green-600 border-green-200 hover:bg-green-50"
+              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Great Southern Fuels Analytics ({currentMonth.gsfEvents} events)
             </Button>
@@ -401,68 +408,68 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
         />
 
         {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-slate-200/50 dark:border-slate-700/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Total Events ({currentMonth.period})
               </CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              <AlertTriangle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {currentMonth.totalEvents.toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {currentMonth.distractionEvents} distraction, {currentMonth.fatigueEvents} fatigue, {currentMonth.fieldOfViewEvents} field of view
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                {currentMonth.distractionEvents} distraction • {currentMonth.fatigueEvents} fatigue • {currentMonth.fieldOfViewEvents} FOV
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-slate-200/50 dark:border-slate-700/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Verification Rate</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Verification Rate</CardTitle>
+              <CheckCircle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {currentMonth.verificationRate.toFixed(1)}%
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 {currentMonth.verifiedEvents} of {currentMonth.totalEvents} verified
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-slate-200/50 dark:border-slate-700/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fleet Distribution</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Fleet Distribution</CardTitle>
+              <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {fleet ? '100%' : `${currentMonth.stevemacsEvents + currentMonth.gsfEvents}`}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {fleet 
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                {fleet
                   ? `${fleet} events only`
-                  : `${currentMonth.stevemacsEvents} SMB, ${currentMonth.gsfEvents} GSF`
+                  : `${currentMonth.stevemacsEvents} SMB • ${currentMonth.gsfEvents} GSF`
                 }
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-slate-200/50 dark:border-slate-700/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Requiring Attention</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-red-500" />
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Requiring Attention</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {currentMonth.requiresAttentionCount}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {currentMonth.criticalEvents} critical, {currentMonth.highSeverityEvents} high severity
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                {currentMonth.criticalEvents} critical • {currentMonth.highSeverityEvents} high severity
               </p>
             </CardContent>
           </Card>
