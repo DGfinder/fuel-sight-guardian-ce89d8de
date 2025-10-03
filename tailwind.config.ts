@@ -68,7 +68,23 @@ export default {
 					warning: '#F59E0B',
 					safe: '#10B981',
 					empty: '#DC2626'
+				},
+				glass: {
+					light: 'rgba(255, 255, 255, 0.1)',
+					medium: 'rgba(255, 255, 255, 0.2)',
+					dark: 'rgba(0, 0, 0, 0.1)',
+					border: 'rgba(255, 255, 255, 0.18)'
 				}
+			},
+			backgroundImage: {
+				'glass-gradient': 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0))',
+				'glass-gradient-dark': 'linear-gradient(135deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0))',
+				'gradient-primary': 'linear-gradient(135deg, #3B82F6, #8B5CF6)',
+				'gradient-secondary': 'linear-gradient(135deg, #14B8A6, #06B6D4)',
+				'gradient-accent': 'linear-gradient(135deg, #F59E0B, #FEDF19)',
+			},
+			backdropBlur: {
+				xs: '2px',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
