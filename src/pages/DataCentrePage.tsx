@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Sparkles, RefreshCw } from 'lucide-react';
+import { Database, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DataCentreLayout from '@/components/DataCentreLayout';
 import { HeroStatsGrid } from '@/components/data-centre/HeroStatsGrid';
@@ -46,10 +46,10 @@ const DataCentrePage = () => {
 
   return (
     <DataCentreLayout>
-      {/* Background Gradient */}
+      {/* Background Gradient - Professional */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-primary opacity-10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-secondary opacity-10 blur-3xl" />
+        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-professional opacity-5 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-slate opacity-5 blur-3xl" />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-8 space-y-8">
@@ -58,13 +58,13 @@ const DataCentrePage = () => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <Sparkles className="w-8 h-8 text-yellow-500" />
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Data Centre Intelligence Hub
+                <Database className="w-8 h-8 text-slate-600 dark:text-slate-400" />
+                <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">
+                  Data Centre
                 </h1>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">
-                Real-time analytics across 75K+ records with AI-powered insights
+              <p className="text-slate-600 dark:text-slate-400 text-lg">
+                Analytics and insights across 75K+ fleet management records
               </p>
             </div>
 
@@ -73,7 +73,7 @@ const DataCentrePage = () => {
               size="lg"
               onClick={refreshAll}
               disabled={isRefreshing}
-              className="backdrop-blur-xl bg-white/30 dark:bg-gray-900/30 border-white/20 hover:bg-white/40 dark:hover:bg-gray-900/40"
+              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh All'}
@@ -82,11 +82,8 @@ const DataCentrePage = () => {
 
           {/* Data Freshness Indicator */}
           {summary?.last_refresh && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-              </div>
+            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
               <span>Last updated {formatDistanceToNow(new Date(summary.last_refresh), { addSuffix: true })}</span>
             </div>
           )}
@@ -116,14 +113,14 @@ const DataCentrePage = () => {
         </div>
 
         {/* Footer Info */}
-        <div className="pt-8 border-t border-white/10">
-          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+        <div className="pt-8 border-t border-slate-200/50 dark:border-slate-700/50">
+          <div className="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
             <div>
-              Powered by advanced correlation algorithms • 27+ optimized indexes • Real-time sync
+              Advanced correlation algorithms • 27+ optimized indexes • Real-time synchronization
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              <span>All systems operational</span>
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>Systems operational</span>
             </div>
           </div>
         </div>

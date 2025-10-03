@@ -23,11 +23,11 @@ export const RelationshipExplorer: React.FC = () => {
   }
 
   const qualityColors = {
-    very_high: 'bg-emerald-500',
-    high: 'bg-green-500',
-    medium: 'bg-yellow-500',
-    low: 'bg-orange-500',
-    very_low: 'bg-red-500',
+    very_high: 'bg-slate-700 dark:bg-slate-600',
+    high: 'bg-slate-600 dark:bg-slate-500',
+    medium: 'bg-slate-500 dark:bg-slate-400',
+    low: 'bg-slate-400 dark:bg-slate-300',
+    very_low: 'bg-slate-300 dark:bg-slate-200',
   };
 
   const stats = {
@@ -37,12 +37,12 @@ export const RelationshipExplorer: React.FC = () => {
   };
 
   return (
-    <GlassCard variant="elevated" gradient="primary">
+    <GlassCard variant="elevated" gradient="none" className="border border-slate-200/50 dark:border-slate-700/50">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-xl font-bold mb-1">Trip Relationships Explorer</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <h3 className="text-xl font-bold mb-1 text-slate-900 dark:text-slate-100">Trip Relationships</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               Driver-Vehicle-Trip-Delivery correlations
             </p>
           </div>
@@ -51,6 +51,7 @@ export const RelationshipExplorer: React.FC = () => {
               variant={filter === 'very_high' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('very_high')}
+              className={filter !== 'very_high' ? 'border-slate-300 dark:border-slate-600' : ''}
             >
               Very High
             </Button>
@@ -58,6 +59,7 @@ export const RelationshipExplorer: React.FC = () => {
               variant={filter === 'high' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('high')}
+              className={filter !== 'high' ? 'border-slate-300 dark:border-slate-600' : ''}
             >
               High
             </Button>
@@ -65,6 +67,7 @@ export const RelationshipExplorer: React.FC = () => {
               variant={filter === 'medium' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('medium')}
+              className={filter !== 'medium' ? 'border-slate-300 dark:border-slate-600' : ''}
             >
               Medium
             </Button>
@@ -73,17 +76,17 @@ export const RelationshipExplorer: React.FC = () => {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="p-3 rounded-lg backdrop-blur-sm bg-white/10 dark:bg-gray-900/10 border border-white/10">
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">Total Trips</div>
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+            <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{stats.total}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400">Total Trips</div>
           </div>
-          <div className="p-3 rounded-lg backdrop-blur-sm bg-white/10 dark:bg-gray-900/10 border border-white/10">
-            <div className="text-2xl font-bold">{stats.highQuality}</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">High Quality</div>
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+            <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{stats.highQuality}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400">High Quality</div>
           </div>
-          <div className="p-3 rounded-lg backdrop-blur-sm bg-white/10 dark:bg-gray-900/10 border border-white/10">
-            <div className="text-2xl font-bold">{stats.withEvents}</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">With Events</div>
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+            <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{stats.withEvents}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400">With Events</div>
           </div>
         </div>
       </div>
@@ -93,38 +96,38 @@ export const RelationshipExplorer: React.FC = () => {
         {relationships?.slice(0, 10).map((rel) => (
           <div
             key={rel.trip_id}
-            className="p-4 rounded-xl backdrop-blur-md bg-white/20 dark:bg-gray-900/20 border border-white/10 hover:bg-white/30 dark:hover:bg-gray-900/30 transition-all cursor-pointer group"
+            className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer group"
           >
             <div className="flex items-center gap-3">
               {/* Driver */}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <Users className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-medium truncate">
+                  <Users className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-sm font-medium truncate text-slate-700 dark:text-slate-200">
                     {rel.driver_name || 'Unknown Driver'}
                   </span>
                 </div>
               </div>
 
-              <ChevronRight className="w-4 h-4 text-gray-400" />
+              <ChevronRight className="w-4 h-4 text-slate-400" />
 
               {/* Vehicle */}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <Truck className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm font-medium truncate">
+                  <Truck className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-sm font-medium truncate text-slate-700 dark:text-slate-200">
                     {rel.vehicle_registration || 'Unknown'}
                   </span>
                 </div>
               </div>
 
-              <ChevronRight className="w-4 h-4 text-gray-400" />
+              <ChevronRight className="w-4 h-4 text-slate-400" />
 
               {/* Delivery */}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <Package className="w-4 h-4 text-teal-500" />
-                  <span className="text-sm font-medium truncate">
+                  <Package className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-sm font-medium truncate text-slate-700 dark:text-slate-200">
                     {rel.bill_of_lading || 'No BOL'}
                   </span>
                 </div>
@@ -139,7 +142,7 @@ export const RelationshipExplorer: React.FC = () => {
                   {rel.correlation_confidence?.toFixed(0)}%
                 </Badge>
                 {rel.total_event_count > 0 && (
-                  <div className="flex items-center gap-1 text-xs text-orange-500">
+                  <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
                     <AlertCircle className="w-3 h-3" />
                     {rel.total_event_count}
                   </div>
@@ -148,8 +151,8 @@ export const RelationshipExplorer: React.FC = () => {
             </div>
 
             {/* Additional Details on Hover */}
-            <div className="mt-2 pt-2 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>{rel.distance_km?.toFixed(1)} km</span>
                 <span>{rel.customer_name}</span>
                 <span>

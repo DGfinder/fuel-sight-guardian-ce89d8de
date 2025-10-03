@@ -16,8 +16,6 @@ interface StatCardProps {
   icon: LucideIcon;
   value: number | string;
   label: string;
-  gradient: 'primary' | 'secondary' | 'accent' | 'none';
-  iconColor: string;
   suffix?: string;
 }
 
@@ -29,8 +27,6 @@ const StatCard: React.FC<StatCardPropsInternal> = ({
   icon: Icon,
   value,
   label,
-  gradient,
-  iconColor,
   suffix = '',
   delay = 0
 }) => {
@@ -84,31 +80,27 @@ const StatCard: React.FC<StatCardPropsInternal> = ({
     <div
       className={`transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
     >
-      <GlassCard variant="elevated" gradient={gradient} hover className="group">
+      <GlassCard variant="elevated" gradient="none" hover className="group border border-slate-200/50 dark:border-slate-700/50">
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div className="flex items-baseline gap-1 mb-1">
-              <h3 className={`text-3xl font-bold bg-gradient-to-br ${iconColor} bg-clip-text text-transparent`}>
+              <h3 className="text-3xl font-bold text-slate-700 dark:text-slate-200">
                 {typeof value === 'number' ? formatValue(displayValue) : value}
-                {suffix && <span className="text-lg ml-1">{suffix}</span>}
+                {suffix && <span className="text-lg ml-1 text-slate-600 dark:text-slate-400">{suffix}</span>}
               </h3>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+            <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
               {label}
             </p>
           </div>
-          <div className={`p-3 rounded-xl bg-gradient-to-br ${iconColor} transition-transform duration-300 group-hover:scale-110`}>
-            <Icon className="w-6 h-6 text-white" />
+          <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 transition-all duration-300 group-hover:bg-slate-200 dark:group-hover:bg-slate-700">
+            <Icon className="w-6 h-6 text-slate-600 dark:text-slate-400" />
           </div>
         </div>
 
-        {/* Animated pulse indicator */}
-        <div className="mt-3 flex items-center gap-2">
-          <div className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-          </div>
-          <span className="text-xs text-gray-500 dark:text-gray-500">Live</span>
+        {/* Professional update indicator */}
+        <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
+          <span className="text-xs text-slate-500 dark:text-slate-500">Real-time data</span>
         </div>
       </GlassCard>
     </div>
@@ -146,40 +138,30 @@ export const HeroStatsGrid: React.FC<HeroStatsGridProps> = ({ stats }) => {
         icon={Shield}
         value={guardianEvents}
         label="Guardian Events"
-        gradient="primary"
-        iconColor="from-blue-500 to-purple-600"
         delay={0}
       />
       <StatCard
         icon={CreditCard}
         value={paymentRecords}
         label="Payment Records"
-        gradient="secondary"
-        iconColor="from-teal-500 to-cyan-600"
         delay={75}
       />
       <StatCard
         icon={Users}
         value={activeDrivers}
         label="Active Drivers"
-        gradient="accent"
-        iconColor="from-orange-500 to-yellow-500"
         delay={150}
       />
       <StatCard
         icon={Navigation}
         value={totalTrips}
         label="Total Trips"
-        gradient="primary"
-        iconColor="from-indigo-500 to-blue-600"
         delay={225}
       />
       <StatCard
         icon={TrendingUp}
         value={safetyScore}
         label="Avg Safety Score"
-        gradient="secondary"
-        iconColor="from-green-500 to-teal-600"
         suffix="/10"
         delay={300}
       />
@@ -187,16 +169,12 @@ export const HeroStatsGrid: React.FC<HeroStatsGridProps> = ({ stats }) => {
         icon={AlertTriangle}
         value={totalVehicles}
         label="Fleet Vehicles"
-        gradient="accent"
-        iconColor="from-purple-500 to-pink-600"
         delay={375}
       />
       <StatCard
         icon={Activity}
         value={correlationRate}
         label="Correlation Rate"
-        gradient="primary"
-        iconColor="from-cyan-500 to-blue-600"
         suffix="%"
         delay={450}
       />
@@ -204,8 +182,6 @@ export const HeroStatsGrid: React.FC<HeroStatsGridProps> = ({ stats }) => {
         icon={Database}
         value={dataQuality}
         label="Data Quality"
-        gradient="secondary"
-        iconColor="from-emerald-500 to-green-600"
         suffix="%"
         delay={525}
       />

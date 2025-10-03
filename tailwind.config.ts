@@ -82,6 +82,9 @@ export default {
 				'gradient-primary': 'linear-gradient(135deg, #3B82F6, #8B5CF6)',
 				'gradient-secondary': 'linear-gradient(135deg, #14B8A6, #06B6D4)',
 				'gradient-accent': 'linear-gradient(135deg, #F59E0B, #FEDF19)',
+				'gradient-professional': 'linear-gradient(135deg, #1e293b, #334155)',
+				'gradient-slate': 'linear-gradient(135deg, #475569, #64748b)',
+				'gradient-blue-subtle': 'linear-gradient(135deg, #3b82f6, #0ea5e9)',
 			},
 			backdropBlur: {
 				xs: '2px',

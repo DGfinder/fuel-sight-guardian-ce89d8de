@@ -45,12 +45,12 @@ export const EventTimelineChart: React.FC = () => {
   const guardianCount = events?.filter(e => e.source === 'guardian').length || 0;
 
   return (
-    <GlassCard variant="elevated" gradient="none">
+    <GlassCard variant="elevated" gradient="none" className="border border-slate-200/50 dark:border-slate-700/50">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-xl font-bold mb-1">Event Timeline</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <h3 className="text-xl font-bold mb-1 text-slate-900 dark:text-slate-100">Event Timeline</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               Safety events across all sources - Last 30 days
             </p>
           </div>
@@ -59,6 +59,7 @@ export const EventTimelineChart: React.FC = () => {
               variant={filter === 'all' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('all')}
+              className={filter !== 'all' ? 'border-slate-300 dark:border-slate-600' : ''}
             >
               All ({totalEvents})
             </Button>
@@ -66,6 +67,7 @@ export const EventTimelineChart: React.FC = () => {
               variant={filter === 'lytx' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('lytx')}
+              className={filter !== 'lytx' ? 'border-slate-300 dark:border-slate-600' : ''}
             >
               LYTX ({lytxCount})
             </Button>
@@ -73,6 +75,7 @@ export const EventTimelineChart: React.FC = () => {
               variant={filter === 'guardian' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('guardian')}
+              className={filter !== 'guardian' ? 'border-slate-300 dark:border-slate-600' : ''}
             >
               Guardian ({guardianCount})
             </Button>
@@ -80,12 +83,12 @@ export const EventTimelineChart: React.FC = () => {
         </div>
 
         <div className="flex gap-4 mb-4">
-          <Badge variant="outline" className="text-blue-600 border-blue-200">
-            <div className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+          <Badge variant="outline" className="text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600">
+            <div className="w-2 h-2 rounded-full bg-slate-700 dark:bg-slate-300 mr-2" />
             LYTX Events
           </Badge>
-          <Badge variant="outline" className="text-purple-600 border-purple-200">
-            <div className="w-2 h-2 rounded-full bg-purple-500 mr-2" />
+          <Badge variant="outline" className="text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-600">
+            <div className="w-2 h-2 rounded-full bg-slate-600 dark:bg-slate-400 mr-2" />
             Guardian Events
           </Badge>
         </div>
@@ -96,28 +99,28 @@ export const EventTimelineChart: React.FC = () => {
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="colorLytx" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1} />
+                <stop offset="5%" stopColor="#475569" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#475569" stopOpacity={0.05} />
               </linearGradient>
               <linearGradient id="colorGuardian" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.1} />
+                <stop offset="5%" stopColor="#64748b" stopOpacity={0.5} />
+                <stop offset="95%" stopColor="#64748b" stopOpacity={0.05} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
             <XAxis
               dataKey="date"
-              stroke="rgba(156,163,175,0.5)"
-              tick={{ fill: 'rgba(156,163,175,0.8)' }}
+              stroke="rgba(100,116,139,0.5)"
+              tick={{ fill: 'rgba(100,116,139,0.8)' }}
               tickFormatter={(value) => format(parseISO(value), 'MMM d')}
             />
-            <YAxis stroke="rgba(156,163,175,0.5)" tick={{ fill: 'rgba(156,163,175,0.8)' }} />
+            <YAxis stroke="rgba(100,116,139,0.5)" tick={{ fill: 'rgba(100,116,139,0.8)' }} />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'rgba(17, 24, 39, 0.8)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                backgroundColor: 'rgba(248, 250, 252, 0.95)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
                 borderRadius: '8px',
-                backdropFilter: 'blur(10px)',
+                color: '#1e293b',
               }}
               labelFormatter={(value) => format(parseISO(value as string), 'MMM d, yyyy')}
             />
@@ -126,7 +129,8 @@ export const EventTimelineChart: React.FC = () => {
               <Area
                 type="monotone"
                 dataKey="lytx"
-                stroke="#3B82F6"
+                stroke="#475569"
+                strokeWidth={2}
                 fill="url(#colorLytx)"
                 name="LYTX Events"
               />
@@ -135,7 +139,8 @@ export const EventTimelineChart: React.FC = () => {
               <Area
                 type="monotone"
                 dataKey="guardian"
-                stroke="#8B5CF6"
+                stroke="#64748b"
+                strokeWidth={2}
                 fill="url(#colorGuardian)"
                 name="Guardian Events"
               />
