@@ -24,6 +24,11 @@ export default function SubgroupChartSection({ tanks }: SubgroupChartSectionProp
 
   // Group tanks by subgroup
   const subgroupData: SubgroupData[] = React.useMemo(() => {
+    console.log('[SubgroupChartSection] Processing tanks:', {
+      totalTanks: tanks.length,
+      sampleTank: tanks[0],
+      tanksWithSubgroup: tanks.filter(t => t.subgroup).length
+    });
     const grouped = tanks.reduce((acc, tank) => {
       const subgroup = tank.subgroup || 'Uncategorized';
 
@@ -63,6 +68,14 @@ export default function SubgroupChartSection({ tanks }: SubgroupChartSectionProp
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [tanks]);
 
+  // Auto-expand the first subgroup on initial load
+  React.useEffect(() => {
+    if (subgroupData.length > 0 && expandedSubgroups.size === 0) {
+      console.log('[SubgroupChartSection] Auto-expanding first subgroup:', subgroupData[0].name);
+      setExpandedSubgroups(new Set([subgroupData[0].name]));
+    }
+  }, [subgroupData, expandedSubgroups.size]);
+
   const toggleSubgroup = (subgroupName: string) => {
     const newExpanded = new Set(expandedSubgroups);
 
@@ -84,8 +97,29 @@ export default function SubgroupChartSection({ tanks }: SubgroupChartSectionProp
   };
 
   if (subgroupData.length === 0) {
-    return null;
+    console.log('[SubgroupChartSection] No subgroup data - tanks missing subgroup field?');
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+        <div className="flex items-center gap-3">
+          <BarChart3 className="h-6 w-6 text-yellow-600" />
+          <div>
+            <h3 className="font-semibold text-yellow-900">Tank Charts Not Available</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              Tanks need to have a <code className="bg-yellow-100 px-1 rounded">subgroup</code> field configured to display charts.
+              {tanks.length > 0 && ` Found ${tanks.length} tanks without subgroup data.`}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
+
+  console.log('[SubgroupChartSection] Rendering charts for subgroups:', {
+    subgroupCount: subgroupData.length,
+    subgroupNames: subgroupData.map(sg => sg.name),
+    expandedCount: expandedSubgroups.size,
+    showCharts
+  });
 
   // Determine health border color based on fuel levels
   const getHealthColor = (subgroup: SubgroupData): string => {
