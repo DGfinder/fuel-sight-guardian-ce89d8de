@@ -7,10 +7,7 @@ import { TankStatusTable } from '@/components/TankStatusTable';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import EditDipModal from '@/components/modals/EditDipModal';
 import { supabase } from '@/lib/supabase';
-// NOTE: You must install 'react-chartjs-2' and 'chart.js' for the chart to work.
-// import { Line } from 'react-chartjs-2';
-// import { Chart, LineElement, PointElement, LinearScale, CategoryScale } from 'chart.js';
-// Chart.register(LineElement, PointElement, LinearScale, CategoryScale);
+import SubgroupChartSection from '@/components/SubgroupChartSection';
 
 const GSF_DEPOTS_GROUP_NAME = 'GSF Depots';
 
@@ -100,7 +97,11 @@ export default function GSFDepotsPage() {
               </div>
             </div>
             <KPICards tanks={gsfDepotsTanks} onCardClick={() => {}} selectedFilter={null} />
-            <div className="flex items-center justify-between mb-4">
+
+            {/* Tank Charts by Subgroup */}
+            <SubgroupChartSection tanks={gsfDepotsTanks} />
+
+            <div className="flex items-center justify-between mb-4 mt-8">
               <h2 className="text-xl font-semibold text-gray-900">Tank Status</h2>
             </div>
             <TankStatusTable
