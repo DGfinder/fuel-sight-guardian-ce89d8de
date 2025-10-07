@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload, Globe, Gauge, TrendingUp, Activity, Building2, ChevronDown, ChevronRight } from 'lucide-react';
+import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload, Globe, Gauge, TrendingUp, Activity } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent } from '@/components/ui/card';
 import { 
   useAgbotLocations, 
   useAgbotSummary, 
@@ -31,43 +30,23 @@ function AgbotPageContent() {
   const [searchFilter, setSearchFilter] = useState('');
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [lowFuelOnly, setLowFuelOnly] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'table' | 'grouped'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [showSystemMonitoring, setShowSystemMonitoring] = useState(false);
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set());
 
   // Load view preference from localStorage
   useEffect(() => {
-    const savedView = localStorage.getItem('agbot-view-mode') as 'grid' | 'table' | 'grouped';
+    const savedView = localStorage.getItem('agbot-view-mode') as 'grid' | 'table';
     if (savedView) {
       setViewMode(savedView);
     }
   }, []);
 
   // Save view preference to localStorage
-  const handleViewChange = (mode: 'grid' | 'table' | 'grouped') => {
+  const handleViewChange = (mode: 'grid' | 'table') => {
     setViewMode(mode);
     localStorage.setItem('agbot-view-mode', mode);
-  };
-
-  const toggleCustomerExpanded = (customerName: string) => {
-    const newExpanded = new Set(expandedCustomers);
-    if (newExpanded.has(customerName)) {
-      newExpanded.delete(customerName);
-    } else {
-      newExpanded.add(customerName);
-    }
-    setExpandedCustomers(newExpanded);
-  };
-
-  const expandAllCustomers = () => {
-    const allCustomers = new Set(locations?.map(loc => loc.customer_name).filter(Boolean) || []);
-    setExpandedCustomers(allCustomers);
-  };
-
-  const collapseAllCustomers = () => {
-    setExpandedCustomers(new Set());
   };
 
   const { data: locations, isLoading, error } = useFilteredAgbotLocations({
@@ -78,30 +57,6 @@ function AgbotPageContent() {
 
   const summary = useAgbotSummary();
   const { toast } = useToast();
-
-  // Group locations by customer for grouped view
-  const groupedLocations = useMemo(() => {
-    if (!locations || viewMode !== 'grouped') return {};
-
-    const grouped: Record<string, typeof locations> = {};
-    locations.forEach(location => {
-      const customerName = location.customer_name || 'Unknown Customer';
-      if (!grouped[customerName]) {
-        grouped[customerName] = [];
-      }
-      grouped[customerName].push(location);
-    });
-
-    return grouped;
-  }, [locations, viewMode]);
-
-  // Auto-expand all customers on first load when grouped view is active
-  useEffect(() => {
-    if (locations && locations.length > 0 && expandedCustomers.size === 0 && viewMode === 'grouped') {
-      const allCustomers = new Set(locations.map(loc => loc.customer_name).filter(Boolean));
-      setExpandedCustomers(allCustomers);
-    }
-  }, [locations, viewMode, expandedCustomers.size]);
 
   const handleCSVImport = async (csvData: AgbotCSVRow[]) => {
     setIsImporting(true);
@@ -196,7 +151,7 @@ function AgbotPageContent() {
                   Athara Monitor
                 </Button>
 
-                {/* View Toggle - Grid | Table | Grouped */}
+                {/* View Toggle - Grid | Table */}
                 <div className="flex border rounded-lg bg-white">
                   <Button
                     variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -211,19 +166,10 @@ function AgbotPageContent() {
                     variant={viewMode === 'table' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => handleViewChange('table')}
-                    className={`rounded-none ${viewMode === 'table' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                    className={`rounded-l-none ${viewMode === 'table' ? 'bg-green-600 hover:bg-green-700' : ''}`}
                     title="Table View"
                   >
                     <List className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'grouped' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleViewChange('grouped')}
-                    className={`rounded-l-none ${viewMode === 'grouped' ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                    title="Grouped by Customer"
-                  >
-                    <Building2 className="h-4 w-4" />
                   </Button>
                 </div>
                 <Button
@@ -449,113 +395,8 @@ function AgbotPageContent() {
                     />
                   ))}
                 </div>
-              ) : viewMode === 'table' ? (
-                <AgbotTable locations={locations} />
               ) : (
-                // Grouped view by customer
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm text-gray-600">
-                      {Object.keys(groupedLocations).length} customers • {locations.length} locations
-                    </p>
-                    <div className="flex gap-2">
-                      <Button onClick={expandAllCustomers} variant="outline" size="sm">
-                        Expand All
-                      </Button>
-                      <Button onClick={collapseAllCustomers} variant="outline" size="sm">
-                        Collapse All
-                      </Button>
-                    </div>
-                  </div>
-
-                  {Object.entries(groupedLocations).map(([customerName, customerLocations]) => {
-                    const isExpanded = expandedCustomers.has(customerName);
-
-                    // Calculate customer health metrics
-                    const allAssets = customerLocations.flatMap(loc => loc.assets || []);
-                    const lowAssets = allAssets.filter(asset => asset?.latest_calibrated_fill_percentage < 20).length;
-                    const criticalAssets = allAssets.filter(asset => asset?.latest_calibrated_fill_percentage === 0).length;
-                    const onlineAssets = allAssets.filter(asset => asset?.device_online).length;
-
-                    // Determine health border color
-                    const healthColor = criticalAssets > 0
-                      ? 'border-red-600'
-                      : lowAssets > 0
-                        ? 'border-yellow-500'
-                        : 'border-green-600';
-
-                    return (
-                      <Card key={customerName} className={`bg-white border-l-4 ${healthColor} shadow-sm hover:shadow-md transition-all`}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <button
-                              onClick={() => toggleCustomerExpanded(customerName)}
-                              className="flex items-center gap-3 flex-1 text-left hover:opacity-70 transition-opacity"
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="w-5 h-5 text-gray-500" />
-                              ) : (
-                                <ChevronRight className="w-5 h-5 text-gray-500" />
-                              )}
-
-                              <div className="flex-1">
-                                <h3 className="font-semibold text-lg text-gray-900">{customerName}</h3>
-                                <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                                  <span>{customerLocations.length} locations</span>
-                                  <span>•</span>
-                                  <span>{allAssets.length} assets</span>
-                                  <span>•</span>
-                                  <span className="text-green-600">{onlineAssets} online</span>
-                                  {lowAssets > 0 && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="text-yellow-600">{lowAssets} low fuel</span>
-                                    </>
-                                  )}
-                                  {criticalAssets > 0 && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="text-red-600">{criticalAssets} critical</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </button>
-
-                            <div className="flex items-center gap-2">
-                              {criticalAssets > 0 && (
-                                <Badge variant="destructive" className="bg-red-600">
-                                  {criticalAssets} Critical
-                                </Badge>
-                              )}
-                              {lowAssets > 0 && (
-                                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                                  {lowAssets} Low
-                                </Badge>
-                              )}
-                              {criticalAssets === 0 && lowAssets === 0 && (
-                                <Badge variant="default" className="bg-green-100 text-green-800 border-green-300">
-                                  All Good
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="mt-4 pt-4 border-t space-y-3">
-                              {customerLocations.map((location) => (
-                                <AgbotLocationCard
-                                  key={location.id}
-                                  location={location}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                <AgbotTable locations={locations} />
               )
             ) : (
               <div className="text-center py-12 bg-white rounded-lg border">
