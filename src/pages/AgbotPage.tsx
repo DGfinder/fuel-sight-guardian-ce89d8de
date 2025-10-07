@@ -51,14 +51,6 @@ function AgbotPageContent() {
     localStorage.setItem('agbot-view-mode', mode);
   };
 
-  // Auto-expand all customers on initial load
-  useEffect(() => {
-    if (locations && locations.length > 0 && expandedCustomers.size === 0 && viewMode === 'grouped') {
-      const allCustomers = new Set(locations.map(loc => loc.customer_name).filter(Boolean));
-      setExpandedCustomers(allCustomers);
-    }
-  }, [locations, viewMode]);
-
   const toggleCustomerExpanded = (customerName: string) => {
     const newExpanded = new Set(expandedCustomers);
     if (newExpanded.has(customerName)) {
@@ -497,7 +489,7 @@ function AgbotPageContent() {
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
                             <button
-                              onClick={() => toggleCustomer(customerName)}
+                              onClick={() => toggleCustomerExpanded(customerName)}
                               className="flex items-center gap-3 flex-1 text-left hover:opacity-70 transition-opacity"
                             >
                               {isExpanded ? (
