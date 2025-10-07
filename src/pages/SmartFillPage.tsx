@@ -70,7 +70,7 @@ import SmartFillTankDetailModal from '@/components/SmartFillTankDetailModal';
 import { SmartFillTank, SmartFillLocation } from '@/services/smartfill-api';
 
 const SmartFillPage = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('locations');
   const [fullSyncLoading, setFullSyncLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -80,7 +80,7 @@ const SmartFillPage = () => {
   const [selectedTank, setSelectedTank] = useState<(SmartFillTank & { location?: SmartFillLocation; customer_name?: string; unit_number?: string }) | null>(null);
   const [tankModalOpen, setTankModalOpen] = useState(false);
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'table' | 'grouped'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'grouped'>('grouped');
   const [mobileView, setMobileView] = useState<'cards' | 'table'>('cards');
   
   // Data hooks
@@ -93,6 +93,14 @@ const SmartFillPage = () => {
   // Mutation hooks
   const syncMutation = useSmartFillSync();
   const apiTestMutation = useSmartFillAPITest();
+
+  // Auto-expand all customers when data loads (for better UX in grouped view)
+  useEffect(() => {
+    if (groupedTanks && groupedTanks.length > 0 && expandedCustomers.size === 0) {
+      const allCustomers = new Set(groupedTanks.map(group => group.customerName));
+      setExpandedCustomers(allCustomers);
+    }
+  }, [groupedTanks]);
 
   // Get all tanks with location info for filtering and sorting
   const allTanks = useMemo(() => {
@@ -211,6 +219,25 @@ const SmartFillPage = () => {
 
   const collapseAllCustomers = () => {
     setExpandedCustomers(new Set());
+  };
+
+  const handleFilterByLowFuel = () => {
+    setActiveTab('locations');
+    setStatusFilter('all');
+    setCustomerFilter('all');
+    // Filter to show only tanks with < 20% fuel
+    const lowFuelPercentage = 20;
+    // We'll use a combination of search and sort to highlight low fuel tanks
+    setSortBy('volume');
+    setSortOrder('asc'); // Show lowest first
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setCustomerFilter('all');
+    setSortBy('customer');
+    setSortOrder('asc');
   };
 
   const handleSync = () => {
@@ -434,21 +461,22 @@ const SmartFillPage = () => {
   const FuelLevelBar = ({ percentage, volume }: { percentage: number; volume: number }) => {
     const colorClass = percentage < 20 ? 'bg-red-500' : percentage < 40 ? 'bg-yellow-500' : 'bg-green-500';
     const textColorClass = percentage < 20 ? 'text-red-600' : percentage < 40 ? 'text-yellow-600' : 'text-green-600';
-    
+    const glowClass = percentage < 20 ? 'shadow-red-500/50' : percentage < 40 ? 'shadow-yellow-500/50' : 'shadow-green-500/50';
+
     return (
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <div className="w-16 bg-gray-200 rounded-full h-2">
-            <div 
-              className={`h-2 rounded-full transition-all duration-300 ${colorClass}`}
+          <div className="w-24 bg-gray-200 rounded-full h-3 shadow-inner">
+            <div
+              className={`h-3 rounded-full transition-all duration-300 ${colorClass} ${percentage < 20 ? 'shadow-lg ' + glowClass : ''}`}
               style={{ width: `${Math.max(0, Math.min(100, percentage))}%` }}
             />
           </div>
-          <span className={`text-sm font-medium ${textColorClass}`}>
+          <span className={`text-base font-bold ${textColorClass}`}>
             {percentage.toFixed(1)}%
           </span>
         </div>
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-gray-600 font-medium">
           {volume.toLocaleString()} L
         </div>
       </div>
@@ -600,15 +628,21 @@ const SmartFillPage = () => {
           </CardContent>
         </Card>
 
-        <Card className={`bg-gradient-to-br ${summary.lowFuelCount > 0 ? 'from-red-50 to-red-100 border-red-200' : 'from-green-50 to-green-100 border-green-200'} hover:shadow-lg transition-all duration-300`}>
+        <Card
+          className={`bg-gradient-to-br ${summary.lowFuelCount > 0 ? 'from-red-50 to-red-100 border-red-200' : 'from-green-50 to-green-100 border-green-200'} hover:shadow-lg transition-all duration-300 cursor-pointer`}
+          onClick={summary.lowFuelCount > 0 ? handleFilterByLowFuel : handleResetFilters}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className={`text-sm font-medium ${summary.lowFuelCount > 0 ? 'text-red-700' : 'text-green-700'}`}>Low Fuel Tanks</p>
                 <p className={`text-xl font-bold ${summary.lowFuelCount > 0 ? 'text-red-900' : 'text-green-900'}`}>{summary.lowFuelCount}</p>
+                {summary.lowFuelCount > 0 && (
+                  <p className="text-xs text-red-600 mt-1">Click to view</p>
+                )}
               </div>
-              {summary.lowFuelCount > 0 ? 
-                <AlertTriangle className="w-8 h-8 text-red-600" /> : 
+              {summary.lowFuelCount > 0 ?
+                <AlertTriangle className="w-8 h-8 text-red-600" /> :
                 <CheckCircle className="w-8 h-8 text-green-600" />
               }
             </div>
@@ -617,88 +651,13 @@ const SmartFillPage = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="locations">Tanks ({filteredTanks.length})</TabsTrigger>
           <TabsTrigger value="alerts">
             Alerts {actionItems.length > 0 && <Badge variant="destructive" className="ml-1">{actionItems.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="logs">Sync Logs</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>System Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Customers:</span>
-                    <span className="ml-2 font-medium">{summary.totalCustomers}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Total Capacity:</span>
-                    <span className="ml-2 font-medium">{summary.totalCapacity.toLocaleString()}L</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Current Volume:</span>
-                    <span className="ml-2 font-medium">{summary.totalVolume.toLocaleString()}L</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Low Fuel Tanks:</span>
-                    <span className={`ml-2 font-medium ${summary.lowFuelCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {summary.lowFuelCount}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="pt-4 border-t">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-gray-600">System Fill Level</span>
-                    <span className="text-sm font-medium">{summary.averageFillPercentage}%</span>
-                  </div>
-                  <Progress value={summary.averageFillPercentage} className="h-3" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Data Health</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Last Sync:</span>
-                    <span className="font-medium">
-                      {systemHealth.lastSyncTime ? formatSmartFillTimestamp(systemHealth.lastSyncTime) : 'Never'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Data Age:</span>
-                    <span className={`font-medium ${systemHealth.isStale ? 'text-red-600' : 'text-green-600'}`}>
-                      {systemHealth.dataAge}m ago
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">API Health:</span>
-                    <span className={`font-medium ${systemHealth.isHealthy ? 'text-green-600' : 'text-red-600'}`}>
-                      {systemHealth.apiHealth.status}
-                    </span>
-                  </div>
-                  {systemHealth.apiHealth.lastError && (
-                    <div className="pt-2 border-t">
-                      <span className="text-xs text-red-600">Last Error:</span>
-                      <p className="text-xs text-gray-600 mt-1">{systemHealth.apiHealth.lastError}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
 
         <TabsContent value="locations" className="space-y-4">
           {/* Enhanced Search and Filters */}
@@ -831,23 +790,31 @@ const SmartFillPage = () => {
             </CardHeader>
             <CardContent>
               {viewMode === 'grouped' && groupedTanks.length > 0 && (
-                <div className="mb-4 flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={expandAllCustomers}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Expand All
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={collapseAllCustomers}
-                  >
-                    <Minus className="w-4 h-4 mr-1" />
-                    Collapse All
-                  </Button>
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 flex justify-between items-center">
+                  <div className="text-sm text-blue-700 font-medium">
+                    <Building2 className="w-4 h-4 inline mr-2" />
+                    {groupedTanks.length} Customer Groups • {expandedCustomers.size} Expanded
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={expandAllCustomers}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <ChevronDown className="w-4 h-4 mr-1" />
+                      Expand All
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={collapseAllCustomers}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                    >
+                      <ChevronRight className="w-4 h-4 mr-1" />
+                      Collapse All
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -1068,50 +1035,67 @@ const SmartFillPage = () => {
                       )}
                     </div>
                   ) : (
-                    groupedTanks.map(({ customerName, tanks }) => (
-                      <Card key={customerName} className="border-l-4 border-blue-400">
-                        <CardHeader className="pb-3">
-                          <div 
-                            className="flex items-center justify-between cursor-pointer group"
-                            onClick={() => toggleCustomerExpanded(customerName)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-2">
-                                {expandedCustomers.has(customerName) ? (
-                                  <ChevronDown className="w-5 h-5 text-blue-600" />
-                                ) : (
-                                  <ChevronRight className="w-5 h-5 text-blue-600" />
-                                )}
-                                <Building2 className="w-5 h-5 text-blue-600" />
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
-                                  {customerName}
-                                </h3>
-                                <p className="text-sm text-gray-600">
-                                  {tanks.length} tank{tanks.length !== 1 ? 's' : ''} • 
-                                  Avg: {((tanks.reduce((sum, tank) => sum + (tank.latest_volume_percent || 0), 0)) / tanks.length).toFixed(1)}% fuel level
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <Badge 
-                                  variant="outline" 
-                                  className="bg-blue-50 text-blue-700 border-blue-200"
-                                >
-                                  {tanks.filter(t => (t.latest_volume_percent || 0) < 20).length > 0 && (
-                                    <AlertTriangle className="w-3 h-3 mr-1 text-red-500" />
+                    groupedTanks.map(({ customerName, tanks }) => {
+                      const avgFuelLevel = (tanks.reduce((sum, tank) => sum + (tank.latest_volume_percent || 0), 0)) / tanks.length;
+                      const criticalTanks = tanks.filter(t => (t.latest_volume_percent || 0) < 20).length;
+                      const lowTanks = tanks.filter(t => (t.latest_volume_percent || 0) >= 20 && (t.latest_volume_percent || 0) < 40).length;
+                      const operationalTanks = tanks.filter(t => t.latest_status?.toLowerCase().includes('ok')).length;
+
+                      // Determine overall health color
+                      const healthColor = criticalTanks > 0 ? 'border-red-400' : lowTanks > 0 ? 'border-yellow-400' : 'border-green-400';
+                      const healthBg = criticalTanks > 0 ? 'bg-red-50' : lowTanks > 0 ? 'bg-yellow-50' : 'bg-green-50';
+
+                      return (
+                        <Card key={customerName} className={`border-l-4 ${healthColor} ${healthBg}`}>
+                          <CardHeader className="pb-3">
+                            <div
+                              className="flex items-center justify-between cursor-pointer group"
+                              onClick={() => toggleCustomerExpanded(customerName)}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  {expandedCustomers.has(customerName) ? (
+                                    <ChevronDown className="w-5 h-5 text-blue-600" />
+                                  ) : (
+                                    <ChevronRight className="w-5 h-5 text-blue-600" />
                                   )}
-                                  {tanks.length} tanks
-                                </Badge>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {tanks.filter(t => t.latest_status?.toLowerCase().includes('ok')).length} operational
+                                  <Building2 className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
+                                    {customerName}
+                                    {criticalTanks > 0 && (
+                                      <Badge variant="destructive" className="ml-2 text-xs">
+                                        {criticalTanks} Critical
+                                      </Badge>
+                                    )}
+                                  </h3>
+                                  <p className="text-sm text-gray-600">
+                                    {tanks.length} tank{tanks.length !== 1 ? 's' : ''} •
+                                    Avg: <span className={`font-semibold ${avgFuelLevel < 20 ? 'text-red-600' : avgFuelLevel < 40 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                      {avgFuelLevel.toFixed(1)}%
+                                    </span> fuel level
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="text-right">
+                                  <Badge
+                                    variant="outline"
+                                    className={`${criticalTanks > 0 ? 'bg-red-100 text-red-700 border-red-300' : lowTanks > 0 ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-green-100 text-green-700 border-green-300'}`}
+                                  >
+                                    {criticalTanks > 0 && (
+                                      <AlertTriangle className="w-3 h-3 mr-1" />
+                                    )}
+                                    {tanks.length} tanks
+                                  </Badge>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {operationalTanks} operational
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </CardHeader>
+                          </CardHeader>
                         
                         {expandedCustomers.has(customerName) && (
                           <CardContent className="pt-0">
