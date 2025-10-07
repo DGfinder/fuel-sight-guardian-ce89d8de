@@ -72,6 +72,7 @@ import { SmartFillTank, SmartFillLocation } from '@/services/smartfill-api';
 const SmartFillPage = () => {
   const [activeTab, setActiveTab] = useState('locations');
   const [fullSyncLoading, setFullSyncLoading] = useState(false);
+  const [autoSyncTriggered, setAutoSyncTriggered] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('all');
@@ -82,17 +83,31 @@ const SmartFillPage = () => {
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'table' | 'grouped'>('grouped');
   const [mobileView, setMobileView] = useState<'cards' | 'table'>('cards');
-  
+
   // Data hooks
   const { data: locations, isLoading, error } = useSmartFillLocations();
   const summary = useSmartFillSummary();
   const { data: syncLogs } = useSmartFillSyncLogs(10);
   const systemHealth = useSmartFillSystemHealth();
   const { actionItems, lowFuelTanks, staleTanks, errorTanks } = useSmartFillAlertsAndActions();
-  
+
   // Mutation hooks
   const syncMutation = useSmartFillSync();
   const apiTestMutation = useSmartFillAPITest();
+
+  // Auto-sync on page load if data is stale (>10 minutes old)
+  useEffect(() => {
+    if (!autoSyncTriggered && !isLoading && !error) {
+      const dataAgeMinutes = systemHealth.dataAge;
+      const isStale = dataAgeMinutes > 10;
+
+      if (isStale || systemHealth.data.length === 0) {
+        console.log('[SMARTFILL] Auto-syncing data (age: ' + dataAgeMinutes + 'm)');
+        setAutoSyncTriggered(true);
+        handleFullSync();
+      }
+    }
+  }, [isLoading, error, systemHealth.dataAge, autoSyncTriggered]);
 
   // Get all tanks with location info for filtering and sorting
   const allTanks = useMemo(() => {
@@ -525,10 +540,23 @@ const SmartFillPage = () => {
       {/* Enhanced Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-gray-900">
             SmartFill Monitoring
           </h1>
-          <p className="text-gray-600 mt-1">JSON-RPC API fuel level monitoring for 33 customers</p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-gray-600">JSON-RPC API fuel level monitoring</p>
+            {syncLogs && syncLogs.length > 0 && syncLogs[0].sync_status === 'partial' && (
+              <Badge variant="outline" className="text-yellow-700 border-yellow-500 bg-yellow-50">
+                {summary.totalCustomers}/33 synced
+              </Badge>
+            )}
+            {autoSyncTriggered && fullSyncLoading && (
+              <Badge className="bg-green-600 text-white">
+                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                Auto-syncing...
+              </Badge>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -549,9 +577,9 @@ const SmartFillPage = () => {
             <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
             Quick Sync
           </Button>
-          <Button 
+          <Button
             onClick={handleFullSync}
-            className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+            className="bg-green-600 hover:bg-green-700 text-white"
             size="sm"
             disabled={fullSyncLoading}
           >
@@ -561,67 +589,67 @@ const SmartFillPage = () => {
         </div>
       </div>
 
-      {/* Enhanced System Health Overview */}
+      {/* Great Southern Fuels - Status Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <Card className={`bg-gradient-to-br ${systemHealth.isHealthy ? 'from-green-50 to-green-100 border-green-200' : 'from-red-50 to-red-100 border-red-200'} hover:shadow-lg transition-all duration-300`}>
+        <Card className={`bg-white ${systemHealth.isHealthy ? 'border-green-600' : 'border-red-600'} border-2 hover:shadow-lg transition-all duration-300`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm font-medium ${systemHealth.isHealthy ? 'text-green-700' : 'text-red-700'}`}>API Status</p>
-                <p className={`text-xl font-bold ${systemHealth.isHealthy ? 'text-green-900' : 'text-red-900'}`}>
+                <p className="text-sm font-medium text-gray-600">API Status</p>
+                <p className={`text-xl font-bold ${systemHealth.isHealthy ? 'text-green-600' : 'text-red-600'}`}>
                   {systemHealth.apiHealth.status.toUpperCase()}
                 </p>
               </div>
-              {systemHealth.isHealthy ? 
-                <CheckCircle className="w-8 h-8 text-green-600" /> : 
+              {systemHealth.isHealthy ?
+                <CheckCircle className="w-8 h-8 text-green-600" /> :
                 <XCircle className="w-8 h-8 text-red-600" />
               }
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-700">Customers</p>
-                <p className="text-xl font-bold text-blue-900">{summary.totalCustomers}</p>
+                <p className="text-sm font-medium text-gray-600">Customers</p>
+                <p className="text-xl font-bold text-green-700">{summary.totalCustomers}</p>
               </div>
-              <Users className="w-8 h-8 text-blue-600" />
+              <Users className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-700">Locations</p>
-                <p className="text-xl font-bold text-purple-900">{summary.totalLocations}</p>
+                <p className="text-sm font-medium text-gray-600">Locations</p>
+                <p className="text-xl font-bold text-yellow-600">{summary.totalLocations}</p>
               </div>
-              <Building2 className="w-8 h-8 text-purple-600" />
+              <Building2 className="w-8 h-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">Total Tanks</p>
+                <p className="text-sm font-medium text-gray-600">Total Tanks</p>
                 <p className="text-xl font-bold text-gray-900">{summary.totalTanks}</p>
               </div>
-              <Fuel className="w-8 h-8 text-gray-600" />
+              <Fuel className="w-8 h-8 text-gray-700" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-700">Avg Fill Level</p>
-                <p className="text-xl font-bold text-green-900">{summary.averageFillPercentage}%</p>
+                <p className="text-sm font-medium text-gray-600">Avg Fill Level</p>
+                <p className="text-xl font-bold text-green-600">{summary.averageFillPercentage}%</p>
               </div>
               <Gauge className="w-8 h-8 text-green-600" />
             </div>
@@ -629,14 +657,14 @@ const SmartFillPage = () => {
         </Card>
 
         <Card
-          className={`bg-gradient-to-br ${summary.lowFuelCount > 0 ? 'from-red-50 to-red-100 border-red-200' : 'from-green-50 to-green-100 border-green-200'} hover:shadow-lg transition-all duration-300 cursor-pointer`}
+          className={`bg-white ${summary.lowFuelCount > 0 ? 'border-red-600 border-2' : 'border-gray-200 border'} hover:shadow-lg transition-all duration-300 cursor-pointer`}
           onClick={summary.lowFuelCount > 0 ? handleFilterByLowFuel : handleResetFilters}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm font-medium ${summary.lowFuelCount > 0 ? 'text-red-700' : 'text-green-700'}`}>Low Fuel Tanks</p>
-                <p className={`text-xl font-bold ${summary.lowFuelCount > 0 ? 'text-red-900' : 'text-green-900'}`}>{summary.lowFuelCount}</p>
+                <p className="text-sm font-medium text-gray-600">Low Fuel Tanks</p>
+                <p className={`text-xl font-bold ${summary.lowFuelCount > 0 ? 'text-red-600' : 'text-green-600'}`}>{summary.lowFuelCount}</p>
                 {summary.lowFuelCount > 0 && (
                   <p className="text-xs text-red-600 mt-1">Click to view</p>
                 )}
@@ -790,9 +818,9 @@ const SmartFillPage = () => {
             </CardHeader>
             <CardContent>
               {viewMode === 'grouped' && groupedTanks.length > 0 && (
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 flex justify-between items-center">
-                  <div className="text-sm text-blue-700 font-medium">
-                    <Building2 className="w-4 h-4 inline mr-2" />
+                <div className="mb-4 p-3 bg-white rounded-lg border-2 border-green-600 flex justify-between items-center">
+                  <div className="text-sm text-gray-700 font-medium">
+                    <Building2 className="w-4 h-4 inline mr-2 text-green-600" />
                     {groupedTanks.length} Customer Groups • {expandedCustomers.size} Expanded
                   </div>
                   <div className="flex gap-2">
@@ -800,7 +828,7 @@ const SmartFillPage = () => {
                       variant="default"
                       size="sm"
                       onClick={expandAllCustomers}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-green-600 hover:bg-green-700 text-white"
                     >
                       <ChevronDown className="w-4 h-4 mr-1" />
                       Expand All
@@ -809,7 +837,7 @@ const SmartFillPage = () => {
                       variant="outline"
                       size="sm"
                       onClick={collapseAllCustomers}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                      className="border-yellow-500 text-yellow-700 hover:bg-yellow-50"
                     >
                       <ChevronRight className="w-4 h-4 mr-1" />
                       Collapse All
@@ -1041,12 +1069,11 @@ const SmartFillPage = () => {
                       const lowTanks = tanks.filter(t => (t.latest_volume_percent || 0) >= 20 && (t.latest_volume_percent || 0) < 40).length;
                       const operationalTanks = tanks.filter(t => t.latest_status?.toLowerCase().includes('ok')).length;
 
-                      // Determine overall health color
-                      const healthColor = criticalTanks > 0 ? 'border-red-400' : lowTanks > 0 ? 'border-yellow-400' : 'border-green-400';
-                      const healthBg = criticalTanks > 0 ? 'bg-red-50' : lowTanks > 0 ? 'bg-yellow-50' : 'bg-green-50';
+                      // GSF Branding: Green (healthy), Gold (warning), Red (critical)
+                      const healthColor = criticalTanks > 0 ? 'border-red-600' : lowTanks > 0 ? 'border-yellow-500' : 'border-green-600';
 
                       return (
-                        <Card key={customerName} className={`border-l-4 ${healthColor} ${healthBg}`}>
+                        <Card key={customerName} className={`bg-white border-l-4 ${healthColor}`}>
                           <CardHeader className="pb-3">
                             <div
                               className="flex items-center justify-between cursor-pointer group"
@@ -1062,10 +1089,10 @@ const SmartFillPage = () => {
                                   <Building2 className="w-5 h-5 text-blue-600" />
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
+                                  <h3 className="font-semibold text-lg group-hover:text-green-600 transition-colors text-gray-900">
                                     {customerName}
                                     {criticalTanks > 0 && (
-                                      <Badge variant="destructive" className="ml-2 text-xs">
+                                      <Badge className="ml-2 text-xs bg-yellow-500 text-black border-0">
                                         {criticalTanks} Critical
                                       </Badge>
                                     )}
@@ -1082,7 +1109,7 @@ const SmartFillPage = () => {
                                 <div className="text-right">
                                   <Badge
                                     variant="outline"
-                                    className={`${criticalTanks > 0 ? 'bg-red-100 text-red-700 border-red-300' : lowTanks > 0 ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-green-100 text-green-700 border-green-300'}`}
+                                    className={`${criticalTanks > 0 ? 'bg-white text-red-600 border-red-600' : lowTanks > 0 ? 'bg-white text-yellow-600 border-yellow-500' : 'bg-white text-green-600 border-green-600'}`}
                                   >
                                     {criticalTanks > 0 && (
                                       <AlertTriangle className="w-3 h-3 mr-1" />
