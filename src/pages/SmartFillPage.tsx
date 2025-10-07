@@ -94,14 +94,6 @@ const SmartFillPage = () => {
   const syncMutation = useSmartFillSync();
   const apiTestMutation = useSmartFillAPITest();
 
-  // Auto-expand all customers when data loads (for better UX in grouped view)
-  useEffect(() => {
-    if (groupedTanks && groupedTanks.length > 0 && expandedCustomers.size === 0) {
-      const allCustomers = new Set(groupedTanks.map(group => group.customerName));
-      setExpandedCustomers(allCustomers);
-    }
-  }, [groupedTanks]);
-
   // Get all tanks with location info for filtering and sorting
   const allTanks = useMemo(() => {
     if (!locations || !Array.isArray(locations)) return [];
@@ -201,6 +193,14 @@ const SmartFillPage = () => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([customerName, tanks]) => ({ customerName, tanks }));
   }, [filteredTanks]);
+
+  // Auto-expand all customers when data loads (for better UX in grouped view)
+  useEffect(() => {
+    if (groupedTanks && groupedTanks.length > 0 && expandedCustomers.size === 0) {
+      const allCustomers = new Set(groupedTanks.map(group => group.customerName));
+      setExpandedCustomers(allCustomers);
+    }
+  }, [groupedTanks, expandedCustomers.size]);
 
   const toggleCustomerExpanded = (customerName: string) => {
     const newExpanded = new Set(expandedCustomers);
