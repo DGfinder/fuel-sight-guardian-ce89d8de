@@ -31,7 +31,7 @@ function AgbotPageContent() {
   const [searchFilter, setSearchFilter] = useState('');
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [lowFuelOnly, setLowFuelOnly] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'table' | 'grouped'>('grouped');
+  const [viewMode, setViewMode] = useState<'grid' | 'table' | 'grouped'>('grid');
   const [showSystemMonitoring, setShowSystemMonitoring] = useState(false);
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
