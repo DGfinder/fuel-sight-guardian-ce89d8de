@@ -26,6 +26,7 @@ interface ChartData {
   percentage: number;
   isStale: boolean;
   location: string;
+  healthStatus: 'healthy' | 'warning' | 'critical';
 }
 
 // Check if dip data is stale (>24 hours old)
@@ -37,6 +38,27 @@ const isDataStale = (lastDipDate: string | undefined): boolean => {
   const hoursDiff = (now.getTime() - dipDate.getTime()) / (1000 * 60 * 60);
 
   return hoursDiff > 24;
+};
+
+// Determine health status based on fuel level percentage
+const getHealthStatus = (percentage: number): 'healthy' | 'warning' | 'critical' => {
+  if (percentage > 30) return 'healthy';
+  if (percentage >= 15) return 'warning';
+  return 'critical';
+};
+
+// Get color based on health status
+const getHealthColor = (healthStatus: 'healthy' | 'warning' | 'critical'): string => {
+  switch (healthStatus) {
+    case 'healthy':
+      return '#22c55e'; // green-500
+    case 'warning':
+      return '#eab308'; // yellow-500
+    case 'critical':
+      return '#ef4444'; // red-500
+    default:
+      return '#3b82f6'; // blue-500 fallback
+  }
 };
 
 // Format tank name for display (shorten if needed)
@@ -114,6 +136,7 @@ export default function TankBarChart({ tanks, subgroupName }: TankBarChartProps)
       const percentage = tank.current_level_percent || 0;
       const volume = tank.current_level || 0;
       const isStale = isDataStale(tank.latest_dip_date);
+      const healthStatus = getHealthStatus(percentage);
 
       return {
         name: formatTankName(tank.location),
@@ -122,7 +145,8 @@ export default function TankBarChart({ tanks, subgroupName }: TankBarChartProps)
         volume,
         percentage,
         isStale,
-        location: tank.location || 'Unknown'
+        location: tank.location || 'Unknown',
+        healthStatus
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -178,7 +202,7 @@ export default function TankBarChart({ tanks, subgroupName }: TankBarChartProps)
             {chartData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={entry.isStale ? '#dc2626' : '#3b82f6'}
+                fill={getHealthColor(entry.healthStatus)}
               />
             ))}
             <LabelList
@@ -198,15 +222,19 @@ export default function TankBarChart({ tanks, subgroupName }: TankBarChartProps)
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Legend with stale indicator */}
+      {/* Legend with health status */}
       <div className="flex items-center justify-center gap-6 mt-4 text-sm text-gray-600">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-          <span>Online</span>
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <span>Healthy (&gt;30%)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-red-600"></div>
-          <span>Dip &gt;24hrs old</span>
+          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <span>Warning (15-30%)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+          <span>Critical (&lt;15%)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-gray-300"></div>

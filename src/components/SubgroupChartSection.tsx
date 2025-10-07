@@ -5,9 +5,17 @@ import { ChevronDown, ChevronRight, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import TankBarChart from '@/components/charts/TankBarChart';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface SubgroupChartSectionProps {
   tanks: Tank[];
+  onSubgroupChange?: (subgroup: string | null) => void;
 }
 
 interface SubgroupData {
@@ -18,8 +26,8 @@ interface SubgroupData {
   avgFuelLevel: number;
 }
 
-export default function SubgroupChartSection({ tanks }: SubgroupChartSectionProps) {
-  const [expandedSubgroups, setExpandedSubgroups] = useState<Set<string>>(new Set());
+export default function SubgroupChartSection({ tanks, onSubgroupChange }: SubgroupChartSectionProps) {
+  const [selectedSubgroup, setSelectedSubgroup] = useState<string | null>(null);
   const [showCharts, setShowCharts] = useState(true);
 
   // Group tanks by subgroup
@@ -68,32 +76,22 @@ export default function SubgroupChartSection({ tanks }: SubgroupChartSectionProp
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [tanks]);
 
-  // Auto-expand the first subgroup on initial load
+  // Auto-select the first subgroup on initial load
   React.useEffect(() => {
-    if (subgroupData.length > 0 && expandedSubgroups.size === 0) {
-      console.log('[SubgroupChartSection] Auto-expanding first subgroup:', subgroupData[0].name);
-      setExpandedSubgroups(new Set([subgroupData[0].name]));
+    if (subgroupData.length > 0 && selectedSubgroup === null) {
+      console.log('[SubgroupChartSection] Auto-selecting first subgroup:', subgroupData[0].name);
+      setSelectedSubgroup(subgroupData[0].name);
+      if (onSubgroupChange) {
+        onSubgroupChange(subgroupData[0].name);
+      }
     }
-  }, [subgroupData, expandedSubgroups.size]);
+  }, [subgroupData, selectedSubgroup, onSubgroupChange]);
 
-  const toggleSubgroup = (subgroupName: string) => {
-    const newExpanded = new Set(expandedSubgroups);
-
-    if (newExpanded.has(subgroupName)) {
-      newExpanded.delete(subgroupName);
-    } else {
-      newExpanded.add(subgroupName);
+  const handleSubgroupChange = (value: string) => {
+    setSelectedSubgroup(value);
+    if (onSubgroupChange) {
+      onSubgroupChange(value);
     }
-
-    setExpandedSubgroups(newExpanded);
-  };
-
-  const expandAll = () => {
-    setExpandedSubgroups(new Set(subgroupData.map(sg => sg.name)));
-  };
-
-  const collapseAll = () => {
-    setExpandedSubgroups(new Set());
   };
 
   if (subgroupData.length === 0) {
@@ -117,9 +115,12 @@ export default function SubgroupChartSection({ tanks }: SubgroupChartSectionProp
   console.log('[SubgroupChartSection] Rendering charts for subgroups:', {
     subgroupCount: subgroupData.length,
     subgroupNames: subgroupData.map(sg => sg.name),
-    expandedCount: expandedSubgroups.size,
+    selectedSubgroup,
     showCharts
   });
+
+  // Get the currently selected subgroup data
+  const currentSubgroup = subgroupData.find(sg => sg.name === selectedSubgroup);
 
   // Determine health border color based on fuel levels
   const getHealthColor = (subgroup: SubgroupData): string => {
@@ -134,7 +135,7 @@ export default function SubgroupChartSection({ tanks }: SubgroupChartSectionProp
 
   return (
     <div className="space-y-4">
-      {/* Section Header with Toggle */}
+      {/* Section Header with Depot Selector */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <BarChart3 className="h-6 w-6 text-green-600" />
@@ -142,115 +143,88 @@ export default function SubgroupChartSection({ tanks }: SubgroupChartSectionProp
         </div>
 
         <div className="flex items-center gap-2">
+          <Select value={selectedSubgroup || undefined} onValueChange={handleSubgroupChange}>
+            <SelectTrigger className="w-[240px]">
+              <SelectValue placeholder="Select depot..." />
+            </SelectTrigger>
+            <SelectContent>
+              {subgroupData.map(sg => (
+                <SelectItem key={sg.name} value={sg.name}>
+                  {sg.name} ({sg.tanks.length} tanks)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowCharts(!showCharts)}
             className="text-sm"
           >
-            {showCharts ? 'Hide Charts' : 'Show Charts'}
+            {showCharts ? 'Hide Chart' : 'Show Chart'}
           </Button>
-
-          {showCharts && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={expandAll}
-                disabled={expandedSubgroups.size === subgroupData.length}
-              >
-                Expand All
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={collapseAll}
-                disabled={expandedSubgroups.size === 0}
-              >
-                Collapse All
-              </Button>
-            </>
-          )}
         </div>
       </div>
 
-      {/* Subgroup Charts */}
-      {showCharts && subgroupData.map(subgroup => {
-        const isExpanded = expandedSubgroups.has(subgroup.name);
-        const healthColor = getHealthColor(subgroup);
-
-        return (
-          <Card
-            key={subgroup.name}
-            className={`bg-white border-l-4 ${healthColor} shadow-sm hover:shadow-md transition-all`}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => toggleSubgroup(subgroup.name)}
-                  className="flex items-center gap-3 flex-1 text-left hover:opacity-70 transition-opacity"
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                  )}
-
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{subgroup.name}</CardTitle>
-                    <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                      <span>{subgroup.tanks.length} tanks</span>
+      {/* Selected Subgroup Chart */}
+      {showCharts && currentSubgroup && (
+        <Card
+          className={`bg-white border-l-4 ${getHealthColor(currentSubgroup)} shadow-sm`}
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <CardTitle className="text-lg">{currentSubgroup.name}</CardTitle>
+                <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                  <span>{currentSubgroup.tanks.length} tanks</span>
+                  <span>•</span>
+                  <span>Avg: {currentSubgroup.avgFuelLevel}%</span>
+                  {currentSubgroup.lowFuelCount > 0 && (
+                    <>
                       <span>•</span>
-                      <span>Avg: {subgroup.avgFuelLevel}%</span>
-                      {subgroup.lowFuelCount > 0 && (
-                        <>
-                          <span>•</span>
-                          <span className="text-yellow-600">{subgroup.lowFuelCount} low fuel</span>
-                        </>
-                      )}
-                      {subgroup.criticalCount > 0 && (
-                        <>
-                          <span>•</span>
-                          <span className="text-red-600">{subgroup.criticalCount} critical</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  {subgroup.criticalCount > 0 && (
-                    <Badge variant="destructive" className="bg-red-600">
-                      {subgroup.criticalCount} Critical
-                    </Badge>
+                      <span className="text-yellow-600">{currentSubgroup.lowFuelCount} low fuel</span>
+                    </>
                   )}
-                  {subgroup.lowFuelCount > 0 && (
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                      {subgroup.lowFuelCount} Low
-                    </Badge>
-                  )}
-                  {subgroup.criticalCount === 0 && subgroup.lowFuelCount === 0 && (
-                    <Badge variant="default" className="bg-green-100 text-green-800 border-green-300">
-                      All Good
-                    </Badge>
+                  {currentSubgroup.criticalCount > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="text-red-600">{currentSubgroup.criticalCount} critical</span>
+                    </>
                   )}
                 </div>
               </div>
-            </CardHeader>
 
-            {isExpanded && (
-              <CardContent className="pt-0">
-                <div className="border-t pt-4">
-                  <TankBarChart
-                    tanks={subgroup.tanks}
-                    subgroupName={subgroup.name}
-                  />
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        );
-      })}
+              <div className="flex items-center gap-2">
+                {currentSubgroup.criticalCount > 0 && (
+                  <Badge variant="destructive" className="bg-red-600">
+                    {currentSubgroup.criticalCount} Critical
+                  </Badge>
+                )}
+                {currentSubgroup.lowFuelCount > 0 && (
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                    {currentSubgroup.lowFuelCount} Low
+                  </Badge>
+                )}
+                {currentSubgroup.criticalCount === 0 && currentSubgroup.lowFuelCount === 0 && (
+                  <Badge variant="default" className="bg-green-100 text-green-800 border-green-300">
+                    All Good
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="pt-0">
+            <div className="border-t pt-4">
+              <TankBarChart
+                tanks={currentSubgroup.tanks}
+                subgroupName={currentSubgroup.name}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

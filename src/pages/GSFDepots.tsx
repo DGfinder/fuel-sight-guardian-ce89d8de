@@ -19,6 +19,7 @@ export default function GSFDepotsPage() {
   const [user, setUser] = useState(null);
   const [editDipModalOpen, setEditDipModalOpen] = useState(false);
   const [editDipTank, setEditDipTank] = useState(null);
+  const [selectedSubgroup, setSelectedSubgroup] = useState<string | null>(null);
 
   useEffect(() => {
     const getSession = async () => {
@@ -36,9 +37,15 @@ export default function GSFDepotsPage() {
 
   // Filter tanks by GSF Depots group and apply subgroup permissions
   const groupFilteredTanks = (tanks || []).filter(t => t.group_name === GSF_DEPOTS_GROUP_NAME);
-  
+
   // Only filter if permissions are loaded
   const gsfDepotsTanks = (!permissionsLoading && permissions) ? filterTanks(groupFilteredTanks) : (groupFilteredTanks || []);
+
+  // Further filter by selected subgroup for the table view
+  const displayedTanks = selectedSubgroup
+    ? gsfDepotsTanks.filter(t => t.subgroup === selectedSubgroup)
+    : gsfDepotsTanks;
+
   const selectedTank = gsfDepotsTanks.find(t => t.id === selectedTankId) || null;
 
   // Debug subgroup filtering with safe access
@@ -93,19 +100,28 @@ export default function GSFDepotsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">GSF Depots Dashboard</h1>
-                <p className="text-gray-600 mt-1">Monitoring {gsfDepotsTanks.length} tanks in GSF Depots</p>
+                <p className="text-gray-600 mt-1">
+                  {selectedSubgroup
+                    ? `Viewing ${displayedTanks.length} tanks in ${selectedSubgroup}`
+                    : `Monitoring ${gsfDepotsTanks.length} tanks in GSF Depots`}
+                </p>
               </div>
             </div>
-            <KPICards tanks={gsfDepotsTanks} onCardClick={() => {}} selectedFilter={null} />
+            <KPICards tanks={displayedTanks} onCardClick={() => {}} selectedFilter={null} />
 
             {/* Tank Charts by Subgroup */}
-            <SubgroupChartSection tanks={gsfDepotsTanks} />
+            <SubgroupChartSection
+              tanks={gsfDepotsTanks}
+              onSubgroupChange={setSelectedSubgroup}
+            />
 
             <div className="flex items-center justify-between mb-4 mt-8">
-              <h2 className="text-xl font-semibold text-gray-900">Tank Status</h2>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {selectedSubgroup ? `${selectedSubgroup} - Tank Status` : 'Tank Status'}
+              </h2>
             </div>
             <TankStatusTable
-              tanks={gsfDepotsTanks}
+              tanks={displayedTanks}
               onTankClick={tank => {
                 setSelectedTankId(tank.id);
                 setTankDetailsOpen(true);
