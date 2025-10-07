@@ -1183,7 +1183,8 @@ const SmartFillPage = () => {
                           </CardContent>
                         )}
                       </Card>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
