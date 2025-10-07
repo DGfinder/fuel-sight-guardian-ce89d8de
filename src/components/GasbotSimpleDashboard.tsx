@@ -19,6 +19,7 @@ import {
   Activity,
   Clock,
   Database,
+  Gauge,
   Zap,
   Signal,
   SignalMedium,
@@ -138,21 +139,21 @@ const GasbotSimpleDashboard = () => {
         </Button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Great Southern Fuels - Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Tanks</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.totalTanks}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalTanks}</p>
               </div>
-              <Fuel className="w-8 h-8 text-blue-600" />
+              <Fuel className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -164,7 +165,7 @@ const GasbotSimpleDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={`bg-white ${stats.lowFuelTanks > 0 ? 'border-red-600 border-2' : 'border-gray-200 border'} hover:shadow-lg transition-all`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -176,7 +177,7 @@ const GasbotSimpleDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -185,7 +186,7 @@ const GasbotSimpleDashboard = () => {
                   {stats.avgFuelLevel}%
                 </p>
               </div>
-              <Database className="w-8 h-8 text-gray-600" />
+              <Gauge className="w-8 h-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>

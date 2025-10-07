@@ -126,8 +126,8 @@ function AgbotPageContent() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Signal className="h-6 w-6 text-blue-600" />
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Signal className="h-6 w-6 text-green-600" />
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">Gasbot Monitoring</h1>
@@ -197,24 +197,24 @@ function AgbotPageContent() {
               </>
             )}
 
-            {/* Enhanced Fleet Statistics */}
+            {/* Great Southern Fuels - Fleet Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Fleet Overview */}
-              <div className="bg-white p-6 rounded-lg border shadow-sm">
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">Fleet Overview</h3>
-                  <Signal className="h-5 w-5 text-blue-500" />
+                  <h3 className="text-sm font-medium text-gray-600">Fleet Overview</h3>
+                  <Signal className="h-5 w-5 text-green-600" />
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm">Locations</span>
-                    <span className="text-sm font-bold">{summary.totalLocations}</span>
+                    <span className="text-sm text-gray-600">Locations</span>
+                    <span className="text-sm font-bold text-gray-900">{summary.totalLocations}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm">Active Devices</span>
+                    <span className="text-sm text-gray-600">Active Devices</span>
                     <span className="text-sm font-bold text-green-600">{summary.onlineAssets}/{summary.totalAssets}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
+                  <div className="flex justify-between text-xs text-gray-500">
                     <span>Agricultural: {summary.categories.agricultural}</span>
                     <span>Commercial: {summary.categories.commercial}</span>
                   </div>
@@ -222,84 +222,84 @@ function AgbotPageContent() {
               </div>
 
               {/* Fuel Capacity & Volume */}
-              <div className="bg-white p-6 rounded-lg border shadow-sm">
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">Fuel Inventory</h3>
-                  <Gauge className="h-5 w-5 text-purple-500" />
+                  <h3 className="text-sm font-medium text-gray-600">Fuel Inventory</h3>
+                  <Gauge className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <div className="text-2xl font-bold text-purple-600">
+                    <div className="text-2xl font-bold text-yellow-600">
                       {(summary.currentFuelVolume / 1000).toFixed(1)}k
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-gray-500">
                       of {(summary.totalCapacity / 1000).toFixed(0)}k liters
                     </div>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-purple-600 h-2 rounded-full" 
+                    <div
+                      className="bg-yellow-600 h-2 rounded-full"
                       style={{ width: `${summary.fleetUtilization}%` }}
                     ></div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-gray-500">
                     Fleet Utilization: {summary.fleetUtilization}%
                   </div>
                 </div>
               </div>
 
               {/* Fuel Levels Status */}
-              <div className="bg-white p-6 rounded-lg border shadow-sm">
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">Fuel Status</h3>
-                  <TrendingUp className="h-5 w-5 text-green-500" />
+                  <h3 className="text-sm font-medium text-gray-600">Fuel Status</h3>
+                  <TrendingUp className="h-5 w-5 text-green-600" />
                 </div>
                 <div className="space-y-3">
                   <div className="text-center">
                     <div className={`text-2xl font-bold ${usePercentageColor(summary.averageFillPercentage)}`}>
                       {summary.averageFillPercentage}%
                     </div>
-                    <div className="text-xs text-muted-foreground mb-3">Average Level</div>
+                    <div className="text-xs text-gray-500 mb-3">Average Level</div>
                   </div>
                   <div className="flex justify-between text-sm">
                     {summary.criticalCount > 0 && (
                       <div className="text-center">
-                        <div className="text-sm font-bold text-gray-600">{summary.criticalCount}</div>
-                        <div className="text-xs text-muted-foreground">Empty</div>
+                        <div className="text-sm font-bold text-red-600">{summary.criticalCount}</div>
+                        <div className="text-xs text-gray-500">Empty</div>
                       </div>
                     )}
                     {summary.lowFuelCount > 0 && (
                       <div className="text-center">
-                        <div className="text-sm font-bold text-orange-600">{summary.lowFuelCount}</div>
-                        <div className="text-xs text-muted-foreground">Low</div>
+                        <div className="text-sm font-bold text-yellow-600">{summary.lowFuelCount}</div>
+                        <div className="text-xs text-gray-500">Low</div>
                       </div>
                     )}
                     <div className="text-center">
                       <div className="text-sm font-bold text-green-600">
                         {summary.totalAssets - summary.lowFuelCount - summary.criticalCount}
                       </div>
-                      <div className="text-xs text-muted-foreground">Good</div>
+                      <div className="text-xs text-gray-500">Good</div>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Consumption Analytics */}
-              <div className="bg-white p-6 rounded-lg border shadow-sm">
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">Consumption</h3>
-                  <Activity className="h-5 w-5 text-orange-500" />
+                  <h3 className="text-sm font-medium text-gray-600">Consumption</h3>
+                  <Activity className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <div className="text-2xl font-bold text-orange-600">
+                    <div className="text-2xl font-bold text-gray-900">
                       {summary.dailyConsumption.toFixed(1)}L
                     </div>
-                    <div className="text-xs text-muted-foreground">per day</div>
+                    <div className="text-xs text-gray-500">per day</div>
                   </div>
                   {summary.estimatedDaysRemaining && (
                     <div className="text-center pt-2">
-                      <div className="text-sm font-bold text-blue-600">
+                      <div className="text-sm font-bold text-gray-700">
                         ~{summary.estimatedDaysRemaining} days
                       </div>
                       <div className="text-xs text-muted-foreground">remaining at current rate</div>
