@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -24,9 +25,13 @@ import {
   Signal,
   SignalMedium,
   SignalLow,
-  WifiOff
+  WifiOff,
+  Search,
+  Filter,
+  X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { formatAustralianDateTime, formatRelativeTime } from '@/utils/dateFormatting';
 
 interface GasbotReading {
   id: number;
@@ -45,6 +50,9 @@ const GasbotSimpleDashboard = () => {
   const [readings, setReadings] = useState<GasbotReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [searchFilter, setSearchFilter] = useState('');
+  const [onlineOnly, setOnlineOnly] = useState(false);
+  const [lowFuelOnly, setLowFuelOnly] = useState(false);
 
   const fetchReadings = async () => {
     try {
@@ -75,13 +83,40 @@ const GasbotSimpleDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate summary stats
+  // Filter readings based on search and filters
+  const filteredReadings = React.useMemo(() => {
+    let filtered = readings;
+
+    // Search filter
+    if (searchFilter) {
+      const search = searchFilter.toLowerCase();
+      filtered = filtered.filter(r =>
+        r.location_name?.toLowerCase().includes(search) ||
+        r.customer_name?.toLowerCase().includes(search) ||
+        r.device_serial?.toLowerCase().includes(search)
+      );
+    }
+
+    // Online only filter
+    if (onlineOnly) {
+      filtered = filtered.filter(r => r.device_online);
+    }
+
+    // Low fuel only filter
+    if (lowFuelOnly) {
+      filtered = filtered.filter(r => r.fuel_level_percent < 20);
+    }
+
+    return filtered;
+  }, [readings, searchFilter, onlineOnly, lowFuelOnly]);
+
+  // Calculate summary stats (from all readings, not filtered)
   const stats = React.useMemo(() => {
     const totalTanks = readings.length;
     const onlineTanks = readings.filter(r => r.device_online).length;
     const lowFuelTanks = readings.filter(r => r.fuel_level_percent < 20).length;
-    const avgFuelLevel = readings.length > 0 
-      ? readings.reduce((sum, r) => sum + r.fuel_level_percent, 0) / readings.length 
+    const avgFuelLevel = readings.length > 0
+      ? readings.reduce((sum, r) => sum + r.fuel_level_percent, 0) / readings.length
       : 0;
 
     return {
@@ -111,12 +146,9 @@ const GasbotSimpleDashboard = () => {
     return <SignalLow className="w-4 h-4 text-red-500" />;
   };
 
+  // Use Australian date formatting
   const formatTimestamp = (timestamp: string) => {
-    try {
-      return new Date(timestamp).toLocaleString();
-    } catch {
-      return 'Invalid date';
-    }
+    return formatAustralianDateTime(timestamp);
   };
 
   return (
@@ -126,7 +158,7 @@ const GasbotSimpleDashboard = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Gasbot Fuel Monitor</h1>
           <p className="text-gray-600 mt-1">
-            Simplified webhook data • {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString()}` : 'Loading...'}
+            Simplified webhook data • {lastUpdate ? `Updated ${formatAustralianDateTime(lastUpdate)}` : 'Loading...'}
           </p>
         </div>
         <Button 
@@ -138,6 +170,72 @@ const GasbotSimpleDashboard = () => {
           Refresh
         </Button>
       </div>
+
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Search by location, customer, or device serial..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="pl-10 pr-10"
+          />
+          {searchFilter && (
+            <button
+              onClick={() => setSearchFilter('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant={onlineOnly ? 'default' : 'outline'}
+            onClick={() => setOnlineOnly(!onlineOnly)}
+            className={onlineOnly ? 'bg-green-600 hover:bg-green-700' : ''}
+          >
+            <Signal className="w-4 h-4 mr-2" />
+            Online Only
+          </Button>
+
+          <Button
+            variant={lowFuelOnly ? 'default' : 'outline'}
+            onClick={() => setLowFuelOnly(!lowFuelOnly)}
+            className={lowFuelOnly ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
+          >
+            <AlertTriangle className="w-4 h-4 mr-2" />
+            Low Fuel
+          </Button>
+        </div>
+      </div>
+
+      {/* Active Filters */}
+      {(searchFilter || onlineOnly || lowFuelOnly) && (
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="text-sm text-gray-600">Active filters:</span>
+          {searchFilter && (
+            <Badge variant="secondary">
+              Search: "{searchFilter}"
+            </Badge>
+          )}
+          {onlineOnly && (
+            <Badge variant="secondary">
+              Online devices only
+            </Badge>
+          )}
+          {lowFuelOnly && (
+            <Badge variant="secondary">
+              Low fuel only
+            </Badge>
+          )}
+          <Badge variant="outline">
+            {filteredReadings.length} of {readings.length} tanks shown
+          </Badge>
+        </div>
+      )}
 
       {/* Great Southern Fuels - Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -153,11 +251,14 @@ const GasbotSimpleDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all">
+        <Card
+          className={`bg-white ${onlineOnly ? 'border-green-600 border-2' : 'border-gray-200 border'} hover:shadow-lg transition-all cursor-pointer`}
+          onClick={() => setOnlineOnly(!onlineOnly)}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Online</p>
+                <p className="text-sm text-gray-600">Online {onlineOnly && '(filtered)'}</p>
                 <p className="text-2xl font-bold text-green-600">{stats.onlineTanks}</p>
               </div>
               <Activity className="w-8 h-8 text-green-600" />
@@ -165,11 +266,14 @@ const GasbotSimpleDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className={`bg-white ${stats.lowFuelTanks > 0 ? 'border-red-600 border-2' : 'border-gray-200 border'} hover:shadow-lg transition-all`}>
+        <Card
+          className={`bg-white ${lowFuelOnly ? 'border-yellow-600 border-2' : stats.lowFuelTanks > 0 ? 'border-red-600 border-2' : 'border-gray-200 border'} hover:shadow-lg transition-all cursor-pointer`}
+          onClick={() => setLowFuelOnly(!lowFuelOnly)}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Low Fuel</p>
+                <p className="text-sm text-gray-600">Low Fuel {lowFuelOnly && '(filtered)'}</p>
                 <p className="text-2xl font-bold text-red-600">{stats.lowFuelTanks}</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-red-600" />
@@ -215,6 +319,12 @@ const GasbotSimpleDashboard = () => {
               <p>No tank readings found</p>
               <p className="text-sm">Send data to the webhook to see readings here</p>
             </div>
+          ) : filteredReadings.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Filter className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>No tanks match your filters</p>
+              <p className="text-sm">Try adjusting your search criteria or filters</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -231,7 +341,7 @@ const GasbotSimpleDashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {readings.map((reading) => (
+                  {filteredReadings.map((reading) => (
                     <TableRow 
                       key={reading.id}
                       className={!reading.device_online ? 'bg-red-50' : ''}

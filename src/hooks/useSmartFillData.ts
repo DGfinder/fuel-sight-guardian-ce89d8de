@@ -226,29 +226,14 @@ export function useSmartFillPercentageBackground(percentage: number | null | und
   }
 }
 
-// Helper function to format SmartFill timestamp
+import { formatRelativeTime, formatAustralianDate } from '@/utils/dateFormatting';
+
+// Helper function to format SmartFill timestamp (Australian timezone)
 export function formatSmartFillTimestamp(timestamp: string | null): string {
   if (!timestamp) return 'No data';
-  
-  try {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMins < 1) {
-      return 'Just now';
-    } else if (diffMins < 60) {
-      return `${diffMins}m ago`;
-    } else if (diffHours < 24) {
-      return `${diffHours}h ago`;
-    } else if (diffDays < 7) {
-      return `${diffDays}d ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
+  try {
+    return formatRelativeTime(timestamp);
   } catch (error) {
     return 'Invalid date';
   }
