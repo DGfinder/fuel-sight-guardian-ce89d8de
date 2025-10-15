@@ -7,15 +7,20 @@
  */
 
 import React, { useState } from 'react';
-import { Settings, Database, RefreshCw, AlertTriangle, CheckCircle, Truck, Users, GitMerge, Shield, Video, Navigation, MapPin, Plus, Trash2 } from 'lucide-react';
+import { Settings, Database, RefreshCw, AlertTriangle, CheckCircle, Truck, Users, GitMerge, Shield, Video, Navigation, MapPin, Plus, Trash2, Edit, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useVehicles } from '@/hooks/useVehicles';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import DataCentreLayout from '@/components/DataCentreLayout';
+import { useToast } from '@/hooks/use-toast';
 
 interface FleetMismatch {
   vehicle_registration: string;
@@ -94,6 +99,37 @@ const MasterDataPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('vehicles');
   const [syncInProgress, setSyncInProgress] = useState(false);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Dialog state for LYTX mappings
+  const [lytxDialogOpen, setLytxDialogOpen] = useState(false);
+  const [lytxEditMode, setLytxEditMode] = useState(false);
+  const [lytxFormData, setLytxFormData] = useState({
+    id: '',
+    device_serial: '',
+    vehicle_id: '',
+    notes: ''
+  });
+
+  // Dialog state for Guardian mappings
+  const [guardianDialogOpen, setGuardianDialogOpen] = useState(false);
+  const [guardianEditMode, setGuardianEditMode] = useState(false);
+  const [guardianFormData, setGuardianFormData] = useState({
+    id: '',
+    guardian_unit: '',
+    vehicle_id: '',
+    notes: ''
+  });
+
+  // Dialog state for MtData mappings
+  const [mtdataDialogOpen, setMtdataDialogOpen] = useState(false);
+  const [mtdataEditMode, setMtdataEditMode] = useState(false);
+  const [mtdataFormData, setMtdataFormData] = useState({
+    id: '',
+    mtdata_vehicle_id: '',
+    vehicle_id: '',
+    notes: ''
+  });
 
   // Fetch all vehicles
   const { data: vehicles = [], isLoading: loadingVehicles } = useVehicles({});
@@ -311,6 +347,343 @@ const MasterDataPage: React.FC = () => {
   const handleSyncAllSystems = () => {
     if (confirm('This will synchronize all systems (LYTX, Guardian, MtData) with master data mappings. Continue?')) {
       syncAllSystemsMutation.mutate();
+    }
+  };
+
+  // ============================================================================
+  // LYTX MAPPING MUTATIONS
+  // ============================================================================
+
+  const addLytxMappingMutation = useMutation({
+    mutationFn: async () => {
+      const selectedVehicle = vehicles.find(v => v.id === lytxFormData.vehicle_id);
+      if (!selectedVehicle) throw new Error('Vehicle not found');
+
+      const { error } = await supabase
+        .from('lytx_device_mappings')
+        .insert({
+          device_serial: lytxFormData.device_serial,
+          vehicle_id: lytxFormData.vehicle_id,
+          vehicle_registration: selectedVehicle.registration,
+          fleet: selectedVehicle.fleet,
+          mapping_source: 'manual',
+          notes: lytxFormData.notes || null
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lytx-device-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['lytx-orphaned-events'] });
+      setLytxDialogOpen(false);
+      setLytxFormData({ id: '', device_serial: '', vehicle_id: '', notes: '' });
+      toast({ title: 'Success', description: 'LYTX device mapping added successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const updateLytxMappingMutation = useMutation({
+    mutationFn: async () => {
+      const selectedVehicle = vehicles.find(v => v.id === lytxFormData.vehicle_id);
+      if (!selectedVehicle) throw new Error('Vehicle not found');
+
+      const { error } = await supabase
+        .from('lytx_device_mappings')
+        .update({
+          device_serial: lytxFormData.device_serial,
+          vehicle_id: lytxFormData.vehicle_id,
+          vehicle_registration: selectedVehicle.registration,
+          fleet: selectedVehicle.fleet,
+          notes: lytxFormData.notes || null
+        })
+        .eq('id', lytxFormData.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lytx-device-mappings'] });
+      setLytxDialogOpen(false);
+      setLytxFormData({ id: '', device_serial: '', vehicle_id: '', notes: '' });
+      toast({ title: 'Success', description: 'LYTX device mapping updated successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const deleteLytxMappingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('lytx_device_mappings')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lytx-device-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['lytx-orphaned-events'] });
+      toast({ title: 'Success', description: 'LYTX device mapping deleted successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  // ============================================================================
+  // GUARDIAN MAPPING MUTATIONS
+  // ============================================================================
+
+  const addGuardianMappingMutation = useMutation({
+    mutationFn: async () => {
+      const selectedVehicle = vehicles.find(v => v.id === guardianFormData.vehicle_id);
+      if (!selectedVehicle) throw new Error('Vehicle not found');
+
+      const { error } = await supabase
+        .from('guardian_unit_mappings')
+        .insert({
+          guardian_unit: guardianFormData.guardian_unit,
+          vehicle_id: guardianFormData.vehicle_id,
+          vehicle_registration: selectedVehicle.registration,
+          fleet: selectedVehicle.fleet,
+          mapping_source: 'manual',
+          notes: guardianFormData.notes || null
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guardian-unit-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['guardian-orphaned-events'] });
+      setGuardianDialogOpen(false);
+      setGuardianFormData({ id: '', guardian_unit: '', vehicle_id: '', notes: '' });
+      toast({ title: 'Success', description: 'Guardian unit mapping added successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const updateGuardianMappingMutation = useMutation({
+    mutationFn: async () => {
+      const selectedVehicle = vehicles.find(v => v.id === guardianFormData.vehicle_id);
+      if (!selectedVehicle) throw new Error('Vehicle not found');
+
+      const { error } = await supabase
+        .from('guardian_unit_mappings')
+        .update({
+          guardian_unit: guardianFormData.guardian_unit,
+          vehicle_id: guardianFormData.vehicle_id,
+          vehicle_registration: selectedVehicle.registration,
+          fleet: selectedVehicle.fleet,
+          notes: guardianFormData.notes || null
+        })
+        .eq('id', guardianFormData.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guardian-unit-mappings'] });
+      setGuardianDialogOpen(false);
+      setGuardianFormData({ id: '', guardian_unit: '', vehicle_id: '', notes: '' });
+      toast({ title: 'Success', description: 'Guardian unit mapping updated successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const deleteGuardianMappingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('guardian_unit_mappings')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guardian-unit-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['guardian-orphaned-events'] });
+      toast({ title: 'Success', description: 'Guardian unit mapping deleted successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  // ============================================================================
+  // MTDATA MAPPING MUTATIONS
+  // ============================================================================
+
+  const addMtDataMappingMutation = useMutation({
+    mutationFn: async () => {
+      const selectedVehicle = vehicles.find(v => v.id === mtdataFormData.vehicle_id);
+      if (!selectedVehicle) throw new Error('Vehicle not found');
+
+      const { error } = await supabase
+        .from('mtdata_vehicle_mappings')
+        .insert({
+          mtdata_vehicle_id: mtdataFormData.mtdata_vehicle_id,
+          vehicle_id: mtdataFormData.vehicle_id,
+          vehicle_registration: selectedVehicle.registration,
+          fleet: selectedVehicle.fleet,
+          mapping_source: 'manual',
+          notes: mtdataFormData.notes || null
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mtdata-vehicle-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['mtdata-orphaned-trips'] });
+      setMtdataDialogOpen(false);
+      setMtdataFormData({ id: '', mtdata_vehicle_id: '', vehicle_id: '', notes: '' });
+      toast({ title: 'Success', description: 'MtData vehicle mapping added successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const updateMtDataMappingMutation = useMutation({
+    mutationFn: async () => {
+      const selectedVehicle = vehicles.find(v => v.id === mtdataFormData.vehicle_id);
+      if (!selectedVehicle) throw new Error('Vehicle not found');
+
+      const { error } = await supabase
+        .from('mtdata_vehicle_mappings')
+        .update({
+          mtdata_vehicle_id: mtdataFormData.mtdata_vehicle_id,
+          vehicle_id: mtdataFormData.vehicle_id,
+          vehicle_registration: selectedVehicle.registration,
+          fleet: selectedVehicle.fleet,
+          notes: mtdataFormData.notes || null
+        })
+        .eq('id', mtdataFormData.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mtdata-vehicle-mappings'] });
+      setMtdataDialogOpen(false);
+      setMtdataFormData({ id: '', mtdata_vehicle_id: '', vehicle_id: '', notes: '' });
+      toast({ title: 'Success', description: 'MtData vehicle mapping updated successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const deleteMtDataMappingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('mtdata_vehicle_mappings')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mtdata-vehicle-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['mtdata-orphaned-trips'] });
+      toast({ title: 'Success', description: 'MtData vehicle mapping deleted successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  // Helper functions to open dialogs
+  const openLytxAddDialog = () => {
+    setLytxEditMode(false);
+    setLytxFormData({ id: '', device_serial: '', vehicle_id: '', notes: '' });
+    setLytxDialogOpen(true);
+  };
+
+  const openLytxEditDialog = (mapping: DeviceMapping) => {
+    setLytxEditMode(true);
+    setLytxFormData({
+      id: mapping.id,
+      device_serial: mapping.device_serial,
+      vehicle_id: mapping.vehicle_id,
+      notes: ''
+    });
+    setLytxDialogOpen(true);
+  };
+
+  const openGuardianAddDialog = () => {
+    setGuardianEditMode(false);
+    setGuardianFormData({ id: '', guardian_unit: '', vehicle_id: '', notes: '' });
+    setGuardianDialogOpen(true);
+  };
+
+  const openGuardianEditDialog = (mapping: GuardianMapping) => {
+    setGuardianEditMode(true);
+    setGuardianFormData({
+      id: mapping.id,
+      guardian_unit: mapping.guardian_unit,
+      vehicle_id: mapping.vehicle_id,
+      notes: ''
+    });
+    setGuardianDialogOpen(true);
+  };
+
+  const openMtDataAddDialog = () => {
+    setMtdataEditMode(false);
+    setMtdataFormData({ id: '', mtdata_vehicle_id: '', vehicle_id: '', notes: '' });
+    setMtdataDialogOpen(true);
+  };
+
+  const openMtDataEditDialog = (mapping: MtDataMapping) => {
+    setMtdataEditMode(true);
+    setMtdataFormData({
+      id: mapping.id,
+      mtdata_vehicle_id: mapping.mtdata_vehicle_id,
+      vehicle_id: mapping.vehicle_id,
+      notes: ''
+    });
+    setMtdataDialogOpen(true);
+  };
+
+  const handleLytxSubmit = () => {
+    if (!lytxFormData.device_serial || !lytxFormData.vehicle_id) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+
+    if (lytxEditMode) {
+      updateLytxMappingMutation.mutate();
+    } else {
+      addLytxMappingMutation.mutate();
+    }
+  };
+
+  const handleGuardianSubmit = () => {
+    if (!guardianFormData.guardian_unit || !guardianFormData.vehicle_id) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+
+    if (guardianEditMode) {
+      updateGuardianMappingMutation.mutate();
+    } else {
+      addGuardianMappingMutation.mutate();
+    }
+  };
+
+  const handleMtDataSubmit = () => {
+    if (!mtdataFormData.mtdata_vehicle_id || !mtdataFormData.vehicle_id) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+
+    if (mtdataEditMode) {
+      updateMtDataMappingMutation.mutate();
+    } else {
+      addMtDataMappingMutation.mutate();
     }
   };
 
@@ -691,7 +1064,7 @@ const MasterDataPage: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h5 className="font-medium text-gray-900">Existing Device Mappings ({lytxMappings.length})</h5>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={openLytxAddDialog}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Mapping
                     </Button>
@@ -717,6 +1090,7 @@ const MasterDataPage: React.FC = () => {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fleet</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -745,6 +1119,30 @@ const MasterDataPage: React.FC = () => {
                               </td>
                               <td className="px-4 py-3 text-gray-600">
                                 {new Date(mapping.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => openLytxEditDialog(mapping)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (confirm('Are you sure you want to delete this mapping?')) {
+                                        deleteLytxMappingMutation.mutate(mapping.id);
+                                      }
+                                    }}
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -829,7 +1227,7 @@ const MasterDataPage: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h5 className="font-medium text-gray-900">Existing Unit Mappings ({guardianMappings.length})</h5>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={openGuardianAddDialog}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Mapping
                     </Button>
@@ -855,6 +1253,7 @@ const MasterDataPage: React.FC = () => {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fleet</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -883,6 +1282,30 @@ const MasterDataPage: React.FC = () => {
                               </td>
                               <td className="px-4 py-3 text-gray-600">
                                 {new Date(mapping.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => openGuardianEditDialog(mapping)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (confirm('Are you sure you want to delete this mapping?')) {
+                                        deleteGuardianMappingMutation.mutate(mapping.id);
+                                      }
+                                    }}
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -967,7 +1390,7 @@ const MasterDataPage: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h5 className="font-medium text-gray-900">Existing Vehicle Mappings ({mtdataMappings.length})</h5>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={openMtDataAddDialog}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Mapping
                     </Button>
@@ -993,6 +1416,7 @@ const MasterDataPage: React.FC = () => {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fleet</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -1021,6 +1445,30 @@ const MasterDataPage: React.FC = () => {
                               </td>
                               <td className="px-4 py-3 text-gray-600">
                                 {new Date(mapping.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => openMtDataEditDialog(mapping)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (confirm('Are you sure you want to delete this mapping?')) {
+                                        deleteMtDataMappingMutation.mutate(mapping.id);
+                                      }
+                                    }}
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -1401,6 +1849,262 @@ const MasterDataPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* ====================================================================== */}
+      {/* DIALOG COMPONENTS */}
+      {/* ====================================================================== */}
+
+      {/* LYTX Device Mapping Dialog */}
+      <Dialog open={lytxDialogOpen} onOpenChange={setLytxDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {lytxEditMode ? 'Edit LYTX Device Mapping' : 'Add LYTX Device Mapping'}
+            </DialogTitle>
+            <DialogDescription>
+              Map a LYTX device serial number to a vehicle in the fleet database.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="lytx-device-serial">
+                Device Serial <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="lytx-device-serial"
+                value={lytxFormData.device_serial}
+                onChange={(e) => setLytxFormData({ ...lytxFormData, device_serial: e.target.value })}
+                placeholder="Enter LYTX device serial number"
+                disabled={lytxEditMode}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lytx-vehicle">
+                Vehicle <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={lytxFormData.vehicle_id}
+                onValueChange={(value) => setLytxFormData({ ...lytxFormData, vehicle_id: value })}
+              >
+                <SelectTrigger id="lytx-vehicle">
+                  <SelectValue placeholder="Select a vehicle" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.id} value={vehicle.id}>
+                      {vehicle.registration} ({vehicle.fleet})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lytx-notes">Notes (optional)</Label>
+              <Input
+                id="lytx-notes"
+                value={lytxFormData.notes}
+                onChange={(e) => setLytxFormData({ ...lytxFormData, notes: e.target.value })}
+                placeholder="Add any notes about this mapping"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setLytxDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleLytxSubmit}
+              disabled={addLytxMappingMutation.isPending || updateLytxMappingMutation.isPending}
+            >
+              {(addLytxMappingMutation.isPending || updateLytxMappingMutation.isPending) ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                lytxEditMode ? 'Update Mapping' : 'Add Mapping'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Guardian Unit Mapping Dialog */}
+      <Dialog open={guardianDialogOpen} onOpenChange={setGuardianDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {guardianEditMode ? 'Edit Guardian Unit Mapping' : 'Add Guardian Unit Mapping'}
+            </DialogTitle>
+            <DialogDescription>
+              Map a Guardian unit ID to a vehicle in the fleet database.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="guardian-unit">
+                Guardian Unit <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="guardian-unit"
+                value={guardianFormData.guardian_unit}
+                onChange={(e) => setGuardianFormData({ ...guardianFormData, guardian_unit: e.target.value })}
+                placeholder="Enter Guardian unit ID"
+                disabled={guardianEditMode}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="guardian-vehicle">
+                Vehicle <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={guardianFormData.vehicle_id}
+                onValueChange={(value) => setGuardianFormData({ ...guardianFormData, vehicle_id: value })}
+              >
+                <SelectTrigger id="guardian-vehicle">
+                  <SelectValue placeholder="Select a vehicle" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.id} value={vehicle.id}>
+                      {vehicle.registration} ({vehicle.fleet})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="guardian-notes">Notes (optional)</Label>
+              <Input
+                id="guardian-notes"
+                value={guardianFormData.notes}
+                onChange={(e) => setGuardianFormData({ ...guardianFormData, notes: e.target.value })}
+                placeholder="Add any notes about this mapping"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setGuardianDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleGuardianSubmit}
+              disabled={addGuardianMappingMutation.isPending || updateGuardianMappingMutation.isPending}
+            >
+              {(addGuardianMappingMutation.isPending || updateGuardianMappingMutation.isPending) ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                guardianEditMode ? 'Update Mapping' : 'Add Mapping'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MtData Vehicle Mapping Dialog */}
+      <Dialog open={mtdataDialogOpen} onOpenChange={setMtdataDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {mtdataEditMode ? 'Edit MtData Vehicle Mapping' : 'Add MtData Vehicle Mapping'}
+            </DialogTitle>
+            <DialogDescription>
+              Map an MtData vehicle ID to a vehicle in the fleet database.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="mtdata-vehicle-id">
+                MtData Vehicle ID <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="mtdata-vehicle-id"
+                value={mtdataFormData.mtdata_vehicle_id}
+                onChange={(e) => setMtdataFormData({ ...mtdataFormData, mtdata_vehicle_id: e.target.value })}
+                placeholder="Enter MtData vehicle ID"
+                disabled={mtdataEditMode}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="mtdata-vehicle">
+                Vehicle <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={mtdataFormData.vehicle_id}
+                onValueChange={(value) => setMtdataFormData({ ...mtdataFormData, vehicle_id: value })}
+              >
+                <SelectTrigger id="mtdata-vehicle">
+                  <SelectValue placeholder="Select a vehicle" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.id} value={vehicle.id}>
+                      {vehicle.registration} ({vehicle.fleet})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="mtdata-notes">Notes (optional)</Label>
+              <Input
+                id="mtdata-notes"
+                value={mtdataFormData.notes}
+                onChange={(e) => setMtdataFormData({ ...mtdataFormData, notes: e.target.value })}
+                placeholder="Add any notes about this mapping"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMtdataDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleMtDataSubmit}
+              disabled={addMtDataMappingMutation.isPending || updateMtDataMappingMutation.isPending}
+            >
+              {(addMtDataMappingMutation.isPending || updateMtDataMappingMutation.isPending) ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                mtdataEditMode ? 'Update Mapping' : 'Add Mapping'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DataCentreLayout>
   );
 };
