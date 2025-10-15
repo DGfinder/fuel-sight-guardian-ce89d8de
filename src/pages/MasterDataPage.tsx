@@ -92,7 +92,7 @@ interface OrphanedTrip {
 
 const MasterDataPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('vehicles');
-  const [syncInProgress, setSync InProgress] = useState(false);
+  const [syncInProgress, setSyncInProgress] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch all vehicles
