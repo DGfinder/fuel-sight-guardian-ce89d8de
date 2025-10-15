@@ -62,6 +62,7 @@ const GSFFleetDashboard = lazy(() => import('@/pages/GSFFleetDashboard'));
 const MaintenanceDashboard = lazy(() => import('@/pages/MaintenanceDashboard'));
 const DriverManagement = lazy(() => import('@/pages/DriverManagement'));
 const TripAnalyticsPage = lazy(() => import('@/pages/TripAnalyticsPage'));
+const FleetMasterPage = lazy(() => import('@/pages/FleetMasterPage'));
 const SmartFillPage = lazy(() => import('@/pages/SmartFillPage'));
 // MtData Analytics Platform
 const MtDataDashboard = lazy(() => import('@/pages/MtDataDashboard'));
@@ -433,8 +434,8 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
-                  <Route 
-                    path="/data-centre/fleet/trip-analytics" 
+                  <Route
+                    path="/data-centre/fleet/trip-analytics"
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Trip Analytics" showHomeButton={true}>
@@ -443,7 +444,17 @@ function AppContent() {
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
-                    } 
+                    }
+                  />
+                  <Route
+                    path="/data-centre/fleet-master"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <RouteErrorBoundary routeName="Fleet Master Configuration" showHomeButton={true}>
+                          <FleetMasterPage />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
                   />
                   {/* MtData Analytics Platform */}
                   <Route 
