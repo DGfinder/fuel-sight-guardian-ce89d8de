@@ -11,30 +11,79 @@ import { useVehicles } from '@/hooks/useVehicles';
 import { useDataFreshness } from '@/hooks/useDataFreshness';
 import { useDataQualityDashboard } from '@/hooks/useDataQualityDashboard';
 import { formatDistanceToNow } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
 const DataCentrePage = () => {
   const { data: vehicles = [] } = useVehicles();
   const { summary, isRefreshing, refreshAll } = useDataFreshness();
   const { data: qualityData } = useDataQualityDashboard();
 
+  // Query real Guardian events count
+  const { data: guardianCount } = useQuery({
+    queryKey: ['guardian-events-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('guardian_events')
+        .select('*', { count: 'exact', head: true });
+      return count || 0;
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Query real Captive Payments count
+  const { data: paymentsCount } = useQuery({
+    queryKey: ['captive-payments-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('captive_payments_bol')
+        .select('*', { count: 'exact', head: true });
+      return count || 0;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Query real MtData trips count
+  const { data: tripsCount } = useQuery({
+    queryKey: ['mtdata-trips-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('mtdata_trip_history')
+        .select('*', { count: 'exact', head: true });
+      return count || 0;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Query real active drivers count
+  const { data: driversCount } = useQuery({
+    queryKey: ['active-drivers-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('drivers')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'Active');
+      return count || 0;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const stats = useMemo(() => {
-    // Calculate stats from various sources
-    const activeDrivers = 120; // From static config
     const safetyScore = vehicles.length > 0
       ? Math.round((vehicles.reduce((sum, v) => sum + v.safety_score, 0) / vehicles.length) * 10) / 10
       : 0;
 
     return {
-      guardianEvents: 13317,
-      paymentRecords: 75000,
-      activeDrivers,
-      totalTrips: 4141,
+      guardianEvents: guardianCount || 0,
+      paymentRecords: paymentsCount || 0,
+      activeDrivers: driversCount || 0,
+      totalTrips: tripsCount || 0,
       safetyScore,
       totalVehicles: vehicles.length,
       correlationRate: qualityData?.summary.relationshipHealth || 0,
       dataQuality: qualityData?.summary.avgQualityScore || 0,
     };
-  }, [vehicles, qualityData]);
+  }, [vehicles, qualityData, guardianCount, paymentsCount, driversCount, tripsCount]);
 
   // Add smooth scroll behavior
   React.useEffect(() => {
@@ -64,7 +113,7 @@ const DataCentrePage = () => {
                 </h1>
               </div>
               <p className="text-slate-600 dark:text-slate-400 text-lg">
-                Analytics and insights across 75K+ fleet management records
+                Analytics and insights across {(stats.guardianEvents + stats.paymentRecords + stats.totalTrips).toLocaleString()}+ fleet management records
               </p>
             </div>
 

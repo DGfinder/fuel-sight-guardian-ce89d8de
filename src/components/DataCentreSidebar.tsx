@@ -27,15 +27,15 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useQueryClient } from '@tanstack/react-query';
 
 const DATA_CENTRE_NAV_ITEMS = [
-  { 
-    path: '/data-centre', 
-    label: 'Overview', 
-    icon: Home, 
-    exact: true 
+  {
+    path: '/data-centre',
+    label: 'Overview',
+    icon: Home,
+    exact: true
   },
-  { 
-    path: '/data-centre/guardian', 
-    label: 'Guardian', 
+  {
+    path: '/data-centre/guardian',
+    label: 'Guardian',
     icon: Shield,
     permission: 'view_guardian_events',
     children: [
@@ -43,20 +43,9 @@ const DATA_CENTRE_NAV_ITEMS = [
       { path: '/data-centre/guardian/gsf', label: 'GSF Analytics', icon: Shield }
     ]
   },
-  { 
-    path: '/data-centre/captive-payments', 
-    label: 'Captive Payments', 
-    icon: CreditCard,
-    permission: 'view_myob_deliveries',
-    children: [
-      { path: '/data-centre/captive-payments/smb', label: 'SMB Analytics', icon: CreditCard },
-      { path: '/data-centre/captive-payments/gsf', label: 'GSF Analytics', icon: CreditCard },
-      { path: '/data-centre/captive-payments/correlation', label: 'Trip Correlation', icon: Target }
-    ]
-  },
-  { 
-    path: '/data-centre/lytx-safety', 
-    label: 'LYTX Safety', 
+  {
+    path: '/data-centre/lytx-safety',
+    label: 'LYTX Safety',
     icon: AlertTriangle,
     permission: 'view_lytx_events',
     children: [
@@ -65,17 +54,33 @@ const DATA_CENTRE_NAV_ITEMS = [
       { path: '/data-centre/lytx-safety/gsf', label: 'GSF Safety', icon: AlertTriangle }
     ]
   },
-  { 
-    path: '/data-centre/import', 
-    label: 'Data Import', 
-    icon: Upload,
-    permission: 'manage_data_sources'
+  {
+    path: '/data-centre/captive-payments',
+    label: 'Captive Payments',
+    icon: CreditCard,
+    permission: 'view_myob_deliveries',
+    children: [
+      { path: '/data-centre/captive-payments/smb', label: 'SMB Analytics', icon: CreditCard },
+      { path: '/data-centre/captive-payments/gsf', label: 'GSF Analytics', icon: CreditCard },
+      { path: '/data-centre/captive-payments/correlation', label: 'Trip Correlation', icon: Target }
+    ]
   },
-  { 
-    path: '/data-centre/reports', 
-    label: 'Reports & Analytics', 
-    icon: BarChart3,
-    permission: 'generate_compliance_reports'
+  {
+    path: '/data-centre/mtdata',
+    label: 'MtData Analytics',
+    icon: Navigation,
+    permission: 'view_analytics_dashboard',
+    children: [
+      { path: '/data-centre/mtdata/stevemacs', label: 'Stevemacs Operations', icon: Navigation },
+      { path: '/data-centre/mtdata/gsf', label: 'GSF Operations', icon: Navigation },
+      { path: '/data-centre/mtdata/correlation', label: 'Delivery Correlation', icon: GitMerge }
+    ]
+  },
+  {
+    path: '/data-centre/master-data',
+    label: 'Master Data Config',
+    icon: Database,
+    permission: 'manage_data_sources'
   },
   {
     path: '/data-centre/fleet',
@@ -86,32 +91,26 @@ const DATA_CENTRE_NAV_ITEMS = [
       { path: '/data-centre/fleet/database', label: 'Vehicle Database', icon: TrendingUp },
       { path: '/data-centre/fleet/drivers', label: 'Driver Management', icon: Users },
       { path: '/data-centre/fleet/trip-analytics', label: 'Trip Analytics', icon: Navigation },
-      { path: '/data-centre/fleet-master', label: 'Fleet Master Config', icon: Settings },
       { path: '/data-centre/fleet/stevemacs', label: 'Stevemacs Fleet', icon: TrendingUp },
       { path: '/data-centre/fleet/gsf', label: 'GSF Fleet', icon: TrendingUp },
       { path: '/data-centre/fleet/maintenance', label: 'Maintenance & Assets', icon: TrendingUp }
     ]
   },
-  { 
-    path: '/data-centre/mtdata', 
-    label: 'MtData Analytics', 
-    icon: Navigation,
-    permission: 'view_analytics_dashboard',
-    children: [
-      { path: '/data-centre/mtdata/stevemacs', label: 'Stevemacs Operations', icon: Navigation },
-      { path: '/data-centre/mtdata/gsf', label: 'GSF Operations', icon: Navigation },
-      { path: '/data-centre/mtdata/correlation', label: 'Delivery Correlation', icon: GitMerge }
-    ]
-  },
-  { 
-    path: '/data-centre/drivers', 
-    label: 'Driver Profiles', 
+  {
+    path: '/data-centre/drivers',
+    label: 'Driver Profiles',
     icon: Users,
     permission: 'view_analytics_dashboard',
     children: [
       { path: '/data-centre/drivers/stevemacs', label: 'Stevemacs Drivers', icon: Users },
       { path: '/data-centre/drivers/gsf', label: 'GSF Drivers', icon: Users }
     ]
+  },
+  {
+    path: '/data-centre/import',
+    label: 'Data Import',
+    icon: Upload,
+    permission: 'manage_data_sources'
   }
 ];
 
@@ -341,25 +340,6 @@ export default function DataCentreSidebar() {
               );
             })}
           </ul>
-
-          {/* Quick Stats */}
-          <div className="mt-8 p-3 bg-gray-700 rounded-lg">
-            <h3 className="text-white font-semibold text-sm mb-2">Quick Stats</h3>
-            <div className="space-y-1 text-xs text-gray-300">
-              <div className="flex justify-between">
-                <span>Guardian Events:</span>
-                <span className="text-blue-400">13,317</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Payment Records:</span>
-                <span className="text-green-400">75,000+</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Safety Score:</span>
-                <span className="text-orange-400">8.2/10</span>
-              </div>
-            </div>
-          </div>
         </nav>
 
         {/* Footer */}
