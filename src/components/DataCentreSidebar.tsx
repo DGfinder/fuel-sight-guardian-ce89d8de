@@ -18,7 +18,8 @@ import {
   Users,
   Navigation,
   Target,
-  GitMerge
+  GitMerge,
+  Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
