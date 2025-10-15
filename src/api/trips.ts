@@ -204,7 +204,7 @@ export async function getDailyFleetPerformance(
 export async function getDriverEfficiencyRankings(
   fleet?: string,
   depot?: string,
-  days?: number
+  _days?: number
 ): Promise<DriverEfficiencyRanking[]> {
   let query = supabase
     .from('mtdata_driver_efficiency_rankings')
@@ -226,7 +226,7 @@ export async function getDriverEfficiencyRankings(
 
 // Get route optimization opportunities
 export async function getRouteOptimizationOpportunities(
-  minTrips?: number
+  _minTrips?: number
 ): Promise<RouteOptimization[]> {
   const query = supabase
     .from('route_optimization_opportunities')

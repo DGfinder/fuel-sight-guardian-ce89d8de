@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
@@ -97,7 +96,7 @@ export default function AgbotCSVImportModal({ open, onOpenChange, onImport }: Ag
     return result;
   };
 
-  const parseCSV = (text: string): AgbotCSVRow[] => {
+  const parseCSV = useCallback((text: string): AgbotCSVRow[] => {
     const lines = text.split('\n').filter(line => line.trim());
     if (lines.length < 2) {
       throw new Error('CSV must have at least a header row and one data row');
@@ -192,7 +191,7 @@ export default function AgbotCSVImportModal({ open, onOpenChange, onImport }: Ag
     }
 
     return rows;
-  };
+  }, []);
 
   const validateCSVData = (data: AgbotCSVRow[]): { valid: AgbotCSVRow[]; invalid: AgbotCSVRow[] } => {
     const valid: AgbotCSVRow[] = [];

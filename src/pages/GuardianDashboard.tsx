@@ -2,22 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Shield, 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  Shield,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
   Eye,
-  Download,
-  Calendar,
   Users,
   Clock,
   Loader2
 } from 'lucide-react';
 import DataCentreLayout from '@/components/DataCentreLayout';
-import GuardianMonthlyChart, { EventTypeFilter } from '@/components/GuardianMonthlyChart';
+import GuardianCriticalFatigueAlerts from '@/components/GuardianCriticalFatigueAlerts';
+import GuardianComplianceCharts from '@/components/GuardianComplianceCharts';
+import GuardianDateRangePicker from '@/components/GuardianDateRangePicker';
+import GuardianComplianceExport from '@/components/GuardianComplianceExport';
+import GuardianCorrelationBadge from '@/components/GuardianCorrelationBadge';
 import { supabase } from '@/lib/supabase';
+import { guardianAnalytics, ComplianceMetrics } from '@/services/guardianAnalyticsService';
 
 interface GuardianDashboardProps {
   fleet?: 'Stevemacs' | 'Great Southern Fuels';
@@ -61,23 +64,9 @@ interface RequiringAttentionEvent {
 }
 
 interface GuardianAnalytics {
-  currentMonth: {
-    period: string;
-    totalEvents: number;
-    distractionEvents: number;
-    fatigueEvents: number;
-    fieldOfViewEvents: number;
-    verifiedEvents: number;
-    verificationRate: number;
-    stevemacsEvents: number;
-    gsfEvents: number;
-    criticalEvents: number;
-    highSeverityEvents: number;
-    requiresAttentionCount: number;
-  };
+  metrics: ComplianceMetrics | null;
   recentEvents: GuardianEvent[];
   requiresAttention: RequiringAttentionEvent[];
-  monthlyEvents: GuardianEvent[];
   topRiskVehicles: Array<{
     vehicle: string;
     events: number;
@@ -93,8 +82,19 @@ interface GuardianAnalytics {
 const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<GuardianAnalytics | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState('current');
-  const [selectedEventType, setSelectedEventType] = useState<EventTypeFilter>('distraction');
+
+  // Default date range: last 12 months
+  const getDefaultDateRange = () => {
+    const end = new Date();
+    const start = new Date();
+    start.setMonth(start.getMonth() - 12);
+    return {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    };
+  };
+
+  const [dateRange, setDateRange] = useState(getDefaultDateRange());
 
   // Determine dashboard title and filter based on fleet prop
   const getDashboardTitle = () => {
@@ -107,35 +107,17 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
     try {
       setLoading(true);
 
-      // Establish time windows
-      const now = new Date();
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      // Start from 11 months ago to include the current month => 12 months total
-      const lastYearStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-      
-      // Base query with fleet filter if specified
-      let eventsQuery = supabase
-        .from('guardian_events')
-        .select('*')
-        .gte('detection_time', lastYearStart.toISOString())
-        .order('detection_time', { ascending: false });
+      // Fetch compliance metrics using new service
+      const metrics = await guardianAnalytics.getComplianceMetrics(fleet, dateRange);
 
-      if (fleet) {
-        eventsQuery = eventsQuery.eq('fleet', fleet);
-      }
-
-      // Get monthly events
-      const { data: monthlyEvents, error: monthlyError } = await eventsQuery;
-
-      if (monthlyError) {
-        console.error('Error fetching monthly Guardian events:', monthlyError);
-        throw monthlyError;
-      }
-
-      // Get recent events (last 20)
+      // Get recent events with driver correlation data
       let recentQuery = supabase
         .from('guardian_events')
-        .select('*')
+        .select(`
+          *
+        `)
+        .gte('detection_time', dateRange.start)
+        .lte('detection_time', dateRange.end)
         .order('detection_time', { ascending: false })
         .limit(20);
 
@@ -147,10 +129,9 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
 
       if (recentError) {
         console.error('Error fetching recent Guardian events:', recentError);
-        throw recentError;
       }
 
-      // Get events requiring attention using the specialized view
+      // Get events requiring attention
       let attentionQuery = supabase
         .from('guardian_events_requiring_attention')
         .select('*')
@@ -164,115 +145,93 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
 
       if (attentionError) {
         console.error('Error fetching Guardian events requiring attention:', attentionError);
-        // Continue without failing if this view has issues
       }
 
-      // Calculate analytics
-      const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
-      // Only include events from the current month for the KPI cards
-      const currentMonthEvents = (monthlyEvents || []).filter(e => {
-        const d = new Date(e.detection_time);
-        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      // For recent events, fetch driver correlations
+      const eventIds = recentEvents?.map(e => e.id) || [];
+      const { data: correlations } = await supabase
+        .from('driver_event_correlation')
+        .select('guardian_event_id, driver_id, driver_name, correlation_method, confidence')
+        .in('guardian_event_id', eventIds);
+
+      // Map correlations to events
+      const correlationMap = new Map();
+      correlations?.forEach(c => {
+        correlationMap.set(c.guardian_event_id, c);
       });
 
-      const distractionEvents = currentMonthEvents.filter(e => 
-        e.event_type.toLowerCase().includes('distraction')
-      ).length || 0;
-      
-      const fatigueEvents = currentMonthEvents.filter(e => 
-        e.event_type.toLowerCase().includes('fatigue') || 
-        e.event_type.toLowerCase().includes('microsleep')
-      ).length || 0;
-      
-      const fieldOfViewEvents = currentMonthEvents.filter(e => 
-        e.event_type.toLowerCase().includes('field of view')
-      ).length || 0;
+      const enrichedRecentEvents = recentEvents?.map(event => ({
+        ...event,
+        correlation: correlationMap.get(event.id),
+      })) || [];
 
-      // Count events that are either manually verified in our system OR confirmed by Guardian
-      const verifiedEvents = currentMonthEvents.filter(e => 
-        e.verified || e.confirmation === 'verified'
-      ).length || 0;
-      const totalEvents = currentMonthEvents.length || 0;
-      const verificationRate = totalEvents > 0 ? (verifiedEvents / totalEvents) * 100 : 0;
+      // Get all events in date range for vehicle analysis
+      let allEventsQuery = supabase
+        .from('guardian_events')
+        .select('id, vehicle_registration, fleet, event_type, detection_time')
+        .gte('detection_time', dateRange.start)
+        .lte('detection_time', dateRange.end);
 
-      // High severity event counts
-      const criticalEvents = currentMonthEvents.filter(e => e.severity === 'Critical').length || 0;
-      const highSeverityEvents = currentMonthEvents.filter(e => 
-        e.severity === 'High' || e.severity === 'Critical'
-      ).length || 0;
+      if (fleet) {
+        allEventsQuery = allEventsQuery.eq('fleet', fleet);
+      }
 
-      const stevemacsEvents = currentMonthEvents.filter(e => e.fleet === 'Stevemacs').length || 0;
-      const gsfEvents = currentMonthEvents.filter(e => e.fleet === 'Great Southern Fuels').length || 0;
-
-      const requiresAttentionCount = requiresAttention?.length || 0;
+      const { data: allEvents } = await allEventsQuery;
 
       // Calculate top risk vehicles
-      const vehicleEventCounts = currentMonthEvents.reduce((acc, event) => {
+      const vehicleEventCounts: Record<string, { count: number; fleet: string }> = {};
+      allEvents?.forEach(event => {
         const vehicle = event.vehicle_registration;
-        if (!acc[vehicle]) {
-          acc[vehicle] = { count: 0, fleet: event.fleet };
+        if (!vehicleEventCounts[vehicle]) {
+          vehicleEventCounts[vehicle] = { count: 0, fleet: event.fleet };
         }
-        acc[vehicle].count++;
-        return acc;
-      }, {} as Record<string, { count: number; fleet: string }>);
+        vehicleEventCounts[vehicle].count++;
+      });
 
       const topRiskVehicles = Object.entries(vehicleEventCounts)
         .map(([vehicle, data]) => ({
           vehicle,
           events: data.count,
-          fleet: data.fleet
+          fleet: data.fleet,
         }))
         .sort((a, b) => b.events - a.events)
         .slice(0, 5);
 
-      // Calculate FOV problem vehicles (last 3 months)
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-      
-      const fovEvents = (monthlyEvents || []).filter(event => 
-        event.event_type.toLowerCase().includes('field of view') &&
-        new Date(event.detection_time) >= threeMonthsAgo
-      );
+      // Calculate FOV problem vehicles (last 3 months from current date)
+      const now = new Date();
+      const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-      const fovVehicleCounts = fovEvents.reduce((acc, event) => {
-        const vehicle = event.vehicle_registration;
-        if (!acc[vehicle]) {
-          acc[vehicle] = { count: 0, fleet: event.fleet };
-        }
-        acc[vehicle].count++;
-        return acc;
-      }, {} as Record<string, { count: number; fleet: string }>);
+      const fovVehicleCounts: Record<string, { count: number; fleet: string }> = {};
+      allEvents
+        ?.filter(
+          event =>
+            event.event_type.toLowerCase().includes('field of view') &&
+            new Date(event.detection_time) >= threeMonthsAgo
+        )
+        .forEach(event => {
+          const vehicle = event.vehicle_registration;
+          if (!fovVehicleCounts[vehicle]) {
+            fovVehicleCounts[vehicle] = { count: 0, fleet: event.fleet };
+          }
+          fovVehicleCounts[vehicle].count++;
+        });
 
       const fovProblemVehicles = Object.entries(fovVehicleCounts)
-        .filter(([_, data]) => data.count >= 5) // Only show vehicles with 5+ FOV events
+        .filter(([_, data]) => data.count >= 5)
         .map(([vehicle, data]) => ({
           vehicle,
           fovEvents: data.count,
-          fleet: data.fleet
+          fleet: data.fleet,
         }))
         .sort((a, b) => b.fovEvents - a.fovEvents)
         .slice(0, 10);
 
       const analyticsData: GuardianAnalytics = {
-        currentMonth: {
-          period: currentMonth,
-          totalEvents,
-          distractionEvents,
-          fatigueEvents,
-          fieldOfViewEvents,
-          verifiedEvents,
-          verificationRate,
-          stevemacsEvents,
-          gsfEvents,
-          criticalEvents,
-          highSeverityEvents,
-          requiresAttentionCount
-        },
-        recentEvents: recentEvents || [],
+        metrics,
+        recentEvents: enrichedRecentEvents as any,
         requiresAttention: requiresAttention || [],
-        monthlyEvents: monthlyEvents || [],
         topRiskVehicles,
-        fovProblemVehicles
+        fovProblemVehicles,
       };
 
       setAnalytics(analyticsData);
@@ -285,30 +244,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
 
   useEffect(() => {
     fetchGuardianData();
-  }, [fleet]);
-
-  const handleExportReport = () => {
-    if (!analytics) return;
-    
-    const reportData = {
-      fleet: fleet || 'All Fleets',
-      period: analytics.currentMonth.period,
-      summary: analytics.currentMonth,
-      recentEvents: analytics.recentEvents.slice(0, 10),
-      topRiskVehicles: analytics.topRiskVehicles
-    };
-    
-    const dataStr = JSON.stringify(reportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `guardian-report-${fleet || 'all-fleets'}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  }, [fleet, dateRange]);
 
   if (loading) {
     return (
@@ -323,7 +259,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
     );
   }
 
-  if (!analytics) {
+  if (!analytics || !analytics.metrics) {
     return (
       <DataCentreLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -342,41 +278,39 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
     );
   }
 
-  const { currentMonth } = analytics;
+  const { metrics } = analytics;
 
   return (
     <DataCentreLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Shield className="w-8 h-8 text-slate-600 dark:text-slate-400" />
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                {getDashboardTitle()}
-              </h1>
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Shield className="w-8 h-8 text-slate-600 dark:text-slate-400" />
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                  {getDashboardTitle()}
+                </h1>
+              </div>
+              <p className="text-slate-600 dark:text-slate-400">
+                {fleet
+                  ? `${fleet} distraction and fatigue events with driver attribution`
+                  : 'Monitor distraction and fatigue events with driver attribution'
+                }
+              </p>
             </div>
-            <p className="text-slate-600 dark:text-slate-400">
-              {fleet
-                ? `${fleet} distraction and fatigue events with verification workflows`
-                : 'Monitor distraction and fatigue events with verification workflows'
-              }
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleExportReport}
-              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export Report
-            </Button>
-            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>Live Data</span>
+            <div className="flex items-center gap-2">
+              <GuardianComplianceExport fleet={fleet} dateRange={dateRange} />
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span>Driver Attribution: {((metrics.distraction.driverAttributionRate + metrics.fatigue.driverAttributionRate) / 2).toFixed(1)}%</span>
+              </div>
             </div>
           </div>
+
+          {/* Date Range Picker */}
+          <GuardianDateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
 
         {/* Fleet Navigation (only show on main dashboard) */}
@@ -387,90 +321,126 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
               onClick={() => window.location.href = '/data-centre/guardian/smb'}
               className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
-              Stevemacs Analytics ({currentMonth.stevemacsEvents} events)
+              Stevemacs Analytics
             </Button>
             <Button
               variant="outline"
               onClick={() => window.location.href = '/data-centre/guardian/gsf'}
               className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
-              Great Southern Fuels Analytics ({currentMonth.gsfEvents} events)
+              Great Southern Fuels Analytics
             </Button>
           </div>
         )}
 
-        {/* Monthly Events Chart */}
-        <GuardianMonthlyChart 
-          events={analytics.monthlyEvents}
-          selectedEventType={selectedEventType}
-          onEventTypeChange={setSelectedEventType}
-          fleet={fleet}
-        />
+        {/* Critical Fatigue Alerts - Top Priority */}
+        <GuardianCriticalFatigueAlerts fleet={fleet} />
+
+        {/* Compliance Charts - 4 charts (2x2 grid) */}
+        <GuardianComplianceCharts fleet={fleet} dateRange={dateRange} />
 
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Distraction Events */}
           <Card className="border-slate-200/50 dark:border-slate-700/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Total Events ({currentMonth.period})
+                Total Distraction Events
               </CardTitle>
-              <AlertTriangle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {currentMonth.totalEvents.toLocaleString()}
+                {metrics.distraction.total.toLocaleString()}
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                {currentMonth.distractionEvents} distraction • {currentMonth.fatigueEvents} fatigue • {currentMonth.fieldOfViewEvents} FOV
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1">
+                {metrics.distraction.trend >= 0 ? (
+                  <TrendingUp className="w-3 h-3 text-orange-600" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 text-green-600" />
+                )}
+                {Math.abs(metrics.distraction.trend).toFixed(1)}% vs previous period
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {metrics.distraction.driverAttributionRate.toFixed(0)}% have known drivers
               </p>
             </CardContent>
           </Card>
 
+          {/* Verified Distraction Events */}
           <Card className="border-slate-200/50 dark:border-slate-700/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Verification Rate</CardTitle>
-              <CheckCircle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Verified Distraction Events
+              </CardTitle>
+              <CheckCircle className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {currentMonth.verificationRate.toFixed(1)}%
+                {metrics.distraction.verified.toLocaleString()}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                {currentMonth.verifiedEvents} of {currentMonth.totalEvents} verified
+                {metrics.distraction.verificationRate.toFixed(1)}% verified
+              </p>
+              {metrics.distraction.verificationRate < 10 && (
+                <p className="text-xs text-orange-600 mt-1">
+                  ⚠ Low verification rate
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Total Fatigue Events */}
+          <Card className="border-slate-200/50 dark:border-slate-700/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Total Fatigue Events
+              </CardTitle>
+              <AlertTriangle className="h-4 w-4 text-teal-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                {metrics.fatigue.total.toLocaleString()}
+                {metrics.fatigue.last24h > 0 && (
+                  <Badge className="bg-red-600 text-white text-xs px-2 py-0.5">
+                    +{metrics.fatigue.last24h} last 24h
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1">
+                {metrics.fatigue.trend >= 0 ? (
+                  <TrendingUp className="w-3 h-3 text-orange-600" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 text-green-600" />
+                )}
+                {Math.abs(metrics.fatigue.trend).toFixed(1)}% vs previous period
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {metrics.fatigue.driverAttributionRate.toFixed(0)}% have known drivers
               </p>
             </CardContent>
           </Card>
 
+          {/* Verified Fatigue Events */}
           <Card className="border-slate-200/50 dark:border-slate-700/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Fleet Distribution</CardTitle>
-              <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Verified Fatigue Events
+              </CardTitle>
+              <CheckCircle className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {fleet ? '100%' : `${currentMonth.stevemacsEvents + currentMonth.gsfEvents}`}
+                {metrics.fatigue.verified.toLocaleString()}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                {fleet
-                  ? `${fleet} events only`
-                  : `${currentMonth.stevemacsEvents} SMB • ${currentMonth.gsfEvents} GSF`
-                }
+                {metrics.fatigue.verificationRate.toFixed(1)}% verified
               </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200/50 dark:border-slate-700/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Requiring Attention</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {currentMonth.requiresAttentionCount}
-              </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                {currentMonth.criticalEvents} critical • {currentMonth.highSeverityEvents} high severity
-              </p>
+              {metrics.fatigue.verificationRate < 5 && (
+                <p className="text-xs text-red-600 mt-1">
+                  🔴 Critical - needs attention
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -533,121 +503,46 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
           </Card>
         )}
 
-        {/* Charts and Analytics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Event Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Event Type Breakdown
-              </CardTitle>
-              <CardDescription>
-                Current month distraction, fatigue, and field of view events
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="font-medium">Distraction Events</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold">{currentMonth.distractionEvents}</div>
-                    <div className="text-sm text-gray-500">
-                      {currentMonth.distractionEvents > 0 
-                        ? ((analytics.monthlyEvents?.filter(e => 
-                            e.event_type.toLowerCase().includes('distraction') && 
-                            (e.verified || e.confirmation === 'verified')
-                          ).length || 0) / currentMonth.distractionEvents * 100).toFixed(1)
-                        : '0'
-                      }% confirmed
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                    <span className="font-medium">Fatigue Events</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold">{currentMonth.fatigueEvents}</div>
-                    <div className="text-sm text-gray-500">
-                      {currentMonth.fatigueEvents > 0
-                        ? ((analytics.monthlyEvents?.filter(e => 
-                            (e.event_type.toLowerCase().includes('fatigue') || 
-                             e.event_type.toLowerCase().includes('microsleep')) && 
-                            (e.verified || e.confirmation === 'verified')
-                          ).length || 0) / currentMonth.fatigueEvents * 100).toFixed(1)
-                        : '0'
-                      }% confirmed
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <span className="font-medium">Field of View Events</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold">{currentMonth.fieldOfViewEvents}</div>
-                    <div className="text-sm text-gray-500">
-                      {currentMonth.fieldOfViewEvents > 0
-                        ? ((analytics.monthlyEvents?.filter(e => 
-                            e.event_type.toLowerCase().includes('field of view') && 
-                            (e.verified || e.confirmation === 'verified')
-                          ).length || 0) / currentMonth.fieldOfViewEvents * 100).toFixed(1)
-                        : '0'
-                      }% confirmed
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Risk Vehicles */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Top Risk Vehicles
-              </CardTitle>
-              <CardDescription>
-                Vehicles with highest event frequency this month
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {analytics.topRiskVehicles.length > 0 ? (
-                  analytics.topRiskVehicles.map((vehicle, index) => (
-                    <div key={vehicle.vehicle} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-xs font-medium">
-                          {index + 1}
-                        </div>
-                        <span className="font-medium">{vehicle.vehicle}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {vehicle.fleet === 'Stevemacs' ? 'SMB' : 'GSF'}
-                        </Badge>
+        {/* Top Risk Vehicles */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Top Risk Vehicles
+            </CardTitle>
+            <CardDescription>
+              Vehicles with highest event frequency in selected period
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {analytics.topRiskVehicles.length > 0 ? (
+                analytics.topRiskVehicles.map((vehicle, index) => (
+                  <div key={vehicle.vehicle} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-xs font-medium">
+                        {index + 1}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-red-600 border-red-200">
-                          {vehicle.events} events
-                        </Badge>
-                      </div>
+                      <span className="font-medium">{vehicle.vehicle}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {vehicle.fleet === 'Stevemacs' ? 'SMB' : 'GSF'}
+                      </Badge>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No events recorded this month
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-red-600 border-red-200">
+                        {vehicle.events} events
+                      </Badge>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No events recorded in selected period
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Recent Events */}
         <Card>
@@ -663,20 +558,29 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
           <CardContent>
             <div className="space-y-4">
               {analytics.recentEvents.length > 0 ? (
-                analytics.recentEvents.slice(0, 10).map((event) => (
+                analytics.recentEvents.slice(0, 10).map((event: any) => (
                   <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className={`w-3 h-3 rounded-full ${
-                        event.event_type.toLowerCase().includes('distraction') ? 'bg-red-500' : 
-                        event.event_type.toLowerCase().includes('fatigue') ? 'bg-orange-500' : 
+                        event.event_type.toLowerCase().includes('distraction') ? 'bg-red-500' :
+                        event.event_type.toLowerCase().includes('fatigue') ? 'bg-orange-500' :
                         event.event_type.toLowerCase().includes('field of view') ? 'bg-blue-500' : 'bg-gray-500'
                       }`}></div>
                       <div>
-                        <div className="font-medium">
-                          {event.vehicle_registration} - {event.driver_name || 'Unknown Driver'}
+                        <div className="font-medium flex items-center gap-2">
+                          {event.vehicle_registration} - {event.correlation?.driver_name || event.driver_name || 'Unknown Driver'}
+                          {event.correlation && (
+                            <GuardianCorrelationBadge
+                              driverName={event.correlation.driver_name}
+                              correlationMethod={event.correlation.correlation_method}
+                              confidence={event.correlation.confidence}
+                              size="sm"
+                              showIcon={false}
+                            />
+                          )}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {event.event_type} • {event.duration_seconds}s • {event.speed_kph} km/h
+                          {event.event_type} • {event.duration_seconds}s • {Math.round(event.speed_kph)} km/h
                         </div>
                         <div className="text-xs text-gray-400">
                           {new Date(event.detection_time).toLocaleString()}
@@ -684,7 +588,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge 
+                      <Badge
                         variant={(event.verified || event.confirmation === 'verified') ? "default" : "secondary"}
                         className={
                           (event.verified || event.confirmation === 'verified') ? 'bg-green-100 text-green-700' :

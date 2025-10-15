@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,15 +13,11 @@ import { Progress } from '@/components/ui/progress';
 import {
   Signal,
   MapPin,
-  Battery,
   Wifi,
   WifiOff,
-  Calendar,
   Activity,
   Info,
   Gauge,
-  Building,
-  Phone,
   Clock,
   Zap,
   TrendingUp,
@@ -31,7 +27,6 @@ import {
   X
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { AgbotLocation } from '@/services/agbot-api';
 import { useAgbotModal } from '@/contexts/AgbotModalContext';
 import { 
   usePercentageColor, 

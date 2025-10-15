@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/HaydenHamilton/.cursor/**)"
+      "Read(//c/Users/HaydenHamilton/.cursor/**)",
+      "mcp__supabase__execute_sql",
+      "Bash(cut:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

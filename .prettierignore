@@ -1,0 +1,73 @@
+# Dependencies
+node_modules
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Build outputs
+dist
+dist-ssr
+build
+.next
+.vercel
+dev-dist
+
+# Cache directories
+.cache
+.parcel-cache
+.turbo
+
+# Logs
+*.log
+logs
+
+# Environment files
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+coverage
+.nyc_output
+
+# Generated files
+.diagnostic_results
+
+# CSV and data files
+*.csv
+*.xlsx
+
+# Screenshots
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# Documentation (optional - remove if you want to format docs)
+# *.md
+# README.md
+
+# Config files that should maintain specific formatting
+.prettierrc
+.prettierignore
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+# Scripts output
+scripts/output
+
+# API generated files
+api/**/*

@@ -1,0 +1,32 @@
+{
+  "recommendations": [
+    // TypeScript & JavaScript
+    "ms-vscode.vscode-typescript-next",
+
+    // Code Quality
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+
+    // React & JSX
+    "dsznajder.es7-react-js-snippets",
+    "formulahendry.auto-rename-tag",
+
+    // Tailwind CSS
+    "bradlc.vscode-tailwindcss",
+
+    // Utilities
+    "christian-kohler.path-intellisense",
+    "usernamehw.errorlens",
+    "gruntfuggly.todo-tree",
+
+    // Git
+    "eamodio.gitlens",
+
+    // Testing
+    "orta.vscode-jest",
+
+    // Performance & Debugging
+    "ms-vscode.vscode-typescript-next",
+    "msjsdiag.vscode-react-native"
+  ]
+}
