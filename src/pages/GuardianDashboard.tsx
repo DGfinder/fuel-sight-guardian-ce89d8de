@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,7 @@ interface GuardianAnalytics {
 }
 
 const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<GuardianAnalytics | null>(null);
 
@@ -313,25 +315,64 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ fleet }) => {
           <GuardianDateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
 
-        {/* Fleet Navigation (only show on main dashboard) */}
-        {!fleet && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => window.location.href = '/data-centre/guardian/smb'}
-              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
-            >
-              Stevemacs Analytics
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => window.location.href = '/data-centre/guardian/gsf'}
-              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
-            >
-              Great Southern Fuels Analytics
-            </Button>
-          </div>
-        )}
+        {/* Fleet Navigation - Smart Switcher for All Pages */}
+        <div className="flex gap-2">
+          {!fleet ? (
+            // Main Dashboard: Show both fleet options
+            <>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/data-centre/guardian/smb')}
+                className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Stevemacs Analytics
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/data-centre/guardian/gsf')}
+                className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Great Southern Fuels Analytics
+              </Button>
+            </>
+          ) : fleet === 'Stevemacs' ? (
+            // SMB Page: Show back to all + switch to GSF
+            <>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/data-centre/guardian')}
+                className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                ← All Fleets
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/data-centre/guardian/gsf')}
+                className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Switch to GSF →
+              </Button>
+            </>
+          ) : (
+            // GSF Page: Show back to all + switch to SMB
+            <>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/data-centre/guardian')}
+                className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                ← All Fleets
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/data-centre/guardian/smb')}
+                className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                ← Switch to SMB
+              </Button>
+            </>
+          )}
+        </div>
 
         {/* Critical Fatigue Alerts - Top Priority */}
         <GuardianCriticalFatigueAlerts fleet={fleet} />

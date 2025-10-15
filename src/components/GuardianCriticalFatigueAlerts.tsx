@@ -14,7 +14,7 @@ const GuardianCriticalFatigueAlerts: React.FC<GuardianCriticalFatigueAlertsProps
   const [events, setEvents] = useState<CriticalFatigueEvent[]>([]);
   const [trend, setTrend] = useState<FatigueTrend | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
