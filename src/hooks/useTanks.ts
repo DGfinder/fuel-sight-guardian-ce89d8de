@@ -28,13 +28,13 @@ export interface Tank {
   last_dip_ts: string | null;
   last_dip_by: string;
   current_level_percent: number;
-  
+
   // ✅ WORKING ANALYTICS (calculated in frontend)
-  rolling_avg: number;           // L/day - 7-day rolling average  
+  rolling_avg: number;           // L/day - 7-day rolling average
   prev_day_used: number;         // L - fuel used yesterday (negative = consumption, positive = refill)
   is_recent_refill: boolean;     // true if prev_day_used represents a refill
   days_to_min_level: number | null; // days - predicted days until minimum
-  
+
   // Additional fields
   usable_capacity: number;
   ullage: number;
@@ -67,7 +67,7 @@ export const useTanks = () => {
     enabled: true, // We'll handle auth checks inside the queryFn
     queryFn: async () => {
       // Fetching tanks with analytics
-      
+
       try {
         // Step 0: Check authentication before making queries
         const user = (await supabase.auth.getUser()).data.user;
@@ -75,14 +75,14 @@ export const useTanks = () => {
           console.log('[TANKS DEBUG] No authenticated user - skipping query');
           return []; // Return empty array instead of throwing error to prevent console spam
         }
-      
+
       // Step 1: Get ALL tank data from fuel_tanks table (single source of truth)
       const { data: baseData, error: baseError } = await supabase
         .from('fuel_tanks')
         .select(`
-          id, location, product_type, safe_level, min_level, 
-          group_id, subgroup, address, vehicle, discharge, 
-          bp_portal, delivery_window, afterhours_contact, 
+          id, location, product_type, safe_level, min_level,
+          group_id, subgroup, address, vehicle, discharge,
+          bp_portal, delivery_window, afterhours_contact,
           notes, serviced_on, serviced_by, latitude, longitude,
           created_at, updated_at
         `)
@@ -93,7 +93,7 @@ export const useTanks = () => {
         console.error('[TANKS DEBUG] Error fetching tanks from base table:', baseError);
         throw baseError;
       }
-      
+
 
       // Step 2: Get group names from tank_groups table
       const uniqueGroupIds = [...new Set(baseData?.map(t => t.group_id).filter(Boolean))];
@@ -113,14 +113,25 @@ export const useTanks = () => {
       });
 
 
-      // Step 3: Get current levels from latest dip readings (optimized with limit)
+      // Step 3: Get current levels from latest dip readings
+      // Fetch all readings and get the most recent per tank (no 1000-item global limit)
       const tankIds = baseData?.map(t => t.id) || [];
-      const { data: latestReadings } = await supabase
+
+      const { data: allReadingsData } = await supabase
         .from('dip_readings')
         .select('tank_id, value, created_at, recorded_by')
         .in('tank_id', tankIds)
-        .order('created_at', { ascending: false })
-        .limit(1000); // Limit to most recent 1000 readings for performance
+        .is('archived_at', null)
+        .order('created_at', { ascending: false });
+
+      // Get latest reading per tank - ensures every tank gets its most recent dip, even if old
+      const latestReadingsMap = new Map();
+      allReadingsData?.forEach(reading => {
+        if (!latestReadingsMap.has(reading.tank_id)) {
+          latestReadingsMap.set(reading.tank_id, reading);
+        }
+      });
+      const latestReadings = Array.from(latestReadingsMap.values());
 
       // Get latest reading per tank and track data quality issues
       const latestByTank = new Map();
@@ -134,50 +145,48 @@ export const useTanks = () => {
       };
 
       latestReadings?.forEach(reading => {
-        if (!latestByTank.has(reading.tank_id)) {
-          // Validate timestamp and track data quality issues
-          if (reading.created_at) {
-            const validation = validateTimestamp(reading.created_at, {
-              staleThresholdHours: 24, // 24 hours is reasonable for manual dip readings
-              warnOnStale: false // Only warn on critical issues like future timestamps
+        // Validate timestamp and track data quality issues
+        if (reading.created_at) {
+          const validation = validateTimestamp(reading.created_at, {
+            staleThresholdHours: 24, // 24 hours is reasonable for manual dip readings
+            warnOnStale: false // Only warn on critical issues like future timestamps
+          });
+          if (validation.issues.length > 0) {
+            dataQualityIssues.totalIssues++;
+
+            // Count specific issue types
+            validation.issues.forEach(issue => {
+              if (issue.includes('future')) dataQualityIssues.futureTimestamps++;
+              if (issue.includes('hours old')) dataQualityIssues.staleData++;
+              if (issue.includes('Invalid timestamp')) dataQualityIssues.invalidFormat++;
+              if (issue.includes('Suspicious year')) dataQualityIssues.suspiciousYear++;
             });
-            if (validation.issues.length > 0) {
-              dataQualityIssues.totalIssues++;
-              
-              // Count specific issue types
-              validation.issues.forEach(issue => {
-                if (issue.includes('future')) dataQualityIssues.futureTimestamps++;
-                if (issue.includes('hours old')) dataQualityIssues.staleData++;
-                if (issue.includes('Invalid timestamp')) dataQualityIssues.invalidFormat++;
-                if (issue.includes('Suspicious year')) dataQualityIssues.suspiciousYear++;
+
+            // Keep sample of first 3 issues for detailed logging
+            if (dataQualityIssues.sampleIssues.length < 3) {
+              dataQualityIssues.sampleIssues.push({
+                tankId: reading.tank_id,
+                issues: validation.issues,
+                timestamp: reading.created_at,
+                age: validation.age
               });
-              
-              // Keep sample of first 3 issues for detailed logging
-              if (dataQualityIssues.sampleIssues.length < 3) {
-                dataQualityIssues.sampleIssues.push({
-                  tankId: reading.tank_id,
-                  issues: validation.issues,
-                  timestamp: reading.created_at,
-                  age: validation.age
-                });
-              }
-              
-              // Rate-limited detailed logging for critical issues only
-              const now = Date.now();
-              const lastWarning = dataQualityWarnings.get(reading.tank_id) || 0;
-              
-              if (validation.isFuture && (now - lastWarning) > QUALITY_WARNING_COOLDOWN) {
-                console.warn(`[TANK DATA QUALITY] Critical issue - Tank ${reading.tank_id}:`, {
-                  timestamp: reading.created_at,
-                  issues: validation.issues,
-                  age: validation.age
-                });
-                dataQualityWarnings.set(reading.tank_id, now);
-              }
+            }
+
+            // Rate-limited detailed logging for critical issues only
+            const now = Date.now();
+            const lastWarning = dataQualityWarnings.get(reading.tank_id) || 0;
+
+            if (validation.isFuture && (now - lastWarning) > QUALITY_WARNING_COOLDOWN) {
+              console.warn(`[TANK DATA QUALITY] Critical issue - Tank ${reading.tank_id}:`, {
+                timestamp: reading.created_at,
+                issues: validation.issues,
+                age: validation.age
+              });
+              dataQualityWarnings.set(reading.tank_id, now);
             }
           }
-          latestByTank.set(reading.tank_id, reading);
         }
+        latestByTank.set(reading.tank_id, reading);
       });
 
       // Log summary of data quality issues (only if issues found)
@@ -199,36 +208,36 @@ export const useTanks = () => {
         const currentLevel = latest?.value ?? null; // Use null instead of 0 for missing readings
         const safeLevel = tank.safe_level || 0;
         const minLevel = tank.min_level || 0;
-        
+
         return {
           ...tank,
           // Core fields with current readings
           current_level: currentLevel,
-          current_level_percent: currentLevel !== null && safeLevel > minLevel 
+          current_level_percent: currentLevel !== null && safeLevel > minLevel
             ? Math.round(((currentLevel - minLevel) / (safeLevel - minLevel)) * 100)
             : null, // Use null when no reading available
           last_dip_ts: latest?.created_at || null,
           last_dip_by: latest?.recorded_by || 'Unknown',
-          
+
           // Ensure consistent field names
           safe_level: safeLevel,
           min_level: minLevel,
           product_type: tank.product_type || 'Diesel',
-          
+
           // Calculated fields
           usable_capacity: Math.max(0, safeLevel - minLevel),
           ullage: Math.max(0, safeLevel - currentLevel),
-          
+
           // Group info with fallback - use the fetched group name
           group_name: groupNameMap.get(tank.group_id) || 'Unknown Group',
-          
+
           // Structured last_dip object
           last_dip: latest ? {
             value: latest.value,
             created_at: latest.created_at,
             recorded_by: latest.recorded_by || 'Unknown'
           } : null,
-          
+
           // Analytics placeholders (calculated below)
           rolling_avg: 0,
           prev_day_used: 0,
@@ -240,7 +249,7 @@ export const useTanks = () => {
       // Step 5: Get dip readings for analytics (optimized query)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
+
       const { data: allReadings } = await supabase
         .from('dip_readings')
         .select('tank_id, value, created_at')
@@ -259,7 +268,7 @@ export const useTanks = () => {
         }
         readingsByTank.get(reading.tank_id).push(reading);
       });
-      
+
       const tanksWithAnalytics = (tankData || []).map(tank => {
         // Get pre-grouped readings for this tank (already time-ordered from query)
         const allTankReadings = readingsByTank.get(tank.id) || [];
@@ -268,10 +277,10 @@ export const useTanks = () => {
         // while preserving data granularity for accurate rolling averages
         const MINIMUM_HOURS_BETWEEN_READINGS = 4;
         const tankReadings: any[] = [];
-        
+
 	        for (let i = 0; i < allTankReadings.length; i++) {
           const currentReading = allTankReadings[i];
-          
+
           if (tankReadings.length === 0) {
             // Always include the first reading
             tankReadings.push(currentReading);
@@ -279,7 +288,7 @@ export const useTanks = () => {
             const lastIncluded = tankReadings[tankReadings.length - 1];
 	            // allTankReadings are ascending; compute time from last included to current
 	            const hoursBetween = (new Date(currentReading.created_at).getTime() - new Date(lastIncluded.created_at).getTime()) / (1000 * 60 * 60);
-            
+
             // Include reading if it's been at least MINIMUM_HOURS since the last included reading
             if (hoursBetween >= MINIMUM_HOURS_BETWEEN_READINGS) {
               tankReadings.push(currentReading);
@@ -295,10 +304,10 @@ export const useTanks = () => {
         for (let i = 1; i < tankReadings.length; i++) {
           const older = tankReadings[i - 1];
           const newer = tankReadings[i];
-          
+
           const consumption = calculateConsumption(older, newer);
           const days = daysBetween(new Date(older.created_at), new Date(newer.created_at));
-          
+
           if (days > 0 && consumption > 0) {
             const dailyRate = consumption / days;
             dailyConsumptions.push(dailyRate);
@@ -309,14 +318,14 @@ export const useTanks = () => {
 
         // If no valid consumption data, try alternative calculation
         let rolling_avg = totalDays > 0 ? Math.round(totalConsumption / totalDays) : 0;
-        
+
         // FALLBACK: If no consumption detected, estimate from overall level change
         if (rolling_avg === 0 && tankReadings.length >= 2) {
           const firstReading = tankReadings[0];
           const lastReading = tankReadings[tankReadings.length - 1];
           const totalChange = firstReading.value - lastReading.value;
           const totalDaysSpan = daysBetween(new Date(firstReading.created_at), new Date(lastReading.created_at));
-          
+
           if (totalDaysSpan > 0 && totalChange > 0) {
             rolling_avg = Math.round(totalChange / totalDaysSpan);
           }
@@ -326,21 +335,21 @@ export const useTanks = () => {
         // Use original readings to get actual latest vs previous, not filtered by date
         let prev_day_used = 0;
         let isRefill = false;
-        
+
         if (allTankReadings.length >= 2) {
           const latestReading = allTankReadings[allTankReadings.length - 1];
           const previousReading = allTankReadings[allTankReadings.length - 2];
           const rawDifference = latestReading.value - previousReading.value;
-          
+
           // Business logic: Detect if this is likely a refill
           // If the increase is >= 100L, it's likely a refill or top-up
           const REFILL_THRESHOLD = 100;
           isRefill = rawDifference >= REFILL_THRESHOLD;
-          
+
           // Always preserve the actual raw difference
           // Positive = refill/increase, Negative = consumption/decrease
           prev_day_used = rawDifference;
-          
+
           // Debug logging for Alkimos tank specifically
           if (tank.location && tank.location.toLowerCase().includes('alkimos')) {
             console.log(`[ALKIMOS DEBUG] Tank: ${tank.location}`);
@@ -367,9 +376,9 @@ export const useTanks = () => {
         // Calculate days to minimum
         const currentLevel = tank.current_level;
         const minLevel = tank.min_level || 0;
-        
+
         // Only calculate if we have a current level reading and positive consumption rate
-        const days_to_min_level = (currentLevel !== null && rolling_avg > 0) 
+        const days_to_min_level = (currentLevel !== null && rolling_avg > 0)
           ? Math.round((Math.max(0, currentLevel - minLevel) / rolling_avg) * 10) / 10
           : null;
 
@@ -383,7 +392,7 @@ export const useTanks = () => {
         };
       });
 
-      
+
       // Generate alerts asynchronously (non-blocking)
       // This runs in the background and doesn't affect tank loading performance
       if (tanksWithAnalytics.length > 0) {
@@ -391,9 +400,9 @@ export const useTanks = () => {
           console.error('[ALERTS] Error generating alerts:', error);
         });
       }
-      
+
       return tanksWithAnalytics;
-      
+
     } catch (error) {
       console.error('[TANKS DEBUG] ❌ CRITICAL ERROR in useTanks:', error);
       throw error;
@@ -428,26 +437,26 @@ export const useTanks = () => {
     isLoading: tanksQuery.isLoading,
     error: tanksQuery.error,
     refetch: tanksQuery.refetch,
-    
+
     // Utility functions
     invalidate: () => {
       queryClient.invalidateQueries({ queryKey: ['tanks-with-analytics'] });
     },
-    
+
     // Analytics summary
     getAnalyticsSummary: () => {
       if (!tanks.length) return null;
-      
+
       const tanksWithData = tanks.filter((t: Tank) => t.rolling_avg > 0);
-      
+
       return {
         totalTanks: tanks.length,
         tanksWithAnalytics: tanksWithData.length,
-        avgRollingConsumption: tanksWithData.length > 0 
+        avgRollingConsumption: tanksWithData.length > 0
           ? Math.round(tanksWithData.reduce((sum: number, t: Tank) => sum + t.rolling_avg, 0) / tanksWithData.length)
           : 0,
-        tanksNeedingAttention: tanks.filter((t: Tank) => 
-          t.current_level_percent < 15 || 
+        tanksNeedingAttention: tanks.filter((t: Tank) =>
+          t.current_level_percent < 15 ||
           (t.days_to_min_level !== null && t.days_to_min_level < 7)
         ).length,
         totalDailyConsumption: Math.round(tanksWithData.reduce((sum: number, t: Tank) => sum + t.rolling_avg, 0))
@@ -458,3 +467,4 @@ export const useTanks = () => {
 
 // Legacy hook name for backward compatibility
 export const useTanksData = useTanks;
+
