@@ -127,7 +127,9 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
               <div className="text-lg font-semibold text-blue-600">
                 {(() => {
                   const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
-                  const capacity = mainAsset.asset_refill_capacity_litres || 
+                  const capacity = location.raw_data?.AssetProfileWaterCapacity ||
+                                  mainAsset.asset_profile_water_capacity ||
+                                  mainAsset.asset_refill_capacity_litres ||
                                   (capacityFromName ? parseInt(capacityFromName) : 50000);
                   const currentVolume = Math.round((displayPercentage / 100) * capacity);
                   return `${currentVolume.toLocaleString()}L`;
@@ -136,7 +138,9 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
               <div className="text-xs text-muted-foreground">
                 of {(() => {
                   const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
-                  const capacity = mainAsset.asset_refill_capacity_litres || 
+                  const capacity = location.raw_data?.AssetProfileWaterCapacity ||
+                                  mainAsset.asset_profile_water_capacity ||
+                                  mainAsset.asset_refill_capacity_litres ||
                                   (capacityFromName ? parseInt(capacityFromName) : 50000);
                   return capacity.toLocaleString();
                 })()}L capacity
@@ -191,7 +195,9 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
                         {(() => {
                           const dailyConsumptionPct = mainAsset.asset_daily_consumption || location.location_daily_consumption;
                           const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
-                          const capacity = mainAsset.asset_refill_capacity_litres || 
+                          const capacity = location.raw_data?.AssetProfileWaterCapacity ||
+                                          mainAsset.asset_profile_water_capacity ||
+                                          mainAsset.asset_refill_capacity_litres ||
                                           (capacityFromName ? parseInt(capacityFromName) : 50000);
                           const dailyConsumptionLitres = Math.round((dailyConsumptionPct / 100) * capacity);
                           return dailyConsumptionLitres.toLocaleString();

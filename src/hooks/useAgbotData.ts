@@ -197,39 +197,36 @@ export function useAgbotSummary() {
   let locationsWithConsumption = 0;
   
   const categories = { agricultural: 0, commercial: 0 };
-  
-  allAssets.forEach(asset => {
-    // Extract capacity from asset profile name or use asset_refill_capacity_litres if available
-    const capacityFromName = asset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
-    const capacity = asset.asset_refill_capacity_litres || 
+
+  locations.forEach(location => {
+    // Get capacity from location raw_data or asset fields
+    const mainAsset = location.assets?.[0];
+    const capacityFromName = mainAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
+    const capacity = location.raw_data?.AssetProfileWaterCapacity ||
+                    mainAsset?.asset_profile_water_capacity ||
+                    mainAsset?.asset_refill_capacity_litres ||
                     (capacityFromName ? parseInt(capacityFromName) : 50000); // Default to 50,000L
-    
-    const percentage = asset.latest_calibrated_fill_percentage || 0;
+
+    const percentage = location.latest_calibrated_fill_percentage ?? mainAsset?.latest_calibrated_fill_percentage ?? 0;
     const currentVolume = (percentage / 100) * capacity;
-    
+
     totalCapacity += capacity;
     currentFuelVolume += currentVolume;
-    
-    // Daily consumption from asset data
-    if (asset.asset_daily_consumption && asset.asset_daily_consumption > 0) {
-      totalDailyConsumption += asset.asset_daily_consumption;
+
+    // Daily consumption from asset or location data
+    const dailyConsumption = mainAsset?.asset_daily_consumption || location.location_daily_consumption;
+    if (dailyConsumption && dailyConsumption > 0) {
+      totalDailyConsumption += dailyConsumption;
       locationsWithConsumption++;
     }
-  });
-  
-  locations.forEach(location => {
+
     // Categorize locations
-    const isCommercial = location.location_id?.toLowerCase().includes('depot') || 
+    const isCommercial = location.location_id?.toLowerCase().includes('depot') ||
                         location.address1?.toLowerCase().includes('depot');
     if (isCommercial) {
       categories.commercial++;
     } else {
       categories.agricultural++;
-    }
-    
-    // Add location-level consumption if available
-    if (location.location_daily_consumption && location.location_daily_consumption > 0) {
-      totalDailyConsumption += location.location_daily_consumption;
     }
   });
   

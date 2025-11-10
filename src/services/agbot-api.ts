@@ -204,6 +204,12 @@ export interface AgbotAsset {
   latest_telemetry_event_timestamp: string;
   created_at: string;
   updated_at: string;
+  // Capacity and consumption fields
+  asset_profile_name?: string | null;
+  asset_profile_water_capacity?: number | null;
+  asset_refill_capacity_litres?: number | null;
+  asset_daily_consumption?: number | null;
+  asset_days_remaining?: number | null;
 }
 
 export interface AgbotSyncResult {

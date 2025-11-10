@@ -71,11 +71,15 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
           // Calculate capacity from asset profile or default
           const aAsset = a.assets?.[0];
           const bAsset = b.assets?.[0];
-          const aCapacity = aAsset?.asset_refill_capacity_litres || 
-                           (aAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '') ? 
+          const aCapacity = a.raw_data?.AssetProfileWaterCapacity ||
+                           aAsset?.asset_profile_water_capacity ||
+                           aAsset?.asset_refill_capacity_litres ||
+                           (aAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '') ?
                             parseInt(aAsset.asset_profile_name.match(/[\d,]+/)[0].replace(/,/g, '')) : 50000);
-          const bCapacity = bAsset?.asset_refill_capacity_litres || 
-                           (bAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '') ? 
+          const bCapacity = b.raw_data?.AssetProfileWaterCapacity ||
+                           bAsset?.asset_profile_water_capacity ||
+                           bAsset?.asset_refill_capacity_litres ||
+                           (bAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '') ?
                             parseInt(bAsset.asset_profile_name.match(/[\d,]+/)[0].replace(/,/g, '')) : 50000);
           aValue = aCapacity;
           bValue = bCapacity;
@@ -249,7 +253,10 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
             
             // Calculate capacity and current volume
             const capacityFromName = mainAsset?.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
-            const capacity = mainAsset?.asset_refill_capacity_litres || 
+            const capacityFromRawData = location.raw_data?.AssetProfileWaterCapacity;
+            const capacity = capacityFromRawData ||
+                            mainAsset?.asset_profile_water_capacity ||
+                            mainAsset?.asset_refill_capacity_litres ||
                             (capacityFromName ? parseInt(capacityFromName) : 50000);
             const currentVolume = percentage ? Math.round((percentage / 100) * capacity) : 0;
             
