@@ -385,7 +385,7 @@ export default function AddDipModal({
   /* ─────────── Render modal ────────────────────────────────────── */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT }}>
+      <DialogContent className="bg-white max-w-md" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT }}>
         <DialogDescription className="sr-only">
           Record a manual dip reading for a fuel tank
         </DialogDescription>

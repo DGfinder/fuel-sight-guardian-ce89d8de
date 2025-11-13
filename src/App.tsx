@@ -68,6 +68,12 @@ const SmartFillPage = lazy(() => import('@/pages/SmartFillPage'));
 const MtDataDashboard = lazy(() => import('@/pages/MtDataDashboard'));
 const MtDataStevemacsDashboard = lazy(() => import('@/pages/MtDataStevemacsDashboard'));
 const MtDataGSFDashboard = lazy(() => import('@/pages/MtDataGSFDashboard'));
+// Route Analysis Platform
+const RouteAnalysisPage = lazy(() => import('@/pages/RouteAnalysisPage'));
+// Terminal Management
+const TerminalManagementPage = lazy(() => import('@/pages/TerminalManagementPage'));
+const TerminalVerificationPage = lazy(() => import('@/pages/TerminalVerificationPage'));
+const POIDiscoveryPage = lazy(() => import('@/pages/POIDiscoveryPage'));
 // Trip-Delivery Correlation Pages
 const CorrelationPaymentsPage = lazy(() => import('@/pages/CorrelationPaymentsPage'));
 const CorrelationTripsPage = lazy(() => import('@/pages/CorrelationTripsPage'));
@@ -481,8 +487,8 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
-                  <Route 
-                    path="/data-centre/mtdata/gsf" 
+                  <Route
+                    path="/data-centre/mtdata/gsf"
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="GSF MtData Analytics" showHomeButton={true}>
@@ -491,7 +497,58 @@ function AppContent() {
                           </DataCentreLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
-                    } 
+                    }
+                  />
+                  {/* Route Analysis */}
+                  <Route
+                    path="/data-centre/route-analysis"
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Route Analysis" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <RouteAnalysisPage />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Terminal Management */}
+                  <Route
+                    path="/data-centre/terminal-management"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <RouteErrorBoundary routeName="Terminal Management" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <TerminalManagementPage />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/data-centre/terminal-verification"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <RouteErrorBoundary routeName="Terminal GPS Verification" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <TerminalVerificationPage />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* POI Discovery */}
+                  <Route
+                    path="/data-centre/poi-discovery"
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="POI Discovery" showHomeButton={true}>
+                          <DataCentreLayout>
+                            <POIDiscoveryPage />
+                          </DataCentreLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
                   />
                   {/* Trip-Delivery Correlation Routes */}
                   <Route 

@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Droplets, AlertTriangle, Clock, Gauge, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { staggerContainerVariants, fadeInItemVariants } from "@/lib/motion-variants";
 import type { Tank } from '@/types/fuel';
 
 interface KPICardsProps {
@@ -143,24 +145,32 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+    <motion.div
+      className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5"
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainerVariants}
+    >
       {cards.map((card) => {
         const Icon = card.icon;
         const isSelected = selectedFilter === card.id;
-        
+
         return (
-          <Card
+          <motion.div
             key={card.id}
-            className={cn(
-              "cursor-pointer transition-all duration-200 border-2",
-              "hover:shadow-md hover:-translate-y-1",
-              isSelected 
-                ? "ring-2 ring-primary shadow-lg border-primary/50 bg-primary/5" 
-                : "hover:border-primary/30 border-gray-200",
-              card.alert && "ring-1 ring-red-200 shadow-md"
-            )}
-            onClick={() => onCardClick(card.id)}
+            variants={fadeInItemVariants}
           >
+            <Card
+              animated
+              className={cn(
+                "cursor-pointer border-2",
+                isSelected
+                  ? "ring-2 ring-primary shadow-lg border-primary/50 bg-primary/5"
+                  : "hover:border-primary/30 border-gray-200",
+                card.alert && "ring-1 ring-red-200 shadow-md"
+              )}
+              onClick={() => onCardClick(card.id)}
+            >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 <div className="flex items-center gap-2">
@@ -188,8 +198,9 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
               </div>
             </CardContent>
           </Card>
+        </motion.div>
         );
       })}
-    </div>
+    </motion.div>
   );
 }

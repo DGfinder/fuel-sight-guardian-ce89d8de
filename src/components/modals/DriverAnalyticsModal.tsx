@@ -51,7 +51,7 @@ export default function DriverAnalyticsModal({ driverId, open, onClose }: Driver
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="bg-white max-w-5xl">
         <DialogHeader>
           <DialogTitle>
             {profile.data ? profile.data.summary.full_name : 'Driver'}

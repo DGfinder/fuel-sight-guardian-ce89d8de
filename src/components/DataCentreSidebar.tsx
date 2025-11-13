@@ -19,7 +19,10 @@ import {
   Navigation,
   Target,
   GitMerge,
-  Database
+  Database,
+  Route,
+  MapPin,
+  MapPinCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
@@ -76,6 +79,30 @@ const DATA_CENTRE_NAV_ITEMS = [
       { path: '/data-centre/mtdata/gsf', label: 'GSF Operations', icon: Navigation },
       { path: '/data-centre/mtdata/correlation', label: 'Delivery Correlation', icon: GitMerge }
     ]
+  },
+  {
+    path: '/data-centre/route-analysis',
+    label: 'Route Analysis',
+    icon: Route,
+    permission: 'view_analytics_dashboard'
+  },
+  {
+    path: '/data-centre/terminal-management',
+    label: 'Terminal Management',
+    icon: MapPin,
+    permission: 'manage_data_sources'
+  },
+  {
+    path: '/data-centre/terminal-verification',
+    label: 'Terminal GPS Verification',
+    icon: MapPinCheck,
+    permission: 'manage_data_sources'
+  },
+  {
+    path: '/data-centre/poi-discovery',
+    label: 'POI Discovery',
+    icon: Target,
+    permission: 'view_analytics_dashboard'
   },
   {
     path: '/data-centre/master-data',

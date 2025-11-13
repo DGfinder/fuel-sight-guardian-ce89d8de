@@ -1,8 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StatusPulse } from "@/components/ui/StatusPulse";
+import { staggerContainerVariants, fadeUpItemVariants } from "@/lib/motion-variants";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTanks } from '@/hooks/useTanks';
@@ -426,14 +429,24 @@ export default function TanksPage() {
         </CardContent>
       </Card>
 
-      {/* Tank Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Tank Grid - Animated with stagger */}
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        initial="hidden"
+        animate="visible"
+        variants={staggerContainerVariants}
+      >
         {filteredTanks.map((tank) => (
-          <Card 
-            key={tank.id} 
-            className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-0 shadow-md bg-white/80 backdrop-blur-sm overflow-hidden cursor-pointer"
-            onClick={() => openModal(tank)}
+          <motion.div
+            key={tank.id}
+            variants={fadeUpItemVariants}
           >
+            <StatusPulse status={getFuelStatus(tank.current_level_percent)}>
+              <Card
+                animated
+                className="group border-0 shadow-md bg-white/80 backdrop-blur-sm overflow-hidden"
+                onClick={() => openModal(tank)}
+              >
             <CardHeader className="pb-3 bg-gradient-to-r from-gray-50 to-gray-100">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
@@ -566,8 +579,10 @@ export default function TanksPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </StatusPulse>
+      </motion.div>
+      ))}
+      </motion.div>
 
       {/* Empty State */}
       {filteredTanks.length === 0 && tanks && tanks.length > 0 && (

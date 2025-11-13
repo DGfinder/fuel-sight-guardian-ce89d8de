@@ -213,7 +213,7 @@ export default function LytxCsvImportModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("sm:max-w-6xl max-h-[90vh] overflow-y-auto", Z_INDEX.modal)}>
+      <DialogContent className={cn("bg-white sm:max-w-6xl max-h-[90vh] overflow-y-auto", Z_INDEX.modal)}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />

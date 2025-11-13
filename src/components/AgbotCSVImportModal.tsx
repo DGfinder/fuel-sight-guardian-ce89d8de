@@ -361,7 +361,7 @@ export default function AgbotCSVImportModal({ open, onOpenChange, onImport }: Ag
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT }}>
+      <DialogContent className="bg-white max-w-6xl max-h-[90vh] overflow-hidden flex flex-col" style={{ zIndex: Z_INDEX.NESTED_MODAL_CONTENT }}>
         <DialogHeader>
           <DialogTitle>Import Agbot Data from Athara Dashboard CSV</DialogTitle>
           <DialogDescription>

@@ -1856,7 +1856,7 @@ const MasterDataPage: React.FC = () => {
 
       {/* LYTX Device Mapping Dialog */}
       <Dialog open={lytxDialogOpen} onOpenChange={setLytxDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="bg-white max-w-md">
           <DialogHeader>
             <DialogTitle>
               {lytxEditMode ? 'Edit LYTX Device Mapping' : 'Add LYTX Device Mapping'}
@@ -1940,7 +1940,7 @@ const MasterDataPage: React.FC = () => {
 
       {/* Guardian Unit Mapping Dialog */}
       <Dialog open={guardianDialogOpen} onOpenChange={setGuardianDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="bg-white max-w-md">
           <DialogHeader>
             <DialogTitle>
               {guardianEditMode ? 'Edit Guardian Unit Mapping' : 'Add Guardian Unit Mapping'}
@@ -2024,7 +2024,7 @@ const MasterDataPage: React.FC = () => {
 
       {/* MtData Vehicle Mapping Dialog */}
       <Dialog open={mtdataDialogOpen} onOpenChange={setMtdataDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="bg-white max-w-md">
           <DialogHeader>
             <DialogTitle>
               {mtdataEditMode ? 'Edit MtData Vehicle Mapping' : 'Add MtData Vehicle Mapping'}
