@@ -5,6 +5,7 @@ import { useMapData } from '@/hooks/useMapData';
 import { useTankModal } from '@/contexts/TankModalContext';
 import { useAgbotModal } from '@/contexts/AgbotModalContext';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { useMapCleanup } from '@/hooks/useMapCleanup';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,43 @@ import { getIconForTank, getIconForAgbot } from '@/components/map/MapIcons';
 
 // Icon logic moved to /src/components/map/MapIcons.ts
 
+type MapStyle = 'light' | 'dark' | 'satellite' | 'terrain';
+
+// Optimized markers component with React.memo
+interface MapMarkersProps {
+  items: any[];
+  openModal: (tank: any) => void;
+  openModalFromMap: (agbot: any) => void;
+}
+
+const MapMarkers = React.memo(({ items, openModal, openModalFromMap }: MapMarkersProps) => {
+  const markers = useMemo(
+    () =>
+      items
+        .filter(item => item.latitude && item.longitude)
+        .map(item => (
+          <Marker
+            key={item.id}
+            position={[item.latitude!, item.longitude!]}
+            icon={item.source === 'manual' ? getIconForTank(item) : getIconForAgbot(item)}
+          >
+            <Popup>
+              {item.source === 'manual' ? (
+                <TankMapPopup tank={item} onViewDetails={openModal} />
+              ) : (
+                <AgbotMapPopup agbot={item} onViewDetails={openModalFromMap} />
+              )}
+            </Popup>
+          </Marker>
+        )),
+    [items, openModal, openModalFromMap]
+  );
+
+  return <>{markers}</>;
+});
+
+MapMarkers.displayName = 'MapMarkers';
+
 function MapView() {
   const { allItems, manualTanks, agbotDevices, counts, isLoading, error, refetch } = useMapData();
   const { openModal } = useTankModal();
@@ -38,9 +76,12 @@ function MapView() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all'); // 'all', 'manual', 'agbot'
   const [showFilters, setShowFilters] = useState(false);
-  const [mapStyle, setMapStyle] = useState('light');
+  const [mapStyle, setMapStyle] = useState<MapStyle>('light');
   const [autoRefresh, setAutoRefresh] = useState(false);
-  
+
+  // Map cleanup hook for React 19 compatibility
+  useMapCleanup();
+
   // Default center for the map (Perth, WA)
   const defaultCenter: [number, number] = [-31.9505, 115.8605];
   
@@ -429,41 +470,23 @@ function MapView() {
           <CardContent className="p-0">
             <div className="h-[600px] w-full">
               <MapContainer
+                key={`map-${selectedGroup}-${mapStyle}`}
                 center={defaultCenter}
                 zoom={10}
                 style={{ height: '100%', width: '100%' }}
               >
                 <TileLayer
                   key={mapStyle}
-                  url={mapStyles[mapStyle as keyof typeof mapStyles].url}
-                  attribution={mapStyles[mapStyle as keyof typeof mapStyles].attribution}
+                  url={mapStyles[mapStyle].url}
+                  attribution={mapStyles[mapStyle].attribution}
                 />
-                
+
                 <MarkerClusterGroup>
-                  {filteredItems
-                    .filter(item => item.latitude && item.longitude)
-                    .map(item => (
-                      <Marker
-                        key={item.id}
-                        position={[item.latitude!, item.longitude!]}
-                        icon={item.source === 'manual' ? getIconForTank(item) : getIconForAgbot(item)}
-                      >
-                        <Popup>
-                          {item.source === 'manual' ? (
-                            <TankMapPopup 
-                              tank={item} 
-                              onViewDetails={openModal}
-                            />
-                          ) : (
-                            <AgbotMapPopup 
-                              agbot={item} 
-                              onViewDetails={openModalFromMap}
-                            />
-                          )}
-                        </Popup>
-                      </Marker>
-                    ))
-                  }
+                  <MapMarkers
+                    items={filteredItems}
+                    openModal={openModal}
+                    openModalFromMap={openModalFromMap}
+                  />
                 </MarkerClusterGroup>
               </MapContainer>
             </div>
