@@ -402,13 +402,37 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
               {group.shouldShowSubgroups && group.subGroups.length > 0 && (
                 <div className="flex items-center gap-2 mr-2">
                   {expandedGroups[group.id] ? (
-                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={(e) => { e.stopPropagation(); toggleAllSubgroups(group.id, false); }}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="h-8 px-2 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); toggleAllSubgroups(group.id, false); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          toggleAllSubgroups(group.id, false);
+                        }
+                      }}
+                    >
                       <Minimize2 className="w-4 h-4 mr-1" /> Collapse all
-                    </Button>
+                    </div>
                   ) : (
-                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={(e) => { e.stopPropagation(); toggleAllSubgroups(group.id, true); }}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="h-8 px-2 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); toggleAllSubgroups(group.id, true); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          toggleAllSubgroups(group.id, true);
+                        }
+                      }}
+                    >
                       <Expand className="w-4 h-4 mr-1" /> Expand all
-                    </Button>
+                    </div>
                   )}
                 </div>
               )}
