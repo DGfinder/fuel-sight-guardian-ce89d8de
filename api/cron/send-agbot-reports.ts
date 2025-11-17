@@ -18,7 +18,7 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Default sender email
-const DEFAULT_FROM_EMAIL = 'AgBot Alerts <alerts@greatsouthernfuel.com.au>';
+const DEFAULT_FROM_EMAIL = 'Tank Alert <tankalert@greatsouthernfuels.com.au>';
 
 // Cron secret for security
 const CRON_SECRET = process.env.CRON_SECRET || 'FSG-cron-secret-2025';
