@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { Mail, UserPlus, Power, PowerOff, Edit, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
