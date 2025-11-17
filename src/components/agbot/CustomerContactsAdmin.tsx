@@ -29,7 +29,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
-import { Mail, UserPlus, Power, PowerOff, Edit, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Mail, UserPlus, Power, PowerOff, Edit, Trash2, CheckCircle2, XCircle, Send, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CustomerContact {
@@ -73,6 +73,9 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
   const [availableTanks, setAvailableTanks] = useState<any[]>([]);
   const [selectedTankIds, setSelectedTankIds] = useState<string[]>([]);
   const [loadingTanks, setLoadingTanks] = useState(false);
+
+  // Test email state
+  const [sendingTestEmail, setSendingTestEmail] = useState<string | null>(null);
 
   useEffect(() => {
     fetchContacts();
@@ -253,6 +256,41 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     } catch (error) {
       console.error('Error deleting contact:', error);
       toast.error('Failed to delete contact');
+    }
+  };
+
+  const handleTestEmail = async (contact: CustomerContact) => {
+    try {
+      setSendingTestEmail(contact.id);
+
+      const response = await fetch('/api/test-send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contact_id: contact.id
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to send test email');
+      }
+
+      toast.success(
+        `✅ Test email sent to ${contact.contact_email}!\nTanks included: ${data.data.tanks_included}`,
+        { duration: 5000 }
+      );
+
+      // Refresh contacts to update last_email_sent_at
+      fetchContacts();
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      toast.error(`Failed to send test email: ${(error as Error).message}`);
+    } finally {
+      setSendingTestEmail(null);
     }
   };
 
@@ -598,6 +636,20 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                         title="Edit contact"
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleTestEmail(contact)}
+                        disabled={sendingTestEmail === contact.id}
+                        title="Send test email now"
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        {sendingTestEmail === contact.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
                       </Button>
                       <Button
                         size="sm"
