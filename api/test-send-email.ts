@@ -16,8 +16,11 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Default sender email
-const DEFAULT_FROM_EMAIL = 'AgBot Alerts <alerts@greatsouthernfuel.com.au>';
+// Sender email with fallback
+// Use verified domain email if available, otherwise use Resend's default
+const DEFAULT_FROM_EMAIL =
+  process.env.RESEND_VERIFIED_EMAIL ||
+  'onboarding@resend.dev'; // Fallback - always works, no verification needed
 
 interface CustomerContact {
   id: string;
@@ -35,12 +38,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
   console.log(`🌐 Method: ${req.method}`);
 
-  // Environment check
-  if (!supabaseUrl || !supabaseKey || !process.env.RESEND_API_KEY) {
-    console.error('💥 Missing environment variables');
+  // Detailed environment check
+  console.log('\n🔧 Environment Variables:');
+  console.log(`   SUPABASE_URL: ${supabaseUrl ? '✅ Set' : '❌ MISSING'}`);
+  console.log(`   SUPABASE_ANON_KEY: ${supabaseKey ? '✅ Set' : '❌ MISSING'}`);
+  console.log(`   RESEND_API_KEY: ${process.env.RESEND_API_KEY ? '✅ Set' : '❌ MISSING'}`);
+  console.log(`   RESEND_VERIFIED_EMAIL: ${process.env.RESEND_VERIFIED_EMAIL ? '✅ ' + process.env.RESEND_VERIFIED_EMAIL : 'ℹ️  Not set (using fallback)'}`);
+  console.log(`   📧 Using sender email: ${DEFAULT_FROM_EMAIL}`);
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('💥 Missing Supabase environment variables');
     return res.status(500).json({
       error: 'Server configuration error',
-      message: 'Missing required environment variables'
+      message: 'Supabase not configured',
+      suggestion: 'Add SUPABASE_URL and SUPABASE_ANON_KEY to Vercel environment variables',
+      details: {
+        supabaseUrl: supabaseUrl ? 'set' : 'missing',
+        supabaseKey: supabaseKey ? 'set' : 'missing'
+      }
+    });
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    console.error('💥 Missing RESEND_API_KEY');
+    return res.status(500).json({
+      error: 'Email service not configured',
+      message: 'RESEND_API_KEY environment variable is not set',
+      suggestion: 'Add your Resend API key to Vercel environment variables:\n1. Go to Vercel Dashboard → Settings → Environment Variables\n2. Add RESEND_API_KEY with your key from https://resend.com/api-keys\n3. Redeploy the application',
+      details: {
+        resendApiKey: 'missing',
+        helpUrl: 'https://resend.com/docs/send-with-nodejs'
+      }
     });
   }
 
@@ -202,7 +230,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     // Send email via Resend
-    console.log(`   📧 Sending test email to ${typedContact.contact_email}...`);
+    console.log(`\n📧 Sending test email via Resend...`);
+    console.log(`   From: ${DEFAULT_FROM_EMAIL}`);
+    console.log(`   To: ${typedContact.contact_email}`);
+    console.log(`   Subject: 🧪 TEST - Daily AgBot Report`);
+    console.log(`   Tanks: ${locations.length} locations`);
+    console.log(`   Low fuel alerts: ${lowFuelCount}`);
+    console.log(`   Critical alerts: ${criticalCount}`);
+
     const emailResponse = await resend.emails.send({
       from: DEFAULT_FROM_EMAIL,
       to: typedContact.contact_email,
@@ -215,8 +250,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ]
     });
 
+    console.log(`\n📬 Resend API Response:`);
+    console.log(`   Success: ${!emailResponse.error}`);
+    console.log(`   Email ID: ${emailResponse.data?.id || 'N/A'}`);
     if (emailResponse.error) {
-      throw new Error(`Resend error: ${emailResponse.error.message}`);
+      console.error(`   Error: ${JSON.stringify(emailResponse.error, null, 2)}`);
+    }
+
+    if (emailResponse.error) {
+      const errorMsg = emailResponse.error.message || JSON.stringify(emailResponse.error);
+      console.error('💥 Resend API Error:', errorMsg);
+
+      return res.status(500).json({
+        success: false,
+        error: 'Email sending failed',
+        message: `Resend API error: ${errorMsg}`,
+        suggestion:
+          errorMsg.includes('domain')
+            ? 'Your sender domain may not be verified. Using onboarding@resend.dev as fallback.'
+            : 'Check Resend dashboard for more details: https://resend.com/emails',
+        details: emailResponse.error
+      });
     }
 
     console.log(`   ✅ Test email sent! ID: ${emailResponse.data?.id}`);
