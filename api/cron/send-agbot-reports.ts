@@ -125,39 +125,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log(`\n📬 Processing customer: ${contact.customer_name}`);
         console.log(`   Contact: ${contact.contact_name || 'N/A'} <${contact.contact_email}>`);
 
-        // Fetch AgBot locations for this customer with asset data
-        const { data: locations, error: locationsError } = await supabase
-          .from('agbot_locations')
+        let locations: any[] = [];
+
+        // Step 1: Try to fetch specifically assigned tanks from junction table
+        const { data: assignedTanks, error: assignedTanksError } = await supabase
+          .from('customer_contact_tanks')
           .select(
             `
-            id,
-            location_id,
-            address1,
-            customer_name,
-            latest_calibrated_fill_percentage,
-            latest_telemetry,
-            agbot_assets (
-              device_online,
-              asset_profile_water_capacity,
-              asset_daily_consumption,
-              asset_days_remaining,
-              device_serial_number
+            agbot_location_id,
+            agbot_locations!inner (
+              id,
+              location_id,
+              address1,
+              customer_name,
+              latest_calibrated_fill_percentage,
+              latest_telemetry,
+              disabled,
+              agbot_assets (
+                device_online,
+                asset_profile_water_capacity,
+                asset_daily_consumption,
+                asset_days_remaining,
+                device_serial_number
+              )
             )
           `
           )
-          .eq('customer_name', contact.customer_name)
-          .eq('disabled', false);
+          .eq('customer_contact_id', contact.id);
 
-        if (locationsError) {
-          throw new Error(`Failed to fetch locations: ${locationsError.message}`);
+        if (!assignedTanksError && assignedTanks && assignedTanks.length > 0) {
+          // Contact has specific tank assignments - use only these
+          locations = assignedTanks
+            .map((assignment: any) => assignment.agbot_locations)
+            .filter((loc: any) => loc && !loc.disabled);
+          console.log(`   🎯 Found ${locations.length} specifically assigned tank(s)`);
+        } else {
+          // Step 2: Fallback - fetch ALL tanks for this customer (backward compatible)
+          console.log(`   ℹ️  No specific tanks assigned, fetching all customer tanks...`);
+          const { data: allLocations, error: locationsError } = await supabase
+            .from('agbot_locations')
+            .select(
+              `
+              id,
+              location_id,
+              address1,
+              customer_name,
+              latest_calibrated_fill_percentage,
+              latest_telemetry,
+              agbot_assets (
+                device_online,
+                asset_profile_water_capacity,
+                asset_daily_consumption,
+                asset_days_remaining,
+                device_serial_number
+              )
+            `
+            )
+            .eq('customer_name', contact.customer_name)
+            .eq('disabled', false);
+
+          if (locationsError) {
+            throw new Error(`Failed to fetch locations: ${locationsError.message}`);
+          }
+
+          locations = allLocations || [];
+          console.log(`   ✅ Found ${locations.length} total customer tank(s)`);
         }
 
         if (!locations || locations.length === 0) {
-          console.log(`   ℹ️  No AgBot locations found for ${contact.customer_name}`);
+          console.log(`   ⚠️  No AgBot locations found for ${contact.customer_name}`);
           continue;
         }
-
-        console.log(`   ✅ Found ${locations.length} AgBot location(s)`);
 
         // Transform data for email template
         const emailData = locations.map((loc: any) => {

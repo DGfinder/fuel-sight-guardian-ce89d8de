@@ -10,6 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -68,9 +69,21 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     enabled: true
   });
 
+  // Tank assignment state
+  const [availableTanks, setAvailableTanks] = useState<any[]>([]);
+  const [selectedTankIds, setSelectedTankIds] = useState<string[]>([]);
+  const [loadingTanks, setLoadingTanks] = useState(false);
+
   useEffect(() => {
     fetchContacts();
   }, []);
+
+  // Fetch available tanks when customer name changes (for new contacts)
+  useEffect(() => {
+    if (!editingContact && formData.customer_name) {
+      fetchAvailableTanks(formData.customer_name);
+    }
+  }, [formData.customer_name, editingContact]);
 
   const fetchContacts = async () => {
     try {
@@ -90,6 +103,71 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     }
   };
 
+  const fetchAvailableTanks = async (customerName: string) => {
+    if (!customerName) {
+      setAvailableTanks([]);
+      return;
+    }
+
+    try {
+      setLoadingTanks(true);
+      const { data, error } = await supabase
+        .from('agbot_locations')
+        .select('id, location_id, address1, customer_name, latest_calibrated_fill_percentage, disabled')
+        .eq('customer_name', customerName)
+        .eq('disabled', false)
+        .order('location_id');
+
+      if (error) throw error;
+      setAvailableTanks(data || []);
+    } catch (error) {
+      console.error('Error fetching tanks:', error);
+      toast.error('Failed to load tanks');
+    } finally {
+      setLoadingTanks(false);
+    }
+  };
+
+  const fetchAssignedTanks = async (contactId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('customer_contact_tanks')
+        .select('agbot_location_id')
+        .eq('customer_contact_id', contactId);
+
+      if (error) throw error;
+      setSelectedTankIds(data?.map((t) => t.agbot_location_id) || []);
+    } catch (error) {
+      console.error('Error fetching assigned tanks:', error);
+      setSelectedTankIds([]);
+    }
+  };
+
+  const saveTankAssignments = async (contactId: string) => {
+    try {
+      // Delete existing assignments
+      await supabase
+        .from('customer_contact_tanks')
+        .delete()
+        .eq('customer_contact_id', contactId);
+
+      // Insert new assignments if any tanks selected
+      if (selectedTankIds.length > 0) {
+        const assignments = selectedTankIds.map((tankId) => ({
+          customer_contact_id: contactId,
+          agbot_location_id: tankId
+        }));
+
+        const { error } = await supabase.from('customer_contact_tanks').insert(assignments);
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error saving tank assignments:', error);
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -99,6 +177,8 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
         customer_guid: `customer-${formData.customer_name.toLowerCase().replace(/\s+/g, '-')}`
       };
 
+      let contactId: string;
+
       if (editingContact) {
         // Update existing contact
         const { error } = await supabase
@@ -107,14 +187,26 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
           .eq('id', editingContact.id);
 
         if (error) throw error;
+        contactId = editingContact.id;
+
+        // Save tank assignments
+        await saveTankAssignments(contactId);
+
         toast.success('Contact updated successfully');
       } else {
         // Create new contact
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('customer_contacts')
-          .insert([contactData]);
+          .insert([contactData])
+          .select()
+          .single();
 
         if (error) throw error;
+        contactId = data.id;
+
+        // Save tank assignments
+        await saveTankAssignments(contactId);
+
         toast.success('Contact added successfully');
       }
 
@@ -164,7 +256,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     }
   };
 
-  const handleEdit = (contact: CustomerContact) => {
+  const handleEdit = async (contact: CustomerContact) => {
     setEditingContact(contact);
     setFormData({
       customer_name: contact.customer_name,
@@ -176,6 +268,11 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       report_format: contact.report_format,
       enabled: contact.enabled
     });
+
+    // Fetch available tanks and assigned tanks for this contact
+    await fetchAvailableTanks(contact.customer_name);
+    await fetchAssignedTanks(contact.id);
+
     setIsDialogOpen(true);
   };
 
@@ -190,6 +287,8 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       report_format: 'summary',
       enabled: true
     });
+    setAvailableTanks([]);
+    setSelectedTankIds([]);
   };
 
   const handleAddNew = () => {
@@ -326,6 +425,76 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                         <SelectItem value="detailed">Detailed</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+
+                {/* Tank Assignment Section */}
+                <div className="space-y-2">
+                  <Label>Assigned Tanks (Optional)</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Select specific tanks for this contact. If none selected, all customer tanks will be included in emails.
+                  </p>
+                  {loadingTanks ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      Loading available tanks...
+                    </div>
+                  ) : availableTanks.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground border rounded-md">
+                      {formData.customer_name
+                        ? 'No tanks available for this customer'
+                        : 'Enter a customer name above to see available tanks'}
+                    </div>
+                  ) : (
+                    <div className="border rounded-md p-3 max-h-60 overflow-y-auto bg-muted/20">
+                      <div className="space-y-2">
+                        {availableTanks.map((tank) => (
+                          <div
+                            key={tank.id}
+                            className="flex items-start space-x-3 p-2 rounded hover:bg-muted/50 transition-colors"
+                          >
+                            <Checkbox
+                              id={`tank-${tank.id}`}
+                              checked={selectedTankIds.includes(tank.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedTankIds([...selectedTankIds, tank.id]);
+                                } else {
+                                  setSelectedTankIds(selectedTankIds.filter((id) => id !== tank.id));
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`tank-${tank.id}`}
+                              className="flex-1 cursor-pointer select-none"
+                            >
+                              <div className="font-medium text-sm">
+                                {tank.location_id || tank.address1 || 'Unknown Tank'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {tank.address1 && tank.location_id !== tank.address1
+                                  ? tank.address1
+                                  : ''}
+                                {tank.latest_calibrated_fill_percentage !== null &&
+                                tank.latest_calibrated_fill_percentage !== undefined ? (
+                                  <span className="ml-2">
+                                    • {tank.latest_calibrated_fill_percentage.toFixed(0)}% fuel
+                                  </span>
+                                ) : null}
+                              </div>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    {selectedTankIds.length === 0 ? (
+                      <span>✉️ Will send all {availableTanks.length} customer tank(s) by default</span>
+                    ) : (
+                      <span className="text-blue-600 font-medium">
+                        ✅ Will send {selectedTankIds.length} of {availableTanks.length} tank(s)
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
