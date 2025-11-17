@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload, Globe, Gauge, TrendingUp, Activity } from 'lucide-react';
+import { RefreshCw, Signal, AlertTriangle, CheckCircle2, Filter, Zap, Grid3X3, List, Upload, Globe, Gauge, TrendingUp, Activity, Mail } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  useAgbotLocations, 
-  useAgbotSummary, 
+import {
+  useAgbotLocations,
+  useAgbotSummary,
   useFilteredAgbotLocations,
   formatTimestamp,
   usePercentageColor,
@@ -23,6 +23,7 @@ import { AgbotWebhookMonitoring } from '@/components/agbot/AgbotWebhookMonitorin
 import AtharaWebhookMonitor from '@/components/agbot/AtharaWebhookMonitor';
 import { AgbotErrorBoundary } from '@/components/agbot/AgbotErrorBoundary';
 import AgbotCSVImportModal, { type AgbotCSVRow } from '@/components/AgbotCSVImportModal';
+import CustomerContactsAdmin from '@/components/agbot/CustomerContactsAdmin';
 import { importAgbotFromCSV } from '@/services/agbot-api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -32,6 +33,7 @@ function AgbotPageContent() {
   const [lowFuelOnly, setLowFuelOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [showSystemMonitoring, setShowSystemMonitoring] = useState(false);
+  const [showCustomerContacts, setShowCustomerContacts] = useState(false);
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
@@ -151,6 +153,17 @@ function AgbotPageContent() {
                   Athara Monitor
                 </Button>
 
+                {/* Customer Contacts Toggle */}
+                <Button
+                  variant={showCustomerContacts ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowCustomerContacts(!showCustomerContacts)}
+                  className={showCustomerContacts ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                >
+                  <Mail className="h-4 w-4 mr-1" />
+                  Email Contacts
+                </Button>
+
                 {/* View Toggle - Grid | Table */}
                 <div className="flex border rounded-lg bg-white">
                   <Button
@@ -198,6 +211,13 @@ function AgbotPageContent() {
                 <AtharaWebhookMonitor />
                 <AgbotWebhookMonitoring />
               </>
+            )}
+
+            {/* Customer Contacts Admin Panel */}
+            {showCustomerContacts && (
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                <CustomerContactsAdmin />
+              </div>
             )}
 
             {/* Great Southern Fuels - Fleet Statistics */}
