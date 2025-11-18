@@ -470,8 +470,6 @@ async function autoResolveAlerts(tanks: Tank[], existingAlerts: ExistingAlert[])
       
       if (error) {
         console.error('Error auto-resolving alerts:', error);
-      } else {
-        console.log(`Auto-resolved ${alertsToResolve.length} alerts`);
       }
     } catch (error) {
       console.error('Exception auto-resolving alerts:', error);
@@ -518,11 +516,7 @@ export async function generateAlerts(tanks: Tank[]): Promise<{
         }
       }
     }
-    
-    if (generatedCount > 0) {
-      console.log(`Generated ${generatedCount} new tank alerts`);
-    }
-    
+
     return { 
       generated: generatedCount, 
       resolved: existingAlerts.filter(a => !a.acknowledged_at).length 
@@ -577,11 +571,7 @@ export async function generateAgbotAlerts(locations: AgbotLocation[]): Promise<{
         }
       }
     }
-    
-    if (generatedCount > 0) {
-      console.log(`Generated ${generatedCount} new Agbot alerts`);
-    }
-    
+
     return { 
       generated: generatedCount, 
       resolved: existingAlerts.filter(a => !a.acknowledged_at).length 

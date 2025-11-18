@@ -40,8 +40,6 @@ export function ProtectedRoute({ children, requiredRole, requiredGroup }: Protec
     getSession();
     
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔒 Auth state change:', event, session?.user?.id);
-      
       // Handle specific auth events
       if (event === 'SIGNED_OUT') {
         // Clear all storage on signout
@@ -79,9 +77,8 @@ export function ProtectedRoute({ children, requiredRole, requiredGroup }: Protec
           <h2 className="text-xl font-semibold text-red-600 mb-2">Access Denied</h2>
           <p className="text-gray-600">You don't have permission to access this application.</p>
           <p className="text-sm text-gray-500 mt-2">Please contact your administrator.</p>
-          <button 
+          <button
             onClick={async () => {
-              console.log('🔄 Clearing auth state and redirecting...');
               localStorage.clear();
               sessionStorage.clear();
               await supabase.auth.signOut();

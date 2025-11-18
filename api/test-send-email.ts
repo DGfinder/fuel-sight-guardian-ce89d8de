@@ -5,8 +5,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import AgBotDailyReport from '../src/emails/agbot-daily-report.tsx';
+import { generateAgBotEmailHtml } from './lib/agbot-email-template';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -180,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         (l.asset_days_remaining !== null && l.asset_days_remaining <= 3)
     ).length;
 
-    // Render email template
+    // Generate email HTML
     const reportDate = new Date().toLocaleDateString('en-AU', {
       weekday: 'long',
       year: 'numeric',
@@ -188,14 +187,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       day: 'numeric'
     });
 
-    const emailHtml = render(
-      AgBotDailyReport({
-        customerName: typedContact.customer_name,
-        contactName: typedContact.contact_name || undefined,
-        locations: emailData,
-        reportDate: `${reportDate} (TEST EMAIL)`
-      })
-    );
+    const emailHtml = generateAgBotEmailHtml({
+      customerName: typedContact.customer_name,
+      contactName: typedContact.contact_name || undefined,
+      locations: emailData,
+      reportDate: `${reportDate} (TEST EMAIL)`
+    });
 
     // Send email via Resend
     const emailResponse = await resend.emails.send({

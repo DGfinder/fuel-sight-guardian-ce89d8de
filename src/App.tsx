@@ -163,7 +163,12 @@ function AppContent() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AppStateProvider>
-            <BrowserRouter>
+            <BrowserRouter
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true
+              }}
+            >
               <HashRedirector />
               <Toaster />
               <RealtimeErrorBoundary>
