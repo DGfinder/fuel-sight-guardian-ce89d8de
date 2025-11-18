@@ -20,7 +20,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Use verified domain email if available, otherwise use Resend's default
 const DEFAULT_FROM_EMAIL =
   process.env.RESEND_VERIFIED_EMAIL ||
-  'Tank Alert <tankalert@greatsouthernfuels.com.au>'; // Primary sender, falls back to onboarding if not verified
+  'Tank Alert <alert@tankalert.greatsouthernfuels.com.au>'; // Verified domain: tankalert.greatsouthernfuels.com.au
 
 interface CustomerContact {
   id: string;
