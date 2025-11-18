@@ -5,7 +5,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { generateAgBotEmailHtml } from './lib/agbot-email-template';
+import { generateAgBotEmailHtml } from './lib/agbot-email-template.js';
 
 // Debug: Log environment variables at module load time
 console.log('[MODULE INIT] Starting test-send-email module initialization');

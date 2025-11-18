@@ -6,7 +6,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { generateAgBotEmailHtml } from '../lib/agbot-email-template';
+import { generateAgBotEmailHtml } from '../lib/agbot-email-template.js';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
