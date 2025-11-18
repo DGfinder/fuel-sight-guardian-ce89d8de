@@ -7,13 +7,26 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { generateAgBotEmailHtml } from './lib/agbot-email-template';
 
+// Debug: Log environment variables at module load time
+console.log('[MODULE INIT] Starting test-send-email module initialization');
+console.log('[MODULE INIT] RESEND_API_KEY exists:', !!process.env.RESEND_API_KEY);
+console.log('[MODULE INIT] RESEND_API_KEY length:', process.env.RESEND_API_KEY?.length || 0);
+console.log('[MODULE INIT] RESEND_VERIFIED_EMAIL:', process.env.RESEND_VERIFIED_EMAIL || 'not set');
+
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend - lazy initialization to avoid module-level crashes
+let resend: Resend | null = null;
+const getResend = () => {
+  if (!resend && process.env.RESEND_API_KEY) {
+    console.log('[RESEND INIT] Creating Resend client');
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+};
 
 // Sender email with fallback
 // Use verified domain email if available, otherwise use Resend's default
@@ -32,8 +45,17 @@ interface CustomerContact {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
+  console.log('[HANDLER START] Test email endpoint called');
+  console.log('[HANDLER] Method:', req.method);
+  console.log('[HANDLER] Request body keys:', Object.keys(req.body || {}));
+  console.log('[HANDLER] Environment check:');
+  console.log('  - SUPABASE_URL:', !!supabaseUrl);
+  console.log('  - SUPABASE_ANON_KEY:', !!supabaseKey);
+  console.log('  - RESEND_API_KEY:', !!process.env.RESEND_API_KEY);
+  console.log('  - RESEND_VERIFIED_EMAIL:', !!process.env.RESEND_VERIFIED_EMAIL);
+
   if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase environment variables');
+    console.error('[ERROR] Missing Supabase environment variables');
     return res.status(500).json({
       error: 'Server configuration error',
       message: 'Supabase not configured'
@@ -41,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!process.env.RESEND_API_KEY) {
-    console.error('Missing RESEND_API_KEY');
+    console.error('[ERROR] Missing RESEND_API_KEY');
     return res.status(500).json({
       error: 'Email service not configured',
       message: 'RESEND_API_KEY environment variable is not set'
@@ -180,12 +202,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ).length;
 
     // Generate email HTML
+    console.log('[EMAIL TEMPLATE] Generating email HTML for', typedContact.customer_name);
     const reportDate = new Date().toLocaleDateString('en-AU', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
+
+    console.log('[EMAIL TEMPLATE] Report date:', reportDate);
+    console.log('[EMAIL TEMPLATE] Locations count:', emailData.length);
 
     const emailHtml = generateAgBotEmailHtml({
       customerName: typedContact.customer_name,
@@ -194,8 +220,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       reportDate: `${reportDate} (TEST EMAIL)`
     });
 
+    console.log('[EMAIL TEMPLATE] HTML generated, length:', emailHtml.length);
+
     // Send email via Resend
-    const emailResponse = await resend.emails.send({
+    console.log('[RESEND] Initializing Resend client');
+    const resendClient = getResend();
+    if (!resendClient) {
+      console.error('[RESEND ERROR] Failed to initialize Resend client');
+      return res.status(500).json({
+        success: false,
+        error: 'Email service initialization failed',
+        message: 'Could not create Resend client - check RESEND_API_KEY'
+      });
+    }
+
+    console.log('[RESEND] Sending email to:', typedContact.contact_email);
+    console.log('[RESEND] From:', DEFAULT_FROM_EMAIL);
+
+    const emailResponse = await resendClient.emails.send({
       from: DEFAULT_FROM_EMAIL,
       to: typedContact.contact_email,
       subject: `🧪 TEST - Daily AgBot Report - ${typedContact.customer_name} - ${reportDate}`,
@@ -207,9 +249,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ]
     });
 
+    console.log('[RESEND] Email send response received');
+
     if (emailResponse.error) {
       const errorMsg = emailResponse.error.message || JSON.stringify(emailResponse.error);
-      console.error('Resend API Error:', errorMsg);
+      console.error('[RESEND ERROR] Email send failed:', errorMsg);
+      console.error('[RESEND ERROR] Full error:', JSON.stringify(emailResponse.error, null, 2));
 
       return res.status(500).json({
         success: false,
@@ -217,6 +262,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         message: `Resend API error: ${errorMsg}`
       });
     }
+
+    console.log('[RESEND SUCCESS] Email sent successfully');
+    console.log('[RESEND SUCCESS] Email ID:', emailResponse.data?.id);
 
     // Log to database
     await supabase.from('customer_email_logs').insert({
@@ -235,6 +283,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const duration = Date.now() - startTime;
 
+    console.log('[HANDLER SUCCESS] Test email completed successfully');
+    console.log('[HANDLER SUCCESS] Duration:', duration, 'ms');
+
     return res.status(200).json({
       success: true,
       message: 'Test email sent successfully',
@@ -252,7 +303,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error('Test email failed:', (error as Error).message);
+    console.error('[HANDLER ERROR] Test email failed');
+    console.error('[HANDLER ERROR] Error message:', (error as Error).message);
+    console.error('[HANDLER ERROR] Error stack:', (error as Error).stack);
+    console.error('[HANDLER ERROR] Error details:', JSON.stringify(error, null, 2));
 
     return res.status(500).json({
       success: false,
