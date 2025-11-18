@@ -6,7 +6,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import AgBotDailyReport from '../src/emails/agbot-daily-report';
+import AgBotDailyReport from '../src/emails/agbot-daily-report.tsx';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
