@@ -1,6 +1,7 @@
 /**
  * AgBot Daily Report Email Template - Plain HTML
  * Generates email HTML without React/JSX for serverless compatibility
+ * Includes plain text version for better deliverability
  */
 
 export interface AgBotLocation {
@@ -12,6 +13,11 @@ export interface AgBotLocation {
   asset_days_remaining: number | null;
   device_online: boolean;
   latest_telemetry: string;
+  device_serial_number?: string | null;
+  asset_reported_litres?: number | null;
+  asset_refill_capacity_litres?: number | null;
+  device_battery_voltage?: number | null;
+  asset_profile_commodity?: string | null;
 }
 
 export interface AgBotEmailData {
@@ -19,61 +25,179 @@ export interface AgBotEmailData {
   contactName?: string;
   locations: AgBotLocation[];
   reportDate: string;
+  unsubscribeUrl?: string;
 }
 
+export interface AgBotEmailResult {
+  html: string;
+  text: string;
+}
+
+/**
+ * Format timestamp for display
+ */
+function formatLastSeen(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays === 0) {
+      if (diffHours === 0) return 'Less than 1 hour ago';
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    }
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+
+    return date.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' });
+  } catch {
+    return 'Unknown';
+  }
+}
+
+/**
+ * Generate both HTML and plain text versions of the AgBot email
+ */
+export function generateAgBotEmail(data: AgBotEmailData): AgBotEmailResult {
+  const html = generateAgBotEmailHtml(data);
+  const text = generateAgBotEmailText(data);
+
+  return { html, text };
+}
+
+/**
+ * Generate HTML version of email
+ */
 export function generateAgBotEmailHtml(data: AgBotEmailData): string {
-  const { customerName, contactName, locations, reportDate } = data;
+  const { customerName, contactName, locations, reportDate, unsubscribeUrl } = data;
 
   // Calculate summary statistics
   const totalTanks = locations.length;
-  const onlineTanks = locations.filter(l => l.device_online).length;
-  const lowFuelTanks = locations.filter(l => l.latest_calibrated_fill_percentage < 30).length;
+  const onlineTanks = locations.filter((l) => l.device_online).length;
+  const lowFuelTanks = locations.filter((l) => l.latest_calibrated_fill_percentage < 30).length;
   const criticalTanks = locations.filter(
-    l => l.latest_calibrated_fill_percentage < 15 || (l.asset_days_remaining !== null && l.asset_days_remaining <= 3)
+    (l) =>
+      l.latest_calibrated_fill_percentage < 15 ||
+      (l.asset_days_remaining !== null && l.asset_days_remaining <= 3)
   ).length;
-  const avgFuelLevel = locations.length > 0
-    ? Math.round(locations.reduce((sum, l) => sum + (l.latest_calibrated_fill_percentage || 0), 0) / locations.length)
-    : 0;
+  const avgFuelLevel =
+    locations.length > 0
+      ? Math.round(
+          locations.reduce((sum, l) => sum + (l.latest_calibrated_fill_percentage || 0), 0) /
+            locations.length
+        )
+      : 0;
 
   // Sort locations by fuel level (lowest first)
-  const sortedLocations = [...locations].sort((a, b) =>
-    a.latest_calibrated_fill_percentage - b.latest_calibrated_fill_percentage
+  const sortedLocations = [...locations].sort(
+    (a, b) => a.latest_calibrated_fill_percentage - b.latest_calibrated_fill_percentage
   );
 
   // Generate tank cards HTML
-  const tankCardsHtml = sortedLocations.length === 0
-    ? '<p style="color: #4b5563; font-size: 15px; line-height: 24px; margin: 0 0 10px 0;">No AgBot locations found for your account.</p>'
-    : sortedLocations.map(location => {
-        const isCritical = location.latest_calibrated_fill_percentage < 15 ||
-                          (location.asset_days_remaining !== null && location.asset_days_remaining <= 3);
-        const isLow = location.latest_calibrated_fill_percentage < 30 && !isCritical;
-        const fuelColor = isCritical ? '#dc2626' : isLow ? '#d97706' : '#059669';
-        const statusEmoji = isCritical ? '🚨 ' : isLow ? '⚠️ ' : '';
-        const onlineStatus = location.device_online ? '🟢 Online' : '🔴 Offline';
-        const capacity = location.asset_profile_water_capacity
-          ? `${(location.asset_profile_water_capacity / 1000).toFixed(0)}k L capacity`
-          : 'Capacity unknown';
-        const daysRemainingText = location.asset_days_remaining !== null && location.asset_days_remaining >= 0
-          ? `${Math.round(location.asset_days_remaining)} days left`
-          : 'Usage data unavailable';
-        const consumptionHtml = location.asset_daily_consumption && location.asset_daily_consumption > 0
-          ? `<p style="font-size: 12px; color: #6b7280; margin: 10px 0 0 0; font-style: italic;">Daily usage: ${Math.round(location.asset_daily_consumption)} L/day</p>`
-          : '';
+  const tankCardsHtml =
+    sortedLocations.length === 0
+      ? '<p style="color: #4b5563; font-size: 15px; line-height: 24px; margin: 0 0 10px 0;">No AgBot locations found for your account.</p>'
+      : sortedLocations
+          .map((location) => {
+            const isCritical =
+              location.latest_calibrated_fill_percentage < 15 ||
+              (location.asset_days_remaining !== null && location.asset_days_remaining <= 3);
+            const isLow = location.latest_calibrated_fill_percentage < 30 && !isCritical;
+            const fuelColor = isCritical ? '#dc2626' : isLow ? '#d97706' : '#059669';
 
-        return `
+            // Online status with last seen
+            const onlineStatus = location.device_online
+              ? '🟢 Online'
+              : `🔴 Offline (${formatLastSeen(location.latest_telemetry)})`;
+
+            // Capacity and litres display
+            let capacityText = '';
+            if (location.asset_profile_water_capacity) {
+              const capacityLitres = location.asset_profile_water_capacity;
+              const currentLitres =
+                location.asset_reported_litres ||
+                (location.latest_calibrated_fill_percentage / 100) * capacityLitres;
+              capacityText = `${Math.round(currentLitres).toLocaleString()} L of ${(
+                capacityLitres / 1000
+              ).toFixed(0)}k L`;
+            } else if (location.asset_reported_litres) {
+              capacityText = `${Math.round(location.asset_reported_litres).toLocaleString()} L remaining`;
+            } else {
+              capacityText = 'Capacity pending';
+            }
+
+            // Fuel type
+            const fuelType = location.asset_profile_commodity || '';
+            const fuelTypeHtml = fuelType
+              ? `<span style="color: #9ca3af;"> • ${fuelType}</span>`
+              : '';
+
+            // Days remaining with better messaging
+            let daysRemainingText = '';
+            if (location.asset_days_remaining !== null && location.asset_days_remaining >= 0) {
+              const days = Math.round(location.asset_days_remaining);
+              if (days === 0) {
+                daysRemainingText = 'Running low';
+              } else if (days === 1) {
+                daysRemainingText = '~1 day left';
+              } else if (days > 365) {
+                daysRemainingText = 'Plenty of fuel';
+              } else {
+                daysRemainingText = `~${days} days left`;
+              }
+            } else if (location.asset_daily_consumption && location.asset_daily_consumption > 0) {
+              daysRemainingText = 'Calculating forecast...';
+            } else {
+              daysRemainingText = 'Usage data pending';
+            }
+
+            // Consumption display
+            const consumptionHtml =
+              location.asset_daily_consumption && location.asset_daily_consumption > 0
+                ? `<p style="font-size: 12px; color: #6b7280; margin: 10px 0 0 0; font-style: italic;">Daily usage: ~${Math.round(
+                    location.asset_daily_consumption
+                  ).toLocaleString()} L/day</p>`
+                : '';
+
+            // Refill capacity
+            const refillHtml =
+              location.asset_refill_capacity_litres && location.asset_refill_capacity_litres > 0
+                ? `<p style="font-size: 12px; color: #6b7280; margin: 5px 0 0 0;">Needs ~${Math.round(
+                    location.asset_refill_capacity_litres
+                  ).toLocaleString()} L to refill</p>`
+                : '';
+
+            // Battery warning
+            const batteryHtml =
+              location.device_battery_voltage && location.device_battery_voltage < 3.5
+                ? `<p style="font-size: 11px; color: #d97706; margin: 5px 0 0 0; background: #fef3c7; padding: 4px 8px; border-radius: 3px; display: inline-block;">⚠️ Low battery: ${location.device_battery_voltage.toFixed(
+                    1
+                  )}V</p>`
+                : '';
+
+            // Data freshness
+            const lastUpdate = formatLastSeen(location.latest_telemetry);
+            const freshnessHtml = `<p style="font-size: 11px; color: #9ca3af; margin: 5px 0 0 0;">Updated ${lastUpdate}</p>`;
+
+            return `
           <div style="padding: 15px; margin-bottom: 12px; background-color: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
-                <td style="width: 70%;">
+                <td style="width: 65%;">
                   <p style="font-size: 16px; font-weight: bold; color: #1f2937; margin: 0 0 5px 0;">
-                    ${statusEmoji}${location.address1 || location.location_id}
+                    ${location.address1 || location.location_id}
                   </p>
                   <p style="font-size: 13px; color: #6b7280; margin: 0;">
-                    ${onlineStatus} • ${capacity}
+                    ${onlineStatus}${fuelTypeHtml}
+                  </p>
+                  <p style="font-size: 12px; color: #6b7280; margin: 5px 0 0 0;">
+                    ${capacityText}
                   </p>
                 </td>
-                <td style="width: 30%; text-align: right;">
-                  <p style="font-size: 24px; font-weight: bold; color: ${fuelColor}; margin: 0; line-height: 1;">
+                <td style="width: 35%; text-align: right; vertical-align: top;">
+                  <p style="font-size: 28px; font-weight: bold; color: ${fuelColor}; margin: 0; line-height: 1;">
                     ${location.latest_calibrated_fill_percentage?.toFixed(0) || 0}%
                   </p>
                   <p style="font-size: 12px; color: #6b7280; margin: 3px 0 0 0;">
@@ -83,21 +207,34 @@ export function generateAgBotEmailHtml(data: AgBotEmailData): string {
               </tr>
             </table>
             ${consumptionHtml}
+            ${refillHtml}
+            ${batteryHtml}
+            ${freshnessHtml}
           </div>
         `;
-      }).join('');
+          })
+          .join('');
 
-  // Generate critical alert section if needed
+  // Generate critical alert section if needed (reduced urgency tone)
   const alertSectionHtml = criticalTanks > 0 ? `
     <div style="padding: 15px 40px; background-color: #fef2f2; border-left: 4px solid #dc2626; margin: 20px 40px;">
       <h3 style="color: #dc2626; font-size: 18px; font-weight: bold; margin: 0 0 10px 0;">
-        ⚠️ Immediate Attention Required
+        Action Required - Low Fuel Alert
       </h3>
       <p style="color: #991b1b; font-size: 14px; line-height: 20px; margin: 0;">
-        You have <strong>${criticalTanks}</strong> tank(s) in critical condition that need immediate refilling to avoid running out of fuel.
+        You have <strong>${criticalTanks}</strong> tank${
+    criticalTanks > 1 ? 's' : ''
+  } at critical levels. Please arrange refilling soon to avoid running out.
       </p>
     </div>
   ` : '';
+
+  // Unsubscribe link
+  const preferencesLink = unsubscribeUrl || '#';
+  const preferencesText =
+    unsubscribeUrl && unsubscribeUrl !== '#'
+      ? 'Manage email preferences or unsubscribe'
+      : 'Email preferences';
 
   // Generate complete HTML email
   return `
@@ -193,12 +330,140 @@ export function generateAgBotEmailHtml(data: AgBotEmailData): string {
             <a href="mailto:support@greatsouthernfuel.com.au" style="color: #0ea5e9; text-decoration: underline;">support@greatsouthernfuel.com.au</a>
           </p>
           <p style="color: #9ca3af; font-size: 12px; line-height: 18px; margin: 5px 0;">
-            <a href="#" style="color: #0ea5e9; text-decoration: underline;">Manage email preferences</a>
+            <a href="${preferencesLink}" style="color: #0ea5e9; text-decoration: underline;">${preferencesText}</a>
           </p>
         </div>
 
       </div>
     </body>
     </html>
+  `.trim();
+}
+
+/**
+ * Generate plain text version of email
+ */
+export function generateAgBotEmailText(data: AgBotEmailData): string {
+  const { customerName, contactName, locations, reportDate, unsubscribeUrl } = data;
+
+  // Calculate summary statistics
+  const totalTanks = locations.length;
+  const onlineTanks = locations.filter((l) => l.device_online).length;
+  const lowFuelTanks = locations.filter((l) => l.latest_calibrated_fill_percentage < 30).length;
+  const criticalTanks = locations.filter(
+    (l) =>
+      l.latest_calibrated_fill_percentage < 15 ||
+      (l.asset_days_remaining !== null && l.asset_days_remaining <= 3)
+  ).length;
+  const avgFuelLevel =
+    locations.length > 0
+      ? Math.round(
+          locations.reduce((sum, l) => sum + (l.latest_calibrated_fill_percentage || 0), 0) /
+            locations.length
+        )
+      : 0;
+
+  // Sort locations by fuel level (lowest first)
+  const sortedLocations = [...locations].sort(
+    (a, b) => a.latest_calibrated_fill_percentage - b.latest_calibrated_fill_percentage
+  );
+
+  // Generate tank details text
+  const tankDetailsText =
+    sortedLocations.length === 0
+      ? 'No AgBot locations found for your account.'
+      : sortedLocations
+          .map((location, index) => {
+            const isCritical =
+              location.latest_calibrated_fill_percentage < 15 ||
+              (location.asset_days_remaining !== null && location.asset_days_remaining <= 3);
+
+            const status = location.device_online
+              ? 'Online'
+              : `Offline (${formatLastSeen(location.latest_telemetry)})`;
+
+            let capacity = '';
+            if (location.asset_profile_water_capacity) {
+              const capacityLitres = location.asset_profile_water_capacity;
+              const currentLitres =
+                location.asset_reported_litres ||
+                (location.latest_calibrated_fill_percentage / 100) * capacityLitres;
+              capacity = `${Math.round(currentLitres).toLocaleString()} L of ${(
+                capacityLitres / 1000
+              ).toFixed(0)}k L`;
+            } else if (location.asset_reported_litres) {
+              capacity = `${Math.round(location.asset_reported_litres).toLocaleString()} L remaining`;
+            } else {
+              capacity = 'Capacity pending';
+            }
+
+            const daysText =
+              location.asset_days_remaining !== null && location.asset_days_remaining >= 0
+                ? `~${Math.round(location.asset_days_remaining)} days left`
+                : 'Usage data pending';
+
+            const consumptionText =
+              location.asset_daily_consumption && location.asset_daily_consumption > 0
+                ? `\n     Daily usage: ~${Math.round(location.asset_daily_consumption).toLocaleString()} L/day`
+                : '';
+
+            const urgency = isCritical ? ' [CRITICAL]' : '';
+
+            return `
+${index + 1}. ${location.address1 || location.location_id}${urgency}
+   Fuel Level: ${location.latest_calibrated_fill_percentage?.toFixed(0) || 0}% (${daysText})
+   Status: ${status}
+   Capacity: ${capacity}${consumptionText}
+   Updated: ${formatLastSeen(location.latest_telemetry)}`;
+          })
+          .join('\n');
+
+  // Generate alert section
+  const alertText =
+    criticalTanks > 0
+      ? `\n*** ACTION REQUIRED ***\nYou have ${criticalTanks} tank${
+          criticalTanks > 1 ? 's' : ''
+        } at critical levels.\nPlease arrange refilling soon to avoid running out.\n`
+      : '';
+
+  // Unsubscribe text
+  const unsubscribeText = unsubscribeUrl
+    ? `\nTo manage your email preferences or unsubscribe, visit:\n${unsubscribeUrl}`
+    : '';
+
+  // Generate complete plain text email
+  return `
+========================================
+AGBOT DAILY REPORT
+${reportDate}
+========================================
+
+Hello ${contactName || customerName},
+
+Here's your daily summary of all AgBot-monitored fuel tanks for ${customerName}.
+
+----------------------------------------
+SUMMARY OVERVIEW
+----------------------------------------
+Total Tanks:     ${totalTanks}
+Average Level:   ${avgFuelLevel}%
+Online:          ${onlineTanks}
+Low Fuel (<30%): ${lowFuelTanks}
+Critical:        ${criticalTanks}
+
+----------------------------------------
+TANK STATUS DETAILS
+----------------------------------------
+${tankDetailsText}
+${alertText}
+----------------------------------------
+
+This is an automated daily report from your AgBot Fuel Monitoring System.
+
+For support, contact Great Southern Fuel Supplies at:
+support@greatsouthernfuel.com.au
+${unsubscribeText}
+
+========================================
   `.trim();
 }

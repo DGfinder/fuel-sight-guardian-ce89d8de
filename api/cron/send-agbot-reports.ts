@@ -6,7 +6,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { generateAgBotEmailHtml } from '../lib/agbot-email-template.js';
+import { generateAgBotEmail } from '../lib/agbot-email-template.js';
+import crypto from 'crypto';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -56,6 +57,17 @@ function sanitizeTagValue(value: string): string {
     .replace(/\s+/g, '-')              // Replace spaces with dashes
     .substring(0, 50);                  // Limit length for Resend
 }
+
+/**
+ * Sleep utility for rate limiting
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Rate limiting configuration
+const BATCH_SIZE = 50; // Send 50 emails per batch
+const DELAY_BETWEEN_BATCHES = 2000; // 2 second delay between batches
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
@@ -111,9 +123,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let emailsFailed = 0;
     const errors: string[] = [];
 
-    // Process each customer contact
-    for (const contact of contacts as CustomerContact[]) {
-      try {
+    // Process contacts in batches for rate limiting
+    const contactList = contacts as CustomerContact[];
+    for (let i = 0; i < contactList.length; i += BATCH_SIZE) {
+      const batch = contactList.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(contactList.length / BATCH_SIZE)}: ${batch.length} contacts`);
+
+      // Process each customer contact in the batch
+      for (const contact of batch) {
+        try {
         let locations: any[] = [];
 
         // Step 1: Try to fetch specifically assigned tanks from junction table
@@ -135,7 +153,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 asset_profile_water_capacity,
                 asset_daily_consumption,
                 asset_days_remaining,
-                device_serial_number
+                device_serial_number,
+                asset_reported_litres,
+                asset_refill_capacity_litres,
+                device_battery_voltage,
+                asset_profile_commodity
               )
             )
           `
@@ -164,7 +186,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 asset_profile_water_capacity,
                 asset_daily_consumption,
                 asset_days_remaining,
-                device_serial_number
+                device_serial_number,
+                asset_reported_litres,
+                asset_refill_capacity_litres,
+                device_battery_voltage,
+                asset_profile_commodity
               )
             `
             )
@@ -182,6 +208,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
+        // Ensure contact has unsubscribe token
+        let unsubscribeToken = (contact as any).unsubscribe_token;
+        if (!unsubscribeToken) {
+          // Generate token if missing
+          unsubscribeToken = crypto.randomBytes(32).toString('hex');
+          await supabase
+            .from('customer_contacts')
+            .update({ unsubscribe_token: unsubscribeToken })
+            .eq('id', contact.id);
+        }
+
+        // Build unsubscribe URL
+        const baseUrl = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : 'https://fuel-sight-guardian-ce89d8de.vercel.app';
+        const unsubscribeUrl = `${baseUrl}/api/email/unsubscribe?token=${encodeURIComponent(
+          unsubscribeToken
+        )}`;
+
         // Transform data for email template
         const emailData = locations.map((loc: any) => {
           const asset = loc.agbot_assets?.[0] || {}; // Take first asset for simplicity
@@ -194,7 +239,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             asset_profile_water_capacity: asset.asset_profile_water_capacity || null,
             asset_daily_consumption: asset.asset_daily_consumption || null,
             asset_days_remaining: asset.asset_days_remaining || null,
-            device_serial_number: asset.device_serial_number || null
+            device_serial_number: asset.device_serial_number || null,
+            asset_reported_litres: asset.asset_reported_litres || null,
+            asset_refill_capacity_litres: asset.asset_refill_capacity_litres || null,
+            device_battery_voltage: asset.device_battery_voltage || null,
+            asset_profile_commodity: asset.asset_profile_commodity || null
           };
         });
 
@@ -206,7 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             (l.asset_days_remaining !== null && l.asset_days_remaining <= 3)
         ).length;
 
-        // Generate email HTML
+        // Generate email HTML and plain text
         const reportDate = new Date().toLocaleDateString('en-AU', {
           weekday: 'long',
           year: 'numeric',
@@ -214,11 +263,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           day: 'numeric'
         });
 
-        const emailHtml = generateAgBotEmailHtml({
+        const { html: emailHtml, text: emailText } = generateAgBotEmail({
           customerName: contact.customer_name,
           contactName: contact.contact_name || undefined,
           locations: emailData,
-          reportDate
+          reportDate,
+          unsubscribeUrl
         });
 
         // Send email via Resend
@@ -227,7 +277,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           to: contact.contact_email,
           subject: `Daily AgBot Report - ${contact.customer_name} - ${reportDate}`,
           html: emailHtml,
+          text: emailText,
           replyTo: 'support@greatsouthernfuel.com.au',
+          headers: {
+            'List-Unsubscribe': `<${unsubscribeUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+          },
           tags: [
             { name: 'type', value: 'daily_report' },
             { name: 'customer', value: sanitizeTagValue(contact.customer_name) }
@@ -276,6 +331,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           delivery_status: 'failed',
           error_message: (customerError as Error).message
         });
+        }
+      }
+
+      // Add delay between batches (except for the last batch)
+      if (i + BATCH_SIZE < contactList.length) {
+        console.log(`Waiting ${DELAY_BETWEEN_BATCHES}ms before next batch...`);
+        await sleep(DELAY_BETWEEN_BATCHES);
       }
     }
 

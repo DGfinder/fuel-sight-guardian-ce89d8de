@@ -3,6 +3,7 @@
 // URL: https://fuel-sight-guardian-ce89d8de.vercel.app/api/gasbot-webhook
 
 import { createClient } from '@supabase/supabase-js';
+import { calculateConsumption, updateAssetConsumption } from './lib/consumption-calculator.js';
 
 // Perth timezone constants and utilities
 const PERTH_TIMEZONE = 'Australia/Perth';
@@ -353,9 +354,30 @@ export default async function handler(req, res) {
         if (assetError) {
           throw new Error(`Asset upsert failed: ${assetError.message}`);
         }
-        
+
         console.log(`   ✅ Asset updated: ${asset.id}`);
-        
+
+        // 2.5. Calculate consumption from historical data
+        try {
+          const consumption = await calculateConsumption(
+            asset.id,
+            parseFloat(tankData.AssetCalibratedFillLevel) || 0,
+            parseFloat(tankData.AssetProfileWaterCapacity) || null
+          );
+
+          if (consumption.data_points >= 3) {
+            const updated = await updateAssetConsumption(asset.id, consumption);
+            if (updated) {
+              console.log(`   📊 Consumption calculated: ${consumption.daily_consumption_litres?.toFixed(1) || 'N/A'} L/day, ${consumption.days_remaining?.toFixed(0) || 'N/A'} days remaining (${consumption.confidence} confidence)`);
+            }
+          } else {
+            console.log(`   ℹ️  Insufficient data for consumption calculation (${consumption.data_points} readings)`);
+          }
+        } catch (consumptionError) {
+          // Don't fail the webhook if consumption calculation fails
+          console.log(`   ⚠️  Consumption calculation failed: ${consumptionError.message}`);
+        }
+
         // 3. Create historical reading with comprehensive data
         const readingData = {
           asset_id: asset.id,

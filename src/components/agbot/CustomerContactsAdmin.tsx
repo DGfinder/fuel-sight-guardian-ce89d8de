@@ -71,6 +71,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
 
   // Tank assignment state
   const [availableTanks, setAvailableTanks] = useState<any[]>([]);
+  const [availableCustomers, setAvailableCustomers] = useState<string[]>([]);
   const [selectedTankIds, setSelectedTankIds] = useState<string[]>([]);
   const [loadingTanks, setLoadingTanks] = useState(false);
 
@@ -128,6 +129,25 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       toast.error('Failed to load tanks');
     } finally {
       setLoadingTanks(false);
+    }
+  };
+
+  const fetchAvailableCustomers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('agbot_locations')
+        .select('customer_name')
+        .eq('disabled', false)
+        .order('customer_name');
+
+      if (error) throw error;
+
+      // Get unique customer names
+      const uniqueCustomers = [...new Set(data?.map((d) => d.customer_name) || [])];
+      setAvailableCustomers(uniqueCustomers);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      toast.error('Failed to load customer list');
     }
   };
 
@@ -334,6 +354,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
   const handleAddNew = () => {
     setEditingContact(null);
     resetForm();
+    fetchAvailableCustomers();
     setIsDialogOpen(true);
   };
 
@@ -371,15 +392,33 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="customer_name">Customer Name *</Label>
-                    <Input
-                      id="customer_name"
-                      value={formData.customer_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, customer_name: e.target.value })
-                      }
-                      placeholder="e.g., Indosolutions"
-                      required
-                    />
+                    {editingContact ? (
+                      <Input
+                        id="customer_name"
+                        value={formData.customer_name}
+                        disabled
+                        className="bg-muted"
+                      />
+                    ) : (
+                      <Select
+                        value={formData.customer_name}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, customer_name: value })
+                        }
+                        required
+                      >
+                        <SelectTrigger id="customer_name">
+                          <SelectValue placeholder="Select a customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCustomers.map((customer) => (
+                            <SelectItem key={customer} value={customer}>
+                              {customer}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="contact_email">Email *</Label>
