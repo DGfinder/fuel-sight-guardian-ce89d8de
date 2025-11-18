@@ -42,6 +42,17 @@ interface CustomerContact {
   report_frequency: string;
 }
 
+/**
+ * Sanitize tag values to meet Resend's requirements
+ * Tags should only contain ASCII letters, numbers, underscores, or dashes
+ */
+function sanitizeTagValue(value: string): string {
+  return value
+    .replace(/[^a-zA-Z0-9_-\s]/g, '') // Remove special characters
+    .replace(/\s+/g, '-')              // Replace spaces with dashes
+    .substring(0, 50);                  // Limit length for Resend
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
@@ -240,12 +251,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const emailResponse = await resendClient.emails.send({
       from: DEFAULT_FROM_EMAIL,
       to: typedContact.contact_email,
-      subject: `🧪 TEST - Daily AgBot Report - ${typedContact.customer_name} - ${reportDate}`,
+      subject: `TEST - Daily AgBot Report - ${typedContact.customer_name} - ${reportDate}`,
       html: emailHtml,
       replyTo: 'support@greatsouthernfuel.com.au',
       tags: [
         { name: 'type', value: 'test' },
-        { name: 'customer', value: typedContact.customer_name }
+        { name: 'customer', value: sanitizeTagValue(typedContact.customer_name) }
       ]
     });
 
@@ -272,7 +283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       customer_name: typedContact.customer_name,
       recipient_email: typedContact.contact_email,
       email_type: 'test',
-      email_subject: `🧪 TEST - Daily AgBot Report - ${typedContact.customer_name}`,
+      email_subject: `TEST - Daily AgBot Report - ${typedContact.customer_name}`,
       sent_at: new Date().toISOString(),
       delivery_status: 'sent',
       external_email_id: emailResponse.data?.id || null,

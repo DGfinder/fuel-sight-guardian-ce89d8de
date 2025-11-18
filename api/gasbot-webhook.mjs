@@ -72,6 +72,22 @@ function logDataQuality(locationId, issues) {
   }
 }
 
+/**
+ * Safely convert epoch timestamp to integer for bigint fields
+ * Handles decimal values by flooring them
+ */
+function convertEpochToBigInt(value) {
+  if (!value) return null;
+  try {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) return null;
+    return Math.floor(parsed);
+  } catch (error) {
+    console.warn(`⚠️  Failed to convert epoch value: ${value}`);
+    return null;
+  }
+}
+
 // Initialize Supabase client for webhook operations
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY; // This is actually the service role key for backend operations
@@ -83,9 +99,9 @@ const WEBHOOK_SECRET = process.env.GASBOT_WEBHOOK_SECRET || 'FSG-gasbot-webhook-
 // Transform Gasbot webhook data to our database format
 function transformGasbotLocationData(gasbotData) {
   // Generate consistent location_guid based on location name (same logic as CSV import)
-  const locationName = gasbotData.LocationId;
+  const locationName = gasbotData.LocationId || 'unknown';
   const locationGuid = `location-${locationName.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
-  
+
   // Parse address into components if available
   const addressParts = (gasbotData.LocationAddress || '').split(',').map(part => part.trim());
   
@@ -119,7 +135,7 @@ function transformGasbotLocationData(gasbotData) {
     // New comprehensive fields
     location_category: gasbotData.LocationCategory,
     location_calibrated_fill_level: parseFloat(gasbotData.LocationCalibratedFillLevel) || null,
-    location_last_calibrated_telemetry_epoch: gasbotData.LocationLastCalibratedTelemetryEpoch || null,
+    location_last_calibrated_telemetry_epoch: convertEpochToBigInt(gasbotData.LocationLastCalibratedTelemetryEpoch),
     location_last_calibrated_telemetry_timestamp: gasbotData.LocationLastCalibratedTelemetryTimestamp || null,
     location_disabled_status: gasbotData.LocationDisabledStatus || false,
     location_daily_consumption: parseFloat(gasbotData.LocationDailyConsumption) || null,
@@ -134,9 +150,9 @@ function transformGasbotLocationData(gasbotData) {
 
 function transformGasbotAssetData(gasbotData, locationId) {
   // Generate consistent asset_guid based on asset serial number
-  const assetSerial = gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber;
+  const assetSerial = gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber || 'unknown';
   const assetGuid = `asset-${assetSerial.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
-  
+
   return {
     location_id: locationId,
     asset_guid: assetGuid,
@@ -153,9 +169,9 @@ function transformGasbotAssetData(gasbotData, locationId) {
     device_model_label: 'Gasbot Cellular Tank Monitor',
     device_model: gasbotData.DeviceModel || 43111,
     device_online: gasbotData.DeviceOnline || false,
-    device_activation_date: gasbotData.DeviceActivationTimestamp ? 
+    device_activation_date: gasbotData.DeviceActivationTimestamp ?
       validateAndNormalizeTimestamp(gasbotData.DeviceActivationTimestamp, 'DeviceActivationTimestamp') : null,
-    device_activation_epoch: gasbotData.DeviceActivationEpoch || null,
+    device_activation_epoch: convertEpochToBigInt(gasbotData.DeviceActivationEpoch),
     latest_calibrated_fill_percentage: parseFloat(gasbotData.AssetCalibratedFillLevel) || 0,
     latest_raw_fill_percentage: parseFloat(gasbotData.AssetRawFillLevel || gasbotData.AssetCalibratedFillLevel) || 0,
     latest_telemetry_event_timestamp: validateAndNormalizeTimestamp(
@@ -171,14 +187,14 @@ function transformGasbotAssetData(gasbotData, locationId) {
     
     // New comprehensive asset fields
     asset_raw_fill_level: parseFloat(gasbotData.AssetRawFillLevel) || null,
-    asset_last_raw_telemetry_epoch: gasbotData.AssetLastRawTelemetryEpoch || null,
-    asset_last_raw_telemetry_timestamp: gasbotData.AssetLastRawTelemetryTimestamp ? 
+    asset_last_raw_telemetry_epoch: convertEpochToBigInt(gasbotData.AssetLastRawTelemetryEpoch),
+    asset_last_raw_telemetry_timestamp: gasbotData.AssetLastRawTelemetryTimestamp ?
       validateAndNormalizeTimestamp(gasbotData.AssetLastRawTelemetryTimestamp, 'AssetLastRawTelemetryTimestamp') : null,
-    asset_last_calibrated_telemetry_epoch: gasbotData.AssetLastCalibratedTelemetryEpoch || null,
-    asset_last_calibrated_telemetry_timestamp: gasbotData.AssetLastCalibratedTelemetryTimestamp ? 
+    asset_last_calibrated_telemetry_epoch: convertEpochToBigInt(gasbotData.AssetLastCalibratedTelemetryEpoch),
+    asset_last_calibrated_telemetry_timestamp: gasbotData.AssetLastCalibratedTelemetryTimestamp ?
       validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp') : null,
-    asset_updated_epoch: gasbotData.AssetUpdatedEpoch || null,
-    asset_updated_timestamp: gasbotData.AssetUpdatedTimestamp ? 
+    asset_updated_epoch: convertEpochToBigInt(gasbotData.AssetUpdatedEpoch),
+    asset_updated_timestamp: gasbotData.AssetUpdatedTimestamp ?
       validateAndNormalizeTimestamp(gasbotData.AssetUpdatedTimestamp, 'AssetUpdatedTimestamp') : null,
     asset_daily_consumption: parseFloat(gasbotData.AssetDailyConsumption) || null,
     asset_days_remaining: parseInt(gasbotData.AssetDaysRemaining) || null,
@@ -195,9 +211,9 @@ function transformGasbotAssetData(gasbotData, locationId) {
     asset_profile_commodity: gasbotData.AssetProfileCommodity,
     
     // New comprehensive device fields
-    device_last_telemetry_timestamp: gasbotData.DeviceLastTelemetryTimestamp ? 
+    device_last_telemetry_timestamp: gasbotData.DeviceLastTelemetryTimestamp ?
       validateAndNormalizeTimestamp(gasbotData.DeviceLastTelemetryTimestamp, 'DeviceLastTelemetryTimestamp') : null,
-    device_last_telemetry_epoch: gasbotData.DeviceLastTelemetryEpoch || null,
+    device_last_telemetry_epoch: convertEpochToBigInt(gasbotData.DeviceLastTelemetryEpoch),
     device_sku: gasbotData.DeviceSKU,
     device_battery_voltage: parseFloat(gasbotData.DeviceBatteryVoltage) || null,
     device_temperature: parseFloat(gasbotData.DeviceTemperature) || null,
@@ -346,13 +362,12 @@ export default async function handler(req, res) {
           calibrated_fill_percentage: parseFloat(tankData.AssetCalibratedFillLevel) || 0,
           raw_fill_percentage: parseFloat(tankData.AssetRawFillLevel || tankData.AssetCalibratedFillLevel) || 0,
           reading_timestamp: validateAndNormalizeTimestamp(
-            tankData.AssetLastCalibratedTelemetryTimestamp || new Date().toISOString(), 
+            tankData.AssetLastCalibratedTelemetryTimestamp || new Date().toISOString(),
             'reading_timestamp'
           ),
           device_online: tankData.DeviceOnline || false,
-          telemetry_epoch: tankData.AssetLastCalibratedTelemetryEpoch ? 
-            Math.floor(parseFloat(tankData.AssetLastCalibratedTelemetryEpoch)) : 
-            (tankData.AssetLastCalibratedTelemetryTimestamp ? 
+          telemetry_epoch: convertEpochToBigInt(tankData.AssetLastCalibratedTelemetryEpoch) ||
+            (tankData.AssetLastCalibratedTelemetryTimestamp ?
               Math.floor(new Date(tankData.AssetLastCalibratedTelemetryTimestamp).getTime()) : Date.now()),
           
           // New comprehensive reading fields

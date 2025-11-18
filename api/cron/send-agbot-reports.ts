@@ -46,6 +46,17 @@ interface AgBotLocationData {
   device_serial_number: string | null;
 }
 
+/**
+ * Sanitize tag values to meet Resend's requirements
+ * Tags should only contain ASCII letters, numbers, underscores, or dashes
+ */
+function sanitizeTagValue(value: string): string {
+  return value
+    .replace(/[^a-zA-Z0-9_-\s]/g, '') // Remove special characters
+    .replace(/\s+/g, '-')              // Replace spaces with dashes
+    .substring(0, 50);                  // Limit length for Resend
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
@@ -219,7 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           replyTo: 'support@greatsouthernfuel.com.au',
           tags: [
             { name: 'type', value: 'daily_report' },
-            { name: 'customer', value: contact.customer_name }
+            { name: 'customer', value: sanitizeTagValue(contact.customer_name) }
           ]
         });
 
