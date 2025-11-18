@@ -6,6 +6,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { generateAgBotEmail } from './lib/agbot-email-template.js';
+import { generateFuelReport } from './lib/agbot-report-generator.js';
 
 // Debug: Log environment variables at module load time
 console.log('[MODULE INIT] Starting test-send-email module initialization');
@@ -91,13 +92,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Get contact_id from request body
-    const { contact_id } = req.body;
+    // Get parameters from request body
+    const { contact_id, use_enhanced = false, frequency = 'daily' } = req.body;
 
     if (!contact_id) {
       return res.status(400).json({
         error: 'Missing required parameter',
         message: 'contact_id is required'
+      });
+    }
+
+    // Validate frequency
+    const validFrequencies = ['daily', 'weekly', 'monthly'];
+    if (!validFrequencies.includes(frequency)) {
+      return res.status(400).json({
+        error: 'Invalid frequency',
+        message: `Frequency must be one of: ${validFrequencies.join(', ')}`
       });
     }
 
@@ -245,23 +255,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Generate email HTML and plain text
     console.log('[EMAIL TEMPLATE] Generating email for', typedContact.customer_name);
-    const reportDate = new Date().toLocaleDateString('en-AU', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-
-    console.log('[EMAIL TEMPLATE] Report date:', reportDate);
+    console.log('[EMAIL TEMPLATE] Using enhanced template:', use_enhanced);
+    console.log('[EMAIL TEMPLATE] Report frequency:', frequency);
     console.log('[EMAIL TEMPLATE] Locations count:', emailData.length);
 
-    const { html: emailHtml, text: emailText } = generateAgBotEmail({
-      customerName: typedContact.customer_name,
-      contactName: typedContact.contact_name || undefined,
-      locations: emailData,
-      reportDate: `${reportDate} (TEST EMAIL)`,
-      unsubscribeUrl
-    });
+    let emailHtml: string;
+    let emailText: string;
+    let emailSubject: string;
+
+    if (use_enhanced) {
+      // Use new enhanced report generator with analytics
+      console.log('[EMAIL TEMPLATE] Using enhanced report generator');
+      const { html, text } = await generateFuelReport(
+        supabase,
+        emailData,
+        {
+          customerName: typedContact.customer_name,
+          contactName: typedContact.contact_name || undefined,
+          contactEmail: typedContact.contact_email,
+          reportFrequency: frequency as 'daily' | 'weekly' | 'monthly',
+          unsubscribeToken,
+          logoUrl: undefined, // TODO: Add logo URL when hosted
+        }
+      );
+      emailHtml = html;
+      emailText = text;
+
+      const frequencyLabel = frequency.charAt(0).toUpperCase() + frequency.slice(1);
+      const reportDate = new Date().toLocaleDateString('en-AU', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      emailSubject = `TEST - ${frequencyLabel} Fuel Report - ${typedContact.customer_name} - ${reportDate}`;
+    } else {
+      // Use legacy template
+      console.log('[EMAIL TEMPLATE] Using legacy template');
+      const reportDate = new Date().toLocaleDateString('en-AU', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      const result = generateAgBotEmail({
+        customerName: typedContact.customer_name,
+        contactName: typedContact.contact_name || undefined,
+        locations: emailData,
+        reportDate: `${reportDate} (TEST EMAIL)`,
+        unsubscribeUrl
+      });
+      emailHtml = result.html;
+      emailText = result.text;
+      emailSubject = `TEST - Daily AgBot Report - ${typedContact.customer_name} - ${reportDate}`;
+    }
 
     console.log('[EMAIL TEMPLATE] HTML generated, length:', emailHtml.length);
     console.log('[EMAIL TEMPLATE] Text generated, length:', emailText.length);
@@ -284,7 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const emailResponse = await resendClient.emails.send({
       from: DEFAULT_FROM_EMAIL,
       to: typedContact.contact_email,
-      subject: `TEST - Daily AgBot Report - ${typedContact.customer_name} - ${reportDate}`,
+      subject: emailSubject,
       html: emailHtml,
       text: emailText,
       replyTo: 'support@greatsouthernfuel.com.au',
@@ -293,7 +340,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
       },
       tags: [
-        { name: 'type', value: 'test' },
+        { name: 'type', value: use_enhanced ? `test_enhanced_${frequency}` : 'test_legacy' },
         { name: 'customer', value: sanitizeTagValue(typedContact.customer_name) }
       ]
     });
@@ -320,8 +367,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       customer_contact_id: typedContact.id,
       customer_name: typedContact.customer_name,
       recipient_email: typedContact.contact_email,
-      email_type: 'test',
-      email_subject: `TEST - Daily AgBot Report - ${typedContact.customer_name}`,
+      email_type: use_enhanced ? `test_enhanced_${frequency}` : 'test_legacy',
+      email_subject: emailSubject,
       sent_at: new Date().toISOString(),
       delivery_status: 'sent',
       external_email_id: emailResponse.data?.id || null,
@@ -346,6 +393,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         low_fuel_alerts: lowFuelCount,
         critical_alerts: criticalCount,
         email_id: emailResponse.data?.id,
+        template_type: use_enhanced ? 'enhanced' : 'legacy',
+        frequency: frequency,
         duration
       },
       timestamp: new Date().toISOString()

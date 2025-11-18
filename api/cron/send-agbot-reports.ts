@@ -1,5 +1,5 @@
-// AgBot Daily Reports Cron Job
-// Sends daily email reports to customers about their AgBot tank statuses
+// AgBot Reports Cron Job V2 - Enhanced with Analytics
+// Sends daily/weekly/monthly email reports to customers about their AgBot tank statuses
 // Scheduled to run daily at 7 AM AWST (Perth time)
 // URL: https://fuel-sight-guardian-ce89d8de.vercel.app/api/cron/send-agbot-reports
 
@@ -7,7 +7,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { generateAgBotEmail } from '../lib/agbot-email-template.js';
+import { generateFuelReport, shouldSendReport } from '../lib/agbot-report-generator.js';
 import crypto from 'crypto';
+
+// Feature flag: Set to true to use new enhanced reports, false to use legacy
+const USE_ENHANCED_REPORTS = true;
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -99,22 +103,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Fetch all enabled customer contacts for daily reports
-    const { data: contacts, error: contactsError} = await supabase
+    const currentDate = new Date();
+
+    // Fetch all enabled customer contacts for all report frequencies
+    const { data: allContacts, error: contactsError} = await supabase
       .from('customer_contacts')
       .select('*')
       .eq('enabled', true)
-      .eq('report_frequency', 'daily');
+      .in('report_frequency', ['daily', 'weekly', 'monthly']);
 
     if (contactsError) {
       throw new Error(`Failed to fetch customer contacts: ${contactsError.message}`);
     }
 
-    if (!contacts || contacts.length === 0) {
+    if (!allContacts || allContacts.length === 0) {
       return res.status(200).json({
         success: true,
         message: 'No customers to email',
         emailsSent: 0,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Filter contacts based on report frequency and current date
+    const contacts = (allContacts as CustomerContact[]).filter((contact) => {
+      const frequency = contact.report_frequency as 'daily' | 'weekly' | 'monthly';
+      return shouldSendReport(frequency, currentDate);
+    });
+
+    if (contacts.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No reports scheduled for today',
+        emailsSent: 0,
+        totalContacts: allContacts.length,
         timestamp: new Date().toISOString()
       });
     }
@@ -255,27 +277,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             (l.asset_days_remaining !== null && l.asset_days_remaining <= 3)
         ).length;
 
-        // Generate email HTML and plain text
-        const reportDate = new Date().toLocaleDateString('en-AU', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
+        // Determine report frequency and type
+        const reportFrequency = (contact.report_frequency || 'daily') as 'daily' | 'weekly' | 'monthly';
+        const reportType = reportFrequency === 'daily' ? 'Daily' : reportFrequency === 'weekly' ? 'Weekly' : 'Monthly';
 
-        const { html: emailHtml, text: emailText } = generateAgBotEmail({
-          customerName: contact.customer_name,
-          contactName: contact.contact_name || undefined,
-          locations: emailData,
-          reportDate,
-          unsubscribeUrl
-        });
+        // Generate email HTML and plain text
+        let emailHtml: string;
+        let emailText: string;
+        let emailSubject: string;
+
+        if (USE_ENHANCED_REPORTS) {
+          // Use new enhanced report generator with analytics
+          const { html, text } = await generateFuelReport(
+            supabase,
+            emailData,
+            {
+              customerName: contact.customer_name,
+              contactName: contact.contact_name || undefined,
+              contactEmail: contact.contact_email,
+              reportFrequency,
+              unsubscribeToken,
+              logoUrl: undefined, // TODO: Add logo URL when hosted
+            }
+          );
+          emailHtml = html;
+          emailText = text;
+
+          // Generate subject based on frequency
+          const date = new Date().toLocaleDateString('en-AU', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+          emailSubject = `${reportType} Fuel Report - ${contact.customer_name} - ${date}`;
+        } else {
+          // Use legacy template (backward compatible)
+          const reportDate = new Date().toLocaleDateString('en-AU', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+
+          const result = generateAgBotEmail({
+            customerName: contact.customer_name,
+            contactName: contact.contact_name || undefined,
+            locations: emailData,
+            reportDate,
+            unsubscribeUrl
+          });
+          emailHtml = result.html;
+          emailText = result.text;
+          emailSubject = `Daily AgBot Report - ${contact.customer_name} - ${reportDate}`;
+        }
 
         // Send email via Resend
         const emailResponse = await resend.emails.send({
           from: DEFAULT_FROM_EMAIL,
           to: contact.contact_email,
-          subject: `Daily AgBot Report - ${contact.customer_name} - ${reportDate}`,
+          subject: emailSubject,
           html: emailHtml,
           text: emailText,
           replyTo: 'support@greatsouthernfuel.com.au',
@@ -284,7 +344,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
           },
           tags: [
-            { name: 'type', value: 'daily_report' },
+            { name: 'type', value: `${reportFrequency}_report` },
             { name: 'customer', value: sanitizeTagValue(contact.customer_name) }
           ]
         });
@@ -300,8 +360,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           customer_contact_id: contact.id,
           customer_name: contact.customer_name,
           recipient_email: contact.contact_email,
-          email_type: 'daily_report',
-          email_subject: `Daily AgBot Report - ${contact.customer_name} - ${reportDate}`,
+          email_type: `${reportFrequency}_report`,
+          email_subject: emailSubject,
           sent_at: new Date().toISOString(),
           delivery_status: 'sent',
           external_email_id: emailResponse.data?.id || null,
@@ -321,12 +381,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         emailsFailed++;
 
         // Log failed email
+        const reportFreq = (contact.report_frequency || 'daily') as 'daily' | 'weekly' | 'monthly';
         await supabase.from('customer_email_logs').insert({
           customer_contact_id: contact.id,
           customer_name: contact.customer_name,
           recipient_email: contact.contact_email,
-          email_type: 'daily_report',
-          email_subject: `Daily AgBot Report - ${contact.customer_name}`,
+          email_type: `${reportFreq}_report`,
+          email_subject: `Fuel Report - ${contact.customer_name}`,
           sent_at: new Date().toISOString(),
           delivery_status: 'failed',
           error_message: (customerError as Error).message
@@ -345,11 +406,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       success: true,
-      message: 'Daily reports sent successfully',
+      message: 'Fuel reports sent successfully',
       results: {
         emailsSent,
         emailsFailed,
         totalContacts: contacts.length,
+        totalEligibleToday: allContacts.length,
+        usingEnhancedReports: USE_ENHANCED_REPORTS,
         duration
       },
       errors: errors.length > 0 ? errors : undefined,
