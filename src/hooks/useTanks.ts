@@ -72,7 +72,6 @@ export const useTanks = () => {
         // Step 0: Check authentication before making queries
         const user = (await supabase.auth.getUser()).data.user;
         if (!user) {
-          console.log('[TANKS DEBUG] No authenticated user - skipping query');
           return []; // Return empty array instead of throwing error to prevent console spam
         }
 
@@ -90,7 +89,7 @@ export const useTanks = () => {
         .order('location');
 
       if (baseError) {
-        console.error('[TANKS DEBUG] Error fetching tanks from base table:', baseError);
+        console.error('Error fetching tanks:', baseError);
         throw baseError;
       }
 
@@ -349,25 +348,6 @@ export const useTanks = () => {
           // Always preserve the actual raw difference
           // Positive = refill/increase, Negative = consumption/decrease
           prev_day_used = rawDifference;
-
-          // Debug logging for Alkimos tank specifically
-          if (tank.location && tank.location.toLowerCase().includes('alkimos')) {
-            console.log(`[ALKIMOS DEBUG] Tank: ${tank.location}`);
-            console.log(`[ALKIMOS DEBUG] Total readings: ${allTankReadings.length}`);
-            console.log(`[ALKIMOS DEBUG] Latest reading: ${JSON.stringify({
-              value: latestReading.value,
-              date: latestReading.created_at,
-              isLatest: true
-            })}`);
-            console.log(`[ALKIMOS DEBUG] Previous reading: ${JSON.stringify({
-              value: previousReading.value,
-              date: previousReading.created_at,
-              isPrevious: true
-            })}`);
-            console.log(`[ALKIMOS DEBUG] Raw calculation: ${latestReading.value} - ${previousReading.value} = ${rawDifference}`);
-            console.log(`[ALKIMOS DEBUG] Detected as refill: ${isRefill}`);
-            console.log(`[ALKIMOS DEBUG] Final prev_day_used: ${prev_day_used}`);
-          }
         }
 
 	        // Keep rolling average as a positive daily consumption rate (L/day)
@@ -425,7 +405,7 @@ export const useTanks = () => {
 
   // Only log error if we're authenticated and have a real error (avoid spam during auth loading)
   if (tanks.length === 0 && !tanksQuery.isLoading && tanksQuery.error && tanksQuery.error.message !== 'No authenticated user') {
-    console.error('[TANKS] No tanks returned from database after authentication:', tanksQuery.error);
+    console.error('No tanks returned from database:', tanksQuery.error);
   }
 
 

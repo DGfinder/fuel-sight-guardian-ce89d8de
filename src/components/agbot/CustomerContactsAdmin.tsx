@@ -260,54 +260,23 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
   };
 
   const handleTestEmail = async (contact: CustomerContact) => {
-    console.log('🧪 TEST EMAIL BUTTON CLICKED');
-    console.log('='.repeat(50));
-    console.log('Contact:', {
-      id: contact.id,
-      name: contact.contact_name,
-      email: contact.contact_email,
-      customer: contact.customer_name
-    });
-
     try {
       setSendingTestEmail(contact.id);
-
-      console.log('📤 Sending POST request to /api/test-send-email...');
-      const requestBody = { contact_id: contact.id };
-      console.log('Request body:', requestBody);
 
       const response = await fetch('/api/test-send-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({ contact_id: contact.id })
       });
 
-      console.log('📥 Response received:');
-      console.log('  Status:', response.status, response.statusText);
-      console.log('  OK:', response.ok);
-
       const data = await response.json();
-      console.log('  Response data:', data);
 
       if (!response.ok || !data.success) {
         const errorMessage = data.message || data.error || 'Failed to send test email';
-        const errorDetails = data.suggestion || data.details || '';
-
-        console.error('❌ API Error:', {
-          message: errorMessage,
-          details: errorDetails,
-          fullResponse: data
-        });
-
-        throw new Error(errorDetails ? `${errorMessage}\n${errorDetails}` : errorMessage);
+        throw new Error(errorMessage);
       }
-
-      console.log('✅ Test email sent successfully!');
-      console.log('  Email ID:', data.data?.email_id);
-      console.log('  Tanks included:', data.data?.tanks_included);
-      console.log('  Recipient:', data.data?.recipient);
 
       toast.success(
         `✅ Test email sent to ${contact.contact_email}!\nTanks included: ${data.data.tanks_included}\nEmail ID: ${data.data.email_id?.substring(0, 8)}...`,
@@ -317,18 +286,12 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       // Refresh contacts to update last_email_sent_at
       fetchContacts();
     } catch (error) {
-      console.error('💥 CAUGHT ERROR:', error);
-      console.error('  Error type:', error?.constructor?.name);
-      console.error('  Error message:', (error as Error).message);
-      console.error('  Error stack:', (error as Error).stack);
-
+      console.error('Failed to send test email:', (error as Error).message);
       toast.error(
         `❌ Failed to send test email\n${(error as Error).message}`,
         { duration: 8000 }
       );
     } finally {
-      console.log('🏁 Test email attempt finished');
-      console.log('='.repeat(50));
       setSendingTestEmail(null);
     }
   };

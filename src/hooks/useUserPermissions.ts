@@ -17,15 +17,11 @@ export const useUserPermissions = () => {
     queryKey: ['user-permissions'],
     queryFn: async () => {
       const startTime = Date.now();
-      console.log('🔍 [RBAC DEBUG] Starting permissions fetch at:', new Date().toISOString());
-      
+
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
-        console.log('❌ [RBAC DEBUG] No authenticated user');
         throw new Error('No authenticated user');
       }
-
-      console.log('👤 [RBAC DEBUG] Fetching permissions for user:', user.id);
 
       try {
         // Step 1: Get user role and display name (direct query, no RLS)
@@ -36,7 +32,6 @@ export const useUserPermissions = () => {
           .single();
 
         if (roleError) {
-          console.log('⚠️ [RBAC DEBUG] No role found, defaulting to viewer');
           // Default to clean viewer role if no role found
           return {
             role: 'viewer',
@@ -50,14 +45,11 @@ export const useUserPermissions = () => {
         const isAdmin = ['admin', 'manager'].includes(userRole);
         const hasAllGroupAccess = ['admin', 'manager', 'scheduler'].includes(userRole);
 
-        console.log('✅ [RBAC DEBUG] User role fetched successfully:', userRole);
-
         // Step 2: Get accessible groups
         let accessibleGroups: any[] = [];
 
         if (hasAllGroupAccess) {
           // Admins, managers, and schedulers can access all groups
-          console.log('👑 [RBAC DEBUG] User has all group access, fetching all groups');
           
           const { data: allGroups, error: groupsError } = await supabase
             .from('tank_groups')
@@ -72,7 +64,6 @@ export const useUserPermissions = () => {
           }
         } else {
           // Regular users: get their specific group permissions
-          console.log('👤 [RBAC DEBUG] User is regular user, fetching specific permissions');
           
           // Use manual join approach to avoid Supabase relationship ambiguity
           const { data: userGroupIds, error: userGroupsError } = await supabase
@@ -117,14 +108,6 @@ export const useUserPermissions = () => {
           }
         }
 
-        console.log('🎯 [RBAC DEBUG] Final permissions calculated:', {
-          role: userRole,
-          isAdmin,
-          hasAllGroupAccess,
-          groupCount: accessibleGroups.length,
-          groups: accessibleGroups.map(g => g.name)
-        });
-
         // Ensure clean, serializable object structure with proper fallbacks
         const cleanPermissions = {
           role: String(userRole || 'viewer'),
@@ -139,37 +122,18 @@ export const useUserPermissions = () => {
             })).filter(group => group.id) : []
         };
 
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-        
-        console.log('✅ [RBAC DEBUG] Clean permissions created:', {
-          role: cleanPermissions.role,
-          isAdmin: cleanPermissions.isAdmin,
-          groupCount: cleanPermissions.accessibleGroups.length,
-          hasAccessibleGroups: Array.isArray(cleanPermissions.accessibleGroups),
-          fetchDuration: `${duration}ms`
-        });
-
         return cleanPermissions;
 
       } catch (error) {
-        console.error('💥 [RBAC DEBUG] Error in permissions calculation:', error);
-        console.error('💥 [RBAC DEBUG] Error details:', {
-          message: error?.message,
-          stack: error?.stack,
-          userId: user?.id
-        });
-        
+        console.error('Error in permissions calculation:', error);
+
         // Fallback: return clean viewer permissions with proper structure
-        const fallbackPermissions = {
+        return {
           role: 'viewer',
           isAdmin: false,
           display_name: user?.email || 'User',
           accessibleGroups: []
         };
-        
-        console.log('🔄 [RBAC DEBUG] Using fallback permissions:', fallbackPermissions);
-        return fallbackPermissions;
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -184,7 +148,6 @@ export const useUserPermissions = () => {
     select: (data) => {
       // Validate and clean the permissions data
       if (!data || typeof data !== 'object') {
-        console.warn('⚠️ [RBAC DEBUG] Invalid permissions data, resetting to viewer');
         return {
           role: 'viewer',
           isAdmin: false,
@@ -211,14 +174,8 @@ export function useCanAccessTank(tankId: string | undefined) {
     queryKey: ['tank-access', tankId],
     queryFn: async () => {
       if (!tankId || !permissions) return false;
-      
-      console.log('🔍 [TANK ACCESS DEBUG] Checking access for tank:', tankId, {
-        isAdmin: permissions.isAdmin,
-        accessibleGroups: permissions.accessibleGroups.map(g => g.name)
-      });
-      
+
       if (permissions.isAdmin || permissions.role === 'scheduler') {
-        console.log('✅ [TANK ACCESS DEBUG] Admin/Scheduler access granted');
         return true;
       }
 
@@ -229,18 +186,11 @@ export function useCanAccessTank(tankId: string | undefined) {
         .single();
 
       if (error) {
-        console.error('❌ [TANK ACCESS DEBUG] Error fetching tank group:', error);
+        console.error('Error fetching tank group:', error);
         return false;
       }
 
-      const hasAccess = permissions.accessibleGroups.some(group => group.id === data.group_id);
-      console.log('🔍 [TANK ACCESS DEBUG] Tank group check:', {
-        tankGroupId: data.group_id,
-        accessibleGroupIds: permissions.accessibleGroups.map(g => g.id),
-        hasAccess
-      });
-
-      return hasAccess;
+      return permissions.accessibleGroups.some(group => group.id === data.group_id);
     },
     enabled: !!tankId && !!permissions,
     staleTime: 5 * 60 * 1000,
@@ -278,11 +228,8 @@ export function useCanAccessTankWithSubgroup(tankId: string | undefined) {
     queryKey: ['tank-subgroup-access', tankId],
     queryFn: async () => {
       if (!tankId || !permissions) return false;
-      
-      console.log('🔍 [SUBGROUP ACCESS DEBUG] Checking subgroup access for tank:', tankId);
-      
+
       if (permissions.isAdmin || permissions.role === 'scheduler') {
-        console.log('✅ [SUBGROUP ACCESS DEBUG] Admin/Scheduler access granted');
         return true;
       }
 
@@ -293,43 +240,33 @@ export function useCanAccessTankWithSubgroup(tankId: string | undefined) {
         .single();
 
       if (error) {
-        console.error('❌ [SUBGROUP ACCESS DEBUG] Error fetching tank data:', error);
+        console.error('Error fetching tank data:', error);
         return false;
       }
 
       const { group_id, subgroup } = data;
-      
+
       // Check group access first
       const hasGroupAccess = permissions.accessibleGroups.some(group => group.id === group_id);
       if (!hasGroupAccess) {
-        console.log('❌ [SUBGROUP ACCESS DEBUG] No group access for:', group_id);
         return false;
       }
-      
+
       // If tank has no subgroup, group access is sufficient
       if (!subgroup) {
-        console.log('✅ [SUBGROUP ACCESS DEBUG] Tank has no subgroup, group access granted');
         return true;
       }
 
       // Check subgroup access
       const group = permissions.accessibleGroups.find(g => g.id === group_id);
       if (!group) return false;
-      
+
       // If user has no subgroup restrictions, they can access all subgroups in the group
       if (group.subgroups.length === 0) {
-        console.log('✅ [SUBGROUP ACCESS DEBUG] No subgroup restrictions, access granted');
         return true;
       }
-      
-      const hasSubgroupAccess = group.subgroups.includes(subgroup);
-      console.log('🔍 [SUBGROUP ACCESS DEBUG] Subgroup access check:', {
-        tankSubgroup: subgroup,
-        allowedSubgroups: group.subgroups,
-        hasAccess: hasSubgroupAccess
-      });
-      
-      return hasSubgroupAccess;
+
+      return group.subgroups.includes(subgroup);
     },
     enabled: !!tankId && !!permissions,
     staleTime: 5 * 60 * 1000,

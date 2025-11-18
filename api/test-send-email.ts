@@ -33,42 +33,19 @@ interface CustomerContact {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
-  console.log('\n📧 TEST EMAIL REQUEST');
-  console.log('='.repeat(50));
-  console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
-  console.log(`🌐 Method: ${req.method}`);
-
-  // Detailed environment check
-  console.log('\n🔧 Environment Variables:');
-  console.log(`   SUPABASE_URL: ${supabaseUrl ? '✅ Set' : '❌ MISSING'}`);
-  console.log(`   SUPABASE_ANON_KEY: ${supabaseKey ? '✅ Set' : '❌ MISSING'}`);
-  console.log(`   RESEND_API_KEY: ${process.env.RESEND_API_KEY ? '✅ Set' : '❌ MISSING'}`);
-  console.log(`   RESEND_VERIFIED_EMAIL: ${process.env.RESEND_VERIFIED_EMAIL ? '✅ ' + process.env.RESEND_VERIFIED_EMAIL : 'ℹ️  Not set (using fallback)'}`);
-  console.log(`   📧 Using sender email: ${DEFAULT_FROM_EMAIL}`);
-
   if (!supabaseUrl || !supabaseKey) {
-    console.error('💥 Missing Supabase environment variables');
+    console.error('Missing Supabase environment variables');
     return res.status(500).json({
       error: 'Server configuration error',
-      message: 'Supabase not configured',
-      suggestion: 'Add SUPABASE_URL and SUPABASE_ANON_KEY to Vercel environment variables',
-      details: {
-        supabaseUrl: supabaseUrl ? 'set' : 'missing',
-        supabaseKey: supabaseKey ? 'set' : 'missing'
-      }
+      message: 'Supabase not configured'
     });
   }
 
   if (!process.env.RESEND_API_KEY) {
-    console.error('💥 Missing RESEND_API_KEY');
+    console.error('Missing RESEND_API_KEY');
     return res.status(500).json({
       error: 'Email service not configured',
-      message: 'RESEND_API_KEY environment variable is not set',
-      suggestion: 'Add your Resend API key to Vercel environment variables:\n1. Go to Vercel Dashboard → Settings → Environment Variables\n2. Add RESEND_API_KEY with your key from https://resend.com/api-keys\n3. Redeploy the application',
-      details: {
-        resendApiKey: 'missing',
-        helpUrl: 'https://resend.com/docs/send-with-nodejs'
-      }
+      message: 'RESEND_API_KEY environment variable is not set'
     });
   }
 
@@ -92,8 +69,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    console.log(`📋 Fetching contact: ${contact_id}`);
-
     // Fetch the specific contact
     const { data: contact, error: contactError } = await supabase
       .from('customer_contacts')
@@ -102,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (contactError || !contact) {
-      console.error('❌ Contact not found:', contactError);
+      console.error('Contact not found:', contactError);
       return res.status(404).json({
         error: 'Contact not found',
         message: 'No customer contact found with that ID'
@@ -110,8 +85,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const typedContact = contact as CustomerContact;
-    console.log(`✅ Found contact: ${typedContact.contact_name || 'N/A'} <${typedContact.contact_email}>`);
-
     let locations: any[] = [];
 
     // Step 1: Try to fetch specifically assigned tanks
@@ -145,10 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       locations = assignedTanks
         .map((assignment: any) => assignment.agbot_locations)
         .filter((loc: any) => loc && !loc.disabled);
-      console.log(`   🎯 Using ${locations.length} specifically assigned tank(s)`);
     } else {
       // Fallback - fetch ALL tanks for this customer
-      console.log(`   ℹ️  No specific tanks assigned, using all customer tanks...`);
       const { data: allLocations, error: locationsError } = await supabase
         .from('agbot_locations')
         .select(
@@ -176,15 +147,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       locations = allLocations || [];
-      console.log(`   ✅ Using ${locations.length} total customer tank(s)`);
     }
 
     if (!locations || locations.length === 0) {
-      console.log(`   ⚠️  No tanks found for ${typedContact.customer_name}`);
       return res.status(400).json({
         error: 'No tanks found',
-        message: `No AgBot tanks found for customer: ${typedContact.customer_name}`,
-        suggestion: 'Make sure tanks exist and are not disabled'
+        message: `No AgBot tanks found for customer: ${typedContact.customer_name}`
       });
     }
 
@@ -230,14 +198,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     // Send email via Resend
-    console.log(`\n📧 Sending test email via Resend...`);
-    console.log(`   From: ${DEFAULT_FROM_EMAIL}`);
-    console.log(`   To: ${typedContact.contact_email}`);
-    console.log(`   Subject: 🧪 TEST - Daily AgBot Report`);
-    console.log(`   Tanks: ${locations.length} locations`);
-    console.log(`   Low fuel alerts: ${lowFuelCount}`);
-    console.log(`   Critical alerts: ${criticalCount}`);
-
     const emailResponse = await resend.emails.send({
       from: DEFAULT_FROM_EMAIL,
       to: typedContact.contact_email,
@@ -250,30 +210,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ]
     });
 
-    console.log(`\n📬 Resend API Response:`);
-    console.log(`   Success: ${!emailResponse.error}`);
-    console.log(`   Email ID: ${emailResponse.data?.id || 'N/A'}`);
-    if (emailResponse.error) {
-      console.error(`   Error: ${JSON.stringify(emailResponse.error, null, 2)}`);
-    }
-
     if (emailResponse.error) {
       const errorMsg = emailResponse.error.message || JSON.stringify(emailResponse.error);
-      console.error('💥 Resend API Error:', errorMsg);
+      console.error('Resend API Error:', errorMsg);
 
       return res.status(500).json({
         success: false,
         error: 'Email sending failed',
-        message: `Resend API error: ${errorMsg}`,
-        suggestion:
-          errorMsg.includes('domain')
-            ? 'Your sender domain may not be verified. Using onboarding@resend.dev as fallback.'
-            : 'Check Resend dashboard for more details: https://resend.com/emails',
-        details: emailResponse.error
+        message: `Resend API error: ${errorMsg}`
       });
     }
-
-    console.log(`   ✅ Test email sent! ID: ${emailResponse.data?.id}`);
 
     // Log to database
     await supabase.from('customer_email_logs').insert({
@@ -292,16 +238,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const duration = Date.now() - startTime;
 
-    console.log('\n📈 TEST EMAIL SENT SUCCESSFULLY');
-    console.log('='.repeat(50));
-    console.log(`✅ Recipient: ${typedContact.contact_email}`);
-    console.log(`📊 Tanks included: ${locations.length}`);
-    console.log(`⚠️  Low fuel alerts: ${lowFuelCount}`);
-    console.log(`🚨 Critical alerts: ${criticalCount}`);
-    console.log(`⏱️  Duration: ${duration}ms`);
-    console.log(`📬 Email ID: ${emailResponse.data?.id}`);
-    console.log('='.repeat(50));
-
     return res.status(200).json({
       success: true,
       message: 'Test email sent successfully',
@@ -319,10 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-
-    console.error('\n💥 TEST EMAIL FAILED');
-    console.error('Error:', (error as Error).message);
-    console.error('Stack:', (error as Error).stack);
+    console.error('Test email failed:', (error as Error).message);
 
     return res.status(500).json({
       success: false,

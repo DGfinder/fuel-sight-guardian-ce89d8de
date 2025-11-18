@@ -50,20 +50,8 @@ interface AgBotLocationData {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
-  console.log('\n📧 AGBOT DAILY REPORTS CRON JOB STARTED');
-  console.log('='.repeat(50));
-  console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
-  console.log(`🌐 Method: ${req.method}`);
-
-  // Environment check
-  console.log(`🔧 Environment check:`);
-  console.log(`   SUPABASE_URL: ${supabaseUrl ? '✅ Set' : '❌ Missing'}`);
-  console.log(`   SUPABASE_ANON_KEY: ${supabaseKey ? '✅ Set' : '❌ Missing'}`);
-  console.log(`   RESEND_API_KEY: ${process.env.RESEND_API_KEY ? '✅ Set' : '❌ Missing'}`);
-
-  // Fail fast if environment not configured
   if (!supabaseUrl || !supabaseKey || !process.env.RESEND_API_KEY) {
-    console.error('💥 CONFIGURATION ERROR: Missing required environment variables');
+    console.error('Missing required environment variables');
     return res.status(500).json({
       error: 'Server configuration error',
       message: 'Missing required environment variables'
@@ -72,11 +60,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Only accept POST requests (from Vercel Cron)
   if (req.method !== 'POST') {
-    console.log('❌ Invalid method:', req.method);
     return res.status(405).json({
-      error: 'Method not allowed',
-      expected: 'POST',
-      received: req.method
+      error: 'Method not allowed'
     });
   }
 
@@ -85,7 +70,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = authHeader?.replace('Bearer ', '');
 
   if (!token || token !== CRON_SECRET) {
-    console.log('❌ Invalid cron secret');
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Valid cron secret required'
@@ -94,8 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Fetch all enabled customer contacts for daily reports
-    console.log('\n📋 Fetching customer contacts...');
-    const { data: contacts, error: contactsError } = await supabase
+    const { data: contacts, error: contactsError} = await supabase
       .from('customer_contacts')
       .select('*')
       .eq('enabled', true)
@@ -106,7 +89,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!contacts || contacts.length === 0) {
-      console.log('ℹ️  No enabled customer contacts found for daily reports');
       return res.status(200).json({
         success: true,
         message: 'No customers to email',
@@ -115,8 +97,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    console.log(`✅ Found ${contacts.length} customer(s) to email`);
-
     let emailsSent = 0;
     let emailsFailed = 0;
     const errors: string[] = [];
@@ -124,9 +104,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Process each customer contact
     for (const contact of contacts as CustomerContact[]) {
       try {
-        console.log(`\n📬 Processing customer: ${contact.customer_name}`);
-        console.log(`   Contact: ${contact.contact_name || 'N/A'} <${contact.contact_email}>`);
-
         let locations: any[] = [];
 
         // Step 1: Try to fetch specifically assigned tanks from junction table
@@ -160,10 +137,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           locations = assignedTanks
             .map((assignment: any) => assignment.agbot_locations)
             .filter((loc: any) => loc && !loc.disabled);
-          console.log(`   🎯 Found ${locations.length} specifically assigned tank(s)`);
         } else {
           // Step 2: Fallback - fetch ALL tanks for this customer (backward compatible)
-          console.log(`   ℹ️  No specific tanks assigned, fetching all customer tanks...`);
           const { data: allLocations, error: locationsError } = await supabase
             .from('agbot_locations')
             .select(
@@ -191,11 +166,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
 
           locations = allLocations || [];
-          console.log(`   ✅ Found ${locations.length} total customer tank(s)`);
         }
 
         if (!locations || locations.length === 0) {
-          console.log(`   ⚠️  No AgBot locations found for ${contact.customer_name}`);
           continue;
         }
 
@@ -241,7 +214,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
 
         // Send email via Resend
-        console.log(`   📧 Sending email to ${contact.contact_email}...`);
         const emailResponse = await resend.emails.send({
           from: DEFAULT_FROM_EMAIL,
           to: contact.contact_email,
@@ -258,7 +230,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           throw new Error(`Resend error: ${emailResponse.error.message}`);
         }
 
-        console.log(`   ✅ Email sent successfully! ID: ${emailResponse.data?.id}`);
         emailsSent++;
 
         // Log email delivery to database
@@ -282,7 +253,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .update({ last_email_sent_at: new Date().toISOString() })
           .eq('id', contact.id);
       } catch (customerError) {
-        console.error(`   ❌ Error processing ${contact.customer_name}:`, customerError);
+        console.error(`Error processing ${contact.customer_name}:`, (customerError as Error).message);
         errors.push(`${contact.customer_name}: ${(customerError as Error).message}`);
         emailsFailed++;
 
@@ -302,13 +273,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const duration = Date.now() - startTime;
 
-    console.log('\n📈 EMAIL BATCH COMPLETED');
-    console.log('='.repeat(50));
-    console.log(`✅ Emails sent: ${emailsSent}`);
-    console.log(`❌ Emails failed: ${emailsFailed}`);
-    console.log(`⏱️  Duration: ${duration}ms`);
-    console.log('='.repeat(50));
-
     return res.status(200).json({
       success: true,
       message: 'Daily reports sent successfully',
@@ -323,10 +287,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-
-    console.error('\n💥 CRON JOB FAILED');
-    console.error('Error:', (error as Error).message);
-    console.error('Stack:', (error as Error).stack);
+    console.error('Cron job failed:', (error as Error).message);
 
     return res.status(500).json({
       success: false,
