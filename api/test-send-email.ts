@@ -93,7 +93,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Get parameters from request body
-    const { contact_id, use_enhanced = false, frequency = 'daily' } = req.body;
+    // Default to enhanced template now that it's ready
+    const { contact_id, use_enhanced = true, frequency = 'daily' } = req.body;
 
     if (!contact_id) {
       return res.status(400).json({
