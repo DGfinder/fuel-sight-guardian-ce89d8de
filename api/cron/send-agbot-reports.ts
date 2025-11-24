@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { generateAgBotEmail } from '../lib/agbot-email-template.js';
 import { generateFuelReport, shouldSendReport } from '../lib/agbot-report-generator.js';
+import { recalculateAllAssets } from '../lib/consumption-calculator.js';
 import crypto from 'crypto';
 
 // Feature flag: Set to true to use new enhanced reports, false to use legacy
@@ -104,6 +105,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const currentDate = new Date();
+
+    // Step 1: Recalculate consumption for all assets before sending emails
+    console.log('[CRON] Recalculating consumption for all assets...');
+    const consumptionResult = await recalculateAllAssets();
+    console.log(`[CRON] Consumption recalculation: ${consumptionResult.updated} updated, ${consumptionResult.failed} failed`);
 
     // Fetch all enabled customer contacts for all report frequencies
     const { data: allContacts, error: contactsError} = await supabase
