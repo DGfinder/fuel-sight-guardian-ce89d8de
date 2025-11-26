@@ -94,6 +94,41 @@ function formatNumber(num: number): string {
 }
 
 /**
+ * Get color for comparison percentage (red = more usage, green = less)
+ */
+function getComparisonColor(pct: number): string {
+  if (pct > 5) return RED;           // Using more fuel (warning)
+  if (pct < -5) return GREEN_STATUS; // Using less fuel (good)
+  return TEXT_GRAY;                   // Stable
+}
+
+/**
+ * Get background color for comparison badge
+ */
+function getComparisonBgColor(pct: number): string {
+  if (pct > 5) return '#fef2f2';   // Light red
+  if (pct < -5) return '#f0fdf4';  // Light green
+  return '#f9fafb';                 // Light gray
+}
+
+/**
+ * Get border color for comparison badge
+ */
+function getComparisonBorderColor(pct: number): string {
+  if (pct > 5) return '#fecaca';   // Red border
+  if (pct < -5) return '#bbf7d0';  // Green border
+  return BORDER_GRAY;               // Gray border
+}
+
+/**
+ * Format comparison percentage with sign
+ */
+function formatComparison(pct: number): string {
+  const sign = pct > 0 ? '+' : '';
+  return `${sign}${Math.round(pct)}%`;
+}
+
+/**
  * Generate report title based on frequency
  */
 function getReportTitle(frequency: 'daily' | 'weekly' | 'monthly'): string {
@@ -209,16 +244,46 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
               ? `<strong>${formatNumber(currentLitres)} L</strong> of <strong>${(capacityLitres / 1000).toFixed(0)}k L</strong>`
               : `${formatNumber(currentLitres)} L remaining`;
 
-            // 24hr consumption - HIGHLIGHTED
+            // 24hr consumption with comparison badges - ENHANCED
             const consumption24hHtml = analytics
-              ? `<div style="background: #f0fdf4; border-left: 3px solid ${BRAND_GREEN}; padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
-                   <p style="font-size: 11px; color: ${TEXT_GRAY}; margin: 0 0 3px 0; text-transform: uppercase; letter-spacing: 0.5px;">24-Hour Usage</p>
-                   <p style="font-size: 18px; font-weight: bold; color: ${BRAND_GREEN}; margin: 0;">
+              ? `<div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid ${BRAND_GREEN}; padding: 14px 16px; margin: 12px 0; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                   <!-- Section Header -->
+                   <p style="font-size: 11px; color: ${BRAND_GREEN_DARK}; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700;">
+                     24-Hour Fuel Usage
+                   </p>
+
+                   <!-- Primary Value -->
+                   <p style="font-size: 26px; font-weight: bold; color: ${BRAND_GREEN_DARK}; margin: 0 0 12px 0; line-height: 1.1;">
                      ${formatNumber(analytics.consumption_24h_litres)} L
-                     <span style="font-size: 13px; font-weight: normal; color: ${TEXT_GRAY};">
-                       ${analytics.trend_indicator} (${analytics.consumption_24h_pct.toFixed(1)}%)
+                     <span style="font-size: 14px; font-weight: 500; color: ${TEXT_GRAY};">
+                       (${analytics.consumption_24h_pct.toFixed(1)}% of capacity)
                      </span>
                    </p>
+
+                   <!-- Comparison Badges -->
+                   <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: separate; border-spacing: 8px 0;">
+                     <tr>
+                       <!-- vs Yesterday Badge -->
+                       <td style="width: 48%; padding: 10px 12px; background: ${getComparisonBgColor(analytics.vs_yesterday_pct)}; border-radius: 6px; border: 1px solid ${getComparisonBorderColor(analytics.vs_yesterday_pct)};">
+                         <p style="font-size: 10px; color: ${TEXT_GRAY}; margin: 0 0 3px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+                           vs Yesterday
+                         </p>
+                         <p style="font-size: 18px; font-weight: bold; color: ${getComparisonColor(analytics.vs_yesterday_pct)}; margin: 0; line-height: 1.2;">
+                           ${formatComparison(analytics.vs_yesterday_pct)}
+                         </p>
+                       </td>
+                       <td width="4%"></td>
+                       <!-- vs 7-Day Avg Badge -->
+                       <td style="width: 48%; padding: 10px 12px; background: ${getComparisonBgColor(analytics.vs_7d_avg_pct)}; border-radius: 6px; border: 1px solid ${getComparisonBorderColor(analytics.vs_7d_avg_pct)};">
+                         <p style="font-size: 10px; color: ${TEXT_GRAY}; margin: 0 0 3px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+                           vs 7-Day Avg
+                         </p>
+                         <p style="font-size: 18px; font-weight: bold; color: ${getComparisonColor(analytics.vs_7d_avg_pct)}; margin: 0; line-height: 1.2;">
+                           ${formatComparison(analytics.vs_7d_avg_pct)}
+                         </p>
+                       </td>
+                     </tr>
+                   </table>
                  </div>`
               : '';
 
@@ -280,25 +345,25 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
             const fuelTypeHtml = fuelType ? `<span style="color: ${TEXT_LIGHT};"> • ${fuelType}</span>` : '';
 
             return `
-              <div style="padding: 15px; margin-bottom: 12px; background-color: white; border-radius: 6px; border: 1px solid ${BORDER_GRAY}; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+              <div style="padding: 18px; margin-bottom: 14px; background-color: white; border-radius: 10px; border: 1px solid ${BORDER_GRAY}; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
                 <table width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td style="width: 60%;">
-                      <p style="font-size: 17px; font-weight: bold; color: ${TEXT_DARK}; margin: 0 0 5px 0;">
+                      <p style="font-size: 18px; font-weight: bold; color: ${TEXT_DARK}; margin: 0 0 6px 0;">
                         ${location.address1 || location.location_id}
                       </p>
-                      <p style="font-size: 13px; color: ${TEXT_GRAY}; margin: 0 0 3px 0;">
+                      <p style="font-size: 13px; color: ${TEXT_GRAY}; margin: 0 0 4px 0;">
                         ${onlineStatus}${fuelTypeHtml}
                       </p>
-                      <p style="font-size: 14px; color: ${TEXT_DARK}; margin: 3px 0;">
+                      <p style="font-size: 15px; color: ${TEXT_DARK}; margin: 4px 0;">
                         ${capacityText}
                       </p>
                     </td>
                     <td style="width: 40%; text-align: right; vertical-align: top;">
-                      <p style="font-size: 32px; font-weight: bold; color: ${fuelColor}; margin: 0; line-height: 1;">
+                      <p style="font-size: 36px; font-weight: bold; color: ${fuelColor}; margin: 0; line-height: 1;">
                         ${location.latest_calibrated_fill_percentage?.toFixed(0) || 0}%
                       </p>
-                      <p style="font-size: 12px; color: ${TEXT_GRAY}; margin: 3px 0 0 0;">
+                      <p style="font-size: 12px; color: ${TEXT_GRAY}; margin: 4px 0 0 0;">
                         ${daysRemainingText}
                       </p>
                     </td>
@@ -308,7 +373,7 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                 ${weeklyDataHtml}
                 ${refillHtml}
                 ${batteryHtml}
-                <p style="font-size: 11px; color: ${TEXT_LIGHT}; margin: 8px 0 0 0;">
+                <p style="font-size: 11px; color: ${TEXT_LIGHT}; margin: 10px 0 0 0; border-top: 1px solid ${BORDER_GRAY}; padding-top: 10px;">
                   Updated ${formatLastSeen(location.latest_telemetry)}
                 </p>
               </div>
@@ -320,9 +385,9 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
   const fleetAnalyticsHtml =
     showCharts && tanksAnalytics && tanksAnalytics.length > 0
       ? `
-        <div style="padding: 20px 40px; background-color: ${BG_GRAY};">
-          <h2 style="color: ${TEXT_DARK}; font-size: 20px; font-weight: bold; margin: 0 0 15px 0;">
-            📊 Fleet Analytics
+        <div style="padding: 25px 40px; background-color: ${BG_GRAY};">
+          <h2 style="font-family: 'Raleway', sans-serif; color: ${TEXT_DARK}; font-size: 20px; font-weight: 700; margin: 0 0 18px 0;">
+            Fleet Analytics
           </h2>
 
           ${
@@ -385,34 +450,35 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
       <meta name="color-scheme" content="light">
       <meta name="supported-color-schemes" content="light">
       <title>${reportTitle} - ${reportDate}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     </head>
-    <body style="margin: 0; padding: 0; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <body style="margin: 0; padding: 0; background-color: #f6f9fc; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
       <div style="background-color: #ffffff; margin: 0 auto; padding: 20px 0; max-width: 600px;">
 
         <!-- Header -->
-        <div style="background: linear-gradient(135deg, ${BRAND_GREEN} 0%, ${BRAND_GREEN_DARK} 100%); padding: 30px 40px; text-align: center;">
+        <div style="background: linear-gradient(145deg, ${BRAND_GREEN} 0%, ${BRAND_GREEN_DARK} 100%); padding: 35px 40px; text-align: center; box-shadow: 0 4px 12px rgba(45, 122, 46, 0.15);">
           ${logoHtml}
-          <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; margin: 10px 0 5px 0;">
+          <h1 style="font-family: 'Raleway', sans-serif; color: #ffffff; font-size: 26px; font-weight: 700; margin: 12px 0 6px 0; letter-spacing: 0.5px;">
             ${reportTitle}
           </h1>
-          <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">
+          <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0; font-weight: 500;">
             ${reportDate}
           </p>
         </div>
 
         <!-- Greeting -->
-        <div style="padding: 20px 40px;">
-          <p style="color: ${TEXT_GRAY}; font-size: 15px; line-height: 24px; margin: 0 0 10px 0;">
-            Hello ${contactName || customerName},
+        <div style="padding: 25px 40px;">
+          <p style="color: ${TEXT_DARK}; font-size: 16px; line-height: 26px; margin: 0 0 12px 0; font-weight: 500;">
+            Dear ${contactName || customerName},
           </p>
           <p style="color: ${TEXT_GRAY}; font-size: 15px; line-height: 24px; margin: 0;">
-            Here's your ${reportFrequency} fuel monitoring report for <strong>${customerName}</strong>.
+            Please find your ${reportFrequency} fuel monitoring report for <strong>${customerName}</strong> below.
           </p>
         </div>
 
         <!-- Executive Summary -->
-        <div style="padding: 20px 40px; background-color: ${BG_GRAY};">
-          <h2 style="color: ${TEXT_DARK}; font-size: 20px; font-weight: bold; margin: 0 0 15px 0;">
+        <div style="padding: 25px 40px; background-color: ${BG_GRAY};">
+          <h2 style="font-family: 'Raleway', sans-serif; color: ${TEXT_DARK}; font-size: 20px; font-weight: 700; margin: 0 0 18px 0;">
             📈 Summary at a Glance
           </h2>
 
@@ -473,9 +539,9 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
         </div>
 
         <!-- Tank Details -->
-        <div style="padding: 20px 40px;">
-          <h2 style="color: ${TEXT_DARK}; font-size: 20px; font-weight: bold; margin: 0 0 15px 0;">
-            🛢️ Tank Status Details
+        <div style="padding: 25px 40px;">
+          <h2 style="font-family: 'Raleway', sans-serif; color: ${TEXT_DARK}; font-size: 20px; font-weight: 700; margin: 0 0 18px 0;">
+            Tank Status Details
           </h2>
           ${tankCardsHtml}
         </div>
@@ -590,7 +656,9 @@ export function generateAgBotEmailTextV2(data: AgBotEmailDataV2): string {
                 : 'Usage data pending';
 
             const consumption24hText = analytics
-              ? `\n     24h usage: ${formatNumber(analytics.consumption_24h_litres)} L ${analytics.trend_indicator} (${analytics.consumption_24h_pct.toFixed(1)}%)`
+              ? `\n     24h usage: ${formatNumber(analytics.consumption_24h_litres)} L ${analytics.trend_indicator} (${analytics.consumption_24h_pct.toFixed(1)}%)
+       vs Yesterday: ${formatComparison(analytics.vs_yesterday_pct)}
+       vs 7-Day Avg: ${formatComparison(analytics.vs_7d_avg_pct)}`
               : '';
 
             const sparkline = analytics ? `\n     7d trend: ${generateAsciiSparkline(analytics.sparkline_7d)}` : '';
@@ -639,9 +707,9 @@ ${reportTitle}
 ${reportDate}
 ========================================
 
-Hello ${contactName || customerName},
+Dear ${contactName || customerName},
 
-Here's your ${reportFrequency} fuel monitoring report for ${customerName}.
+Please find your ${reportFrequency} fuel monitoring report for ${customerName} below.
 
 ----------------------------------------
 SUMMARY AT A GLANCE

@@ -276,7 +276,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           contactEmail: typedContact.contact_email,
           reportFrequency: frequency as 'daily' | 'weekly' | 'monthly',
           unsubscribeToken,
-          logoUrl: undefined, // TODO: Add logo URL when hosted
+          logoUrl: 'https://www.greatsouthernfuels.com.au/wp-content/uploads/2024/08/9d8131_1317ed20e5274adc9fd15fe2196d2cb8mv2.webp',
         }
       );
       emailHtml = html;
