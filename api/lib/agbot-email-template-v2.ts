@@ -716,10 +716,10 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                           Automated ${reportFrequency} report from your Fuel Monitoring System
                         </p>
                         <p style="color: ${TEXT_DARK}; font-size: 13px; font-weight: 600; margin: 0 0 8px 0;">
-                          Powered by Great Southern Fuels
+                          Powered by TankAlert
                         </p>
                         <p style="margin: 0;">
-                          <a href="mailto:support@greatsouthernfuel.com.au" style="color: ${BRAND_GREEN}; font-size: 12px; text-decoration: none;">support@greatsouthernfuel.com.au</a>
+                          <a href="mailto:hayden@stevemacs.com.au" style="color: ${BRAND_GREEN}; font-size: 12px; text-decoration: none;">hayden@stevemacs.com.au</a>
                           <span style="color: ${TEXT_LIGHT}; margin: 0 8px;">|</span>
                           <a href="${preferencesLink}" style="color: ${TEXT_MUTED}; font-size: 12px; text-decoration: none;">${preferencesText}</a>
                         </p>
@@ -911,10 +911,10 @@ ${alertText}${fleetAnalyticsText}
 ----------------------------------------
 
 This is an automated ${reportFrequency} report from your Fuel Monitoring System.
-Powered by Great Southern Fuels
+Powered by TankAlert
 
 For support, contact us at:
-support@greatsouthernfuel.com.au
+hayden@stevemacs.com.au
 ${unsubscribeText}
 
 ========================================

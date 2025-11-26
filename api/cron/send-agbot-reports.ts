@@ -359,7 +359,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           subject: emailSubject,
           html: emailHtml,
           text: emailText,
-          replyTo: 'support@greatsouthernfuel.com.au',
+          replyTo: 'hayden@stevemacs.com.au',
           headers: {
             'List-Unsubscribe': `<${unsubscribeUrl}>`,
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'

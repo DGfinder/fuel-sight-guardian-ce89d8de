@@ -70,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Unsubscribed - AgBot Email Reports</title>
+        <title>Unsubscribed - TankAlert Reports</title>
         <style>
           body {
             margin: 0;
@@ -139,7 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         <div class="container">
           <div class="icon">✓</div>
           <h1>Successfully Unsubscribed</h1>
-          <p>You have been unsubscribed from AgBot daily email reports for <strong>${result.customer}</strong>.</p>
+          <p>You have been unsubscribed from TankAlert reports for <strong>${result.customer}</strong>.</p>
           <div class="email">${result.email}</div>
           <p>You will no longer receive automated tank monitoring reports at this email address.</p>
           <a href="/email/preferences?token=${encodeURIComponent(token)}" class="button">
@@ -147,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           </a>
           <div class="footer">
             <p>Changed your mind? You can re-enable emails from the preferences page.</p>
-            <p>For support, contact <a href="mailto:support@greatsouthernfuel.com.au" style="color: #0ea5e9;">support@greatsouthernfuel.com.au</a></p>
+            <p>For support, contact <a href="mailto:hayden@stevemacs.com.au" style="color: #0ea5e9;">hayden@stevemacs.com.au</a></p>
           </div>
         </div>
       </body>
