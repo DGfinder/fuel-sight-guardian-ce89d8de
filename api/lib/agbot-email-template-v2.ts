@@ -584,9 +584,9 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
             <!-- Main Content Card -->
             <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: ${BG_WHITE}; border-radius: 12px; overflow: hidden; box-shadow: ${SHADOW_LG};">
 
-              <!-- Premium Header -->
+              <!-- Premium Header (solid color for Outlook compatibility) -->
               <tr>
-                <td style="background: linear-gradient(135deg, ${BRAND_GREEN} 0%, ${BRAND_GREEN_DARK} 100%); padding: 32px 40px; text-align: center;">
+                <td style="background-color: ${BRAND_GREEN}; padding: 32px 40px; text-align: center;">
                   ${logoHtml}
                   <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 16px 0 8px 0; letter-spacing: 0.3px;">
                     ${reportTitle}
@@ -624,13 +624,13 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                     </tr>
                   </table>
 
-                  <!-- Metrics Grid -->
+                  <!-- Metrics Grid - unified dark colors for professionalism -->
                   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${BG_LIGHT}; border-radius: 10px; overflow: hidden;">
                     <tr>
                       <!-- Primary Metric - Current Fuel Level -->
                       <td style="width: 50%; padding: 20px; border-right: 1px solid ${BORDER_SUBTLE}; border-bottom: 1px solid ${BORDER_SUBTLE};">
                         <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Current Level</p>
-                        <p style="font-size: 28px; font-weight: 700; color: ${FUEL_BOX_VALUE}; margin: 0; line-height: 1;">
+                        <p style="font-size: 28px; font-weight: 700; color: ${TEXT_DARK}; margin: 0; line-height: 1;">
                           ${formatNumber(totalCurrentLitres)}
                           <span style="font-size: 14px; font-weight: 500; color: ${TEXT_MUTED};">L</span>
                         </p>
@@ -641,7 +641,7 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                       <!-- 24h Usage -->
                       <td style="width: 50%; padding: 20px; border-bottom: 1px solid ${BORDER_SUBTLE};">
                         <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">24h Usage</p>
-                        <p style="font-size: 28px; font-weight: 700; color: ${hasFleetData ? BRAND_GREEN : TEXT_MUTED}; margin: 0; line-height: 1;">
+                        <p style="font-size: 24px; font-weight: 600; color: ${hasFleetData ? TEXT_DARK : TEXT_MUTED}; margin: 0; line-height: 1;">
                           ${hasFleetData ? formatNumber(consumption24h) : '—'}
                           <span style="font-size: 14px; font-weight: 500; color: ${TEXT_MUTED};">${hasFleetData ? 'L' : ''}</span>
                         </p>
@@ -670,7 +670,7 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                       <!-- Refill Available -->
                       <td style="width: 50%; padding: 16px 20px;">
                         <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Refill Available</p>
-                        <p style="font-size: 22px; font-weight: 700; color: ${BRAND_GREEN}; margin: 0; line-height: 1;">
+                        <p style="font-size: 20px; font-weight: 600; color: ${TEXT_DARK}; margin: 0; line-height: 1;">
                           ${formatNumber(totalRefillCapacity)}
                           <span style="font-size: 12px; font-weight: 400; color: ${TEXT_MUTED};">L</span>
                         </p>
