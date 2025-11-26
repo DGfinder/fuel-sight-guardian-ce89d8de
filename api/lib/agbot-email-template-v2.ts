@@ -217,10 +217,22 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
   const consumption7d = fleetSummary?.total_consumption_7d || 0;
   const consumption30d = fleetSummary?.total_consumption_30d;
 
-  // Refills needed in next 3 days
-  const refillsNeeded = locations.filter(
-    (l) => l.asset_days_remaining !== null && l.asset_days_remaining <= 3
-  ).length;
+  // Total current fuel level across all tanks
+  const totalCurrentLitres = locations.reduce(
+    (sum, l) => sum + (l.asset_reported_litres || 0),
+    0
+  );
+
+  // Average fill percentage
+  const avgFillPct = totalTanks > 0
+    ? locations.reduce((sum, l) => sum + l.latest_calibrated_fill_percentage, 0) / totalTanks
+    : 0;
+
+  // Total refill capacity available
+  const totalRefillCapacity = locations.reduce(
+    (sum, l) => sum + (l.asset_refill_capacity_litres || 0),
+    0
+  );
 
   // Sort locations by priority (critical first, then low fuel, then by percentage)
   const sortedLocations = [...locations].sort((a, b) => {
@@ -615,18 +627,24 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                   <!-- Metrics Grid -->
                   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${BG_LIGHT}; border-radius: 10px; overflow: hidden;">
                     <tr>
-                      <!-- Primary Metric - 24h Usage -->
+                      <!-- Primary Metric - Current Fuel Level -->
                       <td style="width: 50%; padding: 20px; border-right: 1px solid ${BORDER_SUBTLE}; border-bottom: 1px solid ${BORDER_SUBTLE};">
+                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Current Level</p>
+                        <p style="font-size: 28px; font-weight: 700; color: ${FUEL_BOX_VALUE}; margin: 0; line-height: 1;">
+                          ${formatNumber(totalCurrentLitres)}
+                          <span style="font-size: 14px; font-weight: 500; color: ${TEXT_MUTED};">L</span>
+                        </p>
+                        <p style="font-size: 12px; color: ${TEXT_MUTED}; margin: 4px 0 0 0;">
+                          ${avgFillPct.toFixed(0)}% avg across ${totalTanks} tank${totalTanks !== 1 ? 's' : ''}
+                        </p>
+                      </td>
+                      <!-- 24h Usage -->
+                      <td style="width: 50%; padding: 20px; border-bottom: 1px solid ${BORDER_SUBTLE};">
                         <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">24h Usage</p>
                         <p style="font-size: 28px; font-weight: 700; color: ${hasFleetData ? BRAND_GREEN : TEXT_MUTED}; margin: 0; line-height: 1;">
                           ${hasFleetData ? formatNumber(consumption24h) : '—'}
                           <span style="font-size: 14px; font-weight: 500; color: ${TEXT_MUTED};">${hasFleetData ? 'L' : ''}</span>
                         </p>
-                      </td>
-                      <!-- Total Tanks -->
-                      <td style="width: 50%; padding: 20px; border-bottom: 1px solid ${BORDER_SUBTLE};">
-                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Total Tanks</p>
-                        <p style="font-size: 28px; font-weight: 700; color: ${BRAND_GREEN}; margin: 0; line-height: 1;">${totalTanks}</p>
                       </td>
                     </tr>
                     <tr>
@@ -649,12 +667,12 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                           </tr>
                         </table>
                       </td>
-                      <!-- Refills Needed -->
+                      <!-- Refill Available -->
                       <td style="width: 50%; padding: 16px 20px;">
-                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Refills Needed</p>
-                        <p style="font-size: 22px; font-weight: 700; color: ${refillsNeeded > 0 ? RED : BRAND_GREEN}; margin: 0; line-height: 1;">
-                          ${refillsNeeded}
-                          <span style="font-size: 12px; font-weight: 400; color: ${TEXT_MUTED};">in 3 days</span>
+                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Refill Available</p>
+                        <p style="font-size: 22px; font-weight: 700; color: ${BRAND_GREEN}; margin: 0; line-height: 1;">
+                          ${formatNumber(totalRefillCapacity)}
+                          <span style="font-size: 12px; font-weight: 400; color: ${TEXT_MUTED};">L</span>
                         </p>
                       </td>
                     </tr>
@@ -754,9 +772,22 @@ export function generateAgBotEmailTextV2(data: AgBotEmailDataV2): string {
   const consumption24h = fleetSummary?.total_consumption_24h || 0;
   const consumption7d = fleetSummary?.total_consumption_7d || 0;
 
-  const refillsNeeded = locations.filter(
-    (l) => l.asset_days_remaining !== null && l.asset_days_remaining <= 3
-  ).length;
+  // Total current fuel level across all tanks
+  const totalCurrentLitres = locations.reduce(
+    (sum, l) => sum + (l.asset_reported_litres || 0),
+    0
+  );
+
+  // Average fill percentage
+  const avgFillPct = totalTanks > 0
+    ? locations.reduce((sum, l) => sum + l.latest_calibrated_fill_percentage, 0) / totalTanks
+    : 0;
+
+  // Total refill capacity available
+  const totalRefillCapacity = locations.reduce(
+    (sum, l) => sum + (l.asset_refill_capacity_litres || 0),
+    0
+  );
 
   // Sort locations
   const sortedLocations = [...locations].sort((a, b) => {
@@ -865,13 +896,12 @@ Please find your ${reportFrequency} fuel monitoring report for ${customerName} b
 ----------------------------------------
 SUMMARY AT A GLANCE
 ----------------------------------------
+Current Level:   ${formatNumber(totalCurrentLitres)} L (${avgFillPct.toFixed(0)}% avg)
 24h Fuel Usage:  ${formatNumber(consumption24h)} L
-7d Fuel Usage:   ${formatNumber(consumption7d)} L
-Total Tanks:     ${totalTanks}
-Online:          ${onlineTanks}
+Refill Available: ${formatNumber(totalRefillCapacity)} L
+Total Tanks:     ${totalTanks} (${onlineTanks} online)
 Low Fuel (<30%): ${lowFuelTanks}
 Critical:        ${criticalTanks}
-Refills Needed:  ${refillsNeeded} (next 3 days)
 
 ----------------------------------------
 TANK STATUS DETAILS
