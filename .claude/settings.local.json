@@ -4,7 +4,8 @@
       "Read(//c/Users/HaydenHamilton/.cursor/**)",
       "mcp__supabase__execute_sql",
       "Bash(cut:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

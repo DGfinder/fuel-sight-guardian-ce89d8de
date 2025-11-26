@@ -1,104 +1,11 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
-import React from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { useIsMobile } from "@/hooks/use-mobile";
-
-const SETTINGS_SECTIONS = [
-  { key: "account", label: "Account Settings" },
-  { key: "preferences", label: "Preferences" },
-  { key: "notifications", label: "Notifications" },
-  { key: "user-management", label: "User Management", adminOnly: true },
-  { key: "permissions", label: "Permissions Summary", adminOrScheduler: true },
-  { key: "api", label: "API / Developer Tools", adminOnly: true },
-  { key: "danger", label: "Danger Zone" },
-];
+import { Button } from "@/components/ui/button";
+import { Home, ArrowLeft, HelpCircle } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const NotFound = () => {
   const location = useLocation();
-  const isMobile = useIsMobile();
-
-  // Filter sections based on RBAC
-  const visibleSections = SETTINGS_SECTIONS.filter(section => {
-    if (section.adminOnly) return false;
-    if (section.adminOrScheduler) return false;
-    return true;
-  });
-
-  // Section content placeholders
-  const sectionContent = {
-    account: (
-      <div>
-        <h2 className="font-semibold text-lg mb-2">Account Settings</h2>
-        <div className="space-y-2">
-          <div>Full Name: <span className="font-mono">[Editable]</span></div>
-          <div>Email: <span className="font-mono">[Read-only]</span></div>
-          <div>Role: <span className="font-mono">[Role]</span></div>
-          <div>Depot Access: <span className="font-mono">[List]</span></div>
-          <div>[Request depot change button if allowed]</div>
-        </div>
-      </div>
-    ),
-    preferences: (
-      <div>
-        <h2 className="font-semibold text-lg mb-2">Preferences</h2>
-        <div className="space-y-2">
-          <div>Theme: [Light / Dark / System]</div>
-          <div>Default Depot Group: [Dropdown]</div>
-          <div>Default Timezone: [Dropdown]</div>
-        </div>
-      </div>
-    ),
-    notifications: (
-      <div>
-        <h2 className="font-semibold text-lg mb-2">Notifications</h2>
-        <div className="space-y-2">
-          <div>Email Alerts: [Toggles]</div>
-          <div>SMS Alerts: [Toggle]</div>
-          <div>Webhook/Slack Alerts: [Optional]</div>
-        </div>
-      </div>
-    ),
-    "user-management": (
-      <div>
-        <h2 className="font-semibold text-lg mb-2">User Management</h2>
-        <div className="space-y-2">
-          <div>Invite new user [Form]</div>
-          <div>Reset password [Link]</div>
-          <div>Remove/deactivate users [List]</div>
-          <div>Change user roles [Dropdown]</div>
-          <div>Export user list [Button]</div>
-        </div>
-      </div>
-    ),
-    permissions: (
-      <div>
-        <h2 className="font-semibold text-lg mb-2">Permissions Summary</h2>
-        <div>[Role matrix table]</div>
-      </div>
-    ),
-    api: (
-      <div>
-        <h2 className="font-semibold text-lg mb-2">API / Developer Tools</h2>
-        <div className="space-y-2">
-          <div>API token management [Section]</div>
-          <div>Webhook secret [Section]</div>
-          <div>Example queries/docs [Section]</div>
-        </div>
-      </div>
-    ),
-    danger: (
-      <div>
-        <h2 className="font-semibold text-lg mb-2">Danger Zone</h2>
-        <div className="space-y-2">
-          <div>Change password [Button]</div>
-          <div>Delete account [Button, admin-guarded]</div>
-          <div>Download user data [Button]</div>
-        </div>
-      </div>
-    ),
-  };
 
   useEffect(() => {
     console.error(
@@ -108,14 +15,63 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-100 p-4">
+      {/* Logo */}
+      <div className="mb-8">
+        <div className="bg-white p-4 rounded-xl shadow-lg">
+          <img src={logo} alt="Great Southern Fuels" className="h-16 w-auto" />
+        </div>
       </div>
+
+      {/* Error Content */}
+      <div className="text-center max-w-md">
+        <h1 className="font-heading text-8xl font-bold text-[#008457] mb-4">404</h1>
+        <h2 className="font-heading text-2xl font-semibold text-gray-900 mb-2">
+          Page Not Found
+        </h2>
+        <p className="text-gray-600 mb-8">
+          Sorry, we couldn't find the page you're looking for. It may have been moved or doesn't exist.
+        </p>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button
+            asChild
+            className="bg-gradient-to-r from-[#008457] to-[#006b47] hover:from-[#006b47] hover:to-[#005538] text-white shadow-lg"
+          >
+            <Link to="/">
+              <Home className="w-4 h-4 mr-2" />
+              Go to Dashboard
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="border-[#008457] text-[#008457] hover:bg-[#008457]/10"
+          >
+            <Link to="/login">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Login
+            </Link>
+          </Button>
+        </div>
+
+        {/* Help Link */}
+        <div className="mt-8">
+          <a
+            href="mailto:support@greatsouthernfuel.com.au"
+            className="inline-flex items-center text-sm text-gray-500 hover:text-[#008457] transition-colors"
+          >
+            <HelpCircle className="w-4 h-4 mr-1" />
+            Need help? Contact support
+          </a>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <p className="mt-12 text-sm text-gray-500">
+        Powered by <span className="text-[#008457] font-semibold">Great Southern Fuels</span>
+      </p>
     </div>
   );
 };

@@ -1,7 +1,6 @@
 import React from 'react';
 import Sidebar from '@/components/Sidebar';
-import { Badge } from "@/components/ui/badge";
-import { Activity } from "lucide-react";
+import { Footer } from '@/components/Footer';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -11,11 +10,14 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="flex min-h-screen w-full bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+    <div className="flex h-screen w-full bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 overflow-hidden">
       <Sidebar />
-      <main className="flex-1 w-full min-h-screen overflow-auto bg-white dark:bg-gray-900 p-4 ml-0 md:ml-64 z-0">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col ml-0 md:ml-64 overflow-hidden">
+        <main className="flex-1 w-full bg-white dark:bg-gray-900 p-4 z-0 pb-20 md:pb-4 overflow-auto">
+          {children}
+          <Footer className="hidden md:block mt-auto -mx-4 -mb-4 w-[calc(100%+2rem)]" />
+        </main>
+      </div>
     </div>
   );
 }

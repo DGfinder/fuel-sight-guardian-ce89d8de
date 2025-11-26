@@ -258,8 +258,8 @@ export default function DataCentreSidebar() {
             <span className="font-bold text-lg text-white text-center leading-tight tracking-wide">
               Data Centre
             </span>
-            <span className="text-sm font-medium text-blue-400 tracking-wide text-center">
-              Analytics Platform
+            <span className="text-sm font-medium text-[#FEDF19] tracking-wide text-center">
+              Great Southern Fuels
             </span>
           </div>
 
