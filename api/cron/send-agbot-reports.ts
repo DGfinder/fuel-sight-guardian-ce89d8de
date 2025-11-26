@@ -92,16 +92,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Simple authentication for cron job
+  // Authentication for cron job
+  // Vercel crons pass special headers - check for those OR manual Bearer token
+  const isVercelCron = req.headers['x-vercel-signature'] !== undefined ||
+                       (req.headers['user-agent'] as string)?.includes('vercel-cron');
   const authHeader = req.headers.authorization;
   const token = authHeader?.replace('Bearer ', '');
 
-  if (!token || token !== CRON_SECRET) {
+  // Allow if: Vercel cron request OR valid manual Bearer token
+  if (!isVercelCron && (!token || token !== CRON_SECRET)) {
+    console.log('[CRON AUTH] Failed - not Vercel cron and no valid token');
+    console.log('[CRON AUTH] Headers:', JSON.stringify({
+      'user-agent': req.headers['user-agent'],
+      'x-vercel-signature': req.headers['x-vercel-signature'] ? 'present' : 'missing',
+      'authorization': authHeader ? 'present' : 'missing'
+    }));
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Valid cron secret required'
     });
   }
+
+  console.log('[CRON AUTH] Passed - isVercelCron:', isVercelCron, 'hasToken:', !!token);
 
   try {
     const currentDate = new Date();
