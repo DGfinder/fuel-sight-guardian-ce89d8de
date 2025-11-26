@@ -177,6 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               latest_telemetry,
               disabled,
               agbot_assets (
+                id,
                 device_online,
                 asset_profile_water_capacity,
                 asset_daily_consumption,
@@ -210,6 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               latest_calibrated_fill_percentage,
               latest_telemetry,
               agbot_assets (
+                id,
                 device_online,
                 asset_profile_water_capacity,
                 asset_daily_consumption,
@@ -260,6 +262,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const asset = loc.agbot_assets?.[0] || {}; // Take first asset for simplicity
           return {
             location_id: loc.location_id || 'Unknown',
+            asset_id: asset.id || null, // Asset UUID for querying readings history
             address1: loc.address1 || 'Unknown Location',
             latest_calibrated_fill_percentage: loc.latest_calibrated_fill_percentage || 0,
             latest_telemetry: loc.latest_telemetry,

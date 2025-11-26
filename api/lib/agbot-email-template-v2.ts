@@ -14,21 +14,41 @@ import {
   getTrendEmoji,
 } from './agbot-chart-generator.js';
 
-// Brand Colors - Great Southern Fuels
+// Brand Colors - Great Southern Fuels (Premium Corporate Palette)
 const BRAND_GREEN = '#2d7a2e';
-const BRAND_GREEN_LIGHT = '#4a9d4c';
+const BRAND_GREEN_LIGHT = '#3d8b3e';
 const BRAND_GREEN_DARK = '#1f5620';
-const TEXT_DARK = '#1f2937';
-const TEXT_GRAY = '#6b7280';
-const TEXT_LIGHT = '#9ca3af';
-const BG_GRAY = '#f9fafb';
-const BORDER_GRAY = '#e5e7eb';
+const BRAND_GREEN_SOFT = '#e8f5e9'; // Subtle green tint for backgrounds
+
+// Premium Typography Colors
+const TEXT_DARK = '#1a1a2e';       // Deeper, more refined dark
+const TEXT_SECONDARY = '#4a5568';  // Softer secondary text
+const TEXT_MUTED = '#718096';      // Muted for tertiary info
+const TEXT_LIGHT = '#a0aec0';      // Light accents
+
+// Premium Background & Border
+const BG_WHITE = '#ffffff';
+const BG_SUBTLE = '#f8fafc';       // Very subtle gray
+const BG_LIGHT = '#f1f5f9';        // Light section backgrounds
+const BORDER_LIGHT = '#e2e8f0';    // Refined borders
+const BORDER_SUBTLE = '#edf2f7';   // Very subtle dividers
+
+// Status Colors (refined)
 const RED = '#dc2626';
+const RED_SOFT = '#fef2f2';
 const AMBER = '#d97706';
+const AMBER_SOFT = '#fffbeb';
 const GREEN_STATUS = '#059669';
+const GREEN_STATUS_SOFT = '#ecfdf5';
+
+// Shadows
+const SHADOW_SM = '0 1px 2px rgba(0,0,0,0.04)';
+const SHADOW_MD = '0 2px 8px rgba(0,0,0,0.06)';
+const SHADOW_LG = '0 4px 12px rgba(0,0,0,0.08)';
 
 export interface AgBotLocationV2 {
   location_id: string;
+  asset_id?: string | null; // Asset UUID for querying readings history
   address1: string;
   latest_calibrated_fill_percentage: number;
   asset_profile_water_capacity: number | null;
@@ -70,6 +90,12 @@ function formatLastSeen(timestamp: string): string {
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
+
+    // Handle future timestamps (timezone issues) - treat as just now
+    if (diffMs < 0) {
+      return 'Just now';
+    }
+
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
@@ -99,16 +125,16 @@ function formatNumber(num: number): string {
 function getComparisonColor(pct: number): string {
   if (pct > 5) return RED;           // Using more fuel (warning)
   if (pct < -5) return GREEN_STATUS; // Using less fuel (good)
-  return TEXT_GRAY;                   // Stable
+  return TEXT_MUTED;                  // Stable
 }
 
 /**
  * Get background color for comparison badge
  */
 function getComparisonBgColor(pct: number): string {
-  if (pct > 5) return '#fef2f2';   // Light red
-  if (pct < -5) return '#f0fdf4';  // Light green
-  return '#f9fafb';                 // Light gray
+  if (pct > 5) return RED_SOFT;     // Light red
+  if (pct < -5) return GREEN_STATUS_SOFT; // Light green
+  return BG_SUBTLE;                 // Light gray
 }
 
 /**
@@ -117,7 +143,7 @@ function getComparisonBgColor(pct: number): string {
 function getComparisonBorderColor(pct: number): string {
   if (pct > 5) return '#fecaca';   // Red border
   if (pct < -5) return '#bbf7d0';  // Green border
-  return BORDER_GRAY;               // Gray border
+  return BORDER_LIGHT;              // Gray border
 }
 
 /**
@@ -206,12 +232,11 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
     return a.latest_calibrated_fill_percentage - b.latest_calibrated_fill_percentage;
   });
 
-  // Logo section
+  // Logo section - Premium styling
   const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" alt="Great Southern Fuels" style="height: 60px; margin-bottom: 10px;" />`
-    : `<div style="background-color: ${BRAND_GREEN}; border-radius: 30px; padding: 8px 20px; display: inline-block;">
-         <p style="color: white; font-size: 16px; font-weight: bold; margin: 0; letter-spacing: 0.5px;">GREAT SOUTHERN FUELS</p>
-         <p style="color: white; font-size: 11px; margin: 0; text-align: center;">1800 GSFUELS</p>
+    ? `<img src="${logoUrl}" alt="Great Southern Fuels" style="height: 56px; margin-bottom: 8px; filter: brightness(1.05);" />`
+    : `<div style="display: inline-block; margin-bottom: 8px;">
+         <p style="color: white; font-size: 22px; font-weight: 700; margin: 0; letter-spacing: 1.5px; text-transform: uppercase;">Great Southern Fuels</p>
        </div>`;
 
   // Generate tank cards HTML
@@ -244,66 +269,70 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
               ? `<strong>${formatNumber(currentLitres)} L</strong> of <strong>${(capacityLitres / 1000).toFixed(0)}k L</strong>`
               : `${formatNumber(currentLitres)} L remaining`;
 
-            // 24hr consumption with comparison badges - ENHANCED
-            const consumption24hHtml = analytics
-              ? `<div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid ${BRAND_GREEN}; padding: 14px 16px; margin: 12px 0; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                   <!-- Section Header -->
-                   <p style="font-size: 11px; color: ${BRAND_GREEN_DARK}; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700;">
-                     24-Hour Fuel Usage
-                   </p>
+            // Check if we have meaningful analytics data
+            const hasValidAnalytics = analytics &&
+              (analytics.consumption_24h_litres > 0 || analytics.consumption_7d_litres > 0);
 
-                   <!-- Primary Value -->
-                   <p style="font-size: 26px; font-weight: bold; color: ${BRAND_GREEN_DARK}; margin: 0 0 12px 0; line-height: 1.1;">
-                     ${formatNumber(analytics.consumption_24h_litres)} L
-                     <span style="font-size: 14px; font-weight: 500; color: ${TEXT_GRAY};">
-                       (${analytics.consumption_24h_pct.toFixed(1)}% of capacity)
-                     </span>
-                   </p>
+            // 24hr consumption with comparison badges - Premium styling (only show if we have data)
+            const consumption24hHtml = hasValidAnalytics
+              ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px; background-color: ${BRAND_GREEN_SOFT}; border-radius: 8px; overflow: hidden;">
+                   <tr>
+                     <td style="padding: 16px;">
+                       <!-- Header -->
+                       <p style="font-size: 11px; color: ${BRAND_GREEN}; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;">
+                         24-Hour Usage
+                       </p>
 
-                   <!-- Comparison Badges -->
-                   <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: separate; border-spacing: 8px 0;">
-                     <tr>
-                       <!-- vs Yesterday Badge -->
-                       <td style="width: 48%; padding: 10px 12px; background: ${getComparisonBgColor(analytics.vs_yesterday_pct)}; border-radius: 6px; border: 1px solid ${getComparisonBorderColor(analytics.vs_yesterday_pct)};">
-                         <p style="font-size: 10px; color: ${TEXT_GRAY}; margin: 0 0 3px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
-                           vs Yesterday
-                         </p>
-                         <p style="font-size: 18px; font-weight: bold; color: ${getComparisonColor(analytics.vs_yesterday_pct)}; margin: 0; line-height: 1.2;">
-                           ${formatComparison(analytics.vs_yesterday_pct)}
-                         </p>
-                       </td>
-                       <td width="4%"></td>
-                       <!-- vs 7-Day Avg Badge -->
-                       <td style="width: 48%; padding: 10px 12px; background: ${getComparisonBgColor(analytics.vs_7d_avg_pct)}; border-radius: 6px; border: 1px solid ${getComparisonBorderColor(analytics.vs_7d_avg_pct)};">
-                         <p style="font-size: 10px; color: ${TEXT_GRAY}; margin: 0 0 3px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
-                           vs 7-Day Avg
-                         </p>
-                         <p style="font-size: 18px; font-weight: bold; color: ${getComparisonColor(analytics.vs_7d_avg_pct)}; margin: 0; line-height: 1.2;">
-                           ${formatComparison(analytics.vs_7d_avg_pct)}
-                         </p>
-                       </td>
-                     </tr>
-                   </table>
-                 </div>`
+                       <!-- Value -->
+                       <p style="font-size: 22px; font-weight: 700; color: ${BRAND_GREEN_DARK}; margin: 0 0 12px 0; line-height: 1;">
+                         ${formatNumber(analytics.consumption_24h_litres)} L
+                         <span style="font-size: 13px; font-weight: 400; color: ${TEXT_MUTED};">
+                           (${analytics.consumption_24h_pct.toFixed(1)}%)
+                         </span>
+                       </p>
+
+                       <!-- Comparison Badges -->
+                       <table width="100%" cellpadding="0" cellspacing="0">
+                         <tr>
+                           <td style="width: 48%; padding: 8px 12px; background: ${BG_WHITE}; border-radius: 6px;">
+                             <p style="font-size: 10px; color: ${TEXT_MUTED}; margin: 0 0 2px 0; text-transform: uppercase; letter-spacing: 0.4px;">vs Yesterday</p>
+                             <p style="font-size: 15px; font-weight: 600; color: ${getComparisonColor(analytics.vs_yesterday_pct)}; margin: 0;">
+                               ${formatComparison(analytics.vs_yesterday_pct)}
+                             </p>
+                           </td>
+                           <td width="4%"></td>
+                           <td style="width: 48%; padding: 8px 12px; background: ${BG_WHITE}; border-radius: 6px;">
+                             <p style="font-size: 10px; color: ${TEXT_MUTED}; margin: 0 0 2px 0; text-transform: uppercase; letter-spacing: 0.4px;">vs 7-Day Avg</p>
+                             <p style="font-size: 15px; font-weight: 600; color: ${getComparisonColor(analytics.vs_7d_avg_pct)}; margin: 0;">
+                               ${formatComparison(analytics.vs_7d_avg_pct)}
+                             </p>
+                           </td>
+                         </tr>
+                       </table>
+                     </td>
+                   </tr>
+                 </table>`
               : '';
 
-            // Weekly data (for weekly/monthly reports)
+            // Weekly data (for weekly/monthly reports) - only show if we have valid data
             const weeklyDataHtml =
-              analytics && showCharts
-                ? `<p style="font-size: 12px; color: ${TEXT_GRAY}; margin: 5px 0;">
+              hasValidAnalytics && showCharts
+                ? `<p style="font-size: 12px; color: ${TEXT_SECONDARY}; margin: 5px 0;">
                      7-day usage: ${formatNumber(analytics.consumption_7d_litres)} L (${analytics.consumption_7d_pct.toFixed(1)}%)
                    </p>
                    <img src="${generateSparklineUrl(analytics.sparkline_7d, BRAND_GREEN)}" alt="7-day trend" style="margin: 5px 0;" />`
-                : analytics
-                ? `<p style="font-size: 12px; color: ${TEXT_GRAY}; margin: 5px 0; font-style: italic;">
+                : hasValidAnalytics
+                ? `<p style="font-size: 12px; color: ${TEXT_SECONDARY}; margin: 5px 0; font-style: italic;">
                      Avg daily: ~${formatNumber(analytics.daily_avg_consumption_litres)} L/day
                    </p>`
                 : '';
 
             // Days remaining with refill date
             let daysRemainingText = '';
-            if (analytics?.days_remaining !== null && analytics?.days_remaining !== undefined) {
-              const days = Math.round(analytics.days_remaining);
+            // Use asset_days_remaining from location if analytics days_remaining not available
+            const daysRemaining = analytics?.days_remaining ?? location.asset_days_remaining;
+            if (daysRemaining !== null && daysRemaining !== undefined) {
+              const days = Math.round(daysRemaining);
               if (days === 0) {
                 daysRemainingText = '⚠️ Running low';
               } else if (days === 1) {
@@ -312,7 +341,7 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                 daysRemainingText = 'Plenty of fuel';
               } else {
                 daysRemainingText = `~${days} days left`;
-                if (analytics.estimated_refill_date) {
+                if (analytics?.estimated_refill_date) {
                   const refillDate = new Date(analytics.estimated_refill_date);
                   daysRemainingText += ` (refill ~${refillDate.toLocaleDateString('en-AU', {
                     month: 'short',
@@ -321,13 +350,14 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                 }
               }
             } else {
-              daysRemainingText = 'Usage data pending';
+              // Only show "pending" if we don't have consumption data either
+              daysRemainingText = hasValidAnalytics ? '' : '';
             }
 
             // Refill capacity
             const refillHtml =
               location.asset_refill_capacity_litres && location.asset_refill_capacity_litres > 0
-                ? `<p style="font-size: 12px; color: ${TEXT_GRAY}; margin: 5px 0;">
+                ? `<p style="font-size: 12px; color: ${TEXT_SECONDARY}; margin: 5px 0;">
                      Refill needed: ~${formatNumber(location.asset_refill_capacity_litres)} L
                    </p>`
                 : '';
@@ -344,93 +374,144 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
             const fuelType = location.asset_profile_commodity || '';
             const fuelTypeHtml = fuelType ? `<span style="color: ${TEXT_LIGHT};"> • ${fuelType}</span>` : '';
 
-            return `
-              <div style="padding: 18px; margin-bottom: 14px; background-color: white; border-radius: 10px; border: 1px solid ${BORDER_GRAY}; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-                <table width="100%" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td style="width: 60%;">
-                      <p style="font-size: 18px; font-weight: bold; color: ${TEXT_DARK}; margin: 0 0 6px 0;">
-                        ${location.address1 || location.location_id}
-                      </p>
-                      <p style="font-size: 13px; color: ${TEXT_GRAY}; margin: 0 0 4px 0;">
-                        ${onlineStatus}${fuelTypeHtml}
-                      </p>
-                      <p style="font-size: 15px; color: ${TEXT_DARK}; margin: 4px 0;">
-                        ${capacityText}
-                      </p>
-                    </td>
-                    <td style="width: 40%; text-align: right; vertical-align: top;">
-                      <p style="font-size: 36px; font-weight: bold; color: ${fuelColor}; margin: 0; line-height: 1;">
-                        ${location.latest_calibrated_fill_percentage?.toFixed(0) || 0}%
-                      </p>
-                      <p style="font-size: 12px; color: ${TEXT_GRAY}; margin: 4px 0 0 0;">
-                        ${daysRemainingText}
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-                ${consumption24hHtml}
-                ${weeklyDataHtml}
-                ${refillHtml}
-                ${batteryHtml}
-                <p style="font-size: 11px; color: ${TEXT_LIGHT}; margin: 10px 0 0 0; border-top: 1px solid ${BORDER_GRAY}; padding-top: 10px;">
-                  Updated ${formatLastSeen(location.latest_telemetry)}
-                </p>
+            // Build fuel level bar
+            const fillPct = location.latest_calibrated_fill_percentage || 0;
+            const fuelLevelBar = `
+              <div style="background-color: ${BORDER_LIGHT}; height: 8px; border-radius: 4px; margin-top: 8px; overflow: hidden;">
+                <div style="background-color: ${fuelColor}; height: 100%; width: ${Math.min(100, fillPct)}%; border-radius: 4px;"></div>
               </div>
+            `;
+
+            return `
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 12px; background-color: ${BG_WHITE}; border-radius: 10px; border: 1px solid ${BORDER_LIGHT}; overflow: hidden;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <!-- Tank Header -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="width: 65%; vertical-align: top;">
+                          <p style="font-size: 16px; font-weight: 600; color: ${TEXT_DARK}; margin: 0 0 4px 0; line-height: 1.3;">
+                            ${location.address1 || location.location_id}
+                          </p>
+                          <p style="font-size: 12px; color: ${TEXT_MUTED}; margin: 0;">
+                            ${location.device_online ? `<span style="color: ${GREEN_STATUS};">●</span> Online` : `<span style="color: ${TEXT_LIGHT};">●</span> Offline`}${fuelType ? ` · ${fuelType}` : ''}
+                          </p>
+                        </td>
+                        <td style="width: 35%; text-align: right; vertical-align: top;">
+                          <p style="font-size: 32px; font-weight: 700; color: ${fuelColor}; margin: 0; line-height: 1;">
+                            ${fillPct.toFixed(0)}%
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Fuel Level Bar -->
+                    ${fuelLevelBar}
+
+                    <!-- Capacity Info -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 12px;">
+                      <tr>
+                        <td>
+                          <p style="font-size: 14px; color: ${TEXT_DARK}; margin: 0;">
+                            ${capacityText}
+                          </p>
+                          ${daysRemainingText ? `<p style="font-size: 12px; color: ${TEXT_MUTED}; margin: 4px 0 0 0;">${daysRemainingText}</p>` : ''}
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Analytics Section (if available) -->
+                    ${consumption24hHtml}
+                    ${weeklyDataHtml}
+                    ${refillHtml}
+                    ${batteryHtml}
+
+                    <!-- Footer -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid ${BORDER_SUBTLE};">
+                      <tr>
+                        <td>
+                          <p style="font-size: 11px; color: ${TEXT_LIGHT}; margin: 0;">
+                            Updated ${formatLastSeen(location.latest_telemetry)}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             `;
           })
           .join('');
 
-  // Fleet analytics section (for weekly/monthly)
+  // Fleet analytics section (for weekly/monthly) - Premium styling
   const fleetAnalyticsHtml =
     showCharts && tanksAnalytics && tanksAnalytics.length > 0
       ? `
-        <div style="padding: 25px 40px; background-color: ${BG_GRAY};">
-          <h2 style="font-family: 'Raleway', sans-serif; color: ${TEXT_DARK}; font-size: 20px; font-weight: 700; margin: 0 0 18px 0;">
-            Fleet Analytics
-          </h2>
+        <tr>
+          <td style="padding: 0 40px 28px;">
+            <!-- Section Header -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px;">
+              <tr>
+                <td>
+                  <p style="color: ${TEXT_DARK}; font-size: 13px; font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: 0.8px;">
+                    Fleet Analytics
+                  </p>
+                </td>
+              </tr>
+            </table>
 
-          ${
-            fleetSummary
-              ? `
-          <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid ${BORDER_GRAY}; margin-bottom: 15px;">
-            <p style="font-size: 14px; color: ${TEXT_GRAY}; margin: 0 0 10px 0;">
-              Fleet consumption trend: ${getTrendEmoji(fleetSummary.fleet_trend)} <strong>${
-                  fleetSummary.fleet_trend
-                }</strong>
-            </p>
-            <p style="font-size: 14px; color: ${TEXT_GRAY}; margin: 0;">
-              Highest consumer: <strong>${fleetSummary.most_consumed_tank}</strong> (${formatNumber(
-                  fleetSummary.most_consumed_amount
-                )} L in 24h)
-            </p>
-          </div>
-          `
-              : ''
-          }
+            ${
+              fleetSummary
+                ? `
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${BG_LIGHT}; border-radius: 8px; margin-bottom: 16px;">
+              <tr>
+                <td style="padding: 16px;">
+                  <p style="font-size: 13px; color: ${TEXT_SECONDARY}; margin: 0 0 8px 0;">
+                    Fleet trend: <span style="color: ${TEXT_DARK}; font-weight: 600;">${getTrendEmoji(fleetSummary.fleet_trend)} ${fleetSummary.fleet_trend}</span>
+                  </p>
+                  <p style="font-size: 13px; color: ${TEXT_SECONDARY}; margin: 0;">
+                    Top consumer: <span style="color: ${TEXT_DARK}; font-weight: 600;">${fleetSummary.most_consumed_tank}</span> · ${formatNumber(fleetSummary.most_consumed_amount)} L/24h
+                  </p>
+                </td>
+              </tr>
+            </table>
+            `
+                : ''
+            }
 
-          <div style="text-align: center; margin-top: 15px;">
-            <img src="${generateFleetComparisonChartUrl(tanksAnalytics)}" alt="Fleet Comparison" style="max-width: 100%; height: auto; border-radius: 6px;" />
-          </div>
-        </div>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center">
+                  <img src="${generateFleetComparisonChartUrl(tanksAnalytics)}" alt="Fleet Comparison" style="max-width: 100%; height: auto; border-radius: 8px;" />
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
       `
       : '';
 
-  // Critical alert section
+  // Critical alert section - Premium styling
   const alertSectionHtml =
     criticalTanks > 0
       ? `
-    <div style="padding: 15px 40px; background-color: #fef2f2; border-left: 4px solid ${RED}; margin: 20px 40px;">
-      <h3 style="color: ${RED}; font-size: 18px; font-weight: bold; margin: 0 0 10px 0;">
-        ⚠️ Action Required - Low Fuel Alert
-      </h3>
-      <p style="color: #991b1b; font-size: 14px; line-height: 20px; margin: 0;">
-        You have <strong>${criticalTanks}</strong> tank${
-        criticalTanks > 1 ? 's' : ''
-      } at critical levels. Please arrange refilling soon to avoid running out.
-      </p>
-    </div>
-  `
+        <tr>
+          <td style="padding: 0 40px 24px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${RED_SOFT}; border-radius: 8px; border-left: 4px solid ${RED};">
+              <tr>
+                <td style="padding: 16px 20px;">
+                  <p style="color: ${RED}; font-size: 14px; font-weight: 600; margin: 0 0 6px 0;">
+                    Action Required
+                  </p>
+                  <p style="color: #7f1d1d; font-size: 13px; line-height: 1.5; margin: 0;">
+                    ${criticalTanks} tank${criticalTanks > 1 ? 's' : ''} at critical level${criticalTanks > 1 ? 's' : ''}. Please arrange refilling soon.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      `
       : '';
 
   // Unsubscribe link
@@ -440,7 +521,10 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
       ? 'Manage email preferences or unsubscribe'
       : 'Email preferences';
 
-  // Generate complete HTML email
+  // Check if we have valid fleet consumption data
+  const hasFleetData = consumption24h > 0 || consumption7d > 0;
+
+  // Generate complete HTML email - Premium Corporate Design
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -450,127 +534,169 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
       <meta name="color-scheme" content="light">
       <meta name="supported-color-schemes" content="light">
       <title>${reportTitle} - ${reportDate}</title>
-      <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <!--[if mso]>
+      <style type="text/css">
+        body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
+      </style>
+      <![endif]-->
     </head>
-    <body style="margin: 0; padding: 0; background-color: #f6f9fc; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      <div style="background-color: #ffffff; margin: 0 auto; padding: 20px 0; max-width: 600px;">
+    <body style="margin: 0; padding: 0; background-color: ${BG_SUBTLE}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
 
-        <!-- Header -->
-        <div style="background: linear-gradient(145deg, ${BRAND_GREEN} 0%, ${BRAND_GREEN_DARK} 100%); padding: 35px 40px; text-align: center; box-shadow: 0 4px 12px rgba(45, 122, 46, 0.15);">
-          ${logoHtml}
-          <h1 style="font-family: 'Raleway', sans-serif; color: #ffffff; font-size: 26px; font-weight: 700; margin: 12px 0 6px 0; letter-spacing: 0.5px;">
-            ${reportTitle}
-          </h1>
-          <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0; font-weight: 500;">
-            ${reportDate}
-          </p>
-        </div>
+      <!-- Email Container -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${BG_SUBTLE};">
+        <tr>
+          <td align="center" style="padding: 24px 16px;">
 
-        <!-- Greeting -->
-        <div style="padding: 25px 40px;">
-          <p style="color: ${TEXT_DARK}; font-size: 16px; line-height: 26px; margin: 0 0 12px 0; font-weight: 500;">
-            Dear ${contactName || customerName},
-          </p>
-          <p style="color: ${TEXT_GRAY}; font-size: 15px; line-height: 24px; margin: 0;">
-            Please find your ${reportFrequency} fuel monitoring report for <strong>${customerName}</strong> below.
-          </p>
-        </div>
+            <!-- Main Content Card -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: ${BG_WHITE}; border-radius: 12px; overflow: hidden; box-shadow: ${SHADOW_LG};">
 
-        <!-- Executive Summary -->
-        <div style="padding: 25px 40px; background-color: ${BG_GRAY};">
-          <h2 style="font-family: 'Raleway', sans-serif; color: ${TEXT_DARK}; font-size: 20px; font-weight: 700; margin: 0 0 18px 0;">
-            📈 Summary at a Glance
-          </h2>
+              <!-- Premium Header -->
+              <tr>
+                <td style="background: linear-gradient(135deg, ${BRAND_GREEN} 0%, ${BRAND_GREEN_DARK} 100%); padding: 32px 40px; text-align: center;">
+                  ${logoHtml}
+                  <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 16px 0 8px 0; letter-spacing: 0.3px;">
+                    ${reportTitle}
+                  </h1>
+                  <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 0; font-weight: 400;">
+                    ${reportDate}
+                  </p>
+                </td>
+              </tr>
 
-          <!-- Primary Metrics Row -->
-          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 10px;">
-            <tr>
-              <td style="width: 32%; text-align: center; padding: 15px; background-color: #ffffff; border-radius: 8px; border: 1px solid ${BORDER_GRAY};">
-                <p style="font-size: 28px; font-weight: bold; color: ${BRAND_GREEN}; margin: 0; line-height: 1;">${formatNumber(
-    consumption24h
-  )}</p>
-                <p style="font-size: 11px; color: ${TEXT_GRAY}; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 0.5px;">24h Usage (L)</p>
-              </td>
-              <td width="2%"></td>
-              <td style="width: 32%; text-align: center; padding: 15px; background-color: #ffffff; border-radius: 8px; border: 1px solid ${BORDER_GRAY};">
-                <p style="font-size: 28px; font-weight: bold; color: ${BRAND_GREEN}; margin: 0; line-height: 1;">${totalTanks}</p>
-                <p style="font-size: 11px; color: ${TEXT_GRAY}; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 0.5px;">Total Tanks</p>
-              </td>
-              <td width="2%"></td>
-              <td style="width: 32%; text-align: center; padding: 15px; background-color: #ffffff; border-radius: 8px; border: 1px solid ${BORDER_GRAY};">
-                <p style="font-size: 28px; font-weight: bold; color: ${
-                  refillsNeeded > 0 ? RED : BRAND_GREEN
-                }; margin: 0; line-height: 1;">${refillsNeeded}</p>
-                <p style="font-size: 11px; color: ${TEXT_GRAY}; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 0.5px;">Refills Needed</p>
-              </td>
-            </tr>
-          </table>
+              <!-- Greeting Section -->
+              <tr>
+                <td style="padding: 28px 40px 20px;">
+                  <p style="color: ${TEXT_DARK}; font-size: 15px; line-height: 1.6; margin: 0 0 8px 0; font-weight: 500;">
+                    Dear ${contactName || customerName},
+                  </p>
+                  <p style="color: ${TEXT_SECONDARY}; font-size: 14px; line-height: 1.6; margin: 0;">
+                    Here's your ${reportFrequency} fuel monitoring summary for <strong style="color: ${TEXT_DARK};">${customerName}</strong>.
+                  </p>
+                </td>
+              </tr>
 
-          <!-- Secondary Metrics Row -->
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width: 24%; text-align: center; padding: 12px; background-color: #ffffff; border-radius: 8px; border: 1px solid ${BORDER_GRAY};">
-                <p style="font-size: 24px; font-weight: bold; color: ${BRAND_GREEN}; margin: 0;">${onlineTanks}</p>
-                <p style="font-size: 10px; color: ${TEXT_GRAY}; margin: 3px 0 0 0; text-transform: uppercase;">Online</p>
-              </td>
-              <td width="1%"></td>
-              <td style="width: 24%; text-align: center; padding: 12px; background-color: #ffffff; border-radius: 8px; border: 1px solid ${BORDER_GRAY};">
-                <p style="font-size: 24px; font-weight: bold; color: ${
-                  lowFuelTanks > 0 ? AMBER : BRAND_GREEN
-                }; margin: 0;">${lowFuelTanks}</p>
-                <p style="font-size: 10px; color: ${TEXT_GRAY}; margin: 3px 0 0 0; text-transform: uppercase;">Low Fuel</p>
-              </td>
-              <td width="1%"></td>
-              <td style="width: 24%; text-align: center; padding: 12px; background-color: #ffffff; border-radius: 8px; border: 1px solid ${BORDER_GRAY};">
-                <p style="font-size: 24px; font-weight: bold; color: ${
-                  criticalTanks > 0 ? RED : BRAND_GREEN
-                }; margin: 0;">${criticalTanks}</p>
-                <p style="font-size: 10px; color: ${TEXT_GRAY}; margin: 3px 0 0 0; text-transform: uppercase;">Critical</p>
-              </td>
-              <td width="1%"></td>
-              <td style="width: 24%; text-align: center; padding: 12px; background-color: #ffffff; border-radius: 8px; border: 1px solid ${BORDER_GRAY};">
-                <p style="font-size: 24px; font-weight: bold; color: ${BRAND_GREEN}; margin: 0;">${formatNumber(
-    consumption7d
-  )}</p>
-                <p style="font-size: 10px; color: ${TEXT_GRAY}; margin: 3px 0 0 0; text-transform: uppercase;">7d Usage (L)</p>
-              </td>
-            </tr>
-          </table>
-        </div>
+              <!-- Executive Summary Section -->
+              <tr>
+                <td style="padding: 0 40px 28px;">
 
-        <!-- Tank Details -->
-        <div style="padding: 25px 40px;">
-          <h2 style="font-family: 'Raleway', sans-serif; color: ${TEXT_DARK}; font-size: 20px; font-weight: 700; margin: 0 0 18px 0;">
-            Tank Status Details
-          </h2>
-          ${tankCardsHtml}
-        </div>
+                  <!-- Section Header -->
+                  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px;">
+                    <tr>
+                      <td>
+                        <p style="color: ${TEXT_DARK}; font-size: 13px; font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: 0.8px;">
+                          Summary
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
 
-        <!-- Fleet Analytics (weekly/monthly only) -->
-        ${fleetAnalyticsHtml}
+                  <!-- Metrics Grid -->
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${BG_LIGHT}; border-radius: 10px; overflow: hidden;">
+                    <tr>
+                      <!-- Primary Metric - 24h Usage -->
+                      <td style="width: 50%; padding: 20px; border-right: 1px solid ${BORDER_SUBTLE}; border-bottom: 1px solid ${BORDER_SUBTLE};">
+                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">24h Usage</p>
+                        <p style="font-size: 28px; font-weight: 700; color: ${hasFleetData ? BRAND_GREEN : TEXT_MUTED}; margin: 0; line-height: 1;">
+                          ${hasFleetData ? formatNumber(consumption24h) : '—'}
+                          <span style="font-size: 14px; font-weight: 500; color: ${TEXT_MUTED};">${hasFleetData ? 'L' : ''}</span>
+                        </p>
+                      </td>
+                      <!-- Total Tanks -->
+                      <td style="width: 50%; padding: 20px; border-bottom: 1px solid ${BORDER_SUBTLE};">
+                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Total Tanks</p>
+                        <p style="font-size: 28px; font-weight: 700; color: ${BRAND_GREEN}; margin: 0; line-height: 1;">${totalTanks}</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <!-- Online Status -->
+                      <td style="width: 50%; padding: 16px 20px; border-right: 1px solid ${BORDER_SUBTLE};">
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td>
+                              <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Status</p>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <span style="display: inline-block; background-color: ${GREEN_STATUS_SOFT}; color: ${GREEN_STATUS}; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; margin-right: 6px;">
+                                ${onlineTanks} Online
+                              </span>
+                              ${lowFuelTanks > 0 ? `<span style="display: inline-block; background-color: ${AMBER_SOFT}; color: ${AMBER}; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; margin-right: 6px;">${lowFuelTanks} Low</span>` : ''}
+                              ${criticalTanks > 0 ? `<span style="display: inline-block; background-color: ${RED_SOFT}; color: ${RED}; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;">${criticalTanks} Critical</span>` : ''}
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                      <!-- Refills Needed -->
+                      <td style="width: 50%; padding: 16px 20px;">
+                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Refills Needed</p>
+                        <p style="font-size: 22px; font-weight: 700; color: ${refillsNeeded > 0 ? RED : BRAND_GREEN}; margin: 0; line-height: 1;">
+                          ${refillsNeeded}
+                          <span style="font-size: 12px; font-weight: 400; color: ${TEXT_MUTED};">in 3 days</span>
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
 
-        <!-- Alerts Section -->
-        ${alertSectionHtml}
+              <!-- Tank Details Section -->
+              <tr>
+                <td style="padding: 0 40px 28px;">
 
-        <!-- Footer -->
-        <hr style="border: none; border-top: 1px solid ${BORDER_GRAY}; margin: 20px 0;">
-        <div style="padding: 0 40px 30px; text-align: center;">
-          <p style="color: ${TEXT_LIGHT}; font-size: 12px; line-height: 18px; margin: 5px 0;">
-            This is an automated ${reportFrequency} report from your Fuel Monitoring System.
-          </p>
-          <p style="color: ${TEXT_LIGHT}; font-size: 12px; line-height: 18px; margin: 5px 0;">
-            Powered by <strong style="color: ${BRAND_GREEN};">Great Southern Fuels</strong>
-          </p>
-          <p style="color: ${TEXT_LIGHT}; font-size: 12px; line-height: 18px; margin: 5px 0;">
-            For support, contact us at
-            <a href="mailto:support@greatsouthernfuel.com.au" style="color: ${BRAND_GREEN}; text-decoration: underline;">support@greatsouthernfuel.com.au</a>
-          </p>
-          <p style="color: ${TEXT_LIGHT}; font-size: 12px; line-height: 18px; margin: 5px 0;">
-            <a href="${preferencesLink}" style="color: ${BRAND_GREEN}; text-decoration: underline;">${preferencesText}</a>
-          </p>
-        </div>
+                  <!-- Section Header -->
+                  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px;">
+                    <tr>
+                      <td>
+                        <p style="color: ${TEXT_DARK}; font-size: 13px; font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: 0.8px;">
+                          Tank Details
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
 
-      </div>
+                  <!-- Tank Cards -->
+                  ${tankCardsHtml}
+                </td>
+              </tr>
+
+              <!-- Fleet Analytics (weekly/monthly only) -->
+              ${fleetAnalyticsHtml}
+
+              <!-- Alerts Section -->
+              ${alertSectionHtml}
+
+              <!-- Footer -->
+              <tr>
+                <td style="padding: 24px 40px 32px; border-top: 1px solid ${BORDER_SUBTLE};">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center">
+                        <p style="color: ${TEXT_MUTED}; font-size: 12px; line-height: 1.6; margin: 0 0 12px 0;">
+                          Automated ${reportFrequency} report from your Fuel Monitoring System
+                        </p>
+                        <p style="color: ${TEXT_DARK}; font-size: 13px; font-weight: 600; margin: 0 0 8px 0;">
+                          Powered by Great Southern Fuels
+                        </p>
+                        <p style="margin: 0;">
+                          <a href="mailto:support@greatsouthernfuel.com.au" style="color: ${BRAND_GREEN}; font-size: 12px; text-decoration: none;">support@greatsouthernfuel.com.au</a>
+                          <span style="color: ${TEXT_LIGHT}; margin: 0 8px;">|</span>
+                          <a href="${preferencesLink}" style="color: ${TEXT_MUTED}; font-size: 12px; text-decoration: none;">${preferencesText}</a>
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+            </table>
+            <!-- End Main Content Card -->
+
+          </td>
+        </tr>
+      </table>
+      <!-- End Email Container -->
+
     </body>
     </html>
   `.trim();

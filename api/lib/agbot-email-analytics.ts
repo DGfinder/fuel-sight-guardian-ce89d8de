@@ -60,7 +60,7 @@ export interface FleetSummary {
  */
 export async function fetch24HourConsumption(
   supabase: SupabaseClient<Database>,
-  locationId: string
+  assetId: string
 ): Promise<{ litres: number; pct: number }> {
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -68,7 +68,7 @@ export async function fetch24HourConsumption(
   const { data, error } = await supabase
     .from('agbot_readings_history')
     .select('calibrated_fill_percentage, asset_reported_litres, reading_timestamp')
-    .eq('location_id', locationId)
+    .eq('asset_id', assetId)
     .gte('reading_timestamp', twentyFourHoursAgo.toISOString())
     .order('reading_timestamp', { ascending: true });
 
@@ -100,7 +100,7 @@ export async function fetch24HourConsumption(
  */
 export async function fetch7DayConsumption(
   supabase: SupabaseClient<Database>,
-  locationId: string
+  assetId: string
 ): Promise<{ litres: number; pct: number; daily_values: number[] }> {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -108,7 +108,7 @@ export async function fetch7DayConsumption(
   const { data, error } = await supabase
     .from('agbot_readings_history')
     .select('calibrated_fill_percentage, asset_reported_litres, reading_timestamp')
-    .eq('location_id', locationId)
+    .eq('asset_id', assetId)
     .gte('reading_timestamp', sevenDaysAgo.toISOString())
     .order('reading_timestamp', { ascending: true });
 
@@ -165,7 +165,7 @@ export async function fetch7DayConsumption(
  */
 export async function fetch30DayConsumption(
   supabase: SupabaseClient<Database>,
-  locationId: string
+  assetId: string
 ): Promise<{ litres: number; pct: number } | null> {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -173,7 +173,7 @@ export async function fetch30DayConsumption(
   const { data, error } = await supabase
     .from('agbot_readings_history')
     .select('calibrated_fill_percentage, asset_reported_litres, reading_timestamp')
-    .eq('location_id', locationId)
+    .eq('asset_id', assetId)
     .gte('reading_timestamp', thirtyDaysAgo.toISOString())
     .order('reading_timestamp', { ascending: true });
 
@@ -238,6 +238,7 @@ export async function getTankConsumptionAnalytics(
   supabase: SupabaseClient<Database>,
   location: {
     location_id: string;
+    asset_id?: string; // UUID of the asset for querying readings history
     address1: string;
     latest_calibrated_fill_percentage: number;
     asset_profile_water_capacity: number | null;
@@ -246,11 +247,38 @@ export async function getTankConsumptionAnalytics(
     asset_days_remaining: number | null;
   }
 ): Promise<TankConsumptionData> {
-  // Fetch consumption data in parallel
+  // If no asset_id provided, return empty analytics
+  if (!location.asset_id) {
+    return {
+      location_id: location.location_id,
+      tank_name: location.address1,
+      current_level_pct: location.latest_calibrated_fill_percentage,
+      current_litres: location.asset_reported_litres || 0,
+      capacity_litres: location.asset_profile_water_capacity || 0,
+      consumption_24h_litres: 0,
+      consumption_24h_pct: 0,
+      consumption_7d_litres: 0,
+      consumption_7d_pct: 0,
+      consumption_30d_litres: null,
+      consumption_30d_pct: null,
+      daily_avg_consumption_litres: 0,
+      trend_direction: 'stable',
+      trend_indicator: '→',
+      days_remaining: location.asset_days_remaining,
+      estimated_refill_date: null,
+      last_refill_date: null,
+      vs_yesterday_pct: 0,
+      vs_7d_avg_pct: 0,
+      efficiency_score: 100,
+      sparkline_7d: new Array(7).fill(0),
+    };
+  }
+
+  // Fetch consumption data in parallel using asset_id
   const [consumption24h, consumption7d, consumption30d] = await Promise.all([
-    fetch24HourConsumption(supabase, location.location_id),
-    fetch7DayConsumption(supabase, location.location_id),
-    fetch30DayConsumption(supabase, location.location_id),
+    fetch24HourConsumption(supabase, location.asset_id),
+    fetch7DayConsumption(supabase, location.asset_id),
+    fetch30DayConsumption(supabase, location.asset_id),
   ]);
 
   // Calculate trend
