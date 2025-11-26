@@ -82,12 +82,12 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     fetchContacts();
   }, []);
 
-  // Fetch available tanks when customer name changes (for new contacts)
+  // Fetch all available tanks when dialog opens
   useEffect(() => {
-    if (!editingContact && formData.customer_name) {
-      fetchAvailableTanks(formData.customer_name);
+    if (isDialogOpen) {
+      fetchAvailableTanks();
     }
-  }, [formData.customer_name, editingContact]);
+  }, [isDialogOpen]);
 
   const fetchContacts = async () => {
     try {
@@ -107,19 +107,15 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     }
   };
 
-  const fetchAvailableTanks = async (customerName: string) => {
-    if (!customerName) {
-      setAvailableTanks([]);
-      return;
-    }
-
+  const fetchAvailableTanks = async () => {
     try {
       setLoadingTanks(true);
+      // Fetch ALL tanks from all customers for full flexibility
       const { data, error } = await supabase
         .from('agbot_locations')
         .select('id, location_id, address1, customer_name, latest_calibrated_fill_percentage, disabled')
-        .eq('customer_name', customerName)
         .eq('disabled', false)
+        .order('customer_name')
         .order('location_id');
 
       if (error) throw error;
@@ -329,8 +325,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       enabled: contact.enabled
     });
 
-    // Fetch available tanks and assigned tanks for this contact
-    await fetchAvailableTanks(contact.customer_name);
+    // Fetch assigned tanks for this contact (all tanks fetched via useEffect when dialog opens)
     await fetchAssignedTanks(contact.id);
 
     setIsDialogOpen(true);
@@ -392,33 +387,21 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="customer_name">Customer Name *</Label>
-                    {editingContact ? (
-                      <Input
-                        id="customer_name"
-                        value={formData.customer_name}
-                        disabled
-                        className="bg-muted"
-                      />
-                    ) : (
-                      <Select
-                        value={formData.customer_name}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, customer_name: value })
-                        }
-                        required
-                      >
-                        <SelectTrigger id="customer_name">
-                          <SelectValue placeholder="Select a customer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableCustomers.map((customer) => (
-                            <SelectItem key={customer} value={customer}>
-                              {customer}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+                    <Input
+                      id="customer_name"
+                      value={formData.customer_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, customer_name: e.target.value })
+                      }
+                      placeholder="Enter or select customer name"
+                      list="customer-suggestions"
+                      required
+                    />
+                    <datalist id="customer-suggestions">
+                      {availableCustomers.map((customer) => (
+                        <option key={customer} value={customer} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="contact_email">Email *</Label>
@@ -511,7 +494,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                 <div className="space-y-2">
                   <Label>Assigned Tanks (Optional)</Label>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Select specific tanks for this contact. If none selected, all customer tanks will be included in emails.
+                    Select specific tanks for this contact from any customer. If none selected, emails will include all tanks matching the customer name above.
                   </p>
                   {loadingTanks ? (
                     <div className="p-4 text-center text-sm text-muted-foreground">
@@ -519,59 +502,73 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                     </div>
                   ) : availableTanks.length === 0 ? (
                     <div className="p-4 text-center text-sm text-muted-foreground border rounded-md">
-                      {formData.customer_name
-                        ? 'No tanks available for this customer'
-                        : 'Enter a customer name above to see available tanks'}
+                      No tanks available in the system
                     </div>
                   ) : (
-                    <div className="border rounded-md p-3 max-h-60 overflow-y-auto bg-muted/20">
-                      <div className="space-y-2">
-                        {availableTanks.map((tank) => (
-                          <div
-                            key={tank.id}
-                            className="flex items-start space-x-3 p-2 rounded hover:bg-muted/50 transition-colors"
-                          >
-                            <Checkbox
-                              id={`tank-${tank.id}`}
-                              checked={selectedTankIds.includes(tank.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedTankIds([...selectedTankIds, tank.id]);
-                                } else {
-                                  setSelectedTankIds(selectedTankIds.filter((id) => id !== tank.id));
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`tank-${tank.id}`}
-                              className="flex-1 cursor-pointer select-none"
-                            >
-                              <div className="font-medium text-sm">
-                                {tank.location_id || tank.address1 || 'Unknown Tank'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {tank.address1 && tank.location_id !== tank.address1
-                                  ? tank.address1
-                                  : ''}
-                                {tank.latest_calibrated_fill_percentage !== null &&
-                                tank.latest_calibrated_fill_percentage !== undefined ? (
-                                  <span className="ml-2">
-                                    • {tank.latest_calibrated_fill_percentage.toFixed(0)}% fuel
-                                  </span>
-                                ) : null}
-                              </div>
-                            </label>
+                    <div className="border rounded-md p-3 max-h-80 overflow-y-auto bg-muted/20">
+                      {/* Group tanks by customer */}
+                      {Object.entries(
+                        availableTanks.reduce((groups: { [key: string]: typeof availableTanks }, tank) => {
+                          const customer = tank.customer_name || 'Unknown Customer';
+                          if (!groups[customer]) groups[customer] = [];
+                          groups[customer].push(tank);
+                          return groups;
+                        }, {})
+                      ).map(([customerName, tanks]) => (
+                        <div key={customerName} className="mb-4 last:mb-0">
+                          <div className="font-semibold text-sm text-muted-foreground mb-2 pb-1 border-b sticky top-0 bg-muted/20">
+                            {customerName}
+                            <span className="font-normal ml-2">({tanks.length} tank{tanks.length !== 1 ? 's' : ''})</span>
                           </div>
-                        ))}
-                      </div>
+                          <div className="space-y-1 pl-2">
+                            {tanks.map((tank) => (
+                              <div
+                                key={tank.id}
+                                className="flex items-start space-x-3 p-2 rounded hover:bg-muted/50 transition-colors"
+                              >
+                                <Checkbox
+                                  id={`tank-${tank.id}`}
+                                  checked={selectedTankIds.includes(tank.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedTankIds([...selectedTankIds, tank.id]);
+                                    } else {
+                                      setSelectedTankIds(selectedTankIds.filter((id) => id !== tank.id));
+                                    }
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`tank-${tank.id}`}
+                                  className="flex-1 cursor-pointer select-none"
+                                >
+                                  <div className="font-medium text-sm">
+                                    {tank.location_id || tank.address1 || 'Unknown Tank'}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {tank.address1 && tank.location_id !== tank.address1
+                                      ? tank.address1
+                                      : ''}
+                                    {tank.latest_calibrated_fill_percentage !== null &&
+                                    tank.latest_calibrated_fill_percentage !== undefined ? (
+                                      <span className="ml-2">
+                                        • {tank.latest_calibrated_fill_percentage.toFixed(0)}% fuel
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                   <div className="text-xs text-muted-foreground">
                     {selectedTankIds.length === 0 ? (
-                      <span>✉️ Will send all {availableTanks.length} customer tank(s) by default</span>
+                      <span>✉️ No specific tanks selected - will use customer name matching</span>
                     ) : (
                       <span className="text-blue-600 font-medium">
-                        ✅ Will send {selectedTankIds.length} of {availableTanks.length} tank(s)
+                        ✅ {selectedTankIds.length} tank{selectedTankIds.length !== 1 ? 's' : ''} selected
                       </span>
                     )}
                   </div>

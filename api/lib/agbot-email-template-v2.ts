@@ -667,9 +667,9 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                           </tr>
                         </table>
                       </td>
-                      <!-- Refill Available -->
+                      <!-- Ullage (Refill Capacity) -->
                       <td style="width: 50%; padding: 16px 20px;">
-                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Refill Available</p>
+                        <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Ullage</p>
                         <p style="font-size: 20px; font-weight: 600; color: ${TEXT_DARK}; margin: 0; line-height: 1;">
                           ${formatNumber(totalRefillCapacity)}
                           <span style="font-size: 12px; font-weight: 400; color: ${TEXT_MUTED};">L</span>
@@ -898,7 +898,7 @@ SUMMARY AT A GLANCE
 ----------------------------------------
 Current Level:   ${formatNumber(totalCurrentLitres)} L (${avgFillPct.toFixed(0)}% avg)
 24h Fuel Usage:  ${formatNumber(consumption24h)} L
-Refill Available: ${formatNumber(totalRefillCapacity)} L
+Ullage:          ${formatNumber(totalRefillCapacity)} L
 Total Tanks:     ${totalTanks} (${onlineTanks} online)
 Low Fuel (<30%): ${lowFuelTanks}
 Critical:        ${criticalTanks}
