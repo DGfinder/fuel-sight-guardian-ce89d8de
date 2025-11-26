@@ -46,6 +46,11 @@ const SHADOW_SM = '0 1px 2px rgba(0,0,0,0.04)';
 const SHADOW_MD = '0 2px 8px rgba(0,0,0,0.06)';
 const SHADOW_LG = '0 4px 12px rgba(0,0,0,0.08)';
 
+// Fuel Level Box Colors (Blue theme to differentiate from green usage)
+const FUEL_BOX_BG = '#e8f4fd';       // Subtle blue tint
+const FUEL_BOX_HEADER = '#2563eb';   // Blue-600
+const FUEL_BOX_VALUE = '#1e40af';    // Blue-800
+
 export interface AgBotLocationV2 {
   location_id: string;
   asset_id?: string | null; // Asset UUID for querying readings history
@@ -259,15 +264,11 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
               ? '🟢 Online'
               : `🔴 Offline (${formatLastSeen(location.latest_telemetry)})`;
 
-            // Capacity display - HIGHLIGHTED
+            // Capacity display values
             const capacityLitres = location.asset_profile_water_capacity || 0;
             const currentLitres =
               location.asset_reported_litres ||
               (location.latest_calibrated_fill_percentage / 100) * capacityLitres;
-
-            const capacityText = capacityLitres
-              ? `<strong>${formatNumber(currentLitres)} L</strong> of <strong>${(capacityLitres / 1000).toFixed(0)}k L</strong>`
-              : `${formatNumber(currentLitres)} L remaining`;
 
             // Check if we have meaningful analytics data
             const hasValidAnalytics = analytics &&
@@ -374,13 +375,8 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
             const fuelType = location.asset_profile_commodity || '';
             const fuelTypeHtml = fuelType ? `<span style="color: ${TEXT_LIGHT};"> • ${fuelType}</span>` : '';
 
-            // Build fuel level bar
+            // Fill percentage for display
             const fillPct = location.latest_calibrated_fill_percentage || 0;
-            const fuelLevelBar = `
-              <div style="background-color: ${BORDER_LIGHT}; height: 8px; border-radius: 4px; margin-top: 8px; overflow: hidden;">
-                <div style="background-color: ${fuelColor}; height: 100%; width: ${Math.min(100, fillPct)}%; border-radius: 4px;"></div>
-              </div>
-            `;
 
             return `
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 12px; background-color: ${BG_WHITE}; border-radius: 10px; border: 1px solid ${BORDER_LIGHT}; overflow: hidden;">
@@ -405,17 +401,43 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                       </tr>
                     </table>
 
-                    <!-- Fuel Level Bar -->
-                    ${fuelLevelBar}
-
-                    <!-- Capacity Info -->
-                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 12px;">
+                    <!-- Current Fuel Level Highlight Box -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px; background-color: ${FUEL_BOX_BG}; border-radius: 8px; overflow: hidden;">
                       <tr>
-                        <td>
-                          <p style="font-size: 14px; color: ${TEXT_DARK}; margin: 0;">
-                            ${capacityText}
+                        <td style="padding: 16px;">
+                          <!-- Header -->
+                          <p style="font-size: 11px; color: ${FUEL_BOX_HEADER}; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;">
+                            Current Fuel Level
                           </p>
-                          ${daysRemainingText ? `<p style="font-size: 12px; color: ${TEXT_MUTED}; margin: 4px 0 0 0;">${daysRemainingText}</p>` : ''}
+
+                          <!-- Main Value -->
+                          <p style="font-size: 22px; font-weight: 700; color: ${FUEL_BOX_VALUE}; margin: 0 0 4px 0; line-height: 1;">
+                            ${formatNumber(currentLitres)} L
+                          </p>
+
+                          <!-- Capacity Subtext -->
+                          <p style="font-size: 13px; color: ${TEXT_MUTED}; margin: 0 0 12px 0;">
+                            of ${formatNumber(capacityLitres)} L capacity
+                          </p>
+
+                          <!-- Fuel Bar inside box -->
+                          <div style="background-color: rgba(255,255,255,0.7); height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 8px;">
+                            <div style="background-color: ${fuelColor}; height: 100%; width: ${Math.min(100, fillPct)}%; border-radius: 5px;"></div>
+                          </div>
+
+                          <!-- Fill percentage badge -->
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td>
+                                <span style="display: inline-block; background-color: ${BG_WHITE}; color: ${fuelColor}; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 12px;">
+                                  ${fillPct.toFixed(0)}% Full
+                                </span>
+                              </td>
+                              <td style="text-align: right;">
+                                ${daysRemainingText ? `<span style="font-size: 12px; color: ${TEXT_SECONDARY};">${daysRemainingText}</span>` : ''}
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
                     </table>
@@ -793,9 +815,12 @@ export function generateAgBotEmailTextV2(data: AgBotEmailDataV2): string {
 
             return `
 ${index + 1}. ${location.address1 || location.location_id}${urgency}
-   Fuel Level: ${location.latest_calibrated_fill_percentage?.toFixed(0) || 0}% (${daysText})
-   Status: ${status}
-   Capacity: ${capacity}${consumption24hText}${sparkline}
+   ┌─ CURRENT FUEL LEVEL ─────────────────────
+   │  ${formatNumber(currentLitres)} L (${location.latest_calibrated_fill_percentage?.toFixed(0) || 0}% full)
+   │  of ${formatNumber(capacityLitres)} L capacity
+   │  ${daysText}
+   └──────────────────────────────────────────
+   Status: ${status}${consumption24hText}${sparkline}
    Updated: ${formatLastSeen(location.latest_telemetry)}`;
           })
           .join('\n');
