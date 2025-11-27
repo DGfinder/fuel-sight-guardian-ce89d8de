@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -52,19 +52,17 @@ import {
   getDataFreshnessColor,
   isCapacityEstimated
 } from '@/constants/tankThresholds';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-// Lazy load Leaflet map components for performance
-const LazyMapContainer = lazy(() =>
-  import('leaflet/dist/leaflet.css').then(() =>
-    import('react-leaflet').then(mod => ({ default: mod.MapContainer }))
-  )
-);
-const LazyTileLayer = lazy(() =>
-  import('react-leaflet').then(mod => ({ default: mod.TileLayer }))
-);
-const LazyMarker = lazy(() =>
-  import('react-leaflet').then(mod => ({ default: mod.Marker }))
-);
+// Fix for default markers in react-leaflet
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 export default function AgbotDetailsModal() {
   const { selectedLocation, open, closeModal } = useAgbotModal();
@@ -1001,27 +999,22 @@ export default function AgbotDetailsModal() {
                       </div>
                     </div>
 
-                    {/* Lazy-loaded map */}
+                    {/* Map */}
                     {showMap && (
-                      <Suspense fallback={
-                        <div className="h-[300px] bg-gray-100 animate-pulse rounded-lg mt-4 flex items-center justify-center">
-                          <span className="text-muted-foreground">Loading map...</span>
-                        </div>
-                      }>
-                        <div className="h-[300px] mt-4 rounded-lg overflow-hidden border">
-                          <LazyMapContainer
-                            center={[selectedLocation.lat, selectedLocation.lng]}
-                            zoom={15}
-                            style={{ height: '100%', width: '100%' }}
-                          >
-                            <LazyTileLayer
-                              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            />
-                            <LazyMarker position={[selectedLocation.lat, selectedLocation.lng]} />
-                          </LazyMapContainer>
-                        </div>
-                      </Suspense>
+                      <div className="h-[300px] mt-4 rounded-lg overflow-hidden border">
+                        <MapContainer
+                          key={`map-${selectedLocation.id}`}
+                          center={[selectedLocation.lat, selectedLocation.lng]}
+                          zoom={15}
+                          style={{ height: '100%', width: '100%' }}
+                        >
+                          <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          />
+                          <Marker position={[selectedLocation.lat, selectedLocation.lng]} />
+                        </MapContainer>
+                      </div>
                     )}
                   </div>
                 )}

@@ -10,6 +10,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
   ChartOptions,
   ChartData,
 } from 'chart.js';
@@ -26,7 +27,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 interface AgbotReadingChartsProps {
