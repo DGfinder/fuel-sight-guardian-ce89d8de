@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -53,12 +53,28 @@ import {
   isCapacityEstimated
 } from '@/constants/tankThresholds';
 
+// Lazy load Leaflet map components for performance
+const LazyMapContainer = lazy(() =>
+  import('leaflet/dist/leaflet.css').then(() =>
+    import('react-leaflet').then(mod => ({ default: mod.MapContainer }))
+  )
+);
+const LazyTileLayer = lazy(() =>
+  import('react-leaflet').then(mod => ({ default: mod.TileLayer }))
+);
+const LazyMarker = lazy(() =>
+  import('react-leaflet').then(mod => ({ default: mod.Marker }))
+);
+
 export default function AgbotDetailsModal() {
   const { selectedLocation, open, closeModal } = useAgbotModal();
   const { data: analytics, isLoading: analyticsLoading } = useAgbotLocationAnalytics(selectedLocation);
 
   // Time range state for charts
   const [chartDays, setChartDays] = useState<number>(30);
+
+  // Map visibility state for lazy loading
+  const [showMap, setShowMap] = useState(false);
 
   // Fetch reading history for the History tab - now using dynamic days
   const { data: historyData, isLoading: historyLoading } = useAgbotReadingHistory({
@@ -303,92 +319,7 @@ export default function AgbotDetailsModal() {
               ))}
             </div>
 
-            {/* TIER 1: Always Show - Current Tank Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Fuel className="h-5 w-5 text-blue-600" />
-                  Current Tank Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Current Litres - Primary Display */}
-                  <div className="text-center">
-                    {currentLitres !== null ? (
-                      <>
-                        <div className={`text-5xl font-bold ${percentageColor}`}>
-                          {Math.round(currentLitres).toLocaleString()}
-                        </div>
-                        <div className="text-sm font-medium text-muted-foreground mt-1">
-                          LITRES ({commodity})
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {percentage?.toFixed(1)}% of capacity
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className={`text-5xl font-bold ${percentageColor}`}>
-                          {percentage !== null && percentage !== undefined
-                            ? `${percentage.toFixed(1)}%`
-                            : 'N/A'
-                          }
-                        </div>
-                        <div className="text-sm font-medium text-muted-foreground mt-1">
-                          FUEL LEVEL
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          calibrated reading
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Tank Capacity */}
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-gray-700">
-                      {capacity.toLocaleString()}
-                    </div>
-                    <div className="text-sm font-medium text-muted-foreground mt-1">
-                      CAPACITY (L)
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      total tank size
-                    </div>
-                  </div>
-
-                  {/* Last Reading */}
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-gray-700">
-                      {formatTimestamp(selectedLocation.latest_telemetry)}
-                    </div>
-                    <div className="text-sm font-medium text-muted-foreground mt-1">
-                      LAST READING
-                    </div>
-                    {selectedLocation.latest_telemetry && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        {new Date(selectedLocation.latest_telemetry).toLocaleString()}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Visual Progress Bar */}
-                {percentage !== null && percentage !== undefined && (
-                  <div className="mt-6">
-                    <Progress value={percentage} className="h-4" />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>Empty (0L)</span>
-                      <span className="font-semibold">Critical: 20% ({Math.round(capacity * 0.2).toLocaleString()}L)</span>
-                      <span>Full ({capacity.toLocaleString()}L)</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* TIER 2: Basic Analytics - Show when we have historical data */}
+            {/* Charts and Analytics - Show when we have historical data */}
             {historyData && historyData.readings && historyData.readings.length > 0 && (
               <>
                 {/* Simple Calculations from Available Data */}
@@ -1027,7 +958,17 @@ export default function AgbotDetailsModal() {
                 {/* GPS Coordinates */}
                 {(selectedLocation.lat && selectedLocation.lng) && (
                   <div className="pt-4 border-t">
-                    <h4 className="font-medium mb-2">GPS Coordinates</h4>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium">GPS Coordinates</h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowMap(!showMap)}
+                      >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        {showMap ? 'Hide Map' : 'Show on Map'}
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">Latitude:</span>
@@ -1038,7 +979,29 @@ export default function AgbotDetailsModal() {
                         <div className="font-medium">{selectedLocation.lng.toFixed(6)}</div>
                       </div>
                     </div>
-                    {/* TODO: Add map component here if needed */}
+
+                    {/* Lazy-loaded map */}
+                    {showMap && (
+                      <Suspense fallback={
+                        <div className="h-[300px] bg-gray-100 animate-pulse rounded-lg mt-4 flex items-center justify-center">
+                          <span className="text-muted-foreground">Loading map...</span>
+                        </div>
+                      }>
+                        <div className="h-[300px] mt-4 rounded-lg overflow-hidden border">
+                          <LazyMapContainer
+                            center={[selectedLocation.lat, selectedLocation.lng]}
+                            zoom={15}
+                            style={{ height: '100%', width: '100%' }}
+                          >
+                            <LazyTileLayer
+                              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                            <LazyMarker position={[selectedLocation.lat, selectedLocation.lng]} />
+                          </LazyMapContainer>
+                        </div>
+                      </Suspense>
+                    )}
                   </div>
                 )}
 

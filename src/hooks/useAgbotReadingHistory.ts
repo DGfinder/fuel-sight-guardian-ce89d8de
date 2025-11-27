@@ -62,6 +62,7 @@ export function useAgbotReadingHistory({
           location_id,
           customer_name,
           assets:agbot_assets(
+            id,
             asset_guid,
             asset_profile_water_capacity,
             asset_refill_capacity_litres,
@@ -97,7 +98,7 @@ export function useAgbotReadingHistory({
       }
 
       const mainAsset = location.assets[0];
-      const assetId = mainAsset.asset_guid;
+      const assetId = mainAsset.id;
 
       // Build query for readings
       let query = supabase
