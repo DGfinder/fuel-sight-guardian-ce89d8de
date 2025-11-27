@@ -156,7 +156,7 @@ function AgbotPageContent() {
                 </Button>
 
                 {/* Customer Contacts Toggle - Admin only */}
-                {permissions.isAdmin && (
+                {permissions?.isAdmin && (
                   <Button
                     variant={showCustomerContacts ? 'default' : 'outline'}
                     size="sm"
@@ -218,7 +218,7 @@ function AgbotPageContent() {
             )}
 
             {/* Customer Contacts Admin Panel - Admin only */}
-            {permissions.isAdmin && showCustomerContacts && (
+            {permissions?.isAdmin && showCustomerContacts && (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                 <CustomerContactsAdmin />
               </div>
