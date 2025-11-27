@@ -14,7 +14,6 @@ export function useAlerts(tankId?: string) {
     enabled: !!tankId,
     queryFn: async () => {
       if (!tankId) return [];
-      console.log('Fetching alerts...');
       const { data, error } = await supabase
         .from('tank_alerts')
         .select(`
@@ -36,11 +35,9 @@ export function useAlerts(tankId?: string) {
       }
 
       if (!data) {
-        console.log('No alerts data returned');
         return [];
       }
 
-      console.log(`Fetched ${data.length} alerts`);
       return data as TankAlert[];
     }
   });

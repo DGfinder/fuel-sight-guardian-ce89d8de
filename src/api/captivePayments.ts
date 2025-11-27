@@ -179,21 +179,9 @@ export async function getCaptiveDeliveries(filters?: CaptivePaymentsFilters): Pr
 
   if (error) {
     console.error('Error fetching captive deliveries:', error);
-    console.error('Query details:', { 
-      table: 'captive_deliveries (direct access, no RLS)',
-      filters: filters,
-      carrier: filters?.carrier 
-    });
     throw error;
   }
 
-  console.log(`Fetched ${data?.length || 0} deliveries for carrier: ${filters?.carrier || 'all'} (range: 0-30000, RLS disabled)`);
-  
-  // Log if we hit the limit to help debug
-  if (data && data.length >= 30000) {
-    console.warn('Hit 30,000 row limit - may need to increase range');
-  }
-  
   return data || [];
 }
 

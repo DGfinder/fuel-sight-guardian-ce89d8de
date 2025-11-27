@@ -75,7 +75,6 @@ export async function geocodeLocation(
     nominatimUrl.searchParams.set('countrycodes', countryCode);
     nominatimUrl.searchParams.set('addressdetails', '1');
 
-    console.log(`[GEOCODING] Querying Nominatim for: "${query}"`);
 
     const response = await fetch(nominatimUrl.toString(), {
       headers: {
@@ -135,7 +134,6 @@ export async function geocodeLocation(
       geocodingCache.set(cacheKey, geocodingResult);
     }
 
-    console.log(`[GEOCODING] Success: "${query}" -> ${latitude}, ${longitude} (confidence: ${confidence.toFixed(2)})`);
 
     return geocodingResult;
 
@@ -179,7 +177,6 @@ export async function geocodeSmartFillLocation(
       continue;
     }
 
-    console.log(`[GEOCODING] SmartFill strategy ${index + 1}: "${query}"`);
 
     const result = await geocodeLocation(query);
     
@@ -188,7 +185,6 @@ export async function geocodeSmartFillLocation(
       const strategyConfidence = [0.9, 0.8, 0.6, 0.4][index]; // Best to worst strategy
       result.confidence = Math.min(result.confidence, strategyConfidence);
       
-      console.log(`[GEOCODING] SmartFill success with strategy ${index + 1}: ${result.latitude}, ${result.longitude}`);
       return result;
     }
 
@@ -236,7 +232,6 @@ export function getGeocodingCacheStats(): { size: number; maxSize: number } {
  */
 export function clearGeocodingCache(): void {
   geocodingCache.clear();
-  console.log('[GEOCODING] Cache cleared');
 }
 
 /**

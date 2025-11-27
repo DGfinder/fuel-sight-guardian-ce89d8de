@@ -52,7 +52,6 @@ export function useAgbotReadingHistory({
       limit
     ],
     queryFn: async () => {
-      console.log(`Fetching agbot reading history for location ${locationId}`);
 
       // First get the location with its assets
       const { data: location, error: locationError } = await supabase
@@ -87,7 +86,6 @@ export function useAgbotReadingHistory({
       }
 
       if (!location || !location.assets || location.assets.length === 0) {
-        console.log('No assets found for location');
         return {
           readings: [],
           totalCount: 0,
@@ -128,11 +126,8 @@ export function useAgbotReadingHistory({
       const { data, error, count } = await query;
 
       if (error) {
-        console.error('Error fetching agbot reading history:', error);
         throw error;
       }
-
-      console.log(`Fetched ${data?.length || 0} readings for location ${locationId} (total: ${count})`);
 
       const readings = (data || []).map((reading: any): AgbotHistoricalReading => ({
         id: reading.id,

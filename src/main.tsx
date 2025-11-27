@@ -29,8 +29,6 @@ if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
       return event;
     },
   });
-} else {
-  console.log('🔧 Sentry disabled in development or missing VITE_SENTRY_DSN');
 }
 
 // Initialize security monitoring
