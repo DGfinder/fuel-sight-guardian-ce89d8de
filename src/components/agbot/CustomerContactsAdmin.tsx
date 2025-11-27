@@ -31,6 +31,26 @@ import { supabase } from '@/lib/supabase';
 import { Mail, UserPlus, Power, PowerOff, Edit, Trash2, CheckCircle2, XCircle, Send, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+/**
+ * Format a timestamp as relative time (e.g., "5 minutes ago")
+ */
+function formatRelativeTime(timestamp: string): string {
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+
+  return new Date(timestamp).toLocaleDateString('en-AU');
+}
+
 interface CustomerContact {
   id: string;
   customer_name: string;
@@ -386,7 +406,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
           Add Contact
         </Button>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>
                 {editingContact ? 'Edit Contact' : 'Add New Contact'}
@@ -395,7 +415,8 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                 Configure email recipient for AgBot daily reports
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="overflow-y-auto flex-1 pr-2">
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -601,7 +622,8 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                   </div>
                 </div>
               </div>
-              <DialogFooter>
+              </div>
+              <DialogFooter className="pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -668,13 +690,20 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                     </div>
                   </TableCell>
                   <TableCell>
-                    <a
-                      href={`mailto:${contact.contact_email}`}
-                      className="text-blue-600 hover:underline flex items-center gap-1"
-                    >
-                      <Mail className="h-3 w-3" />
-                      {contact.contact_email}
-                    </a>
+                    <div>
+                      <a
+                        href={`mailto:${contact.contact_email}`}
+                        className="text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <Mail className="h-3 w-3" />
+                        {contact.contact_email}
+                      </a>
+                      {(contact as any).cc_emails && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          CC: {(contact as any).cc_emails}
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="capitalize">
@@ -683,8 +712,8 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                   </TableCell>
                   <TableCell>
                     {contact.last_email_sent_at ? (
-                      <div className="text-sm">
-                        {new Date(contact.last_email_sent_at).toLocaleDateString('en-AU')}
+                      <div className="text-sm" title={new Date(contact.last_email_sent_at).toLocaleString('en-AU')}>
+                        {formatRelativeTime(contact.last_email_sent_at)}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">Never</span>

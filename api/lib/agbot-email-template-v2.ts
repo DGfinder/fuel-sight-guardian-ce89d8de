@@ -617,28 +617,6 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
       `
       : '';
 
-  // Critical alert section - Premium styling
-  const alertSectionHtml =
-    criticalTanks > 0
-      ? `
-        <tr>
-          <td style="padding: 0 40px 24px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${RED_SOFT}; border-radius: 8px; border-left: 4px solid ${RED};">
-              <tr>
-                <td style="padding: 16px 20px;">
-                  <p style="color: ${RED}; font-size: 14px; font-weight: 600; margin: 0 0 6px 0;">
-                    Action Required
-                  </p>
-                  <p style="color: #7f1d1d; font-size: 13px; line-height: 1.5; margin: 0;">
-                    ${criticalTanks} tank${criticalTanks > 1 ? 's' : ''} at critical level${criticalTanks > 1 ? 's' : ''}. Please arrange refilling soon.
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      `
-      : '';
 
   // Unsubscribe link
   const preferencesLink = unsubscribeUrl || '#';
@@ -796,9 +774,6 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
 
               <!-- Fleet Analytics (weekly/monthly only) -->
               ${fleetAnalyticsHtml}
-
-              <!-- Alerts Section -->
-              ${alertSectionHtml}
 
               <!-- Footer -->
               <tr>
@@ -968,14 +943,6 @@ ${index + 1}. ${tankName}${urgency}
           })
           .join('\n');
 
-  // Generate alert section
-  const alertText =
-    criticalTanks > 0
-      ? `\n*** ACTION REQUIRED ***\nYou have ${criticalTanks} tank${
-          criticalTanks > 1 ? 's' : ''
-        } at critical levels.\nPlease arrange refilling soon to avoid running out.\n`
-      : '';
-
   // Fleet analytics text
   const fleetAnalyticsText =
     fleetSummary && (reportFrequency === 'weekly' || reportFrequency === 'monthly')
@@ -1024,7 +991,7 @@ ${summaryText}
 TANK STATUS DETAILS
 ----------------------------------------
 ${tankDetailsText}
-${alertText}${fleetAnalyticsText}
+${fleetAnalyticsText}
 ----------------------------------------
 
 This is an automated ${reportFrequency} report from your Fuel Monitoring System.
