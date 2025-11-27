@@ -34,9 +34,10 @@ interface AgbotReadingChartsProps {
   isLoading?: boolean;
   showLitres?: boolean;
   maxReadings?: number; // Optional limit - if not set, shows all readings
+  capacity?: number; // Tank capacity for percentage calculation when API returns 0
 }
 
-export function AgbotReadingCharts({ readings, isLoading, showLitres = true, maxReadings }: AgbotReadingChartsProps) {
+export function AgbotReadingCharts({ readings, isLoading, showLitres = true, maxReadings, capacity }: AgbotReadingChartsProps) {
   // Sort readings chronologically
   const sortedReadings = useMemo(() => {
     return [...readings].sort(
@@ -55,13 +56,26 @@ export function AgbotReadingCharts({ readings, isLoading, showLitres = true, max
   // Keep last30Readings as alias for backward compatibility
   const last30Readings = chartReadings;
 
+  // Helper to get effective percentage - calculates from litres if API returns 0
+  const getEffectivePercentage = (r: AgbotHistoricalReading): number => {
+    // If we have a valid calibrated percentage, use it
+    if (r.calibrated_fill_percentage > 0) {
+      return r.calibrated_fill_percentage;
+    }
+    // If API returned 0 but we have litres and capacity, calculate percentage
+    if (r.asset_reported_litres && capacity && capacity > 0) {
+      return (r.asset_reported_litres / capacity) * 100;
+    }
+    return r.calibrated_fill_percentage;
+  };
+
   // Fuel level chart data
   const fuelLevelChartData: ChartData<'line'> = useMemo(() => {
     const datasets: any[] = [
       {
         label: 'Fuel Level (%)',
         data: last30Readings.length > 0
-          ? last30Readings.map(r => r.calibrated_fill_percentage)
+          ? last30Readings.map(r => getEffectivePercentage(r))
           : [0],
         borderColor: '#3b82f6', // blue-500
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -118,7 +132,7 @@ export function AgbotReadingCharts({ readings, isLoading, showLitres = true, max
         : ['No Data'],
       datasets,
     };
-  }, [last30Readings, showLitres]);
+  }, [last30Readings, showLitres, capacity]);
 
   const fuelLevelChartOptions: ChartOptions<'line'> = useMemo(() => {
     const options: ChartOptions<'line'> = {

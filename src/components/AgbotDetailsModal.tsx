@@ -394,6 +394,7 @@ export default function AgbotDetailsModal() {
                     readings={historyData.readings}
                     isLoading={historyLoading}
                     showLitres={true}
+                    capacity={capacity}
                   />
                 )}
               </>
@@ -1053,6 +1054,7 @@ export default function AgbotDetailsModal() {
                 readings={historyData.readings}
                 isLoading={historyLoading}
                 showLitres={!!selectedLocation.water_capacity}
+                capacity={capacity}
               />
             )}
           </TabsContent>
