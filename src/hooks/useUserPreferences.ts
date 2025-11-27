@@ -14,6 +14,13 @@ export interface UserPreferences {
   low_fuel_threshold: number;
   critical_fuel_threshold: number;
   preferred_map_style: 'light' | 'dark' | 'satellite' | 'terrain';
+  // Notification settings
+  phone_number: string | null;
+  webhook_url: string | null;
+  alert_critical_tanks: boolean;
+  alert_low_fuel: boolean;
+  alert_maintenance: boolean;
+  alert_system_updates: boolean;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -26,6 +33,13 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   low_fuel_threshold: 20,
   critical_fuel_threshold: 10,
   preferred_map_style: 'light',
+  // Notification settings
+  phone_number: null,
+  webhook_url: null,
+  alert_critical_tanks: true,
+  alert_low_fuel: true,
+  alert_maintenance: true,
+  alert_system_updates: false,
 };
 
 export function useUserPreferences() {
@@ -74,6 +88,13 @@ export function useUserPreferences() {
         low_fuel_threshold: data.low_fuel_threshold ?? DEFAULT_PREFERENCES.low_fuel_threshold,
         critical_fuel_threshold: data.critical_fuel_threshold ?? DEFAULT_PREFERENCES.critical_fuel_threshold,
         preferred_map_style: data.preferred_map_style || DEFAULT_PREFERENCES.preferred_map_style,
+        // Notification settings
+        phone_number: data.phone_number ?? DEFAULT_PREFERENCES.phone_number,
+        webhook_url: data.webhook_url ?? DEFAULT_PREFERENCES.webhook_url,
+        alert_critical_tanks: data.alert_critical_tanks ?? DEFAULT_PREFERENCES.alert_critical_tanks,
+        alert_low_fuel: data.alert_low_fuel ?? DEFAULT_PREFERENCES.alert_low_fuel,
+        alert_maintenance: data.alert_maintenance ?? DEFAULT_PREFERENCES.alert_maintenance,
+        alert_system_updates: data.alert_system_updates ?? DEFAULT_PREFERENCES.alert_system_updates,
       };
     },
     enabled: !!user?.id,

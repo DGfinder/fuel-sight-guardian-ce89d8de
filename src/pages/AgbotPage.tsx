@@ -155,18 +155,16 @@ function AgbotPageContent() {
                   Athara Monitor
                 </Button>
 
-                {/* Customer Contacts Toggle - Admin only */}
-                {permissions?.isAdmin && (
-                  <Button
-                    variant={showCustomerContacts ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setShowCustomerContacts(!showCustomerContacts)}
-                    className={showCustomerContacts ? 'bg-blue-600 hover:bg-blue-700' : ''}
-                  >
-                    <Mail className="h-4 w-4 mr-1" />
-                    Email Contacts
-                  </Button>
-                )}
+                {/* Customer Contacts Toggle */}
+                <Button
+                  variant={showCustomerContacts ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowCustomerContacts(!showCustomerContacts)}
+                  className={showCustomerContacts ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                >
+                  <Mail className="h-4 w-4 mr-1" />
+                  Email Contacts
+                </Button>
 
                 {/* View Toggle - Grid | Table */}
                 <div className="flex border rounded-lg bg-white">
@@ -217,8 +215,8 @@ function AgbotPageContent() {
               </>
             )}
 
-            {/* Customer Contacts Admin Panel - Admin only */}
-            {permissions?.isAdmin && showCustomerContacts && (
+            {/* Customer Contacts Admin Panel */}
+            {showCustomerContacts && (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                 <CustomerContactsAdmin />
               </div>

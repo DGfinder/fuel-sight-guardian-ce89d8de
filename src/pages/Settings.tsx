@@ -1,5 +1,6 @@
 // Enhanced fully functional Settings page
 import React, { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -112,7 +113,24 @@ function Settings() {
   });
 
   const roles: UserRoleRow[] = Array.isArray(rolesRaw) ? rolesRaw : [];
-  
+  const role = Array.isArray(roles) && roles.length > 0 ? roles[0].role : 'user';
+  const isAdmin = role === 'admin';
+
+  // Fetch sync logs for admin users
+  const { data: syncLogs } = useQuery({
+    queryKey: ['gasbot-sync-logs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agbot_sync_logs')
+        .select('*')
+        .order('started_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isAdmin,
+  });
+
   const [fullName, setFullName] = useState('');
   useEffect(() => {
     if (profile?.full_name) {
@@ -140,8 +158,6 @@ function Settings() {
     toast({ title: 'Request Sent', description: 'Depot change request submitted.' });
   };
 
-  const role = Array.isArray(roles) && roles.length > 0 ? roles[0].role : 'user';
-  const isAdmin = role === 'admin';
   const isScheduler = role === 'scheduler';
   const depotGroups = Array.isArray(roles) ? roles.map(r => r.tank_groups?.name).filter(Boolean) : [];
 
@@ -150,16 +166,16 @@ function Settings() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
+    <div className="max-w-4xl mx-auto py-8 px-4 min-h-full flex flex-col">
       <h1 className="text-3xl font-bold mb-6 text-center">Settings</h1>
       
-      <Tabs defaultValue="account" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-6">
+      <Tabs defaultValue="account" className="w-full flex-1">
+        <TabsList className={`grid w-full mb-6 ${isAdmin ? 'grid-cols-5' : 'grid-cols-3'}`}>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="gasbot">Gasbot Sync</TabsTrigger>
-          <TabsTrigger value="smartfill">SmartFill</TabsTrigger>
+          {isAdmin && <TabsTrigger value="gasbot">Gasbot Sync</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="smartfill">SmartFill</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="account">
@@ -503,7 +519,9 @@ function Settings() {
                     </Label>
                     <Input
                       id="phone-number"
-                      placeholder="+1 (555) 123-4567"
+                      value={preferences.phone_number || ''}
+                      onChange={(e) => updatePreferences({ phone_number: e.target.value || null })}
+                      placeholder="+61 4XX XXX XXX"
                       className="mt-1"
                     />
                     <p className="text-sm text-muted-foreground mt-1">
@@ -520,6 +538,8 @@ function Settings() {
                     </Label>
                     <Input
                       id="webhook-url"
+                      value={preferences.webhook_url || ''}
+                      onChange={(e) => updatePreferences({ webhook_url: e.target.value || null })}
                       placeholder="https://your-service.com/webhook"
                       className="mt-1"
                     />
@@ -549,7 +569,10 @@ function Settings() {
                           Immediate alerts when tanks reach critical levels (≤{preferences.critical_fuel_threshold}%)
                         </p>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={preferences.alert_critical_tanks}
+                        onCheckedChange={(checked) => updatePreferences({ alert_critical_tanks: checked })}
+                      />
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -559,7 +582,10 @@ function Settings() {
                           Notifications when tanks drop below {preferences.low_fuel_threshold}%
                         </p>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={preferences.alert_low_fuel}
+                        onCheckedChange={(checked) => updatePreferences({ alert_low_fuel: checked })}
+                      />
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -569,7 +595,10 @@ function Settings() {
                           Scheduled maintenance and inspection reminders
                         </p>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={preferences.alert_maintenance}
+                        onCheckedChange={(checked) => updatePreferences({ alert_maintenance: checked })}
+                      />
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -579,7 +608,10 @@ function Settings() {
                           Notifications about system updates and new features
                         </p>
                       </div>
-                      <Switch />
+                      <Switch
+                        checked={preferences.alert_system_updates}
+                        onCheckedChange={(checked) => updatePreferences({ alert_system_updates: checked })}
+                      />
                     </div>
                   </div>
                 </div>
@@ -646,6 +678,7 @@ function Settings() {
           </div>
         </TabsContent>
 
+        {isAdmin && (
         <TabsContent value="gasbot">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Gasbot Data Sync</h2>
@@ -776,15 +809,32 @@ function Settings() {
               <div className="space-y-4">
                 <h3 className="font-medium">Recent Sync Logs</h3>
                 <div className="bg-muted p-4 rounded-lg">
-                  <div className="text-sm text-muted-foreground text-center py-4">
-                    No sync logs available. Run a sync to see results here.
-                  </div>
+                  {syncLogs && syncLogs.length > 0 ? (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {syncLogs.map((log: any) => (
+                        <div key={log.id} className="flex justify-between text-sm p-2 bg-background rounded">
+                          <span className="text-muted-foreground">
+                            {format(new Date(log.started_at), 'MMM d, h:mm a')}
+                          </span>
+                          <span className={log.sync_status === 'success' ? 'text-green-600' : 'text-red-600'}>
+                            {log.sync_status} - {log.locations_processed} locations, {log.assets_processed} assets
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground text-center py-4">
+                      No sync logs available. Run a sync to see results here.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </Card>
         </TabsContent>
+        )}
 
+        {isAdmin && (
         <TabsContent value="smartfill">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">SmartFill System</h2>
@@ -907,6 +957,7 @@ function Settings() {
             </div>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
     </div>
   );
