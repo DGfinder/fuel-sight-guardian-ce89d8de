@@ -357,10 +357,20 @@ export default function AgbotDetailsModal() {
                         </div>
                       )}
 
-                      {/* Latest Reading Info */}
+                      {/* Latest Reading Info - Calculate effective percentage */}
                       <div className="text-center">
                         <div className="text-2xl font-bold text-purple-600">
-                          {historyData.readings[0]?.calibrated_fill_percentage?.toFixed(1) || 'N/A'}%
+                          {(() => {
+                            const reading = historyData.readings[0];
+                            if (!reading) return 'N/A';
+                            // Use effective percentage (calculate from litres if API returns 0)
+                            const pct = reading.calibrated_fill_percentage > 0
+                              ? reading.calibrated_fill_percentage
+                              : reading.asset_reported_litres && capacity > 0
+                                ? (reading.asset_reported_litres / capacity) * 100
+                                : 0;
+                            return `${pct.toFixed(1)}%`;
+                          })()}
                         </div>
                         <div className="text-sm text-muted-foreground">Latest Reading</div>
                         <div className="text-xs text-gray-500 mt-1">
@@ -370,17 +380,27 @@ export default function AgbotDetailsModal() {
                         </div>
                       </div>
 
-                      {/* Oldest Reading for Comparison */}
+                      {/* Average Daily Consumption */}
                       {historyData.readings.length > 1 && (
                         <div className="text-center">
                           <div className="text-2xl font-bold text-orange-600">
-                            {historyData.readings[historyData.readings.length - 1]?.calibrated_fill_percentage?.toFixed(1) || 'N/A'}%
+                            {(() => {
+                              // Calculate consumption from litres difference over time span
+                              const readings = historyData.readings;
+                              const newest = readings[0];
+                              const oldest = readings[readings.length - 1];
+                              if (!newest?.asset_reported_litres || !oldest?.asset_reported_litres) return 'N/A';
+                              const litresDiff = oldest.asset_reported_litres - newest.asset_reported_litres;
+                              const daysDiff = (new Date(newest.reading_timestamp).getTime() -
+                                               new Date(oldest.reading_timestamp).getTime()) / (1000 * 60 * 60 * 24);
+                              if (daysDiff <= 0) return 'N/A';
+                              const avgDaily = litresDiff / daysDiff;
+                              return avgDaily > 0 ? `${Math.round(avgDaily).toLocaleString()}L` : 'N/A';
+                            })()}
                           </div>
-                          <div className="text-sm text-muted-foreground">Oldest Reading</div>
+                          <div className="text-sm text-muted-foreground">Avg Daily Usage</div>
                           <div className="text-xs text-gray-500 mt-1">
-                            {historyData.readings[historyData.readings.length - 1]?.reading_timestamp
-                              ? format(new Date(historyData.readings[historyData.readings.length - 1].reading_timestamp), 'MMM d')
-                              : 'N/A'}
+                            over {chartDays} days
                           </div>
                         </div>
                       )}

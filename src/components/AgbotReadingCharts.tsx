@@ -155,6 +155,16 @@ export function AgbotReadingCharts({ readings, isLoading, showLitres = true, max
           bodyColor: '#ffffff',
           cornerRadius: 8,
           padding: 12,
+          callbacks: {
+            title: function(tooltipItems) {
+              // Get the full timestamp from the reading
+              const index = tooltipItems[0]?.dataIndex;
+              if (index !== undefined && last30Readings[index]?.reading_timestamp) {
+                return format(new Date(last30Readings[index].reading_timestamp), 'MMM d, yyyy h:mm a');
+              }
+              return tooltipItems[0]?.label || '';
+            }
+          }
         },
       },
       scales: {
