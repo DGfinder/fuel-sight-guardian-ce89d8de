@@ -202,6 +202,10 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
   const reportTitle = getReportTitle(reportFrequency);
   const showCharts = reportFrequency === 'weekly' || reportFrequency === 'monthly';
 
+  // Only show combined summary for single-tank emails
+  // Multi-tank emails show info per-tank instead
+  const showSummary = locations.length === 1;
+
   // Calculate summary statistics
   const totalTanks = locations.length;
   const onlineTanks = locations.filter((l) => l.device_online).length;
@@ -261,12 +265,24 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
     sortedLocations.length === 0
       ? '<p style="color: #4b5563; font-size: 15px; line-height: 24px; margin: 0 0 10px 0;">No fuel tanks found for your account.</p>'
       : sortedLocations
-          .map((location) => {
+          .map((location, index) => {
+            // Tank name with fallback for when both address1 and location_id are empty
+            const tankName = location.address1 || location.location_id || `Tank ${index + 1}`;
+
+            // Capacity display values
+            const capacityLitres = location.asset_profile_water_capacity || 0;
+            const currentLitres =
+              location.asset_reported_litres ||
+              (location.latest_calibrated_fill_percentage / 100) * capacityLitres;
+
+            // Check if tank is unserviceable (no capacity data)
+            const isUnserviceable = !capacityLitres || capacityLitres === 0;
+
             const isCritical =
               location.latest_calibrated_fill_percentage < 15 ||
               (location.asset_days_remaining !== null && location.asset_days_remaining <= 3);
             const isLow = location.latest_calibrated_fill_percentage < 30 && !isCritical;
-            const fuelColor = isCritical ? RED : isLow ? AMBER : GREEN_STATUS;
+            const fuelColor = isUnserviceable ? TEXT_MUTED : (isCritical ? RED : isLow ? AMBER : GREEN_STATUS);
 
             // Get analytics data for this tank
             const analytics = tanksAnalytics?.find((a) => a.location_id === location.location_id);
@@ -276,11 +292,8 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
               ? '🟢 Online'
               : `🔴 Offline (${formatLastSeen(location.latest_telemetry)})`;
 
-            // Capacity display values
-            const capacityLitres = location.asset_profile_water_capacity || 0;
-            const currentLitres =
-              location.asset_reported_litres ||
-              (location.latest_calibrated_fill_percentage / 100) * capacityLitres;
+            // Calculate ullage (refill capacity) for this specific tank
+            const tankUllage = location.asset_refill_capacity_litres || (capacityLitres - currentLitres);
 
             // Check if we have meaningful analytics data
             const hasValidAnalytics = analytics &&
@@ -390,6 +403,57 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
             // Fill percentage for display
             const fillPct = location.latest_calibrated_fill_percentage || 0;
 
+            // Unserviceable tank card (warning banner instead of normal stats)
+            if (isUnserviceable) {
+              return `
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 12px; background-color: ${BG_WHITE}; border-radius: 10px; border: 1px solid ${BORDER_LIGHT}; overflow: hidden;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <!-- Tank Header -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="width: 100%; vertical-align: top;">
+                          <p style="font-size: 16px; font-weight: 600; color: ${TEXT_DARK}; margin: 0 0 4px 0; line-height: 1.3;">
+                            ${tankName}
+                          </p>
+                          <p style="font-size: 12px; color: ${TEXT_MUTED}; margin: 0;">
+                            ${location.device_online ? `<span style="color: ${GREEN_STATUS};">●</span> Online` : `<span style="color: ${TEXT_LIGHT};">●</span> Offline`}${fuelType ? ` · ${fuelType}` : ''}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Unserviceable Warning Banner -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px; background-color: ${AMBER_SOFT}; border-radius: 8px; border-left: 4px solid ${AMBER};">
+                      <tr>
+                        <td style="padding: 16px;">
+                          <p style="font-size: 14px; font-weight: 600; color: ${AMBER}; margin: 0 0 4px 0;">
+                            ⚠️ Unserviceable
+                          </p>
+                          <p style="font-size: 13px; color: ${TEXT_SECONDARY}; margin: 0;">
+                            This tank has no capacity data configured. Please contact support to set up monitoring.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Footer -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid ${BORDER_SUBTLE};">
+                      <tr>
+                        <td>
+                          <p style="font-size: 11px; color: ${TEXT_LIGHT}; margin: 0;">
+                            Last seen ${formatLastSeen(location.latest_telemetry)}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              `;
+            }
+
+            // Normal serviceable tank card
             return `
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 12px; background-color: ${BG_WHITE}; border-radius: 10px; border: 1px solid ${BORDER_LIGHT}; overflow: hidden;">
                 <tr>
@@ -399,7 +463,7 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                       <tr>
                         <td style="width: 65%; vertical-align: top;">
                           <p style="font-size: 16px; font-weight: 600; color: ${TEXT_DARK}; margin: 0 0 4px 0; line-height: 1.3;">
-                            ${location.address1 || location.location_id}
+                            ${tankName}
                           </p>
                           <p style="font-size: 12px; color: ${TEXT_MUTED}; margin: 0;">
                             ${location.device_online ? `<span style="color: ${GREEN_STATUS};">●</span> Online` : `<span style="color: ${TEXT_LIGHT};">●</span> Offline`}${fuelType ? ` · ${fuelType}` : ''}
@@ -413,35 +477,64 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                       </tr>
                     </table>
 
-                    <!-- Current Fuel Level Highlight Box -->
-                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px; background-color: ${FUEL_BOX_BG}; border-radius: 8px; overflow: hidden;">
+                    <!-- Current Fuel Level & Ullage - Two Column Layout -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px;">
                       <tr>
-                        <td style="padding: 16px;">
-                          <!-- Header -->
-                          <p style="font-size: 11px; color: ${FUEL_BOX_HEADER}; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;">
-                            Current Fuel Level
-                          </p>
+                        <!-- Current Fuel Level Box -->
+                        <td style="width: 48%; vertical-align: top;">
+                          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${FUEL_BOX_BG}; border-radius: 8px; overflow: hidden; height: 100%;">
+                            <tr>
+                              <td style="padding: 16px;">
+                                <p style="font-size: 11px; color: ${FUEL_BOX_HEADER}; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;">
+                                  Current Level
+                                </p>
+                                <p style="font-size: 22px; font-weight: 700; color: ${FUEL_BOX_VALUE}; margin: 0 0 4px 0; line-height: 1;">
+                                  ${formatNumber(currentLitres)} L
+                                </p>
+                                <p style="font-size: 12px; color: ${TEXT_MUTED}; margin: 0;">
+                                  of ${formatNumber(capacityLitres)} L
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td style="width: 4%;"></td>
+                        <!-- Ullage Box -->
+                        <td style="width: 48%; vertical-align: top;">
+                          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${BRAND_GREEN_SOFT}; border-radius: 8px; overflow: hidden; height: 100%;">
+                            <tr>
+                              <td style="padding: 16px;">
+                                <p style="font-size: 11px; color: ${BRAND_GREEN}; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;">
+                                  Ullage
+                                </p>
+                                <p style="font-size: 22px; font-weight: 700; color: ${BRAND_GREEN_DARK}; margin: 0 0 4px 0; line-height: 1;">
+                                  ${formatNumber(tankUllage)} L
+                                </p>
+                                <p style="font-size: 12px; color: ${TEXT_MUTED}; margin: 0;">
+                                  refill capacity
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
 
-                          <!-- Main Value -->
-                          <p style="font-size: 22px; font-weight: 700; color: ${FUEL_BOX_VALUE}; margin: 0 0 4px 0; line-height: 1;">
-                            ${formatNumber(currentLitres)} L
-                          </p>
-
-                          <!-- Capacity Subtext -->
-                          <p style="font-size: 13px; color: ${TEXT_MUTED}; margin: 0 0 12px 0;">
-                            of ${formatNumber(capacityLitres)} L capacity
-                          </p>
-
-                          <!-- Fuel Bar inside box -->
-                          <div style="background-color: rgba(255,255,255,0.7); height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 8px;">
+                    <!-- Fuel Bar -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 12px;">
+                      <tr>
+                        <td>
+                          <div style="background-color: ${BG_LIGHT}; height: 10px; border-radius: 5px; overflow: hidden;">
                             <div style="background-color: ${fuelColor}; height: 100%; width: ${Math.min(100, fillPct)}%; border-radius: 5px;"></div>
                           </div>
-
-                          <!-- Fill percentage badge -->
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-top: 8px;">
                           <table width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                               <td>
-                                <span style="display: inline-block; background-color: ${BG_WHITE}; color: ${fuelColor}; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 12px;">
+                                <span style="display: inline-block; background-color: ${BG_LIGHT}; color: ${fuelColor}; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 12px;">
                                   ${fillPct.toFixed(0)}% Full
                                 </span>
                               </td>
@@ -457,7 +550,6 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                     <!-- Analytics Section (if available) -->
                     ${consumption24hHtml}
                     ${weeklyDataHtml}
-                    ${refillHtml}
                     ${batteryHtml}
 
                     <!-- Footer -->
@@ -609,7 +701,8 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                 </td>
               </tr>
 
-              <!-- Executive Summary Section -->
+              <!-- Executive Summary Section (only for single-tank emails) -->
+              ${showSummary ? `
               <tr>
                 <td style="padding: 0 40px 28px;">
 
@@ -679,6 +772,7 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                   </table>
                 </td>
               </tr>
+              ` : ''}
 
               <!-- Tank Details Section -->
               <tr>
@@ -759,6 +853,9 @@ export function generateAgBotEmailTextV2(data: AgBotEmailDataV2): string {
 
   const reportTitle = getReportTitle(reportFrequency).toUpperCase();
 
+  // Only show summary for single-tank emails
+  const showSummary = locations.length === 1;
+
   // Calculate summary statistics
   const totalTanks = locations.length;
   const onlineTanks = locations.filter((l) => l.device_online).length;
@@ -810,6 +907,25 @@ export function generateAgBotEmailTextV2(data: AgBotEmailDataV2): string {
       ? 'No fuel tanks found for your account.'
       : sortedLocations
           .map((location, index) => {
+            // Tank name with fallback
+            const tankName = location.address1 || location.location_id || `Tank ${index + 1}`;
+
+            const capacityLitres = location.asset_profile_water_capacity || 0;
+            const currentLitres =
+              location.asset_reported_litres ||
+              (location.latest_calibrated_fill_percentage / 100) * capacityLitres;
+
+            // Check if tank is unserviceable
+            const isUnserviceable = !capacityLitres || capacityLitres === 0;
+
+            if (isUnserviceable) {
+              return `
+${index + 1}. ${tankName} [UNSERVICEABLE]
+   ⚠️  This tank has no capacity data configured.
+   Status: ${location.device_online ? 'Online' : 'Offline'}
+   Last seen: ${formatLastSeen(location.latest_telemetry)}`;
+            }
+
             const isCritical =
               location.latest_calibrated_fill_percentage < 15 ||
               (location.asset_days_remaining !== null && location.asset_days_remaining <= 3);
@@ -820,24 +936,21 @@ export function generateAgBotEmailTextV2(data: AgBotEmailDataV2): string {
               ? 'Online'
               : `Offline (${formatLastSeen(location.latest_telemetry)})`;
 
-            const capacityLitres = location.asset_profile_water_capacity || 0;
-            const currentLitres =
-              location.asset_reported_litres ||
-              (location.latest_calibrated_fill_percentage / 100) * capacityLitres;
-
-            const capacity = capacityLitres
-              ? `${formatNumber(currentLitres)} L of ${(capacityLitres / 1000).toFixed(0)}k L`
-              : `${formatNumber(currentLitres)} L remaining`;
+            // Calculate ullage
+            const tankUllage = location.asset_refill_capacity_litres || (capacityLitres - currentLitres);
 
             const daysText =
               analytics?.days_remaining !== null && analytics?.days_remaining !== undefined
                 ? `~${Math.round(analytics.days_remaining)} days left`
                 : 'Usage data pending';
 
-            const consumption24hText = analytics
-              ? `\n     24h usage: ${formatNumber(analytics.consumption_24h_litres)} L ${analytics.trend_indicator} (${analytics.consumption_24h_pct.toFixed(1)}%)
-       vs Yesterday: ${formatComparison(analytics.vs_yesterday_pct)}
-       vs 7-Day Avg: ${formatComparison(analytics.vs_7d_avg_pct)}`
+            // Only show comparison if values are meaningful (not 0)
+            const consumption24hText = analytics && (analytics.consumption_24h_litres > 0 || analytics.consumption_7d_litres > 0)
+              ? `\n     24h usage: ${formatNumber(analytics.consumption_24h_litres)} L ${analytics.trend_indicator} (${analytics.consumption_24h_pct.toFixed(1)}%)${
+                  analytics.vs_yesterday_pct !== 0 ? `\n       vs Yesterday: ${formatComparison(analytics.vs_yesterday_pct)}` : ''
+                }${
+                  analytics.vs_7d_avg_pct !== 0 ? `\n       vs 7-Day Avg: ${formatComparison(analytics.vs_7d_avg_pct)}` : ''
+                }`
               : '';
 
             const sparkline = analytics ? `\n     7d trend: ${generateAsciiSparkline(analytics.sparkline_7d)}` : '';
@@ -845,12 +958,11 @@ export function generateAgBotEmailTextV2(data: AgBotEmailDataV2): string {
             const urgency = isCritical ? ' [CRITICAL]' : '';
 
             return `
-${index + 1}. ${location.address1 || location.location_id}${urgency}
-   ┌─ CURRENT FUEL LEVEL ─────────────────────
-   │  ${formatNumber(currentLitres)} L (${location.latest_calibrated_fill_percentage?.toFixed(0) || 0}% full)
-   │  of ${formatNumber(capacityLitres)} L capacity
-   │  ${daysText}
-   └──────────────────────────────────────────
+${index + 1}. ${tankName}${urgency}
+   ┌─ CURRENT LEVEL ──────────┬─ ULLAGE ─────────────────
+   │  ${formatNumber(currentLitres)} L (${location.latest_calibrated_fill_percentage?.toFixed(0) || 0}% full)      │  ${formatNumber(tankUllage)} L refill capacity
+   │  of ${formatNumber(capacityLitres)} L capacity   │  ${daysText}
+   └──────────────────────────┴──────────────────────────
    Status: ${status}${consumption24hText}${sparkline}
    Updated: ${formatLastSeen(location.latest_telemetry)}`;
           })
@@ -881,6 +993,21 @@ Average efficiency: ${fleetSummary.efficiency_avg}/100
     ? `\nTo manage your email preferences or unsubscribe, visit:\n${unsubscribeUrl}`
     : '';
 
+  // Summary section (only for single-tank emails)
+  const summaryText = showSummary
+    ? `
+----------------------------------------
+SUMMARY AT A GLANCE
+----------------------------------------
+Current Level:   ${formatNumber(totalCurrentLitres)} L (${avgFillPct.toFixed(0)}% avg)
+24h Fuel Usage:  ${formatNumber(consumption24h)} L
+Ullage:          ${formatNumber(totalRefillCapacity)} L
+Total Tanks:     ${totalTanks} (${onlineTanks} online)
+Low Fuel (<30%): ${lowFuelTanks}
+Critical:        ${criticalTanks}
+`
+    : '';
+
   // Generate complete plain text email
   return `
 ========================================
@@ -892,17 +1019,7 @@ ${reportDate}
 Dear ${contactName || customerName},
 
 Please find your ${reportFrequency} fuel monitoring report for ${customerName} below.
-
-----------------------------------------
-SUMMARY AT A GLANCE
-----------------------------------------
-Current Level:   ${formatNumber(totalCurrentLitres)} L (${avgFillPct.toFixed(0)}% avg)
-24h Fuel Usage:  ${formatNumber(consumption24h)} L
-Ullage:          ${formatNumber(totalRefillCapacity)} L
-Total Tanks:     ${totalTanks} (${onlineTanks} online)
-Low Fuel (<30%): ${lowFuelTanks}
-Critical:        ${criticalTanks}
-
+${summaryText}
 ----------------------------------------
 TANK STATUS DETAILS
 ----------------------------------------

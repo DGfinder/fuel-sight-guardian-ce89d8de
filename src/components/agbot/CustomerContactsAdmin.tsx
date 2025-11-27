@@ -60,6 +60,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
   const [formData, setFormData] = useState({
     customer_name: '',
     contact_email: '',
+    cc_emails: '',
     contact_name: '',
     contact_phone: '',
     contact_position: '',
@@ -327,6 +328,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     setFormData({
       customer_name: contact.customer_name,
       contact_email: contact.contact_email,
+      cc_emails: (contact as any).cc_emails || '',
       contact_name: contact.contact_name || '',
       contact_phone: contact.contact_phone || '',
       contact_position: contact.contact_position || '',
@@ -347,6 +349,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     setFormData({
       customer_name: '',
       contact_email: '',
+      cc_emails: '',
       contact_name: '',
       contact_phone: '',
       contact_position: '',
@@ -426,6 +429,20 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                       required
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cc_emails">CC Emails (optional)</Label>
+                  <Input
+                    id="cc_emails"
+                    value={formData.cc_emails}
+                    onChange={(e) =>
+                      setFormData({ ...formData, cc_emails: e.target.value })
+                    }
+                    placeholder="user1@example.com, user2@example.com"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Additional recipients will receive the same report. Separate multiple emails with commas.
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

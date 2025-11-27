@@ -332,9 +332,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[RESEND] Sending email to:', typedContact.contact_email);
     console.log('[RESEND] From:', DEFAULT_FROM_EMAIL);
 
+    // Parse CC emails if provided
+    const ccEmails = (typedContact as any).cc_emails;
+    const ccList = ccEmails
+      ? ccEmails.split(',').map((e: string) => e.trim()).filter((e: string) => e)
+      : [];
+
+    if (ccList.length > 0) {
+      console.log('[RESEND] CC recipients:', ccList);
+    }
+
     const emailResponse = await resendClient.emails.send({
       from: DEFAULT_FROM_EMAIL,
       to: typedContact.contact_email,
+      cc: ccList.length > 0 ? ccList : undefined,
       subject: emailSubject,
       html: emailHtml,
       text: emailText,

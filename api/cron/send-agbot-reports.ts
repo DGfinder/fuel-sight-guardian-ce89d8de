@@ -352,10 +352,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           emailSubject = `Daily AgBot Report - ${contact.customer_name} - ${reportDate}`;
         }
 
+        // Parse CC emails if provided
+        const ccEmails = (contact as any).cc_emails;
+        const ccList = ccEmails
+          ? ccEmails.split(',').map((e: string) => e.trim()).filter((e: string) => e)
+          : [];
+
         // Send email via Resend
         const emailResponse = await resend.emails.send({
           from: DEFAULT_FROM_EMAIL,
           to: contact.contact_email,
+          cc: ccList.length > 0 ? ccList : undefined,
           subject: emailSubject,
           html: emailHtml,
           text: emailText,

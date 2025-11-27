@@ -284,18 +284,21 @@ export async function getTankConsumptionAnalytics(
   // Calculate trend
   const trend = calculateTrendDirection(consumption7d.daily_values);
 
-  // Calculate vs comparisons
+  // Calculate vs comparisons with proper handling for 0 baseline
   const dailyAvg = consumption7d.litres / 7;
+  const yesterday = consumption7d.daily_values[5] || 0;
+  const today = consumption7d.daily_values[6] || 0;
+
+  // Only calculate comparison if we have meaningful baseline data
+  // Return 0 (no change) if baseline is 0 to avoid division by zero
   const vsYesterday =
-    consumption7d.daily_values.length >= 2
-      ? ((consumption7d.daily_values[6] - consumption7d.daily_values[5]) /
-          (consumption7d.daily_values[5] || 1)) *
-        100
+    consumption7d.daily_values.length >= 2 && yesterday > 0
+      ? Math.max(-999, Math.min(999, ((today - yesterday) / yesterday) * 100))
       : 0;
 
   const vs7DAvg =
-    consumption7d.daily_values.length > 0
-      ? ((consumption24h.litres - dailyAvg) / (dailyAvg || 1)) * 100
+    consumption7d.daily_values.length > 0 && dailyAvg > 0
+      ? Math.max(-999, Math.min(999, ((consumption24h.litres - dailyAvg) / dailyAvg) * 100))
       : 0;
 
   // Calculate efficiency score (baseline 2% per day)
