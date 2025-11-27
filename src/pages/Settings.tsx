@@ -18,8 +18,6 @@ import { Moon, Sun, Monitor, Palette, Bell, Shield, User, Settings as SettingsIc
 
 interface UserRoleRow {
   role: string;
-  group_id: string | null;
-  tank_groups: { name: string } | null;
 }
 
 function Settings() {
@@ -100,7 +98,7 @@ function Settings() {
       try {
         const { data, error } = await supabase
           .from('user_roles')
-          .select('role, group_id, tank_groups(name)')
+          .select('role')
           .eq('user_id', user.id);
         if (error) return [];
         return data as UserRoleRow[];
@@ -159,7 +157,7 @@ function Settings() {
   };
 
   const isScheduler = role === 'scheduler';
-  const depotGroups = Array.isArray(roles) ? roles.map(r => r.tank_groups?.name).filter(Boolean) : [];
+  const depotGroups: string[] = []; // Depot groups not currently tracked in user_roles
 
   if (profileLoading || rolesLoading || preferencesLoading) {
     return <div className="flex items-center justify-center min-h-[300px]">Loading...</div>;
