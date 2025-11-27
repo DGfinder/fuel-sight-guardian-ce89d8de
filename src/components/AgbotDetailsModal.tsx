@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -57,11 +57,14 @@ export default function AgbotDetailsModal() {
   const { selectedLocation, open, closeModal } = useAgbotModal();
   const { data: analytics, isLoading: analyticsLoading } = useAgbotLocationAnalytics(selectedLocation);
 
-  // Fetch reading history for the History tab
+  // Time range state for charts
+  const [chartDays, setChartDays] = useState<number>(30);
+
+  // Fetch reading history for the History tab - now using dynamic days
   const { data: historyData, isLoading: historyLoading } = useAgbotReadingHistory({
     locationId: selectedLocation?.id || '',
     enabled: open && !!selectedLocation?.id,
-    days: 30,
+    days: chartDays,
   });
 
   const mainAsset = selectedLocation?.assets?.[0];
@@ -279,6 +282,27 @@ export default function AgbotDetailsModal() {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-4">
+            {/* Time Range Selector */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-muted-foreground">Time Range:</span>
+              {[
+                { days: 7, label: '7d' },
+                { days: 30, label: '30d' },
+                { days: 90, label: '90d' },
+                { days: 365, label: '1y' },
+              ].map(({ days, label }) => (
+                <Button
+                  key={days}
+                  variant={chartDays === days ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setChartDays(days)}
+                  className={chartDays === days ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+
             {/* TIER 1: Always Show - Current Tank Status */}
             <Card>
               <CardHeader>

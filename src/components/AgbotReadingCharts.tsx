@@ -33,9 +33,10 @@ interface AgbotReadingChartsProps {
   readings: AgbotHistoricalReading[];
   isLoading?: boolean;
   showLitres?: boolean;
+  maxReadings?: number; // Optional limit - if not set, shows all readings
 }
 
-export function AgbotReadingCharts({ readings, isLoading, showLitres = true }: AgbotReadingChartsProps) {
+export function AgbotReadingCharts({ readings, isLoading, showLitres = true, maxReadings }: AgbotReadingChartsProps) {
   // Sort readings chronologically
   const sortedReadings = useMemo(() => {
     return [...readings].sort(
@@ -43,8 +44,16 @@ export function AgbotReadingCharts({ readings, isLoading, showLitres = true }: A
     );
   }, [readings]);
 
-  // Get last 30 readings for charts
-  const last30Readings = useMemo(() => sortedReadings.slice(-30), [sortedReadings]);
+  // Get readings for charts - use maxReadings limit if provided, otherwise show all
+  const chartReadings = useMemo(() => {
+    if (maxReadings && sortedReadings.length > maxReadings) {
+      return sortedReadings.slice(-maxReadings);
+    }
+    return sortedReadings;
+  }, [sortedReadings, maxReadings]);
+
+  // Keep last30Readings as alias for backward compatibility
+  const last30Readings = chartReadings;
 
   // Fuel level chart data
   const fuelLevelChartData: ChartData<'line'> = useMemo(() => {
