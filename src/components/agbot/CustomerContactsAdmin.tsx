@@ -216,10 +216,15 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
 
         toast.success('Contact updated successfully');
       } else {
-        // Create new contact
+        // Create new contact - must include unsubscribe_token (NOT NULL in database)
+        const unsubscribeToken = crypto.randomUUID();
+
         const { data, error } = await supabase
           .from('customer_contacts')
-          .insert([contactData])
+          .insert([{
+            ...contactData,
+            unsubscribe_token: unsubscribeToken
+          }])
           .select()
           .single();
 
