@@ -17,8 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger
+  DialogTitle
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
@@ -77,6 +76,9 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
 
   // Test email state
   const [sendingTestEmail, setSendingTestEmail] = useState<string | null>(null);
+
+  // Form submission state
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchContacts();
@@ -189,6 +191,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
 
     try {
       const contactData = {
@@ -236,6 +239,8 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     } catch (error) {
       console.error('Error saving contact:', error);
       toast.error('Failed to save contact');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -325,6 +330,8 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       enabled: contact.enabled
     });
 
+    // Fetch available customers for autocomplete
+    await fetchAvailableCustomers();
     // Fetch assigned tanks for this contact (all tanks fetched via useEffect when dialog opens)
     await fetchAssignedTanks(contact.id);
 
@@ -366,13 +373,11 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
             Manage customer contacts for AgBot daily email reports
           </p>
         </div>
+        <Button onClick={handleAddNew}>
+          <UserPlus className="h-4 w-4 mr-2" />
+          Add Contact
+        </Button>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleAddNew}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Contact
-            </Button>
-          </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
@@ -583,11 +588,22 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                     setEditingContact(null);
                     resetForm();
                   }}
+                  disabled={saving}
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingContact ? 'Update Contact' : 'Add Contact'}
+                <Button
+                  type="submit"
+                  disabled={saving || !formData.customer_name || !formData.contact_email}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    editingContact ? 'Update Contact' : 'Add Contact'
+                  )}
                 </Button>
               </DialogFooter>
             </form>
