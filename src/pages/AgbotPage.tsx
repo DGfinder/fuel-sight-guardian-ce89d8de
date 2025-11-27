@@ -199,12 +199,12 @@ function AgbotPageContent() {
                   {isImporting ? 'Importing...' : 'Import CSV'}
                 </Button>
                 <Button
-                  onClick={() => window.open('https://fuel-sight-guardian-ce89d8de.vercel.app/api/gasbot-webhook', '_blank')}
-                  variant="outline"
-                  className="flex items-center gap-2"
+                  onClick={() => setShowSystemMonitoring(!showSystemMonitoring)}
+                  variant={showSystemMonitoring ? 'default' : 'outline'}
+                  className={`flex items-center gap-2 ${showSystemMonitoring ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
                 >
                   <Globe className="h-4 w-4" />
-                  Webhook Endpoint
+                  {showSystemMonitoring ? 'Hide Webhook Status' : 'Webhook Status'}
                 </Button>
               </div>
             </div>
@@ -438,7 +438,7 @@ function AgbotPageContent() {
                   }
                 </p>
                 {(!locations || locations.length === 0) && !searchFilter && !onlineOnly && !lowFuelOnly && (
-                  <Button onClick={() => window.open('https://fuel-sight-guardian-ce89d8de.vercel.app/api/gasbot-webhook', '_blank')} variant="outline">
+                  <Button onClick={() => window.open('https://tankalert.greatsouthernfuels.com.au/api/gasbot-webhook', '_blank')} variant="outline">
                     <Globe className="h-4 w-4 mr-2" />
                     Test Webhook Endpoint
                   </Button>
@@ -449,10 +449,10 @@ function AgbotPageContent() {
             {/* Production Safety Info */}
             <Alert>
               <AlertDescription>
-                <strong>Webhook Environment:</strong> Gasbot sends fuel level data directly to this system via webhook. 
-                Data is received in real-time as Gasbot devices report (typically hourly). 
-                No mock/fake data is provided - only real webhook data from Gasbot is displayed. 
-                Configure webhook in Gasbot dashboard: https://fuel-sight-guardian-ce89d8de.vercel.app/api/gasbot-webhook
+                <strong>Webhook Environment:</strong> Gasbot sends fuel level data directly to this system via webhook.
+                Data is received in real-time as Gasbot devices report (typically hourly).
+                No mock/fake data is provided - only real webhook data from Gasbot is displayed.
+                Configure webhook in Gasbot dashboard: https://tankalert.greatsouthernfuels.com.au/api/gasbot-webhook
               </AlertDescription>
             </Alert>
           </div>
