@@ -381,6 +381,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       critical_alerts: criticalCount
     });
 
+    // Update last_email_sent_at on the contact record
+    await supabase
+      .from('customer_contacts')
+      .update({ last_email_sent_at: new Date().toISOString() })
+      .eq('id', typedContact.id);
+
     const duration = Date.now() - startTime;
 
     console.log('[HANDLER SUCCESS] Test email completed successfully');
