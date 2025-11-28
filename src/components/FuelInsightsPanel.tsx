@@ -2,10 +2,10 @@ import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  AlertTriangle, 
-  Clock, 
-  Users, 
+import {
+  AlertTriangle,
+  Clock,
+  Users,
   Activity,
   Droplets,
   ChevronRight,
@@ -20,6 +20,7 @@ import { useRecentDips } from '@/hooks/useRecentDips';
 import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '@/lib/logger';
 
 interface FuelInsightsPanelProps {
   tanks: Tank[];
@@ -38,7 +39,7 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
   
   // Debug recent dips filtering
   if (recentDips && !permissions?.isAdmin && recentDips.length !== permissionFilteredRecentDips.length) {
-    console.log('🔍 [RECENT DIPS FILTERING]', {
+    logger.debug('[RECENT DIPS] Filtering applied', {
       originalDips: recentDips.length,
       filteredDips: permissionFilteredRecentDips.length,
       hiddenDips: recentDips.length - permissionFilteredRecentDips.length,
@@ -56,26 +57,26 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
     <div className="relative mb-6 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       {/* Subtle header gradient */}
       <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-100">
-        <div className="px-6 py-4">
+        <div className="px-4 md:px-6 py-3 md:py-4">
           {/* Professional Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-[#008457] rounded-lg shadow-sm">
                 <Users className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 font-medium">Welcome back</p>
-                <p className="text-gray-900 font-semibold">
+                <p className="text-xs sm:text-sm text-gray-600 font-medium">Welcome back</p>
+                <p className="text-gray-900 font-semibold text-sm sm:text-base">
                   {permissions?.display_name || 'User'}
                 </p>
               </div>
             </div>
-            
-            <div className="text-right">
-              <h1 className="text-xl font-semibold text-gray-900">Fuel Management System</h1>
-              <div className="flex items-center gap-2 text-gray-600 text-sm">
-                <Activity className="h-4 w-4" />
-                <span>Monitoring {tanks.length} tanks</span>
+
+            <div className="text-left sm:text-right">
+              <h1 className="text-base sm:text-xl font-semibold text-gray-900">Fuel Management</h1>
+              <div className="flex items-center gap-2 text-gray-600 text-xs sm:text-sm">
+                <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>{tanks.length} tanks</span>
                 <div className="w-1 h-1 bg-green-500 rounded-full"></div>
                 <span className="text-green-600 font-medium">Live</span>
               </div>
@@ -85,8 +86,8 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
       </div>
 
       {/* Professional KPI Cards */}
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="p-4 md:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           
           {/* Critical Alerts Card */}
           <Card 
@@ -248,21 +249,22 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
         </div>
 
         {/* Status Bar */}
-        <div className="mt-6 pt-4 border-t border-gray-100">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+        <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs sm:text-sm text-gray-600">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>System Operational</span>
+                <span>Operational</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span>Last sync: {new Date().toLocaleTimeString()}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Last sync:</span> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
-            <div className="flex items-center gap-2 text-[#008457] font-medium">
-              <Activity className="h-4 w-4" />
-              <span>Real-time monitoring active</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[#008457] font-medium">
+              <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Real-time monitoring</span>
+              <span className="sm:hidden">Live</span>
             </div>
           </div>
         </div>

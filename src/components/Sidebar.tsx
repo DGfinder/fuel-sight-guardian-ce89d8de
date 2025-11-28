@@ -35,6 +35,7 @@ import { useTanks } from "@/hooks/useTanks";
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getActiveAlertsCount } from '@/lib/alertService';
 import { Skeleton } from "@/components/ui/skeleton";
+import { logger } from '@/lib/logger';
 
 const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
@@ -151,7 +152,7 @@ export const Sidebar: React.FC = () => {
   
   // Debug sidebar tank filtering
   if (tanks && permissions && !filterLoading && !permissions.isAdmin && tanks.length !== permissionFilteredTanks.length) {
-    console.log('🔢 [SIDEBAR TANK COUNT]', {
+    logger.debug('[SIDEBAR] Tank count filtering', {
       originalCount: tanks.length,
       filteredCount: permissionFilteredTanks.length,
       userRole: permissions.role,
@@ -231,6 +232,18 @@ export const Sidebar: React.FC = () => {
     if (isMobile) setOpen(false);
   }, [location.pathname, isMobile]);
 
+  // Lock body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isMobile && open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobile, open]);
+
   // Auto-expand groups when child routes are active
   useEffect(() => {
     const currentPath = location.pathname;
@@ -265,44 +278,44 @@ export const Sidebar: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      console.log('🚪 Starting logout process...');
-      
+      logger.debug('[AUTH] Starting logout process...');
+
       // Step 1: Clear React Query cache first to prevent stale data
       queryClient.clear();
-      console.log('✅ React Query cache cleared');
-      
+      logger.debug('[AUTH] React Query cache cleared');
+
       // Step 2: Clear browser storage
       localStorage.clear();
       sessionStorage.clear();
-      console.log('✅ Browser storage cleared');
-      
+      logger.debug('[AUTH] Browser storage cleared');
+
       // Step 3: Sign out from Supabase
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
-        console.error('⚠️ Supabase logout error (proceeding anyway):', error);
+        logger.error('[AUTH] Supabase logout error (proceeding anyway):', error);
       } else {
-        console.log('✅ Supabase signout successful');
+        logger.debug('[AUTH] Supabase signout successful');
       }
-      
+
       // Step 4: Clear any remaining auth state
       await supabase.auth.refreshSession();
-      
+
       // Step 5: Force a clean redirect (use replace to prevent back button issues)
-      console.log('🔄 Redirecting to login...');
+      logger.debug('[AUTH] Redirecting to login...');
       window.location.replace('/login');
-      
+
     } catch (error) {
-      console.error('💥 Logout process failed:', error);
-      
+      logger.error('[AUTH] Logout process failed:', error);
+
       // Emergency cleanup - clear everything and force redirect
       try {
         localStorage.clear();
         sessionStorage.clear();
         queryClient.clear();
       } catch (cleanupError) {
-        console.error('Cleanup failed:', cleanupError);
+        logger.error('[AUTH] Cleanup failed:', cleanupError);
       }
-      
+
       // Force redirect even on complete failure
       window.location.replace('/login');
     }
@@ -316,18 +329,18 @@ export const Sidebar: React.FC = () => {
     <>
       {/* Hamburger for mobile */}
       {isMobile && (
-        <header className="flex items-center justify-between p-4 bg-white shadow-md md:hidden sticky top-0 z-50">
+        <header className="flex items-center justify-between p-3 bg-white shadow-md md:hidden sticky top-0 z-50">
           <div className="flex items-center gap-2">
             <img src={logo} alt="GSF Logo" className="h-8 w-auto" />
             <span className="font-bold text-base text-[#111111]">TankAlert</span>
           </div>
           <Button
             variant="ghost"
-            size="icon"
             aria-label="Open sidebar"
             onClick={handleToggle}
+            className="h-11 w-11 p-0 flex items-center justify-center"
           >
-            <Menu size={24} />
+            <Menu size={28} />
           </Button>
         </header>
       )}

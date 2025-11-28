@@ -5,7 +5,9 @@
       "mcp__supabase__execute_sql",
       "Bash(cut:*)",
       "Bash(node:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { generateAlerts } from '../lib/alertService';
 import { validateTimestamp } from '../utils/timezone';
+import { logger } from '../lib/logger';
 
 // Helper functions for analytics calculations
 const calculateConsumption = (olderReading: any, newerReading: any): number => {
@@ -89,7 +90,7 @@ export const useTanks = () => {
         .order('location');
 
       if (baseError) {
-        console.error('Error fetching tanks:', baseError);
+        logger.error('Error fetching tanks:', baseError);
         throw baseError;
       }
 
@@ -102,7 +103,7 @@ export const useTanks = () => {
         .in('id', uniqueGroupIds);
 
       if (groupError) {
-        console.error('[TANKS] Error fetching group names:', groupError);
+        logger.error('[TANKS] Error fetching group names:', groupError);
       }
 
       // Create a map of group_id to group_name for fast lookup
@@ -176,7 +177,7 @@ export const useTanks = () => {
             const lastWarning = dataQualityWarnings.get(reading.tank_id) || 0;
 
             if (validation.isFuture && (now - lastWarning) > QUALITY_WARNING_COOLDOWN) {
-              console.warn(`[TANK DATA QUALITY] Critical issue - Tank ${reading.tank_id}:`, {
+              logger.warn(`[TANK DATA QUALITY] Critical issue - Tank ${reading.tank_id}:`, {
                 timestamp: reading.created_at,
                 issues: validation.issues,
                 age: validation.age
@@ -190,15 +191,15 @@ export const useTanks = () => {
 
       // Log summary of data quality issues (only if issues found)
       if (dataQualityIssues.totalIssues > 0) {
-        console.group(`[TANK DATA QUALITY] Summary - ${dataQualityIssues.totalIssues} tanks with issues`);
-        console.log('Issue breakdown:', {
-          staleData: dataQualityIssues.staleData,
-          futureTimestamps: dataQualityIssues.futureTimestamps,
-          invalidFormat: dataQualityIssues.invalidFormat,
-          suspiciousYear: dataQualityIssues.suspiciousYear
+        logger.warn(`[TANK DATA QUALITY] Summary - ${dataQualityIssues.totalIssues} tanks with issues`, {
+          breakdown: {
+            staleData: dataQualityIssues.staleData,
+            futureTimestamps: dataQualityIssues.futureTimestamps,
+            invalidFormat: dataQualityIssues.invalidFormat,
+            suspiciousYear: dataQualityIssues.suspiciousYear
+          },
+          sampleIssues: dataQualityIssues.sampleIssues
         });
-        console.log('Sample issues:', dataQualityIssues.sampleIssues);
-        console.groupEnd();
       }
 
       // Step 4: Combine tank data with latest readings
@@ -377,14 +378,14 @@ export const useTanks = () => {
       // This runs in the background and doesn't affect tank loading performance
       if (tanksWithAnalytics.length > 0) {
         generateAlerts(tanksWithAnalytics).catch(error => {
-          console.error('[ALERTS] Error generating alerts:', error);
+          logger.error('[ALERTS] Error generating alerts:', error);
         });
       }
 
       return tanksWithAnalytics;
 
     } catch (error) {
-      console.error('[TANKS DEBUG] ❌ CRITICAL ERROR in useTanks:', error);
+      logger.error('[TANKS] Critical error in useTanks:', error);
       throw error;
     }
   },
@@ -405,7 +406,7 @@ export const useTanks = () => {
 
   // Only log error if we're authenticated and have a real error (avoid spam during auth loading)
   if (tanks.length === 0 && !tanksQuery.isLoading && tanksQuery.error && tanksQuery.error.message !== 'No authenticated user') {
-    console.error('No tanks returned from database:', tanksQuery.error);
+    logger.error('No tanks returned from database:', tanksQuery.error);
   }
 
 

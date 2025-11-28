@@ -146,7 +146,7 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
 
   return (
     <motion.div
-      className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5"
+      className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide md:grid md:gap-4 md:grid-cols-5 md:overflow-visible md:pb-0"
       initial="hidden"
       animate="visible"
       variants={staggerContainerVariants}
@@ -159,11 +159,12 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
           <motion.div
             key={card.id}
             variants={fadeInItemVariants}
+            className="snap-start flex-shrink-0 w-[200px] md:w-auto"
           >
             <Card
               animated
               className={cn(
-                "cursor-pointer border-2",
+                "cursor-pointer border-2 h-full",
                 isSelected
                   ? "ring-2 ring-primary shadow-lg border-primary/50 bg-primary/5"
                   : "hover:border-primary/30 border-gray-200",

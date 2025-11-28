@@ -4,9 +4,6 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
-  "env": {
-    "LYTX_API_KEY": "diCeZd54DgkVzV2aPumlLG1qcZflO0GS"
-  },
   "crons": [
     {
       "path": "/api/cron/send-agbot-reports",
@@ -72,7 +69,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.sentry-cdn.com https://browser.sentry-cdn.com https://va.vercel-scripts.com https://vitals.vercel-insights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://o4507869648691200.ingest.us.sentry.io https://api.athara.com https://lytx-api.prod7.lv.lytx.com https://va.vercel-scripts.com https://vitals.vercel-insights.com https://www.fmtdata.com; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.sentry-cdn.com https://browser.sentry-cdn.com https://va.vercel-scripts.com https://vitals.vercel-insights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://o4507869648691200.ingest.us.sentry.io https://api.athara.com https://lytx-api.prod7.lv.lytx.com https://va.vercel-scripts.com https://vitals.vercel-insights.com https://www.fmtdata.com; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
         }
       ]
     }

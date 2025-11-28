@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useGlobalModals } from '@/contexts/GlobalModalsContext';
 import EditDipModal from '@/components/modals/EditDipModal';
+import { logger } from '@/lib/logger';
 
 // Helper function to format volume display
 const formatVolume = (volume: number): string => {
@@ -81,7 +82,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   const permissionFilteredTanks = (!permissionsLoading && permissions) ? filterTanks(tanks || []) : (tanks || []);
   
   // Debug component state including subgroup filtering
-  console.log('[INDEX DEBUG] Component State:', {
+  logger.debug('[INDEX] Component State:', {
     tanksLoading,
     permissionsLoading,
     tanksError: tanksError?.message,
@@ -95,7 +96,7 @@ export default function Index({ selectedGroup }: IndexProps) {
 
   // Debug subgroup filtering results
   if (permissions && !permissionsLoading && !permissions.isAdmin && tanks && tanks.length !== permissionFilteredTanks.length) {
-    console.log('🎯 [INDEX SUBGROUP FILTERING ACTIVE]', {
+    logger.debug('[INDEX] Subgroup filtering active', {
       original: tanks.length,
       filtered: permissionFilteredTanks.length,
       hidden: tanks.length - permissionFilteredTanks.length
@@ -220,51 +221,55 @@ export default function Index({ selectedGroup }: IndexProps) {
         />
 
         {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {selectedGroup 
-                ? `${groupSnapshots.find(g => g.id === selectedGroup)?.name} Dashboard` 
-                : 'Fuel Insights Dashboard'
-              }
-            </h1>
-            <p className="text-gray-600 mt-1">
-              {selectedGroup 
-                ? `Monitoring ${filteredTanks.length} tanks in this group`
-                : `Real-time monitoring across ${permissionFilteredTanks.length} fuel tanks`
-              }
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => openAlerts()}
-              className="relative border-accent text-accent hover:bg-accent hover:text-accent-foreground"
-            >
-              <Bell className="h-4 w-4 mr-2" />
-              Alerts
-              {criticalAlerts.length > 0 && (
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs animate-pulse"
-                >
-                  {criticalAlerts.length}
-                </Badge>
-              )}
-            </Button>
-            <Button
-              className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-base rounded-lg py-2 px-4 shadow flex items-center"
-              onClick={() => navigate('/map')}
-            >
-              <Map className="w-4 h-4 mr-2" />
-              View Map
-            </Button>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl md:text-3xl font-bold text-gray-900">
+                {selectedGroup
+                  ? `${groupSnapshots.find(g => g.id === selectedGroup)?.name} Dashboard`
+                  : 'Fuel Insights Dashboard'
+                }
+              </h1>
+              <p className="text-sm md:text-base text-gray-600 mt-1">
+                {selectedGroup
+                  ? `Monitoring ${filteredTanks.length} tanks`
+                  : `Monitoring ${permissionFilteredTanks.length} fuel tanks`
+                }
+              </p>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openAlerts()}
+                className="relative border-accent text-accent hover:bg-accent hover:text-accent-foreground flex-1 sm:flex-none"
+              >
+                <Bell className="h-4 w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Alerts</span>
+                {criticalAlerts.length > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs animate-pulse"
+                  >
+                    {criticalAlerts.length}
+                  </Badge>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-lg shadow flex items-center flex-1 sm:flex-none"
+                onClick={() => navigate('/map')}
+              >
+                <Map className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">View </span>Map
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* KPI Strip */}
         <div>
-          <h2 className="text-xl font-semibold mb-4 text-gray-900">Operational Overview</h2>
+          <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-gray-900">Operational Overview</h2>
           <KPICards
             tanks={displayTanks}
             onCardClick={handleCardClick}
@@ -275,7 +280,7 @@ export default function Index({ selectedGroup }: IndexProps) {
         {/* Group Overview - Only show on global dashboard */}
         {!selectedGroup && (
           <div>
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">Fuel Group Overview</h2>
+            <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-gray-900">Fuel Group Overview</h2>
             <GroupSnapshotCards
               groups={groupSnapshots}
               selectedGroup={null}
@@ -286,8 +291,8 @@ export default function Index({ selectedGroup }: IndexProps) {
 
         {/* Tank Status Table */}
         <div ref={tankTableRef}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900">
               {selectedGroup ? 'Tank Status' : 'All Tank Status'}
             </h2>
           </div>

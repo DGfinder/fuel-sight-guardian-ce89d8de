@@ -16,6 +16,8 @@ import { markTankServiced, unmarkTankServiced, supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTankModal } from '@/contexts/TankModalContext';
 import { formatPerthRelativeTime, formatPerthDisplay, getPerthToday } from '@/utils/timezone';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { logger } from '@/lib/logger';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
@@ -99,7 +101,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
           <Checkbox
             checked={isServiced}
             onCheckedChange={(checked) => {
-              console.log('Checkbox clicked:', { tankId: tank.id, checked, isServiced });
+              logger.debug('[TANK] Checkbox clicked:', { tankId: tank.id, checked, isServiced });
               onServicedToggle(tank.id, checked as boolean);
             }}
             className="h-4 w-4 text-green-700"
@@ -171,7 +173,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
               <Checkbox
                 checked={isServiced}
                 onCheckedChange={(checked) => {
-                  console.log('Checkbox clicked:', { tankId: tank.id, checked, isServiced });
+                  logger.debug('[TANK] Checkbox clicked:', { tankId: tank.id, checked, isServiced });
                   onServicedToggle(tank.id, checked as boolean);
                 }}
                 className="h-4 w-4 text-green-700"
@@ -230,7 +232,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
                 <DropdownMenuContent>
                   <DropdownMenuItem onSelect={() => { /* TODO: Add Dip */ }}>Add Dip</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => {
-                    console.log('Edit Dip selected', tank);
+                    logger.debug('[TANK] Edit Dip selected', tank);
                     suppressNextRowClick.current = true;
                     setEditDipTank(tank);
                     setEditDipModalOpen(true);
@@ -262,20 +264,22 @@ interface NestedGroupAccordionProps {
   isServiced: (tankId: string) => boolean;
   today: string;
   suppressNextRowClick: React.MutableRefObject<boolean>;
+  isMobile: boolean;
 }
 
-const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({ 
-  tanks, 
-  onTankClick, 
-  todayBurnRate, 
-  sortTanks, 
-  SortButton, 
-  setEditDipTank, 
+const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
+  tanks,
+  onTankClick,
+  todayBurnRate,
+  sortTanks,
+  SortButton,
+  setEditDipTank,
   setEditDipModalOpen,
   onServicedToggle,
   isServiced,
   today,
-  suppressNextRowClick
+  suppressNextRowClick,
+  isMobile
 }) => {
   // Group by group_name, then subgroup
   const grouped = useMemo(() => {
@@ -352,9 +356,6 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
     if (warningTanks.length > 0) return 'warning';
     return 'normal';
   };
-
-  // Responsive: detect mobile
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   // Track expanded state for all subgroup accordions per group
   const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({});
@@ -696,11 +697,11 @@ export interface TankStatusTableProps {
   suppressNextRowClick?: React.MutableRefObject<boolean>;
 }
 
-export const TankStatusTable: React.FC<TankStatusTableProps> = ({ 
-  tanks, 
-  onTankClick, 
-  todayBurnRate, 
-  setEditDipTank, 
+export const TankStatusTable: React.FC<TankStatusTableProps> = ({
+  tanks,
+  onTankClick,
+  todayBurnRate,
+  setEditDipTank,
   setEditDipModalOpen,
   suppressNextRowClick: externalSuppressNextRowClick
 }) => {
@@ -709,7 +710,8 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   const [hideServiced, setHideServiced] = useState(false);
   const queryClient = useQueryClient();
   const { openModal } = useTankModal();
-  
+  const isMobile = useIsMobile();
+
   const today = getPerthToday();
 
   // Check if a tank is serviced today
@@ -720,24 +722,24 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
 
   // Handle serviced toggle
   const handleServicedToggle = useCallback(async (tankId: string, serviced: boolean) => {
-    console.log('handleServicedToggle called:', { tankId, serviced });
+    logger.debug('[TANK] handleServicedToggle called:', { tankId, serviced });
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('User:', user);
+      logger.debug('[TANK] User:', user);
       if (!user) return;
 
       if (serviced) {
-        console.log('Marking tank as serviced');
+        logger.debug('[TANK] Marking tank as serviced');
         await markTankServiced(tankId, user.id);
       } else {
-        console.log('Unmarking tank as serviced');
+        logger.debug('[TANK] Unmarking tank as serviced');
         await unmarkTankServiced(tankId);
       }
-      
+
       // Invalidate and refetch tanks data
       queryClient.invalidateQueries({ queryKey: ['tanks'] });
     } catch (error) {
-      console.error('Error toggling tank serviced status:', error);
+      logger.error('[TANK] Error toggling tank serviced status:', error);
     }
   }, [queryClient]);
 
@@ -760,10 +762,7 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   }, []);
 
   const handleTankClick = useCallback((tank: Tank) => {
-    console.log('=== TABLE ROW CLICKED ===');
-    console.log('Tank clicked:', tank);
-    console.log('Tank ID:', tank.id);
-    console.log('Tank group_id:', tank.group_id);
+    logger.debug('[TANK] Table row clicked:', { id: tank.id, location: tank.location, group_id: tank.group_id });
     setEditDipModalOpen(false);
     setEditDipTank(null);
     openModal(tank);
@@ -852,18 +851,19 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
         </Button>
       </div>
       
-      <NestedGroupAccordion 
-        tanks={filteredTanks} 
-        onTankClick={handleTankClick} 
-        todayBurnRate={todayBurnRate} 
-        sortTanks={sortTanks} 
-        SortButton={SortButton} 
-        setEditDipTank={setEditDipTank} 
+      <NestedGroupAccordion
+        tanks={filteredTanks}
+        onTankClick={handleTankClick}
+        todayBurnRate={todayBurnRate}
+        sortTanks={sortTanks}
+        SortButton={SortButton}
+        setEditDipTank={setEditDipTank}
         setEditDipModalOpen={setEditDipModalOpen}
         onServicedToggle={handleServicedToggle}
         isServiced={isServiced}
         today={today}
         suppressNextRowClick={suppressNextRowClick}
+        isMobile={isMobile}
       />
     </div>
   );

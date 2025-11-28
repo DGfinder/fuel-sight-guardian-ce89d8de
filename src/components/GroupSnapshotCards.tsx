@@ -54,7 +54,7 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
   };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide md:grid md:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:overflow-visible md:pb-0">
       {groups.map((group) => {
         const isSelected = selectedGroup === group.id;
         const criticalTanks = group.criticalTanks || 0;
@@ -66,8 +66,9 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
             className={cn(
               "cursor-pointer transition-all duration-200 border-2",
               "hover:shadow-md hover:-translate-y-0.5 hover:border-[#008457]/30",
-              isSelected 
-                ? "ring-2 ring-[#008457] shadow-lg border-[#008457]/50" 
+              "snap-start flex-shrink-0 w-[280px] md:w-auto",
+              isSelected
+                ? "ring-2 ring-[#008457] shadow-lg border-[#008457]/50"
                 : "border-gray-200",
               criticalTanks > 0 && "ring-1 ring-red-200 border-red-200"
             )}
