@@ -24,8 +24,9 @@ import { toPerthTime, validateTimestamp } from '@/utils/timezone';
 // - CSV import is the recommended approach for now (already working with 11 tanks)
 //
 // For webhook integration in future: Set up endpoint for Gasbot to POST tank data to us
-const ATHARA_API_KEY = import.meta.env.VITE_ATHARA_API_KEY || '3FCZF4JI9JM5TKPIJZIFZE1UOAOMKLUAL5BG';
-const ATHARA_API_SECRET = import.meta.env.VITE_ATHARA_API_SECRET || '7RPYMX82GD3X9RERLF982KH0GDN9H1GBFAZ9R84JWR';
+// SECURITY: API credentials must be set via environment variables - no fallbacks
+const ATHARA_API_KEY = import.meta.env.VITE_ATHARA_API_KEY;
+const ATHARA_API_SECRET = import.meta.env.VITE_ATHARA_API_SECRET;
 const ATHARA_BASE_URL = import.meta.env.VITE_ATHARA_BASE_URL || 'https://dashboard2-production.prod.gasbot.io';
 
 // Development flags
@@ -49,7 +50,7 @@ const ATHARA_REQUEST_CONFIG = {
 };
 
 // Helper function for making authenticated API requests with retry logic
-async function makeAtharaRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
+async function makeAtharaRequest<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${ATHARA_BASE_URL}${endpoint}`;
   
   const requestOptions: RequestInit = {
@@ -159,7 +160,7 @@ export interface AtharaAsset {
   latestCoordinationUpdateTimestamp: string;
   latestReportedLat: number;
   latestReportedLng: number;
-  myriotaDetails: any;
+  myriotaDetails: Record<string, unknown> | null;
 }
 
 // Database types for our system
@@ -219,6 +220,44 @@ export interface AgbotSyncResult {
   readingsProcessed: number;
   errors: string[];
   duration: number;
+}
+
+// Reading history data structure
+export interface AgbotReading {
+  id: string;
+  asset_id: string;
+  calibrated_fill_percentage: number;
+  raw_fill_percentage: number;
+  reading_timestamp: string;
+  device_online: boolean;
+  telemetry_epoch: number;
+  created_at?: string;
+  asset?: AgbotAsset & { location?: AgbotLocation };
+}
+
+// CSV row data structure (matches Athara export format)
+export interface AgbotCSVRow {
+  locationId: string;
+  tenancy?: string;
+  streetAddress?: string;
+  state?: string;
+  locationLevel?: string;
+  locationStatus?: string;
+  lastSeen?: string;
+  assetDisabled?: string;
+  assetSerialNumber?: string;
+  assetProfile?: string;
+  deviceSerialNumber?: string;
+  deviceId?: string;
+  deviceSku?: string;
+  deviceModel?: string;
+  deviceOnline?: string;
+  deviceActivation?: string;
+  deviceLastSeen?: string;
+  assetLastSeen?: string;
+  deviceSubscription?: string;
+  rawTelemetries?: string;
+  [key: string]: string | undefined;
 }
 
 // API Health Tracking (in-memory for now, could be moved to database)
@@ -830,9 +869,9 @@ export async function getAgbotSyncLogs(limit: number = 10) {
 
 // Get historical readings for an asset
 export async function getAgbotReadingsHistory(
-  assetId: string, 
+  assetId: string,
   days: number = 30
-): Promise<any[]> {
+): Promise<AgbotReading[]> {
   const daysAgo = new Date();
   daysAgo.setDate(daysAgo.getDate() - days);
 
@@ -853,9 +892,9 @@ export async function getAgbotReadingsHistory(
 
 // Get readings for multiple assets at once
 export async function getBulkAgbotReadingsHistory(
-  assetIds: string[], 
+  assetIds: string[],
   days: number = 30
-): Promise<Record<string, any[]>> {
+): Promise<Record<string, AgbotReading[]>> {
   if (assetIds.length === 0) return {};
 
   const daysAgo = new Date();
@@ -874,12 +913,12 @@ export async function getBulkAgbotReadingsHistory(
   }
 
   // Group readings by asset_id
-  const groupedReadings: Record<string, any[]> = {};
+  const groupedReadings: Record<string, AgbotReading[]> = {};
   assetIds.forEach(id => {
     groupedReadings[id] = [];
   });
 
-  (data || []).forEach(reading => {
+  (data || []).forEach((reading: AgbotReading) => {
     if (groupedReadings[reading.asset_id]) {
       groupedReadings[reading.asset_id].push(reading);
     }
@@ -889,7 +928,7 @@ export async function getBulkAgbotReadingsHistory(
 }
 
 // Get latest readings for all assets (for real-time dashboard)
-export async function getLatestAgbotReadings(): Promise<any[]> {
+export async function getLatestAgbotReadings(): Promise<AgbotReading[]> {
   const { data, error } = await supabase
     .from('agbot_readings_history')
     .select(`
@@ -907,8 +946,8 @@ export async function getLatestAgbotReadings(): Promise<any[]> {
   }
 
   // Get the latest reading for each asset
-  const latestByAsset = new Map();
-  (data || []).forEach(reading => {
+  const latestByAsset = new Map<string, AgbotReading>();
+  (data || []).forEach((reading: AgbotReading) => {
     if (!latestByAsset.has(reading.asset_id)) {
       latestByAsset.set(reading.asset_id, reading);
     }
@@ -1113,7 +1152,7 @@ export interface AgbotCSVImportResult {
 }
 
 // Transform CSV row data to database location format
-function transformCSVLocationData(csvRow: any) {
+function transformCSVLocationData(csvRow: AgbotCSVRow) {
   // Parse date strings and handle empty values with Perth timezone
   const parseDate = (dateStr: string) => {
     if (!dateStr || dateStr.trim() === '') return null;
@@ -1180,7 +1219,7 @@ function transformCSVLocationData(csvRow: any) {
 }
 
 // Transform CSV row data to database asset format
-function transformCSVAssetData(csvRow: any, locationId: string) {
+function transformCSVAssetData(csvRow: AgbotCSVRow, locationId: string) {
   const parseDate = (dateStr: string) => {
     if (!dateStr || dateStr.trim() === '') return null;
     try {
@@ -1243,7 +1282,7 @@ function transformCSVAssetData(csvRow: any, locationId: string) {
 }
 
 // Import Agbot data from CSV
-export async function importAgbotFromCSV(csvRows: any[]): Promise<AgbotCSVImportResult> {
+export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotCSVImportResult> {
   const startTime = Date.now();
   const result: AgbotCSVImportResult = {
     success: false,

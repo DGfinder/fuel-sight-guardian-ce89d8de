@@ -39,13 +39,16 @@ const SMARTFILL_REQUEST_CONFIG = {
   retryDelay: 1000, // 1 second between retries
 };
 
+// JSON-RPC request parameters type
+type SmartFillRequestParams = Record<string, string | number | boolean | null | undefined>;
+
 // Helper function for making JSON-RPC 2.0 API requests with retry logic
-async function makeSmartFillRequest(
-  method: string, 
-  parameters: any, 
-  clientReference: string, 
+async function makeSmartFillRequest<T = SmartFillAPIResponse>(
+  method: string,
+  parameters: SmartFillRequestParams,
+  clientReference: string,
   clientSecret: string
-): Promise<any> {
+): Promise<T> {
   const requestBody = {
     jsonrpc: '2.0',
     method: method,
@@ -133,7 +136,7 @@ export interface SmartFillTankReading {
 
 export interface SmartFillAPIResponse {
   columns: string[];
-  values: any[][];
+  values: (string | number | null)[][];
 }
 
 export interface SmartFillCustomer {
@@ -293,15 +296,15 @@ export async function fetchSmartFillTankData(
     
       // Transform column/value arrays into objects with safe array handling
       const tankReadings: SmartFillTankReading[] = result.values
-        .filter((row: any) => Array.isArray(row))
-        .map((row: any[]) => {
-          const reading: any = {};
+        .filter((row): row is (string | number | null)[] => Array.isArray(row))
+        .map((row) => {
+          const reading: Record<string, string | number | null> = {};
           result.columns.forEach((column: string, index: number) => {
             if (index < row.length) {
               reading[column] = row[index];
             }
           });
-          return reading as SmartFillTankReading;
+          return reading as unknown as SmartFillTankReading;
         });
       
       // Cache the successful result with smart TTL

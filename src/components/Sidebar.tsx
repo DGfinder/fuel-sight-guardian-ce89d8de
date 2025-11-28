@@ -23,7 +23,6 @@ import {
   History,
   Mail,
   Signal,
-  BarChart3,
   Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -179,17 +178,6 @@ export const Sidebar: React.FC = () => {
         path: '/performance',
         label: 'Performance',
         icon: TrendingUp,
-        badge: null,
-        group: null
-      });
-    }
-
-    // Add data centre for admin, manager, and compliance_manager roles (exclude scheduler)
-    if ((permissions.isAdmin && permissions.role !== 'scheduler') || permissions.role === 'manager' || permissions.role === 'compliance_manager') {
-      allItems.push({
-        path: '/data-centre',
-        label: 'Data Centre (Fuel Dips)',
-        icon: BarChart3,
         badge: null,
         group: null
       });

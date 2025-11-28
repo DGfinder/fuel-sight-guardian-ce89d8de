@@ -2,6 +2,23 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useTankHistory } from './useTankHistory';
 
+// Reading data structure from tank history
+interface TankReading {
+  id: string;
+  created_at: string;
+  value: number;
+  tank_id?: string;
+  [key: string]: unknown;
+}
+
+// Tank data structure from database
+interface TankData {
+  id: string;
+  safe_level?: number | null;
+  min_level?: number | null;
+  [key: string]: unknown;
+}
+
 export interface RefuelEvent {
   id: string;
   date: string;
@@ -193,7 +210,7 @@ export function useFuelAnalytics({
 }
 
 // Refuel detection algorithm
-function detectRefuelEvents(readings: any[]): RefuelEvent[] {
+function detectRefuelEvents(readings: TankReading[]): RefuelEvent[] {
   const refuels: RefuelEvent[] = [];
   
   for (let i = 1; i < readings.length; i++) {
@@ -234,7 +251,7 @@ function detectRefuelEvents(readings: any[]): RefuelEvent[] {
 }
 
 // Calculate consumption metrics
-function calculateConsumptionMetrics(readings: any[], dateFrom?: Date, dateTo?: Date): FuelConsumptionMetrics {
+function calculateConsumptionMetrics(readings: TankReading[], dateFrom?: Date, dateTo?: Date): FuelConsumptionMetrics {
   if (readings.length < 2) return getEmptyConsumptionMetrics();
   
   const dailyConsumption = new Map<string, number>();
@@ -330,7 +347,7 @@ function getWeekKey(date: Date): string {
 }
 
 // Calculate refuel analytics
-function calculateRefuelAnalytics(refuelEvents: RefuelEvent[], readings: any[]): RefuelAnalytics {
+function calculateRefuelAnalytics(refuelEvents: RefuelEvent[], readings: TankReading[]): RefuelAnalytics {
   if (refuelEvents.length === 0) return getEmptyRefuelAnalytics();
   
   const totalVolume = refuelEvents.reduce((sum, refuel) => sum + refuel.volumeAdded, 0);
@@ -361,7 +378,7 @@ function calculateRefuelAnalytics(refuelEvents: RefuelEvent[], readings: any[]):
   }
   
   // Calculate efficiency (how much of tank capacity is typically used)
-  const tankCapacity = Math.max(...readings.map((r: any) => r.value));
+  const tankCapacity = Math.max(...readings.map((r) => r.value));
   const efficiency = (averageVolume / tankCapacity) * 100;
   
   return {
@@ -378,7 +395,7 @@ function calculateRefuelAnalytics(refuelEvents: RefuelEvent[], readings: any[]):
 }
 
 // Calculate tank performance metrics
-function calculateTankPerformance(readings: any[], tankData: any): TankPerformanceMetrics {
+function calculateTankPerformance(readings: TankReading[], tankData: TankData | null | undefined): TankPerformanceMetrics {
   if (!readings.length || !tankData) return getEmptyTankPerformance();
   
   const safeLevel = tankData.safe_level || 0;
@@ -459,7 +476,7 @@ function calculateTankPerformance(readings: any[], tankData: any): TankPerforman
 }
 
 // Calculate seasonal consumption analysis
-function calculateSeasonalAnalysis(readings: any[], dateFrom?: Date, dateTo?: Date): SeasonalAnalysis {
+function calculateSeasonalAnalysis(readings: TankReading[], dateFrom?: Date, dateTo?: Date): SeasonalAnalysis {
   if (readings.length < 2) return getEmptySeasonalAnalysis();
   
   // Determine the analysis period
@@ -629,7 +646,7 @@ function determineSeasonalPattern(seasonalData: { season: string; average: numbe
 }
 
 // Calculate operational insights
-function calculateOperationalInsights(readings: any[], tankData: any): OperationalInsights {
+function calculateOperationalInsights(readings: TankReading[], tankData: TankData | null | undefined): OperationalInsights {
   if (!readings.length) return getEmptyOperationalInsights();
   
   const minLevel = tankData?.min_level || 0;
@@ -782,13 +799,13 @@ function generateInsights(
 
 // Generate alerts for business attention
 function generateAlerts(
-  refuelEvents: RefuelEvent[], 
-  consumption: FuelConsumptionMetrics, 
+  refuelEvents: RefuelEvent[],
+  consumption: FuelConsumptionMetrics,
   refuels: RefuelAnalytics,
   performance: TankPerformanceMetrics,
   operational: OperationalInsights,
-  readings: any[],
-  tankData: any
+  readings: TankReading[],
+  tankData: TankData | null | undefined
 ): string[] {
   const alerts: string[] = [];
   

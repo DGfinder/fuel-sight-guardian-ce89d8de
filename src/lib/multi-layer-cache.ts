@@ -23,9 +23,17 @@ import {
   calculateSmartTTL
 } from '@/lib/vercel-kv-cache';
 
+// Cache entry type
+interface CacheEntry<T = unknown> {
+  value: T;
+  expires: number;
+  hits: number;
+  lastAccess: number;
+}
+
 // L1 Cache: In-memory cache
 class InMemoryCache {
-  private cache = new Map<string, { value: any; expires: number; hits: number; lastAccess: number }>();
+  private cache = new Map<string, CacheEntry>();
   private maxSize = 1000; // Maximum number of entries
   private stats = {
     hits: 0,
@@ -33,7 +41,7 @@ class InMemoryCache {
     evictions: 0
   };
 
-  set(key: string, value: any, ttlMs: number = 5 * 60 * 1000): void {
+  set<T>(key: string, value: T, ttlMs: number = 5 * 60 * 1000): void {
     // Clean up expired entries if cache is getting full
     if (this.cache.size >= this.maxSize) {
       this.evictLRU();
@@ -48,9 +56,9 @@ class InMemoryCache {
     });
   }
 
-  get(key: string): any | null {
+  get<T = unknown>(key: string): T | null {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       this.stats.misses++;
       return null;
@@ -65,7 +73,7 @@ class InMemoryCache {
     entry.hits++;
     entry.lastAccess = Date.now();
     this.stats.hits++;
-    return entry.value;
+    return entry.value as T;
   }
 
   delete(key: string): void {
@@ -197,8 +205,8 @@ export class MultiLayerCache {
   /**
    * Get value with multi-layer fallback
    */
-  async get(key: string, strategy: CacheStrategy = CacheStrategy.READ_THROUGH): Promise<any | null> {
-    let value: any = null;
+  async get<T = unknown>(key: string, strategy: CacheStrategy = CacheStrategy.READ_THROUGH): Promise<T | null> {
+    let value: T | null = null;
     let foundIn: 'l1' | 'l2' | 'l3' | null = null;
 
     // L1 Cache (In-memory)
@@ -248,10 +256,10 @@ export class MultiLayerCache {
   /**
    * Set value across cache layers
    */
-  async set(
-    key: string, 
-    value: any, 
-    ttlSeconds?: number, 
+  async set<T>(
+    key: string,
+    value: T,
+    ttlSeconds?: number,
     strategy: CacheStrategy = CacheStrategy.WRITE_THROUGH
   ): Promise<void> {
     const actualTTL = ttlSeconds || calculateSmartTTL('QUERY_RESULTS', 'medium');
@@ -303,8 +311,8 @@ export class MultiLayerCache {
   /**
    * Warm cache with frequently accessed data
    */
-  async warmCache(
-    entries: Array<{ key: string; fetcher: () => Promise<any>; ttl?: number }>
+  async warmCache<T = unknown>(
+    entries: Array<{ key: string; fetcher: () => Promise<T>; ttl?: number }>
   ): Promise<void> {
     const promises = entries.map(async ({ key, fetcher, ttl }) => {
       if (this.warmingQueue.has(key)) return; // Already warming
@@ -369,7 +377,7 @@ export class MultiLayerCache {
   /**
    * Private helper methods
    */
-  private async writeToAllLayers(key: string, value: any, ttlSeconds: number): Promise<void> {
+  private async writeToAllLayers<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
     const promises: Promise<void>[] = [];
 
     // L1
@@ -387,7 +395,7 @@ export class MultiLayerCache {
     await Promise.allSettled(promises);
   }
 
-  private async writeToLowerLayers(key: string, value: any, ttlSeconds: number): Promise<void> {
+  private async writeToLowerLayers<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
     const promises: Promise<void>[] = [];
 
     // L2
@@ -465,23 +473,23 @@ export async function fetchWithMultiLayerCache<T>(
 /**
  * Higher-order function for automatic caching
  */
-export function withMultiLayerCache<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
+export function withMultiLayerCache<TArgs extends unknown[], TReturn>(
+  fn: (...args: TArgs) => Promise<TReturn>,
   options: {
-    keyGenerator: (...args: Parameters<T>) => string;
+    keyGenerator: (...args: TArgs) => string;
     ttl?: number;
     strategy?: CacheStrategy;
     cacheInstance?: MultiLayerCache;
   }
-): T {
-  return (async (...args: Parameters<T>) => {
+): (...args: TArgs) => Promise<TReturn> {
+  return async (...args: TArgs): Promise<TReturn> => {
     const key = options.keyGenerator(...args);
-    return await fetchWithMultiLayerCache(
+    return await fetchWithMultiLayerCache<TReturn>(
       key,
       () => fn(...args),
       options
     );
-  }) as T;
+  };
 }
 
 /**
@@ -558,7 +566,7 @@ export class SmartCacheWarmer {
     await this.warmPredictedKeys();
   }
 
-  private async fetchDataForKey(key: string): Promise<any> {
+  private async fetchDataForKey(key: string): Promise<unknown> {
     // This would be implemented based on your specific data sources
     // For example, it might route to different APIs based on key patterns
     console.log(`Fetching data for predicted hot key: ${key}`);
@@ -587,7 +595,7 @@ export const CacheUtils = {
   /**
    * Generate cache key for API responses
    */
-  apiKey: (endpoint: string, params?: Record<string, any>): string => {
+  apiKey: (endpoint: string, params?: Record<string, string | number | boolean | null | undefined>): string => {
     const paramString = params ? `:${JSON.stringify(params)}` : '';
     return `${CACHE_KEYS.QUERY_CACHE}api:${endpoint}${paramString}`;
   },

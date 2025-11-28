@@ -1,19 +1,62 @@
 /**
  * ADVANCED CACHING STRATEGIES
- * 
+ *
  * Sophisticated caching layer for dashboard queries, analytics,
  * and cross-system data aggregation with intelligent invalidation
  */
 
-import { 
-  cacheGet, 
-  cacheSet, 
-  cacheDel, 
+import {
+  cacheGet,
+  cacheSet,
+  cacheDel,
   cacheHealthCheck,
   CACHE_CONFIG,
-  CACHE_KEYS 
+  CACHE_KEYS
 } from '@/lib/vercel-kv';
 import { getConfig, CONFIG_KEYS } from '@/lib/vercel-edge-config';
+
+// Type definitions for cache operations
+export interface CacheFilter {
+  [key: string]: string | number | boolean | string[] | null | undefined;
+}
+
+export interface CacheMetadata {
+  type: string;
+  [key: string]: unknown;
+}
+
+export interface DashboardSummaryData {
+  totalLocations?: number;
+  totalVolume?: number;
+  alerts?: number;
+  lastUpdated?: string;
+  [key: string]: unknown;
+}
+
+export interface ChartData {
+  labels?: string[];
+  datasets?: Array<{
+    label: string;
+    data: number[];
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
+
+export interface LocationTableData {
+  items: unknown[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SystemStatusData {
+  systems: Array<{
+    name: string;
+    status: 'online' | 'offline' | 'degraded';
+    lastCheck: string;
+  }>;
+}
 
 // Advanced cache configuration
 export const ADVANCED_CACHE_CONFIG = {
@@ -41,26 +84,26 @@ export const ADVANCED_CACHE_KEYS = {
   // Dashboard caching
   DASHBOARD: {
     SUMMARY: (userId?: string) => `dashboard:summary${userId ? `:${userId}` : ''}`,
-    FUEL_CHART: (timeRange: string, systems: string[]) => 
+    FUEL_CHART: (timeRange: string, systems: string[]) =>
       `dashboard:fuel_chart:${timeRange}:${systems.sort().join(',')}`,
-    DELIVERY_CHART: (timeRange: string, filters: Record<string, any>) => 
+    DELIVERY_CHART: (timeRange: string, filters: CacheFilter) =>
       `dashboard:delivery_chart:${timeRange}:${JSON.stringify(filters)}`,
-    LOCATION_TABLE: (page: number, filters: Record<string, any>) => 
+    LOCATION_TABLE: (page: number, filters: CacheFilter) =>
       `dashboard:locations:${page}:${JSON.stringify(filters)}`,
-    PERFORMANCE_METRICS: (system: string, timeRange: string) => 
+    PERFORMANCE_METRICS: (system: string, timeRange: string) =>
       `dashboard:performance:${system}:${timeRange}`
   },
-  
+
   // Query result caching
   QUERIES: {
-    COMPLEX_AGGREGATION: (queryHash: string, params: Record<string, any>) =>
+    COMPLEX_AGGREGATION: (queryHash: string, params: CacheFilter) =>
       `query:complex:${queryHash}:${JSON.stringify(params)}`,
-    CROSS_SYSTEM: (systems: string[], dateRange: string, filters: any) =>
+    CROSS_SYSTEM: (systems: string[], dateRange: string, filters: CacheFilter) =>
       `query:cross_system:${systems.sort().join(',')}:${dateRange}:${JSON.stringify(filters)}`,
-    ANALYTICS_DRILL_DOWN: (dimension: string, metrics: string[], filters: any) =>
+    ANALYTICS_DRILL_DOWN: (dimension: string, metrics: string[], filters: CacheFilter) =>
       `query:analytics:${dimension}:${metrics.sort().join(',')}:${JSON.stringify(filters)}`
   },
-  
+
   // Unified data caching
   UNIFIED: {
     LOCATION_DATA: (locationId: string, includeSystems: string[]) =>
@@ -171,16 +214,16 @@ export class AdvancedCacheManager {
     cacheKey: string,
     data: T,
     ttl: number,
-    metadata?: Record<string, any>
+    metadata?: CacheMetadata
   ): Promise<void> {
     try {
       const cachedData = {
         data,
         timestamp: Date.now(),
         version: '1.0',
-        metadata: metadata || {}
+        metadata: metadata || { type: 'unknown' }
       };
-      
+
       await cacheSet(cacheKey, cachedData, ttl);
     } catch (error) {
       console.warn('[ADVANCED_CACHE] Set failed:', error);
@@ -262,46 +305,46 @@ export class AdvancedCacheManager {
 export class DashboardCache {
   private cacheManager = AdvancedCacheManager.getInstance();
 
-  async getDashboardSummary(userId?: string): Promise<any | null> {
+  async getDashboardSummary(userId?: string): Promise<DashboardSummaryData | null> {
     const cacheKey = ADVANCED_CACHE_KEYS.DASHBOARD.SUMMARY(userId);
-    return await this.cacheManager.get(cacheKey, ADVANCED_CACHE_CONFIG.DASHBOARD_SUMMARY);
+    return await this.cacheManager.get<DashboardSummaryData>(cacheKey, ADVANCED_CACHE_CONFIG.DASHBOARD_SUMMARY);
   }
 
-  async setDashboardSummary(data: any, userId?: string): Promise<void> {
+  async setDashboardSummary(data: DashboardSummaryData, userId?: string): Promise<void> {
     const cacheKey = ADVANCED_CACHE_KEYS.DASHBOARD.SUMMARY(userId);
     await this.cacheManager.set(
-      cacheKey, 
-      data, 
+      cacheKey,
+      data,
       ADVANCED_CACHE_CONFIG.DASHBOARD_SUMMARY,
       { type: 'dashboard_summary', userId }
     );
   }
 
-  async getFuelChart(timeRange: string, systems: string[]): Promise<any | null> {
+  async getFuelChart(timeRange: string, systems: string[]): Promise<ChartData | null> {
     const cacheKey = ADVANCED_CACHE_KEYS.DASHBOARD.FUEL_CHART(timeRange, systems);
-    return await this.cacheManager.get(cacheKey, ADVANCED_CACHE_CONFIG.DASHBOARD_CHARTS);
+    return await this.cacheManager.get<ChartData>(cacheKey, ADVANCED_CACHE_CONFIG.DASHBOARD_CHARTS);
   }
 
-  async setFuelChart(data: any, timeRange: string, systems: string[]): Promise<void> {
+  async setFuelChart(data: ChartData, timeRange: string, systems: string[]): Promise<void> {
     const cacheKey = ADVANCED_CACHE_KEYS.DASHBOARD.FUEL_CHART(timeRange, systems);
     await this.cacheManager.set(
-      cacheKey, 
-      data, 
+      cacheKey,
+      data,
       ADVANCED_CACHE_CONFIG.DASHBOARD_CHARTS,
       { type: 'fuel_chart', timeRange, systems }
     );
   }
 
-  async getLocationTable(page: number, filters: Record<string, any>): Promise<any | null> {
+  async getLocationTable(page: number, filters: CacheFilter): Promise<LocationTableData | null> {
     const cacheKey = ADVANCED_CACHE_KEYS.DASHBOARD.LOCATION_TABLE(page, filters);
-    return await this.cacheManager.get(cacheKey, ADVANCED_CACHE_CONFIG.DASHBOARD_TABLES);
+    return await this.cacheManager.get<LocationTableData>(cacheKey, ADVANCED_CACHE_CONFIG.DASHBOARD_TABLES);
   }
 
-  async setLocationTable(data: any, page: number, filters: Record<string, any>): Promise<void> {
+  async setLocationTable(data: LocationTableData, page: number, filters: CacheFilter): Promise<void> {
     const cacheKey = ADVANCED_CACHE_KEYS.DASHBOARD.LOCATION_TABLE(page, filters);
     await this.cacheManager.set(
-      cacheKey, 
-      data, 
+      cacheKey,
+      data,
       ADVANCED_CACHE_CONFIG.DASHBOARD_TABLES,
       { type: 'location_table', page, filters }
     );
@@ -314,47 +357,47 @@ export class DashboardCache {
 export class QueryCache {
   private cacheManager = AdvancedCacheManager.getInstance();
 
-  async getComplexQuery(
-    queryHash: string, 
-    params: Record<string, any>
-  ): Promise<any | null> {
+  async getComplexQuery<T = unknown>(
+    queryHash: string,
+    params: CacheFilter
+  ): Promise<T | null> {
     const cacheKey = ADVANCED_CACHE_KEYS.QUERIES.COMPLEX_AGGREGATION(queryHash, params);
-    return await this.cacheManager.get(cacheKey, ADVANCED_CACHE_CONFIG.COMPLEX_QUERIES);
+    return await this.cacheManager.get<T>(cacheKey, ADVANCED_CACHE_CONFIG.COMPLEX_QUERIES);
   }
 
-  async setComplexQuery(
-    data: any, 
-    queryHash: string, 
-    params: Record<string, any>
+  async setComplexQuery<T = unknown>(
+    data: T,
+    queryHash: string,
+    params: CacheFilter
   ): Promise<void> {
     const cacheKey = ADVANCED_CACHE_KEYS.QUERIES.COMPLEX_AGGREGATION(queryHash, params);
     await this.cacheManager.set(
-      cacheKey, 
-      data, 
+      cacheKey,
+      data,
       ADVANCED_CACHE_CONFIG.COMPLEX_QUERIES,
       { type: 'complex_query', queryHash, params }
     );
   }
 
-  async getCrossSystemQuery(
-    systems: string[], 
-    dateRange: string, 
-    filters: any
-  ): Promise<any | null> {
+  async getCrossSystemQuery<T = unknown>(
+    systems: string[],
+    dateRange: string,
+    filters: CacheFilter
+  ): Promise<T | null> {
     const cacheKey = ADVANCED_CACHE_KEYS.QUERIES.CROSS_SYSTEM(systems, dateRange, filters);
-    return await this.cacheManager.get(cacheKey, ADVANCED_CACHE_CONFIG.UNIFIED_DATA);
+    return await this.cacheManager.get<T>(cacheKey, ADVANCED_CACHE_CONFIG.UNIFIED_DATA);
   }
 
-  async setCrossSystemQuery(
-    data: any, 
-    systems: string[], 
-    dateRange: string, 
-    filters: any
+  async setCrossSystemQuery<T = unknown>(
+    data: T,
+    systems: string[],
+    dateRange: string,
+    filters: CacheFilter
   ): Promise<void> {
     const cacheKey = ADVANCED_CACHE_KEYS.QUERIES.CROSS_SYSTEM(systems, dateRange, filters);
     await this.cacheManager.set(
-      cacheKey, 
-      data, 
+      cacheKey,
+      data,
       ADVANCED_CACHE_CONFIG.UNIFIED_DATA,
       { type: 'cross_system_query', systems, dateRange, filters }
     );
@@ -367,35 +410,35 @@ export class QueryCache {
 export class UnifiedDataCache {
   private cacheManager = AdvancedCacheManager.getInstance();
 
-  async getLocationData(locationId: string, includeSystems: string[]): Promise<any | null> {
+  async getLocationData<T = unknown>(locationId: string, includeSystems: string[]): Promise<T | null> {
     const cacheKey = ADVANCED_CACHE_KEYS.UNIFIED.LOCATION_DATA(locationId, includeSystems);
-    return await this.cacheManager.get(cacheKey, ADVANCED_CACHE_CONFIG.UNIFIED_DATA);
+    return await this.cacheManager.get<T>(cacheKey, ADVANCED_CACHE_CONFIG.UNIFIED_DATA);
   }
 
-  async setLocationData(
-    data: any, 
-    locationId: string, 
+  async setLocationData<T = unknown>(
+    data: T,
+    locationId: string,
     includeSystems: string[]
   ): Promise<void> {
     const cacheKey = ADVANCED_CACHE_KEYS.UNIFIED.LOCATION_DATA(locationId, includeSystems);
     await this.cacheManager.set(
-      cacheKey, 
-      data, 
+      cacheKey,
+      data,
       ADVANCED_CACHE_CONFIG.UNIFIED_DATA,
       { type: 'unified_location', locationId, includeSystems }
     );
   }
 
-  async getSystemStatus(systems: string[]): Promise<any | null> {
+  async getSystemStatus(systems: string[]): Promise<SystemStatusData | null> {
     const cacheKey = ADVANCED_CACHE_KEYS.UNIFIED.SYSTEM_STATUS(systems);
-    return await this.cacheManager.get(cacheKey, ADVANCED_CACHE_CONFIG.HEALTH_METRICS);
+    return await this.cacheManager.get<SystemStatusData>(cacheKey, ADVANCED_CACHE_CONFIG.HEALTH_METRICS);
   }
 
-  async setSystemStatus(data: any, systems: string[]): Promise<void> {
+  async setSystemStatus(data: SystemStatusData, systems: string[]): Promise<void> {
     const cacheKey = ADVANCED_CACHE_KEYS.UNIFIED.SYSTEM_STATUS(systems);
     await this.cacheManager.set(
-      cacheKey, 
-      data, 
+      cacheKey,
+      data,
       ADVANCED_CACHE_CONFIG.HEALTH_METRICS,
       { type: 'system_status', systems }
     );

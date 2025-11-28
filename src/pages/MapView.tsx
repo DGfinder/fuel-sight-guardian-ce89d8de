@@ -21,8 +21,7 @@ import L from 'leaflet';
 import 'leaflet.heat';
 import 'leaflet-draw';
 import 'leaflet-geometryutil';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+// PERFORMANCE: html2canvas and jsPDF are dynamically imported when needed (see exportToPDF)
 
 import { semanticColors } from '@/lib/design-tokens';
 import { getFuelStatus, getFuelStatusText } from '@/components/ui/fuel-status';
@@ -166,22 +165,28 @@ function MapView() {
     try {
       const mapElement = document.querySelector('.leaflet-container') as HTMLElement;
       if (!mapElement) return;
-      
+
+      // PERFORMANCE: Dynamic imports - these heavy libraries (~400KB) are only loaded when user clicks export
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf')
+      ]);
+
       const canvas = await html2canvas(mapElement);
       const imgData = canvas.toDataURL('image/png');
-      
+
       const pdf = new jsPDF('landscape');
       pdf.setFontSize(16);
       pdf.text('Tank Locations Map', 20, 20);
-      
+
       pdf.setFontSize(10);
       pdf.text('Generated on: ' + new Date().toLocaleDateString(), 20, 30);
       pdf.text('Total locations shown: ' + filteredItems.length + ' (' + counts.manual + ' tanks, ' + counts.agbot + ' agbot devices)', 20, 40);
-      
+
       const imgWidth = 250;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       pdf.addImage(imgData, 'PNG', 20, 50, imgWidth, imgHeight);
-      
+
       pdf.save('tank-locations-map-' + new Date().toISOString().split('T')[0] + '.pdf');
     } catch (error) {
       console.error('Error generating PDF:', error);

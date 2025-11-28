@@ -5,7 +5,17 @@ import * as Sentry from "@sentry/react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { usePerformanceMonitor } from '@/lib/performance-monitor';
+import { usePerformanceMonitor, type PerformanceMetrics } from '@/lib/performance-monitor';
+
+// Window extension for performance monitor
+declare global {
+  interface Window {
+    performanceMonitor?: {
+      trackCustomEvent: (event: string, data: Record<string, unknown>) => void;
+      getMetrics: () => Partial<PerformanceMetrics>;
+    };
+  }
+}
 
 interface ErrorInfo {
   componentStack?: string;
@@ -92,8 +102,8 @@ export class EnhancedErrorBoundary extends React.Component<
     }
 
     // Log to performance monitor
-    if (typeof window !== 'undefined' && (window as any).performanceMonitor) {
-      (window as any).performanceMonitor.trackCustomEvent('error_boundary_triggered', {
+    if (typeof window !== 'undefined' && window.performanceMonitor) {
+      window.performanceMonitor.trackCustomEvent('error_boundary_triggered', {
         errorMessage: error.message,
         errorName: error.name,
         boundaryName: this.props.name,
@@ -126,8 +136,8 @@ export class EnhancedErrorBoundary extends React.Component<
     });
 
     // Track retry attempts
-    if (typeof window !== 'undefined' && (window as any).performanceMonitor) {
-      (window as any).performanceMonitor.trackCustomEvent('error_boundary_retry', {
+    if (typeof window !== 'undefined' && window.performanceMonitor) {
+      window.performanceMonitor.trackCustomEvent('error_boundary_retry', {
         retryCount: newRetryCount,
         boundaryName: this.props.name,
         autoRetry,
@@ -171,8 +181,8 @@ export class EnhancedErrorBoundary extends React.Component<
           level: this.props.level,
           retryCount: this.state.retryCount,
         },
-        performance: typeof window !== 'undefined' && (window as any).performanceMonitor 
-          ? (window as any).performanceMonitor.getMetrics() 
+        performance: typeof window !== 'undefined' && window.performanceMonitor
+          ? window.performanceMonitor.getMetrics()
           : null,
       };
 
@@ -182,8 +192,8 @@ export class EnhancedErrorBoundary extends React.Component<
       this.setState({ reportSent: true });
       
       // Track report sent
-      if (typeof window !== 'undefined' && (window as any).performanceMonitor) {
-        (window as any).performanceMonitor.trackCustomEvent('error_report_sent', {
+      if (typeof window !== 'undefined' && window.performanceMonitor) {
+        window.performanceMonitor.trackCustomEvent('error_report_sent', {
           errorId: this.state.errorId,
           boundaryName: this.props.name,
         });

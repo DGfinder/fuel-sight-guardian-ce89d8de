@@ -272,18 +272,18 @@ class PerformanceMonitor {
     });
   }
 
-  private recordInteraction(type: string, data: any): void {
+  private recordInteraction(type: string, data: { timestamp: number; element?: string; duration?: number }): void {
     this.session.interactions.push({
       type,
       timestamp: data.timestamp,
       element: data.element,
       duration: data.duration,
     });
-    
+
     this.metrics.userInteractions = (this.metrics.userInteractions || 0) + 1;
   }
 
-  private recordError(error: any): void {
+  private recordError(error: { message: string; stack?: string; url: string; timestamp: number }): void {
     this.session.errors.push(error);
     this.metrics.errorCount = (this.metrics.errorCount || 0) + 1;
   }
@@ -291,7 +291,8 @@ class PerformanceMonitor {
   private getElementSelector(element: HTMLElement): string {
     if (element.id) return `#${element.id}`;
     // Guard for non-string className (SVGElement, components etc.)
-    const className = typeof (element as any).className === 'string' ? (element as any).className : '';
+    const classNameAttr = element.className;
+    const className = typeof classNameAttr === 'string' ? classNameAttr : '';
     if (className) return `.${className.split(' ')[0]}`;
     return element.tagName ? element.tagName.toLowerCase() : 'unknown';
   }
@@ -384,7 +385,7 @@ class PerformanceMonitor {
     return connection?.effectiveType || 'unknown';
   }
 
-  private sendToAnalytics(data: any): void {
+  private sendToAnalytics(data: Record<string, unknown>): void {
     // In production, you would send this to your analytics service
     // For now, we'll just log it and store in localStorage for demo
     
@@ -409,7 +410,7 @@ class PerformanceMonitor {
   }
 
   // Public methods for manual tracking
-  public trackCustomEvent(eventName: string, data?: any): void {
+  public trackCustomEvent(eventName: string, data?: Record<string, unknown>): void {
     this.sendToAnalytics({
       type: 'custom_event',
       eventName,
@@ -457,7 +458,7 @@ export const performanceMonitor = new PerformanceMonitor();
 
 // React hook for performance monitoring
 export function usePerformanceMonitor() {
-  const trackEvent = (eventName: string, data?: any) => {
+  const trackEvent = (eventName: string, data?: Record<string, unknown>) => {
     performanceMonitor.trackCustomEvent(eventName, data);
   };
 

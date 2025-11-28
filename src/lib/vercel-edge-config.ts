@@ -5,10 +5,17 @@
  * and settings using Vercel's Edge Config for ultra-low latency access
  */
 
-// Conditional import for Edge Config
-let edgeConfig: any = null;
+// Edge config interface
+interface EdgeConfigClient {
+  get: (key: string) => Promise<unknown>;
+  getAll: () => Promise<Record<string, unknown>>;
+  has: (key: string) => Promise<boolean>;
+}
 
-async function getEdgeConfig() {
+// Conditional import for Edge Config
+let edgeConfig: EdgeConfigClient | false | null = null;
+
+async function getEdgeConfig(): Promise<EdgeConfigClient | null> {
   if (edgeConfig === null && typeof window === 'undefined') {
     try {
       const { get, getAll, has } = await import('@vercel/edge-config');
@@ -134,7 +141,7 @@ export const DEFAULT_CONFIG = {
 /**
  * Get a configuration value from Edge Config or fallback to default
  */
-export async function getConfig<T = any>(key: string, fallback?: T): Promise<T> {
+export async function getConfig<T = unknown>(key: string, fallback?: T): Promise<T> {
   const config = await getEdgeConfig();
   
   if (!config) {
@@ -164,12 +171,12 @@ export async function getConfig<T = any>(key: string, fallback?: T): Promise<T> 
 /**
  * Get multiple configuration values at once
  */
-export async function getMultipleConfig(keys: string[]): Promise<Record<string, any>> {
+export async function getMultipleConfig(keys: string[]): Promise<Record<string, unknown>> {
   const config = await getEdgeConfig();
-  
+
   if (!config) {
     // Return defaults for all keys
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     keys.forEach(key => {
       result[key] = DEFAULT_CONFIG[key as keyof typeof DEFAULT_CONFIG];
     });
@@ -178,21 +185,21 @@ export async function getMultipleConfig(keys: string[]): Promise<Record<string, 
 
   try {
     const allConfig = await config.getAll();
-    const result: Record<string, any> = {};
-    
+    const result: Record<string, unknown> = {};
+
     keys.forEach(key => {
       if (allConfig && key in allConfig) {
-        result[key] = allConfig[key];
+        result[key] = allConfig[key as keyof typeof allConfig];
       } else {
         result[key] = DEFAULT_CONFIG[key as keyof typeof DEFAULT_CONFIG];
       }
     });
-    
+
     return result;
   } catch (error) {
     console.warn('[EDGE_CONFIG] Failed to get multiple configs', error);
     // Return defaults
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     keys.forEach(key => {
       result[key] = DEFAULT_CONFIG[key as keyof typeof DEFAULT_CONFIG];
     });
@@ -261,12 +268,19 @@ export async function getAPIConfig(): Promise<{
 /**
  * Get UI configuration
  */
+// Theme configuration interface
+interface ThemeConfig {
+  defaultTheme: string;
+  allowUserToggle: boolean;
+  systemThemeDetection: boolean;
+}
+
 export async function getUIConfig(): Promise<{
   dashboardRefreshInterval: number;
   notificationTimeout: number;
   tablePageSize: number;
   mapUpdateInterval: number;
-  themeConfig: any;
+  themeConfig: ThemeConfig;
 }> {
   const uiConfig = await getMultipleConfig(Object.values(CONFIG_KEYS.UI));
   
@@ -361,10 +375,10 @@ export async function checkEdgeConfigHealth(): Promise<{
 export async function getAllConfig(): Promise<{
   features: Record<string, boolean>;
   limits: Record<string, number>;
-  api: Record<string, any>;
-  ui: Record<string, any>;
+  api: Record<string, unknown>;
+  ui: Record<string, unknown>;
   alerts: Record<string, number>;
-  maintenance: Record<string, any>;
+  maintenance: Record<string, unknown>;
   health: {
     available: boolean;
     latency?: number;

@@ -1,4 +1,26 @@
 import * as Sentry from "@sentry/react";
+import type { SeverityLevel } from "@sentry/react";
+
+// Performance metrics data structure
+export interface PerformanceData {
+  loadTime?: number;
+  renderTime?: number;
+  apiLatency?: number;
+  memoryUsage?: number;
+  [key: string]: unknown;
+}
+
+// Breadcrumb data structure
+export type BreadcrumbData = Record<string, string | number | boolean | null | undefined>;
+
+// Window extension for performance monitor
+declare global {
+  interface Window {
+    performanceMonitor?: {
+      trackCustomEvent: (event: string, data: Record<string, unknown>) => void;
+    };
+  }
+}
 
 export interface ErrorReport {
   id: string;
@@ -17,7 +39,7 @@ export interface ErrorReport {
     level: 'info' | 'warning' | 'error' | 'fatal';
     tags?: Record<string, string>;
   };
-  performance?: any;
+  performance?: PerformanceData;
   user?: {
     id?: string;
     email?: string;
@@ -28,7 +50,7 @@ export interface ErrorReport {
     category: string;
     timestamp: number;
     level: string;
-    data?: any;
+    data?: BreadcrumbData;
   }>;
 }
 
@@ -186,21 +208,23 @@ class ErrorReporter {
     Sentry.addBreadcrumb({
       message: breadcrumb.message,
       category: breadcrumb.category,
-      level: breadcrumb.level as any,
+      level: breadcrumb.level as SeverityLevel,
       data: breadcrumb.data,
     });
   }
 
   public setUser(user: ErrorReport['user']): void {
     // Set user context for all future errors
-    Sentry.setUser(user as any);
+    if (user) {
+      Sentry.setUser({ id: user.id, email: user.email });
+    }
   }
 
   public setTag(key: string, value: string): void {
     Sentry.setTag(key, value);
   }
 
-  public setContext(name: string, context: any): void {
+  public setContext(name: string, context: Record<string, unknown>): void {
     Sentry.setContext(name, context);
   }
 
@@ -211,7 +235,7 @@ class ErrorReporter {
   private sendToSentry(report: ErrorReport): void {
     Sentry.withScope((scope) => {
       // Set error level
-      scope.setLevel(report.context.level as any);
+      scope.setLevel(report.context.level as SeverityLevel);
 
       // Set tags
       if (report.context.tags) {
@@ -222,7 +246,7 @@ class ErrorReporter {
 
       // Set user context
       if (report.user) {
-        scope.setUser(report.user as any);
+        scope.setUser({ id: report.user.id, email: report.user.email });
       }
 
       // Set additional context
@@ -249,8 +273,8 @@ class ErrorReporter {
 
   private sendToAnalytics(report: ErrorReport): void {
     // Send to custom analytics service
-    if (typeof window !== 'undefined' && (window as any).performanceMonitor) {
-      (window as any).performanceMonitor.trackCustomEvent('error_captured', {
+    if (typeof window !== 'undefined' && window.performanceMonitor) {
+      window.performanceMonitor.trackCustomEvent('error_captured', {
         errorId: report.id,
         errorMessage: report.error.message,
         errorName: report.error.name,
@@ -344,7 +368,7 @@ class ErrorReporter {
     });
   }
 
-  public captureUserAction(action: string, data?: any): void {
+  public captureUserAction(action: string, data?: BreadcrumbData): void {
     this.addBreadcrumb({
       message: `User action: ${action}`,
       category: 'user',
@@ -391,7 +415,7 @@ export function useErrorReporter() {
     return errorReporter.captureMessage(message, level);
   };
 
-  const addBreadcrumb = (message: string, category: string, data?: any) => {
+  const addBreadcrumb = (message: string, category: string, data?: BreadcrumbData) => {
     errorReporter.addBreadcrumb({
       message,
       category,
@@ -400,7 +424,7 @@ export function useErrorReporter() {
     });
   };
 
-  const captureUserAction = (action: string, data?: any) => {
+  const captureUserAction = (action: string, data?: BreadcrumbData) => {
     errorReporter.captureUserAction(action, data);
   };
 

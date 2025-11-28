@@ -6,6 +6,13 @@ import { cn } from "@/lib/utils"
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
 
+// SECURITY: Validate CSS color values to prevent XSS via dangerouslySetInnerHTML
+const CSS_COLOR_REGEX = /^(#[0-9a-fA-F]{3,8}|rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)|rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*[\d.]+\s*\)|hsl\(\s*[\d.]+\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*\)|hsla\(\s*[\d.]+\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+\s*\)|[a-zA-Z]+)$/;
+
+function isValidCssColor(color: string): boolean {
+  return CSS_COLOR_REGEX.test(color.trim());
+}
+
 export type ChartConfig = {
   [k in string]: {
     label?: React.ReactNode
@@ -86,8 +93,13 @@ ${colorConfig
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
+    // SECURITY: Only inject validated CSS color values
+    if (color && isValidCssColor(color)) {
+      return `  --color-${key}: ${color};`
+    }
+    return null
   })
+  .filter(Boolean)
   .join("\n")}
 }
 `
