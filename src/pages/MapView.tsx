@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { useMapData } from '@/hooks/useMapData';
 import { useTankModal } from '@/contexts/TankModalContext';
@@ -407,7 +407,7 @@ function MapView() {
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="All Groups" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[1001]">
                   <SelectItem value="all">All Groups</SelectItem>
                   {uniqueGroups.map(group => (
                     <SelectItem key={group} value={group}>{group}</SelectItem>
@@ -419,7 +419,7 @@ function MapView() {
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[1001]">
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="critical">Critical</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
@@ -431,7 +431,7 @@ function MapView() {
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[1001]">
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="manual">Tanks</SelectItem>
                   <SelectItem value="agbot">Agbot</SelectItem>
@@ -442,7 +442,7 @@ function MapView() {
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Map Style" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[1001]">
                   <SelectItem value="light">Light</SelectItem>
                   <SelectItem value="dark">Dark</SelectItem>
                   <SelectItem value="satellite">Satellite</SelectItem>
@@ -519,8 +519,10 @@ function MapView() {
           key={`map-${selectedGroup}-${mapStyle}`}
           center={defaultCenter}
           zoom={10}
+          zoomControl={false}
           style={{ height: '100%', width: '100%' }}
         >
+          <ZoomControl position="bottomleft" />
           <TileLayer
             key={mapStyle}
             url={mapStyles[mapStyle].url}
