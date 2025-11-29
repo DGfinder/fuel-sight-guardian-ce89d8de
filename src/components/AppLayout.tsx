@@ -60,10 +60,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
         "flex-1 flex flex-col overflow-hidden",
         isMobile ? "mt-14" : "ml-64"
       )}>
-        <main className="flex-1 w-full bg-white dark:bg-gray-900 p-4 z-0 pb-20 md:pb-4 overflow-auto">
+        <main className="flex-1 w-full bg-white dark:bg-gray-900 overflow-auto">
           {children}
-          <Footer className="hidden md:block mt-auto -mx-4 -mb-4 w-[calc(100%+2rem)]" />
         </main>
+        <Footer className="hidden md:block shrink-0" />
       </div>
 
       {/* Sticky Mobile Navigation - rendered at layout level for consistency */}

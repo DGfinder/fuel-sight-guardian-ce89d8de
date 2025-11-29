@@ -11,10 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Container, Stack, Inline, ControlBar, StatusPanel } from '@/components/ui/layout';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { TankMapPopup } from '@/components/TankMapPopup';
 import { AgbotMapPopup } from '@/components/AgbotMapPopup';
-import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route, Signal } from 'lucide-react';
+import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route, Signal, Info, ChevronUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import L from 'leaflet';
@@ -82,6 +83,7 @@ function MapView() {
   const [showFilters, setShowFilters] = useState(false);
   const [mapStyle, setMapStyle] = useState<MapStyle>('light');
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
 
   // Map cleanup hook for React 19 compatibility
   useMapCleanup();
@@ -295,223 +297,246 @@ function MapView() {
   }
   
   return (
-    <Container className="py-4">
-      <Stack spacing="lg">
-        {/* Header Section */}
-        <Card>
-          <CardContent className="p-4">
-            <Stack spacing="md">
-              {/* Header Info */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-xl font-bold">Fuel Monitoring Map</h1>
-                  <p className="text-sm text-gray-600">
-                    Showing {filteredItems.length} of {counts.total} locations ({counts.manual} tanks, {counts.agbot} agbot devices)
-                    {isPartiallyLoaded && (
-                      <span className="ml-2 text-blue-600">
-                        <RefreshCw className="inline w-3 h-3 mr-1 animate-spin" />
-                        Loading more...
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Search & Filters */}
-              <Inline spacing="md" align="center">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    placeholder="Search tanks..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-10"
-                  />
-                  {searchTerm && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSearchTerm('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+    <div className="h-[calc(100vh-56px-64px)] md:h-full relative flex flex-col">
+      {/* Floating Toolbar */}
+      <div className="absolute top-4 left-4 right-4 z-[1000]">
+        <Card className="p-3 shadow-lg backdrop-blur-sm bg-white/95 dark:bg-gray-900/95 border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col gap-3">
+            {/* Row 1: Title + Search + Actions */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 shrink-0">
+                <h1 className="text-lg font-bold whitespace-nowrap">Fuel Map</h1>
+                <Badge variant="secondary" className="text-xs">
+                  {filteredItems.length}
+                  {isPartiallyLoaded && (
+                    <RefreshCw className="inline w-3 h-3 ml-1 animate-spin" />
                   )}
-                </div>
-                
-                <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Groups" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Groups</SelectItem>
-                    {uniqueGroups.map(group => (
-                      <SelectItem key={group} value={group}>{group}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Select value={selectedSource} onValueChange={setSelectedSource}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="manual">Tanks</SelectItem>
-                    <SelectItem value="agbot">Agbot</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Select value={mapStyle} onValueChange={setMapStyle}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Map Style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="satellite">Satellite</SelectItem>
-                    <SelectItem value="terrain">Terrain</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Inline>
-            </Stack>
-          </CardContent>
-        </Card>
-        
-        {/* Legend and Controls */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                  <span className="font-medium">Manual Tanks:</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-red-600 rounded"></div>
-                    <span className="text-sm">Critical</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                    <span className="text-sm">Low</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-green-600 rounded"></div>
-                    <span className="text-sm">Normal</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="font-medium">Agbot Devices:</span>
-                  <div className="flex items-center gap-2">
-                    <Signal className="w-4 h-4 text-red-600" />
-                    <span className="text-sm">Critical (&le;20%)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Signal className="w-4 h-4 text-orange-500" />
-                    <span className="text-sm">Low (&le;50%)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Signal className="w-4 h-4 text-green-600" />
-                    <span className="text-sm">Good (&gt;50%)</span>
-                  </div>
-                </div>
+                </Badge>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportToCSV}
-                  className="h-8 text-sm whitespace-nowrap"
-                  disabled={!filteredItems.length}
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  CSV
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportToPDF}
-                  className="h-8 text-sm whitespace-nowrap"
-                >
-                  <FileText className="h-3 w-3 mr-1" />
-                  PDF
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={printMap}
-                  className="h-8 text-sm whitespace-nowrap"
-                >
-                  <Printer className="h-3 w-3 mr-1" />
-                  Print
-                </Button>
-                
+
+              <div className="relative flex-1 max-w-xs hidden md:block">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search tanks..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9"
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Export dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 w-9 p-0" title="Export">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={exportToCSV} disabled={!filteredItems.length}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportToPDF}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={printMap}>
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleManualRefresh}
-                  className="h-8 text-sm whitespace-nowrap"
+                  className="h-9 w-9 p-0"
+                  title="Refresh"
                 >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  Refresh
+                  <RefreshCw className="h-4 w-4" />
                 </Button>
-                
+
                 <Button
                   variant={autoRefresh ? "default" : "outline"}
                   size="sm"
                   onClick={() => setAutoRefresh(!autoRefresh)}
-                  className="h-8 text-sm whitespace-nowrap"
+                  className="h-9 w-9 p-0"
+                  title={autoRefresh ? "Auto-refresh on" : "Auto-refresh off"}
                 >
-                  <RefreshCw className={autoRefresh ? "h-3 w-3 mr-1 animate-spin" : "h-3 w-3 mr-1"} />
-                  Auto
+                  <Clock className={cn("h-4 w-4", autoRefresh && "animate-pulse")} />
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-        
-        {/* Map */}
-        <Card>
-          <CardContent className="p-0">
-            <div className="h-[600px] w-full">
-              <MapContainer
-                key={`map-${selectedGroup}-${mapStyle}`}
-                center={defaultCenter}
-                zoom={10}
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer
-                  key={mapStyle}
-                  url={mapStyles[mapStyle].url}
-                  attribution={mapStyles[mapStyle].attribution}
-                />
 
-                <MarkerClusterGroup>
-                  <MapMarkers
-                    items={filteredItems}
-                    openModal={openModal}
-                    openModalFromMap={openModalFromMap}
-                  />
-                </MarkerClusterGroup>
-              </MapContainer>
+            {/* Mobile search */}
+            <div className="relative md:hidden">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search tanks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9"
+              />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-          </CardContent>
+
+            {/* Row 2: Filters (responsive) */}
+            <div className="grid grid-cols-2 md:flex md:flex-row gap-2">
+              <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="All Groups" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  {uniqueGroups.map(group => (
+                    <SelectItem key={group} value={group}>{group}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedSource} onValueChange={setSelectedSource}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="manual">Tanks</SelectItem>
+                  <SelectItem value="agbot">Agbot</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={mapStyle} onValueChange={setMapStyle}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Map Style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="satellite">Satellite</SelectItem>
+                  <SelectItem value="terrain">Terrain</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </Card>
-      </Stack>
-    </Container>
+      </div>
+
+      {/* Collapsible Legend Panel */}
+      <div className="absolute bottom-4 left-4 z-[1000]">
+        <div className="flex flex-col items-start gap-2">
+          {showLegend && (
+            <Card className="p-3 shadow-lg backdrop-blur-sm bg-white/95 dark:bg-gray-900/95 border-gray-200 dark:border-gray-700 animate-in slide-in-from-bottom-2 duration-200">
+              <div className="space-y-3 text-sm">
+                <div>
+                  <div className="font-medium mb-2 text-gray-700 dark:text-gray-300">Manual Tanks</div>
+                  <div className="flex flex-wrap gap-3">
+                    <span className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 bg-red-600 rounded" />
+                      <span className="text-gray-600 dark:text-gray-400">Critical</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 bg-orange-500 rounded" />
+                      <span className="text-gray-600 dark:text-gray-400">Low</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 bg-green-600 rounded" />
+                      <span className="text-gray-600 dark:text-gray-400">Normal</span>
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="font-medium mb-2 text-gray-700 dark:text-gray-300">Agbot Devices</div>
+                  <div className="flex flex-wrap gap-3">
+                    <span className="flex items-center gap-1.5">
+                      <Signal className="w-3 h-3 text-red-600" />
+                      <span className="text-gray-600 dark:text-gray-400">≤20%</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Signal className="w-3 h-3 text-orange-500" />
+                      <span className="text-gray-600 dark:text-gray-400">≤50%</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Signal className="w-3 h-3 text-green-600" />
+                      <span className="text-gray-600 dark:text-gray-400">&gt;50%</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="shadow-lg bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm"
+            onClick={() => setShowLegend(!showLegend)}
+          >
+            <Info className="h-4 w-4 mr-1.5" />
+            Legend
+            <ChevronUp className={cn(
+              "h-4 w-4 ml-1.5 transition-transform duration-200",
+              !showLegend && "rotate-180"
+            )} />
+          </Button>
+        </div>
+      </div>
+
+      {/* Full-bleed Map */}
+      <div className="flex-1 w-full">
+        <MapContainer
+          key={`map-${selectedGroup}-${mapStyle}`}
+          center={defaultCenter}
+          zoom={10}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            key={mapStyle}
+            url={mapStyles[mapStyle].url}
+            attribution={mapStyles[mapStyle].attribution}
+          />
+
+          <MarkerClusterGroup>
+            <MapMarkers
+              items={filteredItems}
+              openModal={openModal}
+              openModalFromMap={openModalFromMap}
+            />
+          </MarkerClusterGroup>
+        </MapContainer>
+      </div>
+    </div>
   );
 }
 
