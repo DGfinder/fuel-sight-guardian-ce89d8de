@@ -356,6 +356,7 @@ function AppContent() {
                   </Suspense>
                 </DatabaseErrorBoundary>
               </RealtimeErrorBoundary>
+              <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
             </BrowserRouter>
             <TankDetailsModal tank={selectedTank} open={open} onOpenChange={closeModal} />
             {editDipOpen && editDipTank && (
@@ -371,7 +372,6 @@ function AppContent() {
               onOpenChange={closeAlerts}
               tanks={[]} // You may want to pass tanks from context or props
             />
-            <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
             <AgbotDetailsModal />
           </AppStateProvider>
         </TooltipProvider>
