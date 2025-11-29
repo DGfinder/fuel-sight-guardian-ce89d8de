@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { Footer } from '@/components/Footer';
+import { StickyMobileNav } from '@/components/StickyMobileNav';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -64,6 +65,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <Footer className="hidden md:block mt-auto -mx-4 -mb-4 w-[calc(100%+2rem)]" />
         </main>
       </div>
+
+      {/* Sticky Mobile Navigation - rendered at layout level for consistency */}
+      {isMobile && <StickyMobileNav />}
     </div>
   );
 }

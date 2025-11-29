@@ -347,28 +347,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar panel - mobile header is now in AppLayout */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 bg-primary border-r-4 border-t-4 border-secondary z-40 flex flex-col justify-between transition-transform duration-200",
+          "fixed left-0 w-64 bg-primary border-r-4 border-secondary z-40 flex flex-col justify-between transition-transform duration-200",
           "rounded-r-xl shadow-lg",
-          isMobile ? (open ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
+          isMobile
+            ? cn(
+                "top-14 h-[calc(100vh-3.5rem)]", // Offset below mobile header (56px)
+                open ? "translate-x-0" : "-translate-x-full"
+              )
+            : "top-0 h-full border-t-4 translate-x-0"
         )}
         aria-label="Sidebar"
-        style={{ minHeight: '100vh' }}
+        style={{ minHeight: isMobile ? 'calc(100vh - 3.5rem)' : '100vh' }}
       >
         <nav className="flex flex-col flex-1 gap-2 p-4 overflow-y-auto">
-          {/* Branding */}
-          <div className="flex flex-col items-center mb-8 select-none pt-2 pb-4 border-b border-white/20">
-            <img
-              src={logo}
-              alt="Great Southern Fuels Logo"
-              className="h-16 w-auto mb-2 bg-white rounded-lg p-2 shadow"
-            />
-            <span className="font-bold text-lg text-white text-center leading-tight tracking-wide">
-              TankAlert
-            </span>
-            <span className="text-sm font-medium text-secondary tracking-wide text-center">
-              Great Southern Fuels
-            </span>
-          </div>
+          {/* Branding - only show on desktop since mobile has header in AppLayout */}
+          {!isMobile && (
+            <div className="flex flex-col items-center mb-8 select-none pt-2 pb-4 border-b border-white/20">
+              <img
+                src={logo}
+                alt="Great Southern Fuels Logo"
+                className="h-16 w-auto mb-2 bg-white rounded-lg p-2 shadow"
+              />
+              <span className="font-bold text-lg text-white text-center leading-tight tracking-wide">
+                TankAlert
+              </span>
+              <span className="text-sm font-medium text-secondary tracking-wide text-center">
+                Great Southern Fuels
+              </span>
+            </div>
+          )}
 
           {/* Nav Links */}
           <ul className="flex flex-col gap-1">

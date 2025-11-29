@@ -39,6 +39,38 @@ if (typeof window !== 'undefined') {
   (window as Window & { performanceMonitor: typeof performanceMonitor }).performanceMonitor = performanceMonitor;
 }
 
+// Handle stale chunk errors by reloading the page (happens after deployments)
+window.addEventListener('error', (event) => {
+  if (
+    event.message?.includes('Failed to fetch dynamically imported module') ||
+    event.message?.includes('Loading chunk') ||
+    event.message?.includes('Loading CSS chunk')
+  ) {
+    // Prevent infinite reload loop with 10-second cooldown
+    const lastReload = sessionStorage.getItem('chunk-error-reload');
+    const now = Date.now();
+    if (!lastReload || now - parseInt(lastReload) > 10000) {
+      sessionStorage.setItem('chunk-error-reload', now.toString());
+      window.location.reload();
+    }
+  }
+});
+
+// Also catch unhandled promise rejections for dynamic imports
+window.addEventListener('unhandledrejection', (event) => {
+  if (
+    event.reason?.message?.includes('Failed to fetch dynamically imported module') ||
+    event.reason?.message?.includes('Loading chunk')
+  ) {
+    const lastReload = sessionStorage.getItem('chunk-error-reload');
+    const now = Date.now();
+    if (!lastReload || now - parseInt(lastReload) > 10000) {
+      sessionStorage.setItem('chunk-error-reload', now.toString());
+      window.location.reload();
+    }
+  }
+});
+
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <GlobalModalsProvider>

@@ -14,7 +14,6 @@ import { FuelInsightsPanel } from '@/components/FuelInsightsPanel';
 import { useAlerts } from "@/hooks/useAlerts";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { Tank } from '@/types/fuel';
-import { StickyMobileNav } from '@/components/StickyMobileNav';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useGlobalModals } from '@/contexts/GlobalModalsContext';
@@ -270,8 +269,8 @@ export default function Index({ selectedGroup }: IndexProps) {
   const displayTanks = selectedGroup ? filteredTanks : permissionFilteredTanks;
 
   return (
-    <div className="min-h-screen w-full bg-muted">
-      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
+    <div className="min-h-screen w-full bg-muted overflow-x-hidden">
+      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12">
         {/* Unified Fuel Insights Panel */}
         <FuelInsightsPanel 
           tanks={displayTanks} 
@@ -281,14 +280,14 @@ export default function Index({ selectedGroup }: IndexProps) {
         {/* Header Section */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl md:text-3xl font-bold text-gray-900">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl md:text-3xl font-bold text-gray-900 truncate">
                 {selectedGroup
                   ? `${groupSnapshots.find(g => g.id === selectedGroup)?.name} Dashboard`
                   : 'Fuel Insights Dashboard'
                 }
               </h1>
-              <p className="text-sm md:text-base text-gray-600 mt-1">
+              <p className="text-xs sm:text-sm md:text-base text-gray-600 mt-1">
                 {selectedGroup
                   ? `Monitoring ${filteredTanks.length} tanks`
                   : `Monitoring ${permissionFilteredTanks.length} fuel tanks`
@@ -362,8 +361,6 @@ export default function Index({ selectedGroup }: IndexProps) {
             suppressNextRowClick={suppressNextRowClick}
           />
         </div>
-
-        <StickyMobileNav />
 
         <EditDipModal
           isOpen={editDipModalOpen && !!editDipTank}

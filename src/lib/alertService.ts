@@ -618,6 +618,10 @@ export async function getActiveAgbotAlertsCount(): Promise<number> {
       .or('snoozed_until.is.null,snoozed_until.lt.' + new Date().toISOString());
     
     if (error) {
+      // Suppress 404 errors (table doesn't exist) - just return 0
+      if (error.code === 'PGRST116' || error.message?.includes('does not exist')) {
+        return 0;
+      }
       console.error('Error getting active agbot alerts count:', error);
       return 0;
     }

@@ -43,9 +43,9 @@ export function StickyMobileNav() {
   }, [attachListeners]);
 
   return (
-    <nav 
+    <nav
       ref={navRef}
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t flex justify-around items-center h-16 md:hidden shadow-lg touch-manipulation"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t dark:border-gray-700 flex justify-around items-center h-16 md:hidden shadow-lg touch-manipulation"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       {NAV_ITEMS.map((item, index) => {
@@ -56,12 +56,12 @@ export function StickyMobileNav() {
             key={item.to}
             onClick={() => navigate(item.to)}
             className={`
-              flex flex-col items-center justify-center flex-1 h-full 
+              flex flex-col items-center justify-center flex-1 h-full
               focus:outline-none transition-all duration-200
-              active:scale-95 active:bg-gray-50
-              ${active ? 'text-[#008457]' : 'text-gray-400'}
+              active:scale-95 active:bg-gray-50 dark:active:bg-gray-800
+              ${active ? 'text-[#008457]' : 'text-gray-400 dark:text-gray-500'}
             `}
-            style={{ 
+            style={{
               WebkitTapHighlightColor: 'transparent',
               WebkitTouchCallout: 'none',
             }}
@@ -77,9 +77,9 @@ export function StickyMobileNav() {
           </button>
         );
       })}
-      
+
       {/* Swipe hint indicator */}
-      <div className="absolute top-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gray-200 rounded-full" />
+      <div className="absolute top-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gray-200 dark:bg-gray-700 rounded-full" />
     </nav>
   );
 } 
