@@ -134,10 +134,25 @@ const SidebarSkeleton = () => (
 );
 
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isMobile?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({
+  isMobile: isMobileProp,
+  open: openProp,
+  onToggle
+}) => {
   const location = useLocation();
-  const [open, setOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  // Internal state for backwards compatibility when not controlled
+  const [internalOpen, setInternalOpen] = useState(false);
+  const [internalMobile, setInternalMobile] = useState(false);
+
+  // Use props if provided, otherwise use internal state
+  const isMobile = isMobileProp ?? internalMobile;
+  const open = openProp ?? internalOpen;
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
@@ -205,20 +220,28 @@ export const Sidebar: React.FC = () => {
     }));
   }, [permissions, tanksCount]);
 
+  // Only manage internal mobile state when not controlled by parent
   useEffect(() => {
+    if (isMobileProp !== undefined) return; // Skip if controlled
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-      if (window.innerWidth > 768) setOpen(false);
+      setInternalMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) setInternalOpen(false);
     };
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [isMobileProp]);
 
   // Close sidebar on route change if mobile
   useEffect(() => {
-    if (isMobile) setOpen(false);
-  }, [location.pathname, isMobile]);
+    if (isMobile && open) {
+      if (onToggle) {
+        onToggle();
+      } else {
+        setInternalOpen(false);
+      }
+    }
+  }, [location.pathname]); // Only trigger on route change
 
   // Lock body scroll when sidebar is open on mobile
   useEffect(() => {
@@ -250,7 +273,13 @@ export const Sidebar: React.FC = () => {
     setExpandedGroups(newExpandedGroups);
   }, [location.pathname]);
 
-  const handleToggle = () => setOpen((prev) => !prev);
+  const handleToggle = () => {
+    if (onToggle) {
+      onToggle();
+    } else {
+      setInternalOpen((prev) => !prev);
+    }
+  };
 
   const toggleGroup = (groupLabel: string) => {
     setExpandedGroups(prev => {
@@ -315,25 +344,7 @@ export const Sidebar: React.FC = () => {
   
   return (
     <>
-      {/* Hamburger for mobile */}
-      {isMobile && (
-        <header className="flex items-center justify-between p-3 bg-white shadow-md md:hidden sticky top-0 z-50">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="GSF Logo" className="h-8 w-auto" />
-            <span className="font-bold text-base text-[#111111]">TankAlert</span>
-          </div>
-          <Button
-            variant="ghost"
-            aria-label="Open sidebar"
-            onClick={handleToggle}
-            className="h-11 w-11 p-0 flex items-center justify-center"
-          >
-            <Menu size={28} />
-          </Button>
-        </header>
-      )}
-
-      {/* Sidebar panel */}
+      {/* Sidebar panel - mobile header is now in AppLayout */}
       <aside
         className={cn(
           "fixed top-0 left-0 h-full w-64 bg-primary border-r-4 border-t-4 border-secondary z-40 flex flex-col justify-between transition-transform duration-200",
