@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bell, AlertTriangle, Filter, Map } from "lucide-react";
+import { Bell, AlertTriangle, Filter, Map as MapIcon } from "lucide-react";
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
 import { useTanks } from '@/hooks/useTanks';
@@ -317,7 +317,7 @@ export default function Index({ selectedGroup }: IndexProps) {
                 className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-lg shadow flex items-center flex-1 sm:flex-none"
                 onClick={() => navigate('/map')}
               >
-                <Map className="w-4 h-4 mr-1 sm:mr-2" />
+                <MapIcon className="w-4 h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">View </span>Map
               </Button>
             </div>
