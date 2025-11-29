@@ -41,7 +41,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({ errorInfo });
-    
+
     // Log error with context
     console.error(`Route Error in ${this.props.routeName || 'Unknown Route'}:`, {
       error: error.message,
@@ -52,6 +52,24 @@ export class RouteErrorBoundary extends Component<Props, State> {
       userAgent: navigator.userAgent,
       url: window.location.href
     });
+
+    // Auto-reload for stale cache errors (minified code references broken)
+    const message = error.message || '';
+    if (
+      message.includes('is not a constructor') ||
+      message.includes('is not a function') ||
+      message.includes('undefined is not') ||
+      message.includes('Cannot read properties of undefined')
+    ) {
+      const lastReload = sessionStorage.getItem('constructor-error-reload');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload) > 30000) {
+        console.log('Stale cache detected, auto-reloading...');
+        sessionStorage.setItem('constructor-error-reload', now.toString());
+        window.location.reload();
+        return;
+      }
+    }
 
     // Report to error tracking service if available
     if (typeof window !== 'undefined' && (window as Record<string, unknown>).analytics) {
