@@ -67,7 +67,12 @@ const MapMarkers = React.memo(({ items, openModal, openModalFromMap }: MapMarker
 MapMarkers.displayName = 'MapMarkers';
 
 function MapView() {
-  const { allItems, manualTanks, agbotDevices, counts, isLoading, error, refetch } = useMapData();
+  const { allItems, manualTanks, agbotDevices, counts, isLoading, error, refetch, tanksQuery, agbotQuery, smartfillQuery } = useMapData();
+
+  // Progressive loading: check individual query states
+  const hasAnyData = (manualTanks?.length || 0) > 0 || (agbotDevices?.length || 0) > 0;
+  const isPartiallyLoaded = hasAnyData && isLoading;
+  const fullyLoaded = !isLoading;
   const { openModal } = useTankModal();
   const { openModalFromMap } = useAgbotModal();
   const [searchTerm, setSearchTerm] = useState('');
@@ -279,7 +284,9 @@ function MapView() {
     );
   }
   
-  if (isLoading) {
+  // Only show full loading state if we have NO data at all
+  // Progressive rendering: show map as soon as any data is available
+  if (isLoading && !hasAnyData) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">Loading map...</div>
@@ -300,6 +307,12 @@ function MapView() {
                   <h1 className="text-xl font-bold">Fuel Monitoring Map</h1>
                   <p className="text-sm text-gray-600">
                     Showing {filteredItems.length} of {counts.total} locations ({counts.manual} tanks, {counts.agbot} agbot devices)
+                    {isPartiallyLoaded && (
+                      <span className="ml-2 text-blue-600">
+                        <RefreshCw className="inline w-3 h-3 mr-1 animate-spin" />
+                        Loading more...
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

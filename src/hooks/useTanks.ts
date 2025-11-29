@@ -64,7 +64,7 @@ export const useTanks = () => {
 
   // Fetch tank data from your existing database and calculate analytics
   const tanksQuery = useQuery({
-    queryKey: ['tanks-with-analytics'],
+    queryKey: ['tanks'],
     enabled: true, // We'll handle auth checks inside the queryFn
     queryFn: async () => {
       // Fetching tanks with analytics
@@ -95,13 +95,42 @@ export const useTanks = () => {
       }
 
 
-      // Step 2: Get group names from tank_groups table
+      // Extract IDs for parallel queries
+      const tankIds = baseData?.map(t => t.id) || [];
       const uniqueGroupIds = [...new Set(baseData?.map(t => t.group_id).filter(Boolean))];
-      const { data: groupData, error: groupError } = await supabase
-        .from('tank_groups')
-        .select('id, name')
-        .in('id', uniqueGroupIds);
 
+      // Prepare 7-day analytics date
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      // Step 2-5: Run queries in parallel (all depend only on tank/group IDs)
+      const [groupResult, readingsResult, analyticsResult] = await Promise.all([
+        // Step 2: Get group names
+        supabase
+          .from('tank_groups')
+          .select('id, name')
+          .in('id', uniqueGroupIds),
+
+        // Step 3: Get all dip readings for current levels
+        supabase
+          .from('dip_readings')
+          .select('tank_id, value, created_at, recorded_by')
+          .in('tank_id', tankIds)
+          .is('archived_at', null)
+          .order('created_at', { ascending: false }),
+
+        // Step 5: Get 7-day readings for analytics
+        supabase
+          .from('dip_readings')
+          .select('tank_id, value, created_at')
+          .in('tank_id', tankIds)
+          .gte('created_at', sevenDaysAgo.toISOString())
+          .order('created_at', { ascending: true })
+          .limit(500)
+      ]);
+
+      // Handle group data
+      const { data: groupData, error: groupError } = groupResult;
       if (groupError) {
         logger.error('[TANKS] Error fetching group names:', groupError);
       }
@@ -112,17 +141,8 @@ export const useTanks = () => {
         groupNameMap.set(group.id, group.name);
       });
 
-
-      // Step 3: Get current levels from latest dip readings
-      // Fetch all readings and get the most recent per tank (no 1000-item global limit)
-      const tankIds = baseData?.map(t => t.id) || [];
-
-      const { data: allReadingsData } = await supabase
-        .from('dip_readings')
-        .select('tank_id, value, created_at, recorded_by')
-        .in('tank_id', tankIds)
-        .is('archived_at', null)
-        .order('created_at', { ascending: false });
+      // Handle readings data
+      const { data: allReadingsData } = readingsResult;
 
       // Get latest reading per tank - ensures every tank gets its most recent dip, even if old
       const latestReadingsMap = new Map();
@@ -246,20 +266,9 @@ export const useTanks = () => {
       }) || [];
 
 
-      // Step 5: Get dip readings for analytics (optimized query)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const { data: allReadings } = await supabase
-        .from('dip_readings')
-        .select('tank_id, value, created_at')
-        .in('tank_id', tankIds)
-        .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: true })
-        .limit(500); // Limit analytics readings for better performance
-
-
       // Step 6: Calculate analytics for each tank (optimized processing)
+      // Use analyticsResult from the parallel Promise.all above
+      const allReadings = analyticsResult.data;
       // Pre-group readings by tank_id for faster lookup
       const readingsByTank = new Map();
       (allReadings || []).forEach(reading => {
@@ -421,7 +430,7 @@ export const useTanks = () => {
 
     // Utility functions
     invalidate: () => {
-      queryClient.invalidateQueries({ queryKey: ['tanks-with-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['tanks'] });
     },
 
     // Analytics summary

@@ -314,18 +314,17 @@ export default function AddDipModal({
         setSubmitSuccess('Dip submitted successfully!');
         
         console.log('🔄 [DIP SUBMISSION] Invalidating queries...');
-        // Coordinate all query invalidations with correct keys
+        // Coordinate all query invalidations
         await Promise.all([
-          // Primary tank queries (both old and new keys for compatibility)
+          // Primary tank query (standardized key)
           queryClient.invalidateQueries({ queryKey: ['tanks'] }),
-          queryClient.invalidateQueries({ queryKey: ['tanks-with-analytics'] }),
           // Related queries
           queryClient.invalidateQueries({ queryKey: ['tankHistory'] }),
           queryClient.invalidateQueries({ queryKey: ['tankAlerts'] }),
           queryClient.invalidateQueries({ queryKey: ['dip_readings'] }),
           queryClient.invalidateQueries({ queryKey: ['activeAlerts'] }),
-          // Force refetch of active queries
-          queryClient.refetchQueries({ queryKey: ['tanks-with-analytics'], type: 'active' })
+          // Force refetch of active tank queries
+          queryClient.refetchQueries({ queryKey: ['tanks'], type: 'active' })
         ]);
         console.log('✅ [DIP SUBMISSION] Queries invalidated and refetched successfully');
         

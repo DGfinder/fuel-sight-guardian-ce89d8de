@@ -1,5 +1,5 @@
-import React, { useState, useEffect, Suspense, lazy } from "react";
-import { QueryClientProvider, QueryClient, Query } from "@tanstack/react-query";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { QueryClientProvider, QueryClient, Query, useQueryClient } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
@@ -13,6 +13,7 @@ import { DatabaseErrorBoundary } from '@/components/ErrorBoundary/DatabaseErrorB
 import { useTankModal } from './contexts/TankModalContext';
 import { TankDetailsModal } from './components/TankDetailsModal';
 import { useGlobalModals } from './contexts/GlobalModalsContext';
+import { CommandPalette, useCommandPalette } from './components/CommandPalette';
 import EditDipModal from './components/modals/EditDipModal';
 import { AlertsDrawer } from './components/AlertsDrawer';
 import { AgbotModalProvider } from './contexts/AgbotModalContext';
@@ -105,6 +106,38 @@ if (import.meta.env.DEV) {
   (window as unknown as Window & { queryClient?: QueryClient }).queryClient = queryClient;
 }
 
+// Component for window focus refetch with 5-minute threshold
+// Only refetches tank data if user was away for more than 5 minutes
+// Must be rendered inside QueryClientProvider
+function WindowFocusHandler() {
+  const queryClientInstance = useQueryClient();
+  const lastHiddenTimeRef = useRef<number | null>(null);
+  const AWAY_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Record when user left
+        lastHiddenTimeRef.current = Date.now();
+      } else if (document.visibilityState === 'visible' && lastHiddenTimeRef.current) {
+        // Check how long user was away
+        const awayTime = Date.now() - lastHiddenTimeRef.current;
+        if (awayTime > AWAY_THRESHOLD_MS) {
+          // Invalidate tank data to trigger fresh fetch
+          queryClientInstance.invalidateQueries({ queryKey: ['tanks'] });
+          console.log(`[WINDOW FOCUS] Refetching data after ${Math.round(awayTime / 60000)} min away`);
+        }
+        lastHiddenTimeRef.current = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [queryClientInstance]);
+
+  return null; // This is a behavior-only component
+}
+
 function HashRedirector() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -119,11 +152,13 @@ function AppContent() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const { selectedTank, open, closeModal } = useTankModal();
   const { editDipOpen, editDipTank, closeEditDip, alertsOpen, closeAlerts } = useGlobalModals();
-  // Reserved for future simulated date control on analytics pages
+  const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
 
   return (
     <>
       <QueryClientProvider client={queryClient}>
+        {/* Custom window focus handler - only refetch if user was away >5 minutes */}
+        <WindowFocusHandler />
         <TooltipProvider>
           <AppStateProvider>
             <BrowserRouter
@@ -336,6 +371,7 @@ function AppContent() {
               onOpenChange={closeAlerts}
               tanks={[]} // You may want to pass tanks from context or props
             />
+            <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
             <AgbotDetailsModal />
           </AppStateProvider>
         </TooltipProvider>

@@ -108,7 +108,6 @@
     "react-dropzone": "^14.3.8",
     "react-email": "latest",
     "react-hook-form": "^7.54.0",
-    "react-hot-toast": "^2.5.2",
     "react-leaflet": "^5.0.0",
     "react-leaflet-cluster": "^2.1.0",
     "react-resizable-panels": "^2.1.3",

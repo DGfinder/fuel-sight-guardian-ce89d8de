@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -118,39 +118,97 @@ export default function Index({ selectedGroup }: IndexProps) {
     return tank.group_name === groupName;
   });
 
-  const allGroupNames = Array.from(new Set(permissionFilteredTanks.map(t => t.group_name).filter(Boolean)));
-  const groupSnapshots = permissionFilteredTanks.length > 0 ? [
-    {
-      id: "all",
-      name: "All Groups",
-      totalTanks: permissionFilteredTanks.length,
-      criticalTanks: permissionFilteredTanks.filter(t => t.days_to_min_level !== null && t.days_to_min_level <= 2).length,
-      averageLevel: permissionFilteredTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length > 0
-        ? Math.round(
-            permissionFilteredTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null)
-              .reduce((acc, t) => acc + ((t.current_level / t.safe_level) * 100), 0) /
-            permissionFilteredTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null).length
-          )
-        : 0,
-      totalVolume: calculateTotalVolume(permissionFilteredTanks),
-      lastUpdated: new Date().toISOString()
-    },
-    ...allGroupNames.map(groupName => {
-      const groupTanks = permissionFilteredTanks.filter(t => t.group_name === groupName);
-      const groupTanksWithDip = groupTanks.filter(t => t.last_dip?.created_at && t.current_level != null && t.safe_level != null);
-      return {
+  // Optimized single-pass aggregation for group snapshots
+  // Previously: O(n * g * f) with multiple filter() calls
+  // Now: O(n) single pass through all tanks
+  const groupSnapshots = useMemo(() => {
+    if (permissionFilteredTanks.length === 0) return [];
+
+    // Single-pass aggregation using Map
+    type GroupAggregate = {
+      total: number;
+      critical: number;
+      validCount: number;
+      levelSum: number;
+      volumeSum: number;
+    };
+
+    const aggregates = new Map<string, GroupAggregate>();
+
+    // Initialize "all" aggregate
+    aggregates.set('__all__', { total: 0, critical: 0, validCount: 0, levelSum: 0, volumeSum: 0 });
+
+    // Single pass through all tanks
+    for (const tank of permissionFilteredTanks) {
+      const groupName = tank.group_name || 'Unknown';
+
+      // Get or create group aggregate
+      if (!aggregates.has(groupName)) {
+        aggregates.set(groupName, { total: 0, critical: 0, validCount: 0, levelSum: 0, volumeSum: 0 });
+      }
+
+      const groupAgg = aggregates.get(groupName)!;
+      const allAgg = aggregates.get('__all__')!;
+
+      // Update totals
+      groupAgg.total++;
+      allAgg.total++;
+
+      // Check if critical (days_to_min_level <= 2)
+      if (tank.days_to_min_level !== null && tank.days_to_min_level <= 2) {
+        groupAgg.critical++;
+        allAgg.critical++;
+      }
+
+      // Check for valid level data (has recent dip with current level and safe level)
+      if (tank.last_dip?.created_at && tank.current_level != null && tank.safe_level != null && tank.safe_level > 0) {
+        const levelPercent = (tank.current_level / tank.safe_level) * 100;
+        groupAgg.validCount++;
+        groupAgg.levelSum += levelPercent;
+        allAgg.validCount++;
+        allAgg.levelSum += levelPercent;
+      }
+
+      // Sum volume if valid (has current level > 0 with recent dip)
+      if (tank.current_level != null && tank.current_level > 0 && tank.last_dip?.created_at) {
+        groupAgg.volumeSum += tank.current_level;
+        allAgg.volumeSum += tank.current_level;
+      }
+    }
+
+    // Convert to snapshot format
+    const result = [];
+    const now = new Date().toISOString();
+
+    // All groups first
+    const allAgg = aggregates.get('__all__')!;
+    result.push({
+      id: 'all',
+      name: 'All Groups',
+      totalTanks: allAgg.total,
+      criticalTanks: allAgg.critical,
+      averageLevel: allAgg.validCount > 0 ? Math.round(allAgg.levelSum / allAgg.validCount) : 0,
+      totalVolume: allAgg.volumeSum > 0 ? allAgg.volumeSum : null,
+      lastUpdated: now
+    });
+
+    // Individual groups (sorted alphabetically)
+    const groupNames = Array.from(aggregates.keys()).filter(k => k !== '__all__').sort();
+    for (const groupName of groupNames) {
+      const agg = aggregates.get(groupName)!;
+      result.push({
         id: groupName,
         name: groupName,
-        totalTanks: groupTanks.length,
-        criticalTanks: groupTanks.filter(t => t.days_to_min_level !== null && t.days_to_min_level <= 2).length,
-        averageLevel: groupTanksWithDip.length > 0
-          ? Math.round(groupTanksWithDip.reduce((acc, t) => acc + ((t.current_level / t.safe_level) * 100), 0) / groupTanksWithDip.length)
-          : 0,
-        totalVolume: calculateTotalVolume(groupTanks),
-        lastUpdated: new Date().toISOString()
-      };
-    })
-  ] : [];
+        totalTanks: agg.total,
+        criticalTanks: agg.critical,
+        averageLevel: agg.validCount > 0 ? Math.round(agg.levelSum / agg.validCount) : 0,
+        totalVolume: agg.volumeSum > 0 ? agg.volumeSum : null,
+        lastUpdated: now
+      });
+    }
+
+    return result;
+  }, [permissionFilteredTanks]);
 
   const handleTankClick = (tank: Tank) => {
     // This would typically update the route/state

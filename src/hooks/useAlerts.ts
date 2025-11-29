@@ -10,24 +10,30 @@ export function useAlerts(tankId?: string) {
   const channelRef = useRef(null);
 
   const { data: alerts = [], isLoading, error } = useQuery({
-    queryKey: ['alerts', tankId],
-    enabled: !!tankId,
+    queryKey: ['alerts', tankId ?? 'all'],
+    // Always enabled - fetch all alerts if no tankId, or tank-specific if provided
     queryFn: async () => {
-      if (!tankId) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from('tank_alerts')
         .select(`
           *,
           fuel_tanks (
             id,
+            location,
             group_id,
             product_type,
             tank_groups ( name )
           )
         `)
-        .eq('tank_id', tankId)
         .is('acknowledged_at', null)
         .order('created_at', { ascending: false });
+
+      // Filter by tank if tankId provided
+      if (tankId) {
+        query = query.eq('tank_id', tankId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching alerts:', error);
@@ -50,7 +56,11 @@ export function useAlerts(tankId?: string) {
     channelRef.current = supabase
       .channel(channelNameRef.current)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tank_alerts' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
+        // Invalidate both the specific tank query and the 'all' query
+        queryClient.invalidateQueries({ queryKey: ['alerts', tankId ?? 'all'] });
+        if (tankId) {
+          queryClient.invalidateQueries({ queryKey: ['alerts', 'all'] });
+        }
       })
       .subscribe();
     return () => {
@@ -60,6 +70,13 @@ export function useAlerts(tankId?: string) {
       }
     };
   }, [queryClient, tankId]);
+
+  // Helper to invalidate all related alert queries
+  const invalidateAlertQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['alerts', tankId ?? 'all'] });
+    // Always invalidate 'all' to keep AlertsPage in sync
+    queryClient.invalidateQueries({ queryKey: ['alerts', 'all'] });
+  };
 
   const { mutate: markAllRead } = useMutation({
     mutationFn: async () => {
@@ -71,9 +88,7 @@ export function useAlerts(tankId?: string) {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
-    }
+    onSuccess: invalidateAlertQueries
   });
 
   const { mutate: markAlertRead } = useMutation({
@@ -86,9 +101,7 @@ export function useAlerts(tankId?: string) {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
-    }
+    onSuccess: invalidateAlertQueries
   });
 
   const { mutate: snoozeAlert } = useMutation({
@@ -101,9 +114,7 @@ export function useAlerts(tankId?: string) {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts', tankId] });
-    }
+    onSuccess: invalidateAlertQueries
   });
 
   return {

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useTanks } from '@/hooks/useTanks';
 import { useAgbotLocations } from '@/hooks/useAgbotData';
 import { useSmartFillLocations } from '@/hooks/useSmartFillData';
@@ -143,101 +143,91 @@ export const useMapData = () => {
   const agbotQuery = useAgbotLocations();
   const smartfillQuery = useSmartFillLocations();
 
-  // Combine data from all three sources
-  const combinedQuery = useQuery({
-    queryKey: ['map-data', tanksQuery.data, agbotQuery.data, smartfillQuery.data],
-    queryFn: async () => {
-      const tanks = tanksQuery.data || [];
-      const agbotLocations = agbotQuery.data || [];
-      const smartfillLocations = smartfillQuery.data || [];
+  // Combine and transform data using useMemo (stable, no cache thrashing)
+  const combinedData = useMemo(() => {
+    const tanks = tanksQuery.data || [];
+    const agbotLocations = agbotQuery.data || [];
+    const smartfillLocations = smartfillQuery.data || [];
 
-      // Transform tanks to map items
-      const tankMapItems = tanks
-        .filter(tank => tank.latitude && tank.longitude)
-        .map(transformTankToMapItem);
+    // Transform tanks to map items
+    const tankMapItems = tanks
+      .filter(tank => tank.latitude && tank.longitude)
+      .map(transformTankToMapItem);
 
-      // Transform agbot locations to map items
-      const agbotMapItems = agbotLocations
-        .filter(location => location.lat && location.lng)
-        .map(transformAgbotToMapItem);
+    // Transform agbot locations to map items
+    const agbotMapItems = agbotLocations
+      .filter(location => location.lat && location.lng)
+      .map(transformAgbotToMapItem);
 
-      // Transform smartfill locations to map items (only those with GPS coordinates)
-      const smartfillMapItems = smartfillLocations
-        .filter(location => location.latitude && location.longitude)
-        .map(transformSmartFillToMapItem);
+    // Transform smartfill locations to map items (only those with GPS coordinates)
+    const smartfillMapItems = smartfillLocations
+      .filter(location => location.latitude && location.longitude)
+      .map(transformSmartFillToMapItem);
 
-      return {
-        allItems: [...tankMapItems, ...agbotMapItems, ...smartfillMapItems],
-        manualTanks: tankMapItems,
-        agbotDevices: agbotMapItems,
-        smartfillLocations: smartfillMapItems,
-        counts: {
-          total: tankMapItems.length + agbotMapItems.length + smartfillMapItems.length,
-          manual: tankMapItems.length,
-          agbot: agbotMapItems.length,
-          smartfill: smartfillMapItems.length
-        }
-      };
-    },
-    enabled: !!tanksQuery.data || !!agbotQuery.data || !!smartfillQuery.data,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-  });
+    return {
+      allItems: [...tankMapItems, ...agbotMapItems, ...smartfillMapItems],
+      manualTanks: tankMapItems,
+      agbotDevices: agbotMapItems,
+      smartfillLocations: smartfillMapItems,
+      counts: {
+        total: tankMapItems.length + agbotMapItems.length + smartfillMapItems.length,
+        manual: tankMapItems.length,
+        agbot: agbotMapItems.length,
+        smartfill: smartfillMapItems.length
+      }
+    };
+  }, [tanksQuery.data, agbotQuery.data, smartfillQuery.data]);
 
   // Calculate loading and error states
-  const isLoading = tanksQuery.isLoading || agbotQuery.isLoading || smartfillQuery.isLoading || combinedQuery.isLoading;
-  const error = tanksQuery.error || agbotQuery.error || smartfillQuery.error || combinedQuery.error;
+  const isLoading = tanksQuery.isLoading || agbotQuery.isLoading || smartfillQuery.isLoading;
+  const error = tanksQuery.error || agbotQuery.error || smartfillQuery.error;
 
   return {
-    data: combinedQuery.data,
-    allItems: combinedQuery.data?.allItems || [],
-    manualTanks: combinedQuery.data?.manualTanks || [],
-    agbotDevices: combinedQuery.data?.agbotDevices || [],
-    smartfillLocations: combinedQuery.data?.smartfillLocations || [],
-    counts: combinedQuery.data?.counts || { total: 0, manual: 0, agbot: 0, smartfill: 0 },
+    data: combinedData,
+    allItems: combinedData.allItems,
+    manualTanks: combinedData.manualTanks,
+    agbotDevices: combinedData.agbotDevices,
+    smartfillLocations: combinedData.smartfillLocations,
+    counts: combinedData.counts,
     isLoading,
     error,
     refetch: () => {
       tanksQuery.refetch();
       agbotQuery.refetch();
       smartfillQuery.refetch();
-      combinedQuery.refetch();
     },
-    
+
     // Individual query states for debugging
     tanksQuery,
     agbotQuery,
     smartfillQuery,
-    
+
     // Utility functions
     invalidate: () => {
       tanksQuery.invalidate();
       // agbotQuery and smartfillQuery use React Query, so we need to invalidate using the same method
       // This will be handled by the respective hooks
     },
-    
+
     // Get unique groups for filtering
     getUniqueGroups: () => {
-      const allItems = combinedQuery.data?.allItems || [];
-      const groups = allItems
+      const groups = combinedData.allItems
         .map(item => item.group_name)
         .filter(Boolean) as string[];
       return Array.from(new Set(groups)).sort();
     },
-    
+
     // Get unique product types for filtering
     getUniqueProductTypes: () => {
-      const allItems = combinedQuery.data?.allItems || [];
-      const types = allItems
+      const types = combinedData.allItems
         .map(item => item.product_type)
         .filter(Boolean) as string[];
       return Array.from(new Set(types)).sort();
     },
-    
+
     // Get unique sources for filtering
     getUniqueSources: () => {
-      const allItems = combinedQuery.data?.allItems || [];
-      const sources = allItems
+      const sources = combinedData.allItems
         .map(item => item.source)
         .filter(Boolean) as string[];
       return Array.from(new Set(sources)).sort();

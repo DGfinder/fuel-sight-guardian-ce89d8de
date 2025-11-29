@@ -7,11 +7,11 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
   Cell,
   LabelList
 } from 'recharts';
 import { Tank } from '@/types/fuel';
+import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
 
 interface TankBarChartProps {
   tanks: Tank[];
@@ -162,9 +162,27 @@ export default function TankBarChart({ tanks, subgroupName }: TankBarChartProps)
   // Calculate dynamic height based on number of tanks
   const chartHeight = Math.min(400, Math.max(250, chartData.length * 40));
 
+  // Chart config for shadcn theming
+  const chartConfig = {
+    fuelLevel: {
+      label: "Fuel Level",
+      theme: {
+        light: "hsl(var(--chart-1))",
+        dark: "hsl(var(--chart-1))"
+      }
+    },
+    emptySpace: {
+      label: "Empty Capacity",
+      theme: {
+        light: "#e5e7eb",
+        dark: "#374151"
+      }
+    }
+  } satisfies ChartConfig;
+
   return (
     <div className="w-full">
-      <ResponsiveContainer width="100%" height={chartHeight}>
+      <ChartContainer config={chartConfig} className="w-full" style={{ height: chartHeight }}>
         <BarChart
           data={chartData}
           margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
@@ -216,11 +234,11 @@ export default function TankBarChart({ tanks, subgroupName }: TankBarChartProps)
             dataKey="emptySpace"
             stackId="a"
             name="Empty Capacity"
-            fill="#e5e7eb"
+            fill="var(--color-emptySpace, #e5e7eb)"
             radius={[4, 4, 0, 0]}
           />
         </BarChart>
-      </ResponsiveContainer>
+      </ChartContainer>
 
       {/* Legend with health status */}
       <div className="flex items-center justify-center gap-6 mt-4 text-sm text-gray-600">

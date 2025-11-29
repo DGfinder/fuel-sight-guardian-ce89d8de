@@ -50,10 +50,13 @@ const getIconForTank = (tank: Tank) => {
 
 interface LocationTabProps {
   tank: Tank;
+  allTanks?: Tank[]; // Optional - if provided, avoids duplicate useTanks call
 }
 
-export const LocationTab: React.FC<LocationTabProps> = ({ tank }) => {
-  const { tanks } = useTanks();
+export const LocationTab: React.FC<LocationTabProps> = ({ tank, allTanks }) => {
+  // Use provided tanks or fetch via hook (React Query caching prevents duplicate network requests)
+  const { tanks: fetchedTanks } = useTanks();
+  const tanks = allTanks || fetchedTanks;
   const { openModal } = useTankModal();
   const [mapLoaded, setMapLoaded] = useState(false);
 

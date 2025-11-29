@@ -9,7 +9,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +23,13 @@ import {
   CommandItem,
   CommandEmpty,
 } from "@/components/ui/command";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -109,6 +116,7 @@ export function FuelDipForm({
     watch,
     setValue,
     reset,
+    control,
     formState: { errors, isValid },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -440,18 +448,29 @@ export function FuelDipForm({
       {/* DEPOT GROUP */}
       <div>
         <label className="block text-sm font-medium mb-1">Depot Group *</label>
-        <select
-          {...register("group", { required: true })}
-          className="w-full border rounded px-3 py-2 bg-white text-gray-900"
-          disabled={readOnly}
-        >
-          <option value="">Select depot group…</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
+        <Controller
+          name="group"
+          control={control}
+          rules={{ required: true }}
+          render={({ field }) => (
+            <Select
+              value={field.value || ""}
+              onValueChange={field.onChange}
+              disabled={readOnly}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select depot group…" />
+              </SelectTrigger>
+              <SelectContent>
+                {groups.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
         {errors.group && <p className="text-xs text-red-600">{errors.group.message}</p>}
       </div>
 
@@ -459,36 +478,58 @@ export function FuelDipForm({
       {subgroupOptions.length > 1 && (
         <div>
           <label className="block text-sm font-medium mb-1">Subgroup</label>
-          <select
-            {...register("subgroup")}
-            className="w-full border rounded px-3 py-2 bg-white text-gray-900"
-            disabled={readOnly || subgroupOptions.length === 0}
-          >
-            <option value="">All</option>
-            {subgroupOptions.map((sg) => (
-              <option key={sg} value={sg}>
-                {sg}
-              </option>
-            ))}
-          </select>
+          <Controller
+            name="subgroup"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value || ""}
+                onValueChange={field.onChange}
+                disabled={readOnly || subgroupOptions.length === 0}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  {subgroupOptions.map((sg) => (
+                    <SelectItem key={sg} value={sg}>
+                      {sg}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
         </div>
       )}
 
       {/* TANK */}
       <div>
         <label className="block text-sm font-medium mb-1">Tank *</label>
-        <select
-          {...register("tank", { required: true })}
-          className="w-full border rounded px-3 py-2 bg-white text-gray-900"
-          disabled={readOnly || !watchedGroup}
-        >
-          <option value="">{watchedGroup ? "Select tank..." : "Choose group first"}</option>
-          {tanksForDropdown.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.location} (Safe {typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L)
-            </option>
-          ))}
-        </select>
+        <Controller
+          name="tank"
+          control={control}
+          rules={{ required: true }}
+          render={({ field }) => (
+            <Select
+              value={field.value || ""}
+              onValueChange={field.onChange}
+              disabled={readOnly || !watchedGroup}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={watchedGroup ? "Select tank..." : "Choose group first"} />
+              </SelectTrigger>
+              <SelectContent>
+                {tanksForDropdown.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.location} (Safe {typeof t.safe_level === 'number' ? t.safe_level.toLocaleString() : 'N/A'} L)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
         {errors.tank && <p className="text-xs text-red-600">{errors.tank.message}</p>}
       </div>
 

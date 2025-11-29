@@ -77,8 +77,8 @@ interface TankDetailsModalProps {
 
 // Tank details are now included in the Tank type from useTanks (single source of truth)
 
-// Main Component - No React.memo
-export function TankDetailsModal({
+// Main Component wrapped in React.memo for performance
+export const TankDetailsModal = React.memo(function TankDetailsModal({
   tank,
   open,
   onOpenChange,
@@ -110,12 +110,7 @@ export function TankDetailsModal({
     days: 30,
   });
   const dipHistory = useMemo(() => dipHistoryQuery.data?.readings || [], [dipHistoryQuery.data]);
-
-  useEffect(() => {
-    if (open && tank?.id) {
-      dipHistoryQuery.refetch();
-    }
-  }, [open, tank?.id, dipHistoryQuery]);
+  // Note: Removed redundant refetch() useEffect - the query's `enabled` condition handles this
 
   const sortedDipHistory = useMemo(() => 
     Array.isArray(dipHistory) ? [...dipHistory].sort((a: DipReading, b: DipReading) => 
@@ -335,49 +330,44 @@ export function TankDetailsModal({
     },
   }), []);
 
-  // Early return if no tank - must be after all hooks
-  if (!tank) return null;
+  // Get tank status based on current level - memoized for performance (must be before early return)
+  const tankStatus = useMemo(() => {
+    if (!tank?.current_level || !tank?.safe_level) return { status: 'unknown', color: 'gray', percentage: 0 };
 
-
-  // Get tank status based on current level
-  const getTankStatus = () => {
-    if (!tank.current_level || !tank.safe_level) return { status: 'unknown', color: 'gray', percentage: 0 };
-    
     const percentage = (tank.current_level / tank.safe_level) * 100;
-    
+
     // Use consistent status logic with TankStatusTable.tsx
     // Consider both percentage and days to minimum for accurate status
     const daysToMin = tank.days_to_min_level;
-    
+
     // Critical: ≤1.5 days OR ≤10% fuel
     if (percentage <= 10 || (daysToMin !== null && daysToMin !== undefined && daysToMin <= 1.5)) {
       return { status: 'critical', color: 'red', percentage };
     }
-    
-    // Low: ≤2.5 days OR ≤20% fuel  
+
+    // Low: ≤2.5 days OR ≤20% fuel
     if (percentage <= 20 || (daysToMin !== null && daysToMin !== undefined && daysToMin <= 2.5)) {
       return { status: 'low', color: 'orange', percentage };
     }
-    
+
     // Normal: >2.5 days AND >20% fuel
     if (percentage <= 75) return { status: 'normal', color: 'blue', percentage };
     return { status: 'high', color: 'green', percentage };
-  };
+  }, [tank?.current_level, tank?.safe_level, tank?.days_to_min_level]);
 
-  const tankStatus = getTankStatus();
-
-  // Get the most recent dip reading
-  const getLatestReading = () => {
+  // Get the most recent dip reading - memoized
+  const latestReading = useMemo(() => {
     if (dipHistory && dipHistory.length > 0) {
-      const sortedDips = [...dipHistory].sort((a, b) => 
+      const sortedDips = [...dipHistory].sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       return sortedDips[0];
     }
     return null;
-  };
+  }, [dipHistory]);
 
-  const latestReading = getLatestReading();
+  // Early return if no tank - must be after all hooks
+  if (!tank) return null;
 
   // Status badge component
   const StatusBadge = ({ status, color }: { status: string; color: string }) => {
@@ -869,7 +859,7 @@ export function TankDetailsModal({
       />
     </>
   );
-}
+});
 
 function EditableNotesSection({ notes: initialNotes, onSave }: { notes: string; onSave: (newNotes: string) => Promise<void> }) {
   const [notes, setNotes] = React.useState(initialNotes);

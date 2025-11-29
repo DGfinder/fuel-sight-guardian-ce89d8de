@@ -9,9 +9,26 @@ import { useUserPermissions } from '../useUserPermissions'
 vi.mock('../useUserPermissions')
 vi.mock('../../lib/supabase', () => ({
   supabase: {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    },
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
         in: vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: 'tank-1',
+                location: 'Test Location',
+                current_level: 1000,
+                capacity: 2000,
+                group_id: 'group-1',
+              },
+            ],
+            error: null,
+          }),
+        }),
+        eq: vi.fn().mockReturnValue({
           order: vi.fn().mockResolvedValue({
             data: [
               {
@@ -106,7 +123,7 @@ describe('useTanks', () => {
     expect(result.current.data?.[0].id).toBe('tank-1')
   })
 
-  it('should return loading state initially', () => {
+  it('should return empty array when no user is authenticated', async () => {
     mockUseUserPermissions.mockReturnValue({
       data: null,
       isLoading: true,
@@ -115,12 +132,16 @@ describe('useTanks', () => {
 
     const { result } = renderHook(() => useTanks(), { wrapper })
 
-    // Since the query is disabled when permissions are null, isLoading should be false
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.data).toBeUndefined()
+    // Wait for the query to complete
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    // useTanks returns [] when auth.getUser() returns no user
+    expect(result.current.data).toEqual([])
   })
 
-  it('should handle empty permissions', () => {
+  it('should handle no authenticated user gracefully', async () => {
     mockUseUserPermissions.mockReturnValue({
       data: null,
       isLoading: false,
@@ -129,6 +150,12 @@ describe('useTanks', () => {
 
     const { result } = renderHook(() => useTanks(), { wrapper })
 
-    expect(result.current.data).toBeUndefined()
+    // Wait for the query to resolve
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    // Returns empty array when no user
+    expect(result.current.data).toEqual([])
   })
 })
