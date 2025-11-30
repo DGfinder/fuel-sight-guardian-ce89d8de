@@ -23,7 +23,9 @@ import {
   History,
   Mail,
   Signal,
-  Database
+  Database,
+  Calendar,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
@@ -40,7 +42,16 @@ const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
   { path: '/tanks', label: 'Tanks', icon: TankIcon, badge: 'totalTanks', group: null },
   { path: '/map', label: 'Map View', icon: MapPin, badge: null, group: null },
-  { path: '/agbot', label: 'Agbot Monitoring', icon: Signal, badge: null, group: null },
+  {
+    path: '/agbot',
+    label: 'Agbot Monitoring',
+    icon: Signal,
+    badge: null,
+    group: null,
+    children: [
+      { path: '/agbot/predictions', label: 'Predictions', icon: TrendingUp }
+    ]
+  },
   { path: '/smartfill', label: 'SmartFill', icon: Database, badge: null, group: null },
   { 
     path: '/swan-transit', 
@@ -92,16 +103,18 @@ const ALL_NAV_ITEMS = [
       { path: '/groups/geraldton-linehaul/dip-history', label: 'Dip History', icon: History }
     ]
   },
-  { 
-    path: '/bgc', 
-    label: 'BGC', 
-    icon: Building2Icon, 
-    badge: null, 
+  {
+    path: '/bgc',
+    label: 'BGC',
+    icon: Building2Icon,
+    badge: null,
     group: 'BGC',
     children: [
       { path: '/groups/bgc/dip-history', label: 'Dip History', icon: History }
     ]
-  }
+  },
+  { path: '/fleet-calendar', label: 'Fleet Calendar', icon: Calendar, badge: null, group: null, adminOnly: true },
+  { path: '/settings/customers', label: 'Customer Portal', icon: Users, badge: null, group: null, adminOnly: true }
 ];
 
 const SidebarSkeleton = () => (
@@ -209,6 +222,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     return allItems.filter(item => {
+      // Admin-only items require admin role
+      if ((item as any).adminOnly && !permissions.isAdmin) return false;
       if (permissions.isAdmin || permissions.role === 'scheduler') return true;
       if (!item.group) return true;
       return accessibleGroups.has(item.group);

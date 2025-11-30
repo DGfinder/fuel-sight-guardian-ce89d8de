@@ -42,7 +42,24 @@ const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
+const AgbotPredictions = lazy(() => import('@/pages/AgbotPredictions'));
 const SmartFillPage = lazy(() => import('@/pages/SmartFillPage'));
+
+// Customer Portal Pages
+const CustomerDashboard = lazy(() => import('@/pages/customer/CustomerDashboard'));
+const CustomerCalendar = lazy(() => import('@/pages/customer/CustomerCalendar'));
+const CustomerTanks = lazy(() => import('@/pages/customer/CustomerTanks'));
+const CustomerTankDetail = lazy(() => import('@/pages/customer/CustomerTankDetail'));
+const RequestDelivery = lazy(() => import('@/pages/customer/RequestDelivery'));
+const DeliveryHistory = lazy(() => import('@/pages/customer/DeliveryHistory'));
+const CustomerReports = lazy(() => import('@/pages/customer/CustomerReports'));
+
+// Admin Pages
+const FleetRefillCalendar = lazy(() => import('@/pages/admin/FleetRefillCalendar'));
+const CustomerAccountManagement = lazy(() => import('@/pages/admin/CustomerAccountManagement'));
+
+// Customer Portal Layout
+import { CustomerPortalLayout } from '@/components/customer/CustomerPortalLayout';
 
 // Enhanced loading component
 const PageLoader = () => (
@@ -299,8 +316,8 @@ function AppContent() {
                       </ProtectedRoute>
                     } 
                   />
-                  <Route 
-                    path="/agbot" 
+                  <Route
+                    path="/agbot"
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Agbot Monitoring" showHomeButton={true}>
@@ -309,9 +326,21 @@ function AppContent() {
                           </Suspense>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
-                    } 
+                    }
                   />
-                  <Route 
+                  <Route
+                    path="/agbot/predictions"
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Agbot Predictions" showHomeButton={true}>
+                          <Suspense fallback={<PageLoader />}>
+                            <AgbotPredictions />
+                          </Suspense>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/smartfill" 
                     element={
                       <ProtectedRoute>
@@ -339,6 +368,106 @@ function AppContent() {
                   } />
                   <Route path="/login" element={<Login />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+
+                  {/* Customer Portal Routes */}
+                  <Route
+                    path="/customer"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <CustomerDashboard />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/tanks"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <CustomerTanks />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/tanks/:tankId"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <CustomerTankDetail />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/calendar"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <CustomerCalendar />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/request"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <RequestDelivery />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/history"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <DeliveryHistory />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/reports"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <CustomerReports />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* GSF Fleet Refill Calendar */}
+                  <Route
+                    path="/fleet-calendar"
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Fleet Calendar" showHomeButton={true}>
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <FleetRefillCalendar />
+                          </AppLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Customer Account Management (GSF Admins) */}
+                  <Route
+                    path="/settings/customers"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <RouteErrorBoundary routeName="Customer Portal Management" showHomeButton={true}>
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <CustomerAccountManagement />
+                          </AppLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route 
                     path="/alerts" 
                     element={
