@@ -66,11 +66,11 @@ export async function fetch24HourConsumption(
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
-    .from('agbot_readings_history')
-    .select('calibrated_fill_percentage, asset_reported_litres, reading_timestamp')
+    .from('ta_agbot_readings')
+    .select('level_percent, level_liters, reading_at')
     .eq('asset_id', assetId)
-    .gte('reading_timestamp', twentyFourHoursAgo.toISOString())
-    .order('reading_timestamp', { ascending: true });
+    .gte('reading_at', twentyFourHoursAgo.toISOString())
+    .order('reading_at', { ascending: true });
 
   if (error || !data || data.length < 2) {
     return { litres: 0, pct: 0 };
@@ -81,12 +81,12 @@ export async function fetch24HourConsumption(
 
   const pctConsumed = Math.max(
     0,
-    oldest.calibrated_fill_percentage - newest.calibrated_fill_percentage
+    (oldest.level_percent || 0) - (newest.level_percent || 0)
   );
 
   const litresConsumed =
-    oldest.asset_reported_litres && newest.asset_reported_litres
-      ? Math.max(0, oldest.asset_reported_litres - newest.asset_reported_litres)
+    oldest.level_liters && newest.level_liters
+      ? Math.max(0, oldest.level_liters - newest.level_liters)
       : 0;
 
   return {
@@ -106,11 +106,11 @@ export async function fetch7DayConsumption(
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
-    .from('agbot_readings_history')
-    .select('calibrated_fill_percentage, asset_reported_litres, reading_timestamp')
+    .from('ta_agbot_readings')
+    .select('level_percent, level_liters, reading_at')
     .eq('asset_id', assetId)
-    .gte('reading_timestamp', sevenDaysAgo.toISOString())
-    .order('reading_timestamp', { ascending: true });
+    .gte('reading_at', sevenDaysAgo.toISOString())
+    .order('reading_at', { ascending: true });
 
   if (error || !data || data.length < 2) {
     return { litres: 0, pct: 0, daily_values: new Array(7).fill(0) };
@@ -121,12 +121,12 @@ export async function fetch7DayConsumption(
 
   const pctConsumed = Math.max(
     0,
-    oldest.calibrated_fill_percentage - newest.calibrated_fill_percentage
+    (oldest.level_percent || 0) - (newest.level_percent || 0)
   );
 
   const litresConsumed =
-    oldest.asset_reported_litres && newest.asset_reported_litres
-      ? Math.max(0, oldest.asset_reported_litres - newest.asset_reported_litres)
+    oldest.level_liters && newest.level_liters
+      ? Math.max(0, oldest.level_liters - newest.level_liters)
       : 0;
 
   // Calculate daily values for sparkline (last 7 days)
@@ -136,7 +136,7 @@ export async function fetch7DayConsumption(
     const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
     const dayReadings = data.filter((r) => {
-      const t = new Date(r.reading_timestamp);
+      const t = new Date(r.reading_at);
       return t >= dayStart && t < dayEnd;
     });
 
@@ -144,8 +144,8 @@ export async function fetch7DayConsumption(
       const dayOldest = dayReadings[0];
       const dayNewest = dayReadings[dayReadings.length - 1];
       const dayConsumption =
-        dayOldest.asset_reported_litres && dayNewest.asset_reported_litres
-          ? Math.max(0, dayOldest.asset_reported_litres - dayNewest.asset_reported_litres)
+        dayOldest.level_liters && dayNewest.level_liters
+          ? Math.max(0, dayOldest.level_liters - dayNewest.level_liters)
           : 0;
       daily_values.push(Math.round(dayConsumption));
     } else {
@@ -171,11 +171,11 @@ export async function fetch30DayConsumption(
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
-    .from('agbot_readings_history')
-    .select('calibrated_fill_percentage, asset_reported_litres, reading_timestamp')
+    .from('ta_agbot_readings')
+    .select('level_percent, level_liters, reading_at')
     .eq('asset_id', assetId)
-    .gte('reading_timestamp', thirtyDaysAgo.toISOString())
-    .order('reading_timestamp', { ascending: true });
+    .gte('reading_at', thirtyDaysAgo.toISOString())
+    .order('reading_at', { ascending: true });
 
   if (error || !data || data.length < 2) {
     return null;
@@ -186,12 +186,12 @@ export async function fetch30DayConsumption(
 
   const pctConsumed = Math.max(
     0,
-    oldest.calibrated_fill_percentage - newest.calibrated_fill_percentage
+    (oldest.level_percent || 0) - (newest.level_percent || 0)
   );
 
   const litresConsumed =
-    oldest.asset_reported_litres && newest.asset_reported_litres
-      ? Math.max(0, oldest.asset_reported_litres - newest.asset_reported_litres)
+    oldest.level_liters && newest.level_liters
+      ? Math.max(0, oldest.level_liters - newest.level_liters)
       : 0;
 
   return {

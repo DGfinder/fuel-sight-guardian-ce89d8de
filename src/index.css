@@ -103,73 +103,13 @@
   }
 }
 
-/* Custom animations for login page */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-in-left {
-  from {
-    opacity: 0;
-    transform: translateX(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(0, 132, 87, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(0, 132, 87, 0.5), 0 0 40px rgba(254, 223, 25, 0.3);
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 1s ease-out;
-}
-
-.animate-slide-in-left {
-  animation: slide-in-left 0.8s ease-out;
-}
-
-.animate-slide-in-right {
-  animation: slide-in-right 0.8s ease-out;
-}
-
-.animate-glow {
-  animation: glow 3s ease-in-out infinite;
-}
-
-/* Enhanced shadow utilities */
-.shadow-3xl {
-  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
-}
-
-.shadow-4xl {
-  box-shadow: 0 45px 80px -15px rgba(0, 0, 0, 0.3);
-}
+/*
+ * Note: Base animations (fade-in, slide-in-left, slide-in-right, glow)
+ * and shadow utilities (shadow-3xl, shadow-4xl) are now defined in
+ * tailwind.config.ts for consistency. Use Tailwind classes:
+ * - animate-fade-in, animate-slide-in-left, animate-slide-in-right, animate-glow
+ * - shadow-3xl, shadow-4xl
+ */
 
 /* Backdrop blur fallback */
 .backdrop-blur-xl {
@@ -195,4 +135,138 @@
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome, Safari and Opera */
+}
+
+/* ============================================
+   Map Cluster & Marker Styling (2025 Best Practices)
+   ============================================ */
+
+/* Smart Cluster Icons */
+.custom-cluster-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.cluster-marker {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--cluster-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 8px var(--ring-color), 0 4px 12px rgba(0,0,0,0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.cluster-marker:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 12px var(--ring-color), 0 6px 20px rgba(0,0,0,0.4);
+}
+
+.cluster-count {
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.cluster-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #dc2626;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Cluster Pulse Animations */
+@keyframes cluster-pulse-critical {
+  0%, 100% {
+    box-shadow: 0 0 0 8px var(--ring-color), 0 4px 12px rgba(0,0,0,0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 16px var(--ring-color), 0 4px 16px rgba(220,38,38,0.4);
+  }
+}
+
+@keyframes cluster-pulse-urgent {
+  0%, 100% {
+    box-shadow: 0 0 0 8px var(--ring-color), 0 4px 12px rgba(0,0,0,0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 14px var(--ring-color), 0 4px 14px rgba(234,88,12,0.3);
+  }
+}
+
+.cluster-pulse-critical {
+  animation: cluster-pulse-critical 2s ease-in-out infinite;
+}
+
+.cluster-pulse-urgent {
+  animation: cluster-pulse-urgent 2.5s ease-in-out infinite;
+}
+
+/* Marker Animations */
+@keyframes marker-pulse-critical {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+  50% {
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.6));
+  }
+}
+
+@keyframes marker-pulse-urgent {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 8px rgba(234, 88, 12, 0.5));
+  }
+}
+
+.leaflet-marker-icon.marker-critical {
+  animation: marker-pulse-critical 2s ease-in-out infinite;
+}
+
+.leaflet-marker-icon.marker-urgent {
+  animation: marker-pulse-urgent 2.5s ease-in-out infinite;
+}
+
+/* Stale data indicator */
+.leaflet-marker-icon.marker-stale {
+  filter: grayscale(40%) opacity(0.75);
+}
+
+/* Leaflet popup styling enhancements */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  min-width: 280px;
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }

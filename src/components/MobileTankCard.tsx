@@ -2,11 +2,11 @@ import React, { useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { 
-  MapPin, 
-  Droplets, 
-  Clock, 
-  AlertTriangle, 
+import {
+  MapPin,
+  Droplets,
+  Clock,
+  AlertTriangle,
   Fuel,
   TrendingDown,
   Calendar
@@ -14,6 +14,7 @@ import {
 import { format } from 'date-fns';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import type { Tank } from '@/types/fuel';
+import { getFuelStatus, fuelStatusStyles, getBadgeVariant, getBarColor } from '@/lib/fuel-colors';
 
 interface MobileTankCardProps {
   tank: Tank;
@@ -50,15 +51,15 @@ export function MobileTankCard({
     }
   }, [attachListeners]);
 
-  const getStatusColor = () => {
-    const level = tank.current_level_percent || 0;
-    if (level <= 10) return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'destructive' as const };
-    if (level <= 20) return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'secondary' as const };
-    return { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'default' as const };
-  };
-
-  const statusColor = getStatusColor();
   const level = tank.current_level_percent || 0;
+  const status = getFuelStatus(level, tank.days_to_min_level);
+  const styles = fuelStatusStyles[status];
+  const statusColor = {
+    bg: styles.bg,
+    border: styles.border,
+    text: styles.text,
+    badge: getBadgeVariant(status)
+  };
 
   return (
     <Card 
@@ -114,14 +115,10 @@ export function MobileTankCard({
               {level.toFixed(1)}%
             </span>
           </div>
-          <Progress 
-            value={level} 
+          <Progress
+            value={level}
             className="h-2"
-            indicatorClassName={
-              level <= 10 ? 'bg-red-500' : 
-              level <= 20 ? 'bg-amber-500' : 
-              'bg-green-500'
-            }
+            indicatorClassName={getBarColor(level)}
           />
         </div>
 

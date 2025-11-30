@@ -202,26 +202,26 @@ async function getLocationHistoricalData(
     try {
       const { supabase } = await import('./lib/supabase');
       const { data: readings } = await supabase
-        .from('agbot_readings_history')
+        .from('ta_agbot_readings')
         .select(`
           *,
-          asset:agbot_assets(
-            asset_name,
-            location:agbot_locations(location_guid)
+          asset:ta_agbot_assets(
+            name,
+            location:ta_agbot_locations(external_guid)
           )
         `)
-        .eq('asset.location.location_guid', locationId)
-        .gte('reading_time', startDate)
-        .lte('reading_time', endDate)
-        .order('reading_time', { ascending: true });
+        .eq('asset.location.external_guid', locationId)
+        .gte('reading_at', startDate)
+        .lte('reading_at', endDate)
+        .order('reading_at', { ascending: true });
 
       if (readings) {
         historicalData.fuelLevels.push(...readings.map(reading => ({
-          timestamp: reading.reading_time,
+          timestamp: reading.reading_at,
           tankId: reading.asset_id,
-          tankName: reading.asset?.asset_name,
-          volumePercent: reading.calibrated_fill_percentage,
-          status: reading.status_description,
+          tankName: reading.asset?.name,
+          volumePercent: reading.level_percent,
+          status: reading.device_state,
           source: 'agbot'
         })));
       }

@@ -8,11 +8,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { 
-  UnifiedLocation, 
-  UnifiedCustomer, 
-  UnifiedDelivery 
+import {
+  UnifiedLocation,
+  UnifiedCustomer,
+  UnifiedDelivery
 } from '@/lib/unified-data-integration';
+import { supabase } from '@/lib/supabase';
 
 // Interface for unified data hooks
 interface UnifiedDataOptions {
@@ -77,21 +78,44 @@ export function useUnifiedLocation(
 }
 
 /**
- * Hook for multiple unified locations
+ * Hook for multiple unified locations - FIXED: Single batch query instead of N+1
  */
 export function useUnifiedLocations(
   locationIds: string[],
   options: UnifiedDataOptions = {}
 ) {
-  const results = locationIds.map(locationId => 
-    useUnifiedLocation(locationId, options)
-  );
+  const {
+    refreshInterval = 5 * 60 * 1000,
+    enabled = true
+  } = options;
+
+  const query = useQuery({
+    queryKey: ['unified-locations-batch', locationIds],
+    queryFn: async () => {
+      if (!locationIds.length) return [];
+
+      // Single batch query using .in() filter
+      const { data, error } = await supabase
+        .from('ta_tank_full_status')
+        .select('*')
+        .in('id', locationIds);
+
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch unified locations');
+      }
+
+      return data || [];
+    },
+    enabled: enabled && locationIds.length > 0,
+    refetchInterval: refreshInterval,
+    staleTime: 2 * 60 * 1000 // 2 minutes
+  });
 
   return {
-    locations: results.map(result => result.data).filter(Boolean),
-    isLoading: results.some(result => result.isLoading),
-    error: results.find(result => result.error)?.error,
-    refetch: () => results.forEach(result => result.refetch())
+    locations: query.data || [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch
   };
 }
 

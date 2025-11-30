@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
 import { TankStatusTable } from '@/components/TankStatusTable';
@@ -39,35 +39,44 @@ export default function BGCPage() {
 
   return (
     <AppLayout selectedGroup={BGC_GROUP_NAME} onGroupSelect={() => {}}>
-      <div className="min-h-screen w-full bg-muted">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
-          <div className="space-y-6 p-6">
+      <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20 py-6 space-y-6">
+          {/* Header Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">BGC Dashboard</h1>
                 <p className="text-gray-600 mt-1">Monitoring {bgcTanks.length} tanks in BGC</p>
               </div>
             </div>
-            <KPICards tanks={bgcTanks} onCardClick={() => {}} selectedFilter={null} />
-            <div className="flex items-center justify-between mb-4">
+            <div className="mt-6">
+              <KPICards tanks={bgcTanks} onCardClick={() => {}} selectedFilter={null} />
+            </div>
+          </div>
+
+          {/* Tank Status Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+            <div className="p-4 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-900">Tank Status</h2>
             </div>
-            <TankStatusTable
-              tanks={bgcTanks}
-              onTankClick={tank => {
-                setSelectedTankId(tank.id);
-                setTankDetailsOpen(true);
-              }}
-              setEditDipTank={setEditDipTank}
-              setEditDipModalOpen={setEditDipModalOpen}
-            />
-
-            <TankDetailsModal
-              tank={selectedTank}
-              open={tankDetailsOpen}
-              onOpenChange={setTankDetailsOpen}
-            />
+            <div className="overflow-x-auto">
+              <TankStatusTable
+                tanks={bgcTanks}
+                onTankClick={tank => {
+                  setSelectedTankId(tank.id);
+                  setTankDetailsOpen(true);
+                }}
+                setEditDipTank={setEditDipTank}
+                setEditDipModalOpen={setEditDipModalOpen}
+              />
+            </div>
           </div>
+
+          <TankDetailsModal
+            tank={selectedTank}
+            open={tankDetailsOpen}
+            onOpenChange={setTankDetailsOpen}
+          />
         </div>
       </div>
     </AppLayout>

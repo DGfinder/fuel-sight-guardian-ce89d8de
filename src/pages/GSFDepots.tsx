@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
@@ -74,16 +74,14 @@ export default function GSFDepotsPage() {
   if (isLoading || permissionsLoading) {
     return (
       <AppLayout selectedGroup={GSF_DEPOTS_GROUP_NAME} onGroupSelect={() => {}}>
-        <div className="min-h-screen w-full bg-muted">
-          <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
-            <div className="space-y-6 p-6">
-              <div className="flex justify-center items-center h-64">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">
-                    Loading {isLoading ? 'tanks' : ''} {permissionsLoading ? 'permissions' : ''}...
-                  </p>
-                </div>
+        <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100">
+          <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20 py-6">
+            <div className="flex justify-center items-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                <p className="mt-2 text-gray-600">
+                  Loading {isLoading ? 'tanks' : ''} {permissionsLoading ? 'permissions' : ''}...
+                </p>
               </div>
             </div>
           </div>
@@ -94,9 +92,10 @@ export default function GSFDepotsPage() {
 
   return (
     <AppLayout selectedGroup={GSF_DEPOTS_GROUP_NAME} onGroupSelect={() => {}}>
-      <div className="min-h-screen w-full bg-muted">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
-          <div className="space-y-6 p-6">
+      <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20 py-6 space-y-6">
+          {/* Header Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">GSF Depots Dashboard</h1>
@@ -107,41 +106,50 @@ export default function GSFDepotsPage() {
                 </p>
               </div>
             </div>
-            <KPICards tanks={displayedTanks} onCardClick={() => {}} selectedFilter={null} />
+            <div className="mt-6">
+              <KPICards tanks={displayedTanks} onCardClick={() => {}} selectedFilter={null} />
+            </div>
+          </div>
 
-            {/* Tank Charts by Subgroup */}
+          {/* Tank Charts by Subgroup */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm p-6">
             <SubgroupChartSection
               tanks={gsfDepotsTanks}
               onSubgroupChange={setSelectedSubgroup}
             />
+          </div>
 
-            <div className="flex items-center justify-between mb-4 mt-8">
+          {/* Tank Status Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+            <div className="p-4 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-900">
                 {selectedSubgroup ? `${selectedSubgroup} - Tank Status` : 'Tank Status'}
               </h2>
             </div>
-            <TankStatusTable
-              tanks={displayedTanks}
-              onTankClick={tank => {
-                setSelectedTankId(tank.id);
-                setTankDetailsOpen(true);
-              }}
-              setEditDipTank={setEditDipTank}
-              setEditDipModalOpen={setEditDipModalOpen}
-            />
-
-            <TankDetailsModal
-              tank={selectedTank}
-              open={tankDetailsOpen}
-              onOpenChange={setTankDetailsOpen}
-            />
-            
-            <EditDipModal
-              isOpen={editDipModalOpen}
-              onClose={() => setEditDipModalOpen(false)}
-              initialTankId={editDipTank?.id}
-            />
+            <div className="overflow-x-auto">
+              <TankStatusTable
+                tanks={displayedTanks}
+                onTankClick={tank => {
+                  setSelectedTankId(tank.id);
+                  setTankDetailsOpen(true);
+                }}
+                setEditDipTank={setEditDipTank}
+                setEditDipModalOpen={setEditDipModalOpen}
+              />
+            </div>
           </div>
+
+          <TankDetailsModal
+            tank={selectedTank}
+            open={tankDetailsOpen}
+            onOpenChange={setTankDetailsOpen}
+          />
+
+          <EditDipModal
+            isOpen={editDipModalOpen}
+            onClose={() => setEditDipModalOpen(false)}
+            initialTankId={editDipTank?.id}
+          />
         </div>
       </div>
     </AppLayout>

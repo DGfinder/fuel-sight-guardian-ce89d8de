@@ -8,7 +8,7 @@ import { StatusPulse } from "@/components/ui/StatusPulse";
 import { staggerContainerVariants, fadeUpItemVariants } from "@/lib/motion-variants";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import { 
   Droplets, 

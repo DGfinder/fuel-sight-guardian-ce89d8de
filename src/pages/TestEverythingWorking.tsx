@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { SubgroupDebugPanel } from '@/components/SubgroupDebugPanel';
 

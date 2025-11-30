@@ -224,10 +224,10 @@ async function aggregateFuelData(date: string) {
 
   // Get AgBot data
   const { data: agbotLocations } = await supabase
-    .from('agbot_locations')
+    .from('ta_agbot_locations')
     .select(`
       *,
-      assets:agbot_assets(*)
+      assets:ta_agbot_assets(*)
     `);
 
   let totalLocations = 0;
@@ -262,20 +262,20 @@ async function aggregateFuelData(date: string) {
   // Process AgBot data
   if (agbotLocations) {
     totalLocations += agbotLocations.length;
-    
+
     for (const location of agbotLocations) {
       const assets = location.assets || [];
       totalTanks += assets.length;
-      
+
       for (const asset of assets) {
         tankCount++;
-        // AgBot uses percentages, estimate capacity from percentage
-        const estimatedCapacity = 1000; // Default estimation
-        totalCapacity += estimatedCapacity;
-        totalVolume += (estimatedCapacity * (asset.latest_calibrated_fill_percentage || 0)) / 100;
-        fillPercentageSum += asset.latest_calibrated_fill_percentage || 0;
-        
-        if ((asset.latest_calibrated_fill_percentage || 0) < 20) {
+        // Use actual capacity if available, otherwise estimate
+        const capacity = asset.capacity_liters || 1000;
+        totalCapacity += capacity;
+        totalVolume += asset.current_level_liters || (capacity * (asset.current_level_percent || 0)) / 100;
+        fillPercentageSum += asset.current_level_percent || 0;
+
+        if ((asset.current_level_percent || 0) < 20) {
           lowFuelCount++;
         }
       }

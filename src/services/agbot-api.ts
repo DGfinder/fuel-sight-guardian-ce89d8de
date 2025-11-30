@@ -393,59 +393,60 @@ export async function fetchAtharaLocations(bypassCache: boolean = false): Promis
   });
 }
 
-// Transform Athara API data to our database format
+// Transform Athara API data to new ta_agbot_* schema format
 function transformLocationData(atharaLocation: AtharaLocation) {
   return {
-    location_guid: atharaLocation.locationGuid,
+    external_guid: atharaLocation.locationGuid,
+    name: atharaLocation.locationId || 'Unknown Location',
     customer_name: atharaLocation.customerName,
     customer_guid: atharaLocation.customerGuid,
-    location_id: atharaLocation.locationId,
-    address1: atharaLocation.address1,
-    address2: atharaLocation.address2,
+    address: atharaLocation.address1,
     state: atharaLocation.state,
     postcode: atharaLocation.postcode,
-    country: atharaLocation.country,
-    latest_calibrated_fill_percentage: atharaLocation.latestCalibratedFillPercentage,
-    installation_status: atharaLocation.installationStatus,
+    country: atharaLocation.country || 'Australia',
+    latitude: atharaLocation.lat,
+    longitude: atharaLocation.lng,
+    installation_status: atharaLocation.installationStatus || 0,
     installation_status_label: atharaLocation.installationStatusLabel,
-    location_status: atharaLocation.locationStatus,
-    location_status_label: atharaLocation.locationStatusLabel,
-    latest_telemetry_epoch: atharaLocation.latestTelemetryEpoch,
-    latest_telemetry: atharaLocation.latestTelemetry,
-    lat: atharaLocation.lat,
-    lng: atharaLocation.lng,
-    disabled: atharaLocation.disabled,
-    raw_data: atharaLocation
+    is_disabled: atharaLocation.disabled || false,
+    calibrated_fill_level: atharaLocation.latestCalibratedFillPercentage,
+    last_telemetry_at: atharaLocation.latestTelemetry,
+    last_telemetry_epoch: atharaLocation.latestTelemetryEpoch,
+    updated_at: new Date().toISOString()
   };
 }
 
 function transformAssetData(atharaAsset: AtharaAsset, locationId: string) {
   return {
     location_id: locationId,
-    asset_guid: atharaAsset.assetGuid,
-    asset_serial_number: atharaAsset.assetSerialNumber,
-    asset_disabled: atharaAsset.assetDisabled,
-    asset_profile_guid: atharaAsset.assetProfileGuid,
-    asset_profile_name: atharaAsset.assetProfileName,
+    external_guid: atharaAsset.assetGuid,
+    name: atharaAsset.assetSerialNumber || atharaAsset.assetProfileName || 'Unknown Asset',
+    serial_number: atharaAsset.assetSerialNumber,
+    profile_name: atharaAsset.assetProfileName,
+    profile_guid: atharaAsset.assetProfileGuid,
+    commodity: (atharaAsset as any).assetProfileCommodity || 'Diesel',
+    capacity_liters: (atharaAsset as any).assetProfileWaterCapacity,
+    current_level_liters: (atharaAsset as any).assetReportedLitres,
+    current_level_percent: atharaAsset.latestCalibratedFillPercentage,
+    current_raw_percent: atharaAsset.latestRawFillPercentage,
+    ullage_liters: (atharaAsset as any).assetRefillCapacityLitres,
+    daily_consumption_liters: (atharaAsset as any).assetDailyConsumption,
+    days_remaining: (atharaAsset as any).assetDaysRemaining,
     device_guid: atharaAsset.deviceGuid,
-    device_serial_number: atharaAsset.deviceSerialNumber,
-    device_id: atharaAsset.deviceId,
-    device_sku_guid: atharaAsset.deviceSKUGuid,
-    device_sku_model: atharaAsset.deviceSKUModel,
-    device_sku_name: atharaAsset.deviceSKUName,
-    device_model_label: atharaAsset.deviceModelLabel,
+    device_serial: atharaAsset.deviceSerialNumber,
     device_model: atharaAsset.deviceModel,
-    device_online: atharaAsset.deviceOnline,
-    device_activation_date: atharaAsset.deviceActivationDate,
+    device_model_name: atharaAsset.deviceModelLabel,
+    is_online: atharaAsset.deviceOnline,
+    is_disabled: atharaAsset.assetDisabled || false,
+    device_state: (atharaAsset as any).deviceState,
+    battery_voltage: (atharaAsset as any).deviceBatteryVoltage,
+    temperature_c: (atharaAsset as any).deviceTemperature,
+    device_activated_at: atharaAsset.deviceActivationDate,
     device_activation_epoch: atharaAsset.deviceActivationEpoch,
-    latest_calibrated_fill_percentage: atharaAsset.latestCalibratedFillPercentage,
-    latest_raw_fill_percentage: atharaAsset.latestRawFillPercentage,
-    latest_telemetry_event_timestamp: atharaAsset.latestTelemetryEventTimestamp,
-    latest_telemetry_event_epoch: atharaAsset.latestTelemetryEventEpoch,
-    latest_reported_lat: atharaAsset.latestReportedLat,
-    latest_reported_lng: atharaAsset.latestReportedLng,
-    subscription_id: atharaAsset.subscriptionId,
-    raw_data: atharaAsset
+    last_telemetry_at: atharaAsset.latestTelemetryEventTimestamp,
+    last_telemetry_epoch: atharaAsset.latestTelemetryEventEpoch,
+    raw_data: atharaAsset,
+    updated_at: new Date().toISOString()
   };
 }
 
@@ -506,14 +507,14 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
         console.log(`\n📍 Processing Location: ${atharaLocation.customerName} - ${atharaLocation.locationId}`);
         console.log(`   GUID: ${atharaLocation.locationGuid}`);
         console.log(`   Assets to process: ${atharaLocation.assets?.length || 0}`);
-        
-        // Upsert location
+
+        // Upsert location to new ta_agbot_locations table
         const locationData = transformLocationData(atharaLocation);
         const { data: location, error: locationError } = await supabase
-          .from('agbot_locations')
-          .upsert(locationData, { 
-            onConflict: 'location_guid',
-            ignoreDuplicates: false 
+          .from('ta_agbot_locations')
+          .upsert(locationData, {
+            onConflict: 'external_guid',
+            ignoreDuplicates: false
           })
           .select()
           .single();
@@ -533,18 +534,21 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
         console.log(`   Processing ${atharaLocation.assets?.length || 0} assets...`);
         let assetsSuccessful = 0;
         let assetsFailed = 0;
-        
+
         for (const atharaAsset of atharaLocation.assets) {
           try {
             const assetData = transformAssetData(atharaAsset, location.id);
             console.log(`      - Asset ${atharaAsset.deviceSerialNumber} (${atharaAsset.deviceOnline ? 'online' : 'offline'})`);
-            
-            const { error: assetError } = await supabase
-              .from('agbot_assets')
-              .upsert(assetData, { 
-                onConflict: 'asset_guid',
-                ignoreDuplicates: false 
-              });
+
+            // Upsert asset to new ta_agbot_assets table
+            const { data: savedAsset, error: assetError } = await supabase
+              .from('ta_agbot_assets')
+              .upsert(assetData, {
+                onConflict: 'external_guid',
+                ignoreDuplicates: false
+              })
+              .select('id')
+              .single();
 
             if (assetError) {
               const errorMsg = `Asset ${atharaAsset.deviceSerialNumber} error: ${assetError.message}`;
@@ -557,20 +561,28 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
             assetsSuccessful++;
             result.assetsProcessed++;
 
-            // Store historical reading
-            const { error: readingError } = await supabase
-              .from('agbot_readings_history')
-              .insert({
-                asset_id: assetData.asset_guid, // Will need to get actual ID
-                calibrated_fill_percentage: atharaAsset.latestCalibratedFillPercentage,
-                raw_fill_percentage: atharaAsset.latestRawFillPercentage,
-                reading_timestamp: atharaAsset.latestTelemetryEventTimestamp,
-                device_online: atharaAsset.deviceOnline,
-                telemetry_epoch: atharaAsset.latestTelemetryEventEpoch
-              });
+            // Store historical reading to new ta_agbot_readings table
+            if (savedAsset?.id) {
+              const { error: readingError } = await supabase
+                .from('ta_agbot_readings')
+                .insert({
+                  asset_id: savedAsset.id,
+                  level_liters: (atharaAsset as any).assetReportedLitres,
+                  level_percent: atharaAsset.latestCalibratedFillPercentage,
+                  raw_percent: atharaAsset.latestRawFillPercentage,
+                  is_online: atharaAsset.deviceOnline,
+                  battery_voltage: (atharaAsset as any).deviceBatteryVoltage,
+                  temperature_c: (atharaAsset as any).deviceTemperature,
+                  device_state: (atharaAsset as any).deviceState,
+                  daily_consumption: (atharaAsset as any).assetDailyConsumption,
+                  days_remaining: (atharaAsset as any).assetDaysRemaining,
+                  reading_at: atharaAsset.latestTelemetryEventTimestamp,
+                  telemetry_epoch: atharaAsset.latestTelemetryEventEpoch
+                });
 
-            if (!readingError) {
-              result.readingsProcessed++;
+              if (!readingError) {
+                result.readingsProcessed++;
+              }
             }
           } catch (assetError) {
             const errorMsg = `Asset processing error: ${assetError}`;
@@ -579,7 +591,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
             assetsFailed++;
           }
         }
-        
+
         console.log(`   📊 Assets Summary: ${assetsSuccessful} successful, ${assetsFailed} failed`);
         
       } catch (locationError) {
@@ -719,16 +731,16 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
       console.log(`[AGBOT SYNC] Fetched ${atharaLocations.length} locations from Athara API`);
     }
 
-    // Process locations (same logic as regular sync)
+    // Process locations - write to new ta_agbot_* tables
     for (const atharaLocation of atharaLocations) {
       try {
-        // Upsert location
+        // Upsert location to new ta_agbot_locations table
         const locationData = transformLocationData(atharaLocation);
         const { data: location, error: locationError } = await supabase
-          .from('agbot_locations')
-          .upsert(locationData, { 
-            onConflict: 'location_guid',
-            ignoreDuplicates: false 
+          .from('ta_agbot_locations')
+          .upsert(locationData, {
+            onConflict: 'external_guid',
+            ignoreDuplicates: false
           })
           .select()
           .single();
@@ -744,12 +756,14 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
         for (const atharaAsset of atharaLocation.assets) {
           try {
             const assetData = transformAssetData(atharaAsset, location.id);
-            const { error: assetError } = await supabase
-              .from('agbot_assets')
-              .upsert(assetData, { 
-                onConflict: 'asset_guid',
-                ignoreDuplicates: false 
-              });
+            const { data: savedAsset, error: assetError } = await supabase
+              .from('ta_agbot_assets')
+              .upsert(assetData, {
+                onConflict: 'external_guid',
+                ignoreDuplicates: false
+              })
+              .select('id')
+              .single();
 
             if (assetError) {
               result.errors.push(`Asset error: ${assetError.message}`);
@@ -758,19 +772,26 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
 
             result.assetsProcessed++;
 
-            // Store reading
-            if (atharaAsset.latestTelemetryEventTimestamp) {
-              const readingData = {
-                asset_id: atharaAsset.assetGuid,
-                calibrated_fill_percentage: atharaAsset.latestCalibratedFillPercentage,
-                raw_fill_percentage: atharaAsset.latestRawFillPercentage,
-                reading_timestamp: atharaAsset.latestTelemetryEventTimestamp,
-                device_online: atharaAsset.deviceOnline,
-                telemetry_epoch: atharaAsset.latestTelemetryEventEpoch
-              };
+            // Store reading to new ta_agbot_readings table
+            if (atharaAsset.latestTelemetryEventTimestamp && savedAsset?.id) {
+              const { error: readingError } = await supabase
+                .from('ta_agbot_readings')
+                .insert({
+                  asset_id: savedAsset.id,
+                  level_liters: (atharaAsset as any).assetReportedLitres,
+                  level_percent: atharaAsset.latestCalibratedFillPercentage,
+                  raw_percent: atharaAsset.latestRawFillPercentage,
+                  is_online: atharaAsset.deviceOnline,
+                  battery_voltage: (atharaAsset as any).deviceBatteryVoltage,
+                  temperature_c: (atharaAsset as any).deviceTemperature,
+                  device_state: (atharaAsset as any).deviceState,
+                  reading_at: atharaAsset.latestTelemetryEventTimestamp,
+                  telemetry_epoch: atharaAsset.latestTelemetryEventEpoch
+                });
 
-              await storeAgbotReading(readingData);
-              result.readingsProcessed++;
+              if (!readingError) {
+                result.readingsProcessed++;
+              }
             }
           } catch (assetError) {
             result.errors.push(`Asset processing error: ${assetError}`);
@@ -812,31 +833,105 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
   }
 }
 
-// Get all agbot locations with assets
+// Get all agbot locations with assets from new ta_agbot_* tables
 export async function getAgbotLocations(): Promise<AgbotLocation[]> {
   const { data, error } = await supabase
-    .from('agbot_locations')
+    .from('ta_agbot_locations')
     .select(`
       *,
-      assets:agbot_assets(*)
+      assets:ta_agbot_assets(*)
     `)
-    .order('location_id');
+    .eq('is_disabled', false)
+    .order('name');
 
   if (error) {
     console.error('Error fetching agbot locations:', error);
     throw error;
   }
 
-  return data || [];
+  // Transform new schema field names to legacy interface for backward compatibility
+  return (data || []).map(loc => {
+    const assets = (loc.assets || []).map((asset: any) => ({
+      ...asset,
+      id: asset.id,
+      location_id: asset.location_id,
+      asset_guid: asset.external_guid,
+      asset_serial_number: asset.serial_number,
+      asset_disabled: asset.is_disabled,
+      asset_profile_name: asset.profile_name,
+      asset_profile_guid: asset.profile_guid,
+      asset_profile_water_capacity: asset.capacity_liters,
+      device_guid: asset.device_guid,
+      device_serial_number: asset.device_serial,
+      device_sku_model: asset.device_model,
+      device_sku_name: asset.device_model_name,
+      device_online: asset.is_online,
+      latest_calibrated_fill_percentage: asset.current_level_percent,
+      latest_raw_fill_percentage: asset.current_raw_percent,
+      latest_telemetry_event_timestamp: asset.last_telemetry_at,
+      latest_telemetry_event_epoch: asset.last_telemetry_epoch,
+      asset_daily_consumption: asset.daily_consumption_liters,
+      asset_days_remaining: asset.days_remaining,
+      asset_refill_capacity_litres: asset.ullage_liters,
+      asset_reported_litres: asset.current_level_liters,
+      device_battery_voltage: asset.battery_voltage,
+      device_temperature: asset.temperature_c,
+      device_state: asset.device_state
+    }));
+
+    // Calculate location-level fill percentage from assets
+    const assetPercentages = assets
+      .filter((a: any) => a.latest_calibrated_fill_percentage != null)
+      .map((a: any) => a.latest_calibrated_fill_percentage);
+    const avgFillPercentage = assetPercentages.length > 0
+      ? assetPercentages.reduce((sum: number, p: number) => sum + p, 0) / assetPercentages.length
+      : loc.calibrated_fill_level || 0;
+
+    return {
+      ...loc,
+      id: loc.id,
+      location_guid: loc.external_guid,
+      customer_name: loc.customer_name,
+      customer_guid: loc.customer_guid,
+      location_id: loc.name,
+      tenancy_name: loc.tenancy_name,
+      address1: loc.address || '',
+      address2: '',
+      state: loc.state || '',
+      postcode: loc.postcode || '',
+      country: loc.country || 'Australia',
+      lat: loc.latitude,
+      lng: loc.longitude,
+      disabled: loc.is_disabled,
+      installation_status: loc.installation_status,
+      installation_status_label: loc.installation_status_label,
+      // Key fields for frontend display
+      latest_calibrated_fill_percentage: avgFillPercentage,
+      latest_telemetry: loc.last_telemetry_at,
+      latest_telemetry_epoch: loc.last_telemetry_epoch,
+      last_reading_time: loc.last_telemetry_at, // Used by device status checks
+      location_daily_consumption: loc.daily_consumption_liters,
+      location_days_remaining: loc.days_remaining,
+      location_calibrated_fill_level: loc.calibrated_fill_level,
+      // Asset data
+      assets,
+      // Include raw data for additional fields
+      raw_data: {
+        total_assets: loc.total_assets,
+        assets_online: loc.assets_online,
+        avg_fill_percent: loc.avg_fill_percent
+      }
+    };
+  });
 }
 
 // Get specific location with detailed asset information
 export async function getAgbotLocation(locationId: string): Promise<AgbotLocation | null> {
   const { data, error } = await supabase
-    .from('agbot_locations')
+    .from('ta_agbot_locations')
     .select(`
       *,
-      assets:agbot_assets(*)
+      assets:ta_agbot_assets(*)
     `)
     .eq('id', locationId)
     .single();
@@ -846,13 +941,36 @@ export async function getAgbotLocation(locationId: string): Promise<AgbotLocatio
     return null;
   }
 
-  return data;
+  if (!data) return null;
+
+  // Transform to legacy interface
+  return {
+    ...data,
+    location_guid: data.external_guid,
+    location_id: data.name,
+    address1: data.address,
+    address2: '',
+    lat: data.latitude,
+    lng: data.longitude,
+    disabled: data.is_disabled,
+    latest_telemetry: data.last_telemetry_at,
+    latest_telemetry_epoch: data.last_telemetry_epoch,
+    assets: (data.assets || []).map((asset: any) => ({
+      ...asset,
+      asset_guid: asset.external_guid,
+      asset_serial_number: asset.serial_number,
+      asset_disabled: asset.is_disabled,
+      device_online: asset.is_online,
+      latest_calibrated_fill_percentage: asset.current_level_percent,
+      latest_telemetry_event_timestamp: asset.last_telemetry_at
+    }))
+  } as AgbotLocation;
 }
 
 // Get recent sync logs
 export async function getAgbotSyncLogs(limit: number = 10) {
   const { data, error } = await supabase
-    .from('agbot_sync_logs')
+    .from('ta_agbot_sync_log')
     .select('*')
     .order('started_at', { ascending: false })
     .limit(limit);
@@ -862,7 +980,12 @@ export async function getAgbotSyncLogs(limit: number = 10) {
     throw error;
   }
 
-  return data || [];
+  // Transform to legacy field names for compatibility
+  return (data || []).map(log => ({
+    ...log,
+    sync_status: log.status,
+    sync_duration_ms: log.duration_ms
+  }));
 }
 
 // Historical data and analytics functions
@@ -876,18 +999,27 @@ export async function getAgbotReadingsHistory(
   daysAgo.setDate(daysAgo.getDate() - days);
 
   const { data, error } = await supabase
-    .from('agbot_readings_history')
+    .from('ta_agbot_readings')
     .select('*')
     .eq('asset_id', assetId)
-    .gte('reading_timestamp', daysAgo.toISOString())
-    .order('reading_timestamp', { ascending: true });
+    .gte('reading_at', daysAgo.toISOString())
+    .order('reading_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching agbot readings history:', error);
     throw error;
   }
 
-  return data || [];
+  // Transform to legacy field names for compatibility
+  return (data || []).map(reading => ({
+    ...reading,
+    calibrated_fill_percentage: reading.level_percent,
+    raw_fill_percentage: reading.raw_percent,
+    reading_timestamp: reading.reading_at,
+    device_online: reading.is_online,
+    device_battery_voltage: reading.battery_voltage,
+    device_temperature: reading.temperature_c
+  }));
 }
 
 // Get readings for multiple assets at once
@@ -901,26 +1033,33 @@ export async function getBulkAgbotReadingsHistory(
   daysAgo.setDate(daysAgo.getDate() - days);
 
   const { data, error } = await supabase
-    .from('agbot_readings_history')
+    .from('ta_agbot_readings')
     .select('*')
     .in('asset_id', assetIds)
-    .gte('reading_timestamp', daysAgo.toISOString())
-    .order('reading_timestamp', { ascending: true });
+    .gte('reading_at', daysAgo.toISOString())
+    .order('reading_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching bulk agbot readings history:', error);
     throw error;
   }
 
-  // Group readings by asset_id
+  // Group readings by asset_id and transform to legacy format
   const groupedReadings: Record<string, AgbotReading[]> = {};
   assetIds.forEach(id => {
     groupedReadings[id] = [];
   });
 
-  (data || []).forEach((reading: AgbotReading) => {
+  (data || []).forEach((reading: any) => {
+    const transformed = {
+      ...reading,
+      calibrated_fill_percentage: reading.level_percent,
+      raw_fill_percentage: reading.raw_percent,
+      reading_timestamp: reading.reading_at,
+      device_online: reading.is_online
+    };
     if (groupedReadings[reading.asset_id]) {
-      groupedReadings[reading.asset_id].push(reading);
+      groupedReadings[reading.asset_id].push(transformed);
     }
   });
 
@@ -930,26 +1069,32 @@ export async function getBulkAgbotReadingsHistory(
 // Get latest readings for all assets (for real-time dashboard)
 export async function getLatestAgbotReadings(): Promise<AgbotReading[]> {
   const { data, error } = await supabase
-    .from('agbot_readings_history')
+    .from('ta_agbot_readings')
     .select(`
       *,
-      asset:agbot_assets(
+      asset:ta_agbot_assets(
         *,
-        location:agbot_locations(*)
+        location:ta_agbot_locations(*)
       )
     `)
-    .order('reading_timestamp', { ascending: false });
+    .order('reading_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching latest agbot readings:', error);
     throw error;
   }
 
-  // Get the latest reading for each asset
+  // Get the latest reading for each asset and transform to legacy format
   const latestByAsset = new Map<string, AgbotReading>();
-  (data || []).forEach((reading: AgbotReading) => {
+  (data || []).forEach((reading: any) => {
     if (!latestByAsset.has(reading.asset_id)) {
-      latestByAsset.set(reading.asset_id, reading);
+      latestByAsset.set(reading.asset_id, {
+        ...reading,
+        calibrated_fill_percentage: reading.level_percent,
+        raw_fill_percentage: reading.raw_percent,
+        reading_timestamp: reading.reading_at,
+        device_online: reading.is_online
+      });
     }
   });
 
@@ -965,9 +1110,19 @@ export async function storeAgbotReading(reading: {
   device_online: boolean;
   telemetry_epoch: number;
 }) {
+  // Transform to new schema field names
+  const newReading = {
+    asset_id: reading.asset_id,
+    level_percent: reading.calibrated_fill_percentage,
+    raw_percent: reading.raw_fill_percentage,
+    reading_at: reading.reading_timestamp,
+    is_online: reading.device_online,
+    telemetry_epoch: reading.telemetry_epoch
+  };
+
   const { data, error } = await supabase
-    .from('agbot_readings_history')
-    .insert(reading)
+    .from('ta_agbot_readings')
+    .insert(newReading)
     .select()
     .single();
 
@@ -991,8 +1146,8 @@ export async function getLocationConsumptionStats(
 }> {
   // Get all assets for this location
   const { data: assets, error: assetsError } = await supabase
-    .from('agbot_assets')
-    .select('asset_guid')
+    .from('ta_agbot_assets')
+    .select('id')
     .eq('location_id', locationId);
 
   if (assetsError) {
@@ -1010,7 +1165,7 @@ export async function getLocationConsumptionStats(
   }
 
   // Get readings for all assets
-  const assetIds = assets.map(a => a.asset_guid);
+  const assetIds = assets.map(a => a.id);
   const readingsData = await getBulkAgbotReadingsHistory(assetIds, days);
   
   // Combine all readings and sort by timestamp
@@ -1090,12 +1245,12 @@ export async function getAgbotSystemSummary(): Promise<{
   locationsNeedingAttention: number;
   systemEfficiencyScore: number;
 }> {
-  // Get all locations with assets
+  // Get all locations with assets from new ta_agbot_* tables
   const { data: locations, error } = await supabase
-    .from('agbot_locations')
+    .from('ta_agbot_locations')
     .select(`
       *,
-      assets:agbot_assets(*)
+      assets:ta_agbot_assets(*)
     `);
 
   if (error) {
@@ -1115,15 +1270,15 @@ export async function getAgbotSystemSummary(): Promise<{
   }
 
   const allAssets = locations.flatMap(loc => loc.assets || []);
-  const onlineDevices = allAssets.filter(asset => asset.device_online).length;
-  const avgSystemReliability = allAssets.length > 0 
-    ? (onlineDevices / allAssets.length) * 100 
+  const onlineDevices = allAssets.filter((asset: any) => asset.is_online).length;
+  const avgSystemReliability = allAssets.length > 0
+    ? (onlineDevices / allAssets.length) * 100
     : 0;
 
   // Count locations needing attention (low fuel or offline devices)
-  const locationsNeedingAttention = locations.filter(loc => {
-    const hasLowFuel = loc.latest_calibrated_fill_percentage < 25;
-    const hasOfflineDevices = (loc.assets || []).some(asset => !asset.device_online);
+  const locationsNeedingAttention = locations.filter((loc: any) => {
+    const hasLowFuel = loc.calibrated_fill_level < 25;
+    const hasOfflineDevices = (loc.assets || []).some((asset: any) => !asset.is_online);
     return hasLowFuel || hasOfflineDevices;
   }).length;
 
@@ -1151,7 +1306,7 @@ export interface AgbotCSVImportResult {
   duration: number;
 }
 
-// Transform CSV row data to database location format
+// Transform CSV row data to database location format (new ta_agbot_locations schema)
 function transformCSVLocationData(csvRow: AgbotCSVRow) {
   // Parse date strings and handle empty values with Perth timezone
   const parseDate = (dateStr: string) => {
@@ -1160,21 +1315,21 @@ function transformCSVLocationData(csvRow: AgbotCSVRow) {
       // Handle format: "25/07/2025, 12:00:00 pm"
       const [datePart, timePart] = dateStr.split(', ');
       if (!datePart || !timePart) return null;
-      
+
       const [day, month, year] = datePart.split('/');
       const [time, period] = timePart.split(' ');
       const [hours, minutes, seconds] = time.split(':');
-      
+
       let hour24 = parseInt(hours);
       if (period?.toLowerCase() === 'pm' && hour24 !== 12) hour24 += 12;
       if (period?.toLowerCase() === 'am' && hour24 === 12) hour24 = 0;
-      
+
       // Create date string in Perth timezone format instead of browser timezone
       const perthDateString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour24.toString().padStart(2, '0')}:${minutes.padStart(2, '0')}:${(seconds || '0').padStart(2, '0')}`;
-      
+
       // Parse as Perth time and convert to proper timezone-aware date
       const perthDate = toPerthTime(perthDateString);
-      
+
       // Validate the timestamp for data quality
       const validation = validateTimestamp(perthDate);
       if (validation.issues.length > 0) {
@@ -1183,7 +1338,7 @@ function transformCSVLocationData(csvRow: AgbotCSVRow) {
           console.warn(`[AGBOT CSV] Future date detected: ${dateStr} -> ${perthDate.toISOString()}`);
         }
       }
-      
+
       return perthDate.toISOString();
     } catch (e) {
       console.warn('Failed to parse date:', dateStr, e);
@@ -1191,55 +1346,52 @@ function transformCSVLocationData(csvRow: AgbotCSVRow) {
     }
   };
 
-  // Generate a unique location_guid from location ID
-  const locationGuid = `csv-import-${csvRow.locationId.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`;
+  // Generate a unique external_guid from location ID
+  const externalGuid = `csv-import-${csvRow.locationId.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`;
 
   return {
-    location_guid: locationGuid,
+    external_guid: externalGuid,
     customer_name: csvRow.tenancy || 'Unknown Customer',
     customer_guid: `customer-${csvRow.tenancy?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
-    location_id: csvRow.locationId,
-    address1: csvRow.streetAddress || '',
-    address2: '',
+    name: csvRow.locationId,
+    address: csvRow.streetAddress || '',
     state: csvRow.state || '',
     postcode: '',
     country: 'Australia', // Default for Athara data
-    latest_calibrated_fill_percentage: parseFloat(csvRow.locationLevel) || 0,
+    calibrated_fill_level: parseFloat(csvRow.locationLevel) || 0,
     installation_status: csvRow.locationStatus?.toLowerCase() === 'installed' ? 1 : 0,
     installation_status_label: csvRow.locationStatus || 'Unknown',
-    location_status: csvRow.locationStatus?.toLowerCase() === 'installed' ? 1 : 0,
-    location_status_label: csvRow.locationStatus || 'Unknown',
-    latest_telemetry_epoch: Date.now(),
-    latest_telemetry: parseDate(csvRow.lastSeen) || new Date().toISOString(),
-    lat: null, // Not available in CSV
-    lng: null, // Not available in CSV
-    disabled: csvRow.assetDisabled?.toLowerCase() === 'yes',
+    last_telemetry_epoch: Date.now(),
+    last_telemetry_at: parseDate(csvRow.lastSeen) || new Date().toISOString(),
+    latitude: null, // Not available in CSV
+    longitude: null, // Not available in CSV
+    is_disabled: csvRow.assetDisabled?.toLowerCase() === 'yes',
     raw_data: csvRow // Store complete CSV row for reference
   };
 }
 
-// Transform CSV row data to database asset format
+// Transform CSV row data to database asset format (new ta_agbot_assets schema)
 function transformCSVAssetData(csvRow: AgbotCSVRow, locationId: string) {
   const parseDate = (dateStr: string) => {
     if (!dateStr || dateStr.trim() === '') return null;
     try {
       const [datePart, timePart] = dateStr.split(', ');
       if (!datePart || !timePart) return null;
-      
+
       const [day, month, year] = datePart.split('/');
       const [time, period] = timePart.split(' ');
       const [hours, minutes, seconds] = time.split(':');
-      
+
       let hour24 = parseInt(hours);
       if (period?.toLowerCase() === 'pm' && hour24 !== 12) hour24 += 12;
       if (period?.toLowerCase() === 'am' && hour24 === 12) hour24 = 0;
-      
+
       return new Date(
-        parseInt(year), 
-        parseInt(month) - 1, 
-        parseInt(day), 
-        hour24, 
-        parseInt(minutes), 
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        hour24,
+        parseInt(minutes),
         parseInt(seconds || '0')
       ).toISOString();
     } catch (e) {
@@ -1247,36 +1399,29 @@ function transformCSVAssetData(csvRow: AgbotCSVRow, locationId: string) {
     }
   };
 
-  // Generate unique asset_guid from asset serial number
-  const assetGuid = `csv-asset-${csvRow.assetSerialNumber?.replace(/\s+/g, '-') || 'unknown'}-${Date.now()}`;
+  // Generate unique external_guid from asset serial number
+  const externalGuid = `csv-asset-${csvRow.assetSerialNumber?.replace(/\s+/g, '-') || 'unknown'}-${Date.now()}`;
 
   return {
     location_id: locationId,
-    asset_guid: assetGuid,
-    asset_serial_number: csvRow.assetSerialNumber || '',
-    asset_disabled: csvRow.assetDisabled?.toLowerCase() === 'yes',
-    asset_profile_guid: `profile-${csvRow.assetProfile?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
-    asset_profile_name: csvRow.assetProfile || '',
+    external_guid: externalGuid,
+    serial_number: csvRow.assetSerialNumber || '',
+    is_disabled: csvRow.assetDisabled?.toLowerCase() === 'yes',
+    profile_guid: `profile-${csvRow.assetProfile?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
+    profile_name: csvRow.assetProfile || '',
     device_guid: `device-${csvRow.deviceSerialNumber?.replace(/\s+/g, '-') || 'unknown'}-${Date.now()}`,
-    device_serial_number: csvRow.deviceSerialNumber || '',
-    device_id: csvRow.deviceId || '',
-    device_sku_guid: `sku-${csvRow.deviceSku || 'unknown'}`,
-    device_sku_model: parseInt(csvRow.deviceSku) || 0,
-    device_sku_name: csvRow.deviceModel || '',
-    device_model_label: csvRow.deviceModel || '',
+    device_serial: csvRow.deviceSerialNumber || '',
     device_model: parseInt(csvRow.deviceSku) || 0,
-    device_online: csvRow.deviceOnline?.toLowerCase() === 'yes',
-    device_activation_date: parseDate(csvRow.deviceActivation),
-    device_activation_epoch: parseDate(csvRow.deviceActivation) ? 
+    device_model_name: csvRow.deviceModel || '',
+    is_online: csvRow.deviceOnline?.toLowerCase() === 'yes',
+    device_activated_at: parseDate(csvRow.deviceActivation),
+    device_activation_epoch: parseDate(csvRow.deviceActivation) ?
       new Date(parseDate(csvRow.deviceActivation)!).getTime() : null,
-    latest_calibrated_fill_percentage: parseFloat(csvRow.locationLevel) || 0,
-    latest_raw_fill_percentage: parseFloat(csvRow.rawTelemetries) || parseFloat(csvRow.locationLevel) || 0,
-    latest_telemetry_event_timestamp: parseDate(csvRow.deviceLastSeen) || parseDate(csvRow.assetLastSeen),
-    latest_telemetry_event_epoch: parseDate(csvRow.deviceLastSeen) ? 
+    current_level_percent: parseFloat(csvRow.locationLevel) || 0,
+    current_raw_percent: parseFloat(csvRow.rawTelemetries) || parseFloat(csvRow.locationLevel) || 0,
+    last_telemetry_at: parseDate(csvRow.deviceLastSeen) || parseDate(csvRow.assetLastSeen),
+    last_telemetry_epoch: parseDate(csvRow.deviceLastSeen) ?
       new Date(parseDate(csvRow.deviceLastSeen)!).getTime() : Date.now(),
-    latest_reported_lat: null, // Not available in CSV
-    latest_reported_lng: null, // Not available in CSV
-    subscription_id: csvRow.deviceSubscription || '',
     raw_data: csvRow // Store complete CSV row for reference
   };
 }
@@ -1352,13 +1497,13 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
       try {
         console.log(`\n📍 Processing Row ${i + 1}: ${csvRow.locationId}`);
         
-        // Transform and upsert location
+        // Transform and upsert location to new ta_agbot_locations table
         const locationData = transformCSVLocationData(csvRow);
         const { data: location, error: locationError } = await supabase
-          .from('agbot_locations')
-          .upsert(locationData, { 
-            onConflict: 'location_guid',
-            ignoreDuplicates: false 
+          .from('ta_agbot_locations')
+          .upsert(locationData, {
+            onConflict: 'external_guid',
+            ignoreDuplicates: false
           })
           .select()
           .single();
@@ -1373,13 +1518,13 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         console.log(`   ✅ Location imported (ID: ${location.id})`);
         result.locationsImported++;
 
-        // Transform and upsert asset
+        // Transform and upsert asset to new ta_agbot_assets table
         const assetData = transformCSVAssetData(csvRow, location.id);
         const { data: asset, error: assetError } = await supabase
-          .from('agbot_assets')
-          .upsert(assetData, { 
-            onConflict: 'asset_guid',
-            ignoreDuplicates: false 
+          .from('ta_agbot_assets')
+          .upsert(assetData, {
+            onConflict: 'external_guid',
+            ignoreDuplicates: false
           })
           .select()
           .single();
@@ -1394,18 +1539,18 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         console.log(`   ✅ Asset imported (${csvRow.assetSerialNumber})`);
         result.assetsImported++;
 
-        // Create historical reading entry
+        // Create historical reading entry in new ta_agbot_readings table
         const readingData = {
           asset_id: asset.id, // Use the actual asset ID from database
-          calibrated_fill_percentage: parseFloat(csvRow.locationLevel) || 0,
-          raw_fill_percentage: parseFloat(csvRow.rawTelemetries) || parseFloat(csvRow.locationLevel) || 0,
-          reading_timestamp: assetData.latest_telemetry_event_timestamp || new Date().toISOString(),
-          device_online: csvRow.deviceOnline?.toLowerCase() === 'yes',
-          telemetry_epoch: assetData.latest_telemetry_event_epoch || Date.now()
+          level_percent: parseFloat(csvRow.locationLevel) || 0,
+          raw_percent: parseFloat(csvRow.rawTelemetries) || parseFloat(csvRow.locationLevel) || 0,
+          reading_at: assetData.last_telemetry_at || new Date().toISOString(),
+          is_online: csvRow.deviceOnline?.toLowerCase() === 'yes',
+          telemetry_epoch: assetData.last_telemetry_epoch || Date.now()
         };
 
         const { error: readingError } = await supabase
-          .from('agbot_readings_history')
+          .from('ta_agbot_readings')
           .insert(readingData);
 
         if (!readingError) {

@@ -47,29 +47,26 @@ async function makeAtharaRequest(endpoint, options = {}) {
   return data;
 }
 
-// Transform Gasbot API data to our database format
+// Transform Gasbot API data to our database format (ta_ schema)
 function transformLocationData(gasbotLocation) {
   return {
-    location_guid: gasbotLocation.locationGuid || `location-${gasbotLocation.locationId}-${Date.now()}`,
+    external_guid: gasbotLocation.locationGuid || `location-${gasbotLocation.locationId}-${Date.now()}`,
     customer_name: gasbotLocation.customerName || 'Unknown Customer',
     customer_guid: gasbotLocation.customerGuid || `customer-${gasbotLocation.customerName?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
-    location_id: gasbotLocation.locationId,
-    address1: gasbotLocation.address1 || '',
-    address2: gasbotLocation.address2 || '',
+    name: gasbotLocation.locationId,
+    address: gasbotLocation.address1 || '',
     state: gasbotLocation.state || '',
     postcode: gasbotLocation.postcode || '',
     country: gasbotLocation.country || 'Australia',
-    latest_calibrated_fill_percentage: gasbotLocation.latestCalibratedFillPercentage || 0,
+    calibrated_fill_level: gasbotLocation.latestCalibratedFillPercentage || 0,
     installation_status: gasbotLocation.installationStatus || 0,
     installation_status_label: gasbotLocation.installationStatusLabel || 'Unknown',
-    location_status: gasbotLocation.locationStatus || 0,
-    location_status_label: gasbotLocation.locationStatusLabel || 'Unknown',
-    latest_telemetry_epoch: gasbotLocation.latestTelemetryEpoch ? 
+    last_telemetry_epoch: gasbotLocation.latestTelemetryEpoch ?
       Math.floor(parseFloat(gasbotLocation.latestTelemetryEpoch)) : Date.now(),
-    latest_telemetry: gasbotLocation.latestTelemetry || new Date().toISOString(),
-    lat: gasbotLocation.lat || null,
-    lng: gasbotLocation.lng || null,
-    disabled: gasbotLocation.disabled || false,
+    last_telemetry_at: gasbotLocation.latestTelemetry || new Date().toISOString(),
+    latitude: gasbotLocation.lat || null,
+    longitude: gasbotLocation.lng || null,
+    is_disabled: gasbotLocation.disabled || false,
     raw_data: gasbotLocation
   };
 }
@@ -77,30 +74,24 @@ function transformLocationData(gasbotLocation) {
 function transformAssetData(gasbotAsset, locationId) {
   return {
     location_id: locationId,
-    asset_guid: gasbotAsset.assetGuid || `asset-${gasbotAsset.assetSerialNumber}-${Date.now()}`,
-    asset_serial_number: gasbotAsset.assetSerialNumber || '',
-    asset_disabled: gasbotAsset.assetDisabled || false,
-    asset_profile_guid: gasbotAsset.assetProfileGuid || '',
-    asset_profile_name: gasbotAsset.assetProfileName || '',
+    external_guid: gasbotAsset.assetGuid || `asset-${gasbotAsset.assetSerialNumber}-${Date.now()}`,
+    serial_number: gasbotAsset.assetSerialNumber || '',
+    is_disabled: gasbotAsset.assetDisabled || false,
+    profile_guid: gasbotAsset.assetProfileGuid || '',
+    profile_name: gasbotAsset.assetProfileName || '',
+    name: gasbotAsset.assetProfileName || gasbotAsset.assetSerialNumber || '',
     device_guid: gasbotAsset.deviceGuid || '',
-    device_serial_number: gasbotAsset.deviceSerialNumber || '',
-    device_id: gasbotAsset.deviceId || '',
-    device_sku_guid: gasbotAsset.deviceSKUGuid || '',
-    device_sku_model: gasbotAsset.deviceSKUModel || 0,
-    device_sku_name: gasbotAsset.deviceSKUName || '',
-    device_model_label: gasbotAsset.deviceModelLabel || '',
+    device_serial: gasbotAsset.deviceSerialNumber || '',
+    device_model_name: gasbotAsset.deviceModelLabel || '',
     device_model: gasbotAsset.deviceModel || 0,
-    device_online: gasbotAsset.deviceOnline || false,
-    device_activation_date: gasbotAsset.deviceActivationDate || null,
+    is_online: gasbotAsset.deviceOnline || false,
+    device_activated_at: gasbotAsset.deviceActivationDate || null,
     device_activation_epoch: gasbotAsset.deviceActivationEpoch || null,
-    latest_calibrated_fill_percentage: gasbotAsset.latestCalibratedFillPercentage || 0,
-    latest_raw_fill_percentage: gasbotAsset.latestRawFillPercentage || 0,
-    latest_telemetry_event_timestamp: gasbotAsset.latestTelemetryEventTimestamp || new Date().toISOString(),
-    latest_telemetry_event_epoch: gasbotAsset.latestTelemetryEventEpoch ? 
+    current_level_percent: gasbotAsset.latestCalibratedFillPercentage || 0,
+    current_raw_percent: gasbotAsset.latestRawFillPercentage || 0,
+    last_telemetry_at: gasbotAsset.latestTelemetryEventTimestamp || new Date().toISOString(),
+    last_telemetry_epoch: gasbotAsset.latestTelemetryEventEpoch ?
       Math.floor(parseFloat(gasbotAsset.latestTelemetryEventEpoch)) : Date.now(),
-    latest_reported_lat: gasbotAsset.latestReportedLat || null,
-    latest_reported_lng: gasbotAsset.latestReportedLng || null,
-    subscription_id: gasbotAsset.subscriptionId || '',
     raw_data: gasbotAsset
   };
 }
@@ -202,10 +193,10 @@ export default async function handler(req, res) {
         // Transform and upsert location
         const dbLocationData = transformLocationData(locationData);
         const { data: location, error: locationError } = await supabase
-          .from('agbot_locations')
-          .upsert(dbLocationData, { 
-            onConflict: 'location_guid',
-            ignoreDuplicates: false 
+          .from('ta_agbot_locations')
+          .upsert(dbLocationData, {
+            onConflict: 'external_guid',
+            ignoreDuplicates: false
           })
           .select()
           .single();
@@ -223,10 +214,10 @@ export default async function handler(req, res) {
             try {
               const dbAssetData = transformAssetData(assetData, location.id);
               const { data: asset, error: assetError } = await supabase
-                .from('agbot_assets')
-                .upsert(dbAssetData, { 
-                  onConflict: 'asset_guid',
-                  ignoreDuplicates: false 
+                .from('ta_agbot_assets')
+                .upsert(dbAssetData, {
+                  onConflict: 'external_guid',
+                  ignoreDuplicates: false
                 })
                 .select()
                 .single();
@@ -235,24 +226,23 @@ export default async function handler(req, res) {
                 throw new Error(`Asset upsert failed: ${assetError.message}`);
               }
               
-              console.log(`   ✅ Asset updated: ${asset.asset_serial_number}`);
+              console.log(`   ✅ Asset updated: ${asset.serial_number}`);
               assetsProcessed++;
               
               // Create historical reading
               if (assetData.latestCalibratedFillPercentage !== undefined) {
                 const readingData = {
                   asset_id: asset.id,
-                  calibrated_fill_percentage: assetData.latestCalibratedFillPercentage,
-                  raw_fill_percentage: assetData.latestRawFillPercentage || assetData.latestCalibratedFillPercentage,
-                  reading_timestamp: assetData.latestTelemetryEventTimestamp || new Date().toISOString(),
-                  device_online: assetData.deviceOnline || false,
-                  telemetry_epoch: assetData.latestTelemetryEventEpoch ? 
-                    Math.floor(parseFloat(assetData.latestTelemetryEventEpoch)) : Date.now(),
-                  raw_data: assetData
+                  level_percent: assetData.latestCalibratedFillPercentage,
+                  raw_percent: assetData.latestRawFillPercentage || assetData.latestCalibratedFillPercentage,
+                  reading_at: assetData.latestTelemetryEventTimestamp || new Date().toISOString(),
+                  is_online: assetData.deviceOnline || false,
+                  telemetry_epoch: assetData.latestTelemetryEventEpoch ?
+                    Math.floor(parseFloat(assetData.latestTelemetryEventEpoch)) : Date.now()
                 };
-                
+
                 const { error: readingError } = await supabase
-                  .from('agbot_readings_history')
+                  .from('ta_agbot_readings')
                   .insert(readingData);
                 
                 if (!readingError) {

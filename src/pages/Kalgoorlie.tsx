@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { supabase } from '@/lib/supabase';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
@@ -44,9 +44,10 @@ export default function KalgoorliePage() {
 
   return (
     <AppLayout selectedGroup={KALGOORLIE_GROUP_NAME} onGroupSelect={() => {}}>
-      <div className="min-h-screen w-full bg-muted">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
-          <div className="space-y-6 p-6">
+      <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20 py-6 space-y-6">
+          {/* Header Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Kalgoorlie Dashboard</h1>
@@ -55,7 +56,7 @@ export default function KalgoorliePage() {
               <div className="flex gap-2">
                 <Button
                   onClick={() => navigate('/kalgoorlie/bulk-entry')}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 bg-[#008457] hover:bg-[#008457]/90 text-white shadow-md"
                 >
                   <Zap className="h-4 w-4" />
                   Quick Entry
@@ -70,18 +71,26 @@ export default function KalgoorliePage() {
                 </Button>
               </div>
             </div>
-            <KPICards tanks={kalgoorlieTanks} onCardClick={() => {}} selectedFilter={null} />
-            <div className="flex items-center justify-between mb-4">
+            <div className="mt-6">
+              <KPICards tanks={kalgoorlieTanks} onCardClick={() => {}} selectedFilter={null} />
+            </div>
+          </div>
+
+          {/* Tank Status Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+            <div className="p-4 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-900">Tank Status</h2>
             </div>
-            <TankStatusTable
-              tanks={kalgoorlieTanks}
-              onTankClick={tank => {
-                openModal(tank);
-              }}
-              setEditDipTank={setEditDipTank}
-              setEditDipModalOpen={setEditDipModalOpen}
-            />
+            <div className="overflow-x-auto">
+              <TankStatusTable
+                tanks={kalgoorlieTanks}
+                onTankClick={tank => {
+                  openModal(tank);
+                }}
+                setEditDipTank={setEditDipTank}
+                setEditDipModalOpen={setEditDipModalOpen}
+              />
+            </div>
           </div>
         </div>
       </div>

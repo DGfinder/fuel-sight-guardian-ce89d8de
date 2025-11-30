@@ -25,12 +25,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem 
 } from '@/components/ui/dropdown-menu';
-import { 
-  AlertTriangle, 
-  Eye, 
-  MoreVertical, 
-  ChevronDown, 
-  ChevronUp, 
+import {
+  AlertTriangle,
+  Eye,
+  MoreVertical,
+  ChevronDown,
+  ChevronUp,
   ArrowUpDown,
   Filter,
   Columns,
@@ -40,6 +40,7 @@ import {
 import { Tank } from '@/types/fuel';
 import { cn } from '@/lib/utils';
 import PercentBar from './tables/PercentBar';
+import { getFuelStatus, statusBadgeStyles, FuelStatus } from '@/lib/fuel-colors';
 
 interface EnhancedTankTableProps {
   tanks: Tank[];
@@ -50,26 +51,13 @@ interface EnhancedTankTableProps {
   className?: string;
 }
 
-// Enhanced status calculation
-function getStatus(percent: number, daysToMin: number | null): 'critical' | 'low' | 'normal' {
-  if (percent <= 10 || (daysToMin !== null && daysToMin <= 1.5)) return 'critical';
-  if (percent <= 20 || (daysToMin !== null && daysToMin <= 2.5)) return 'low';
-  return 'normal';
-}
-
-const statusStyles = {
-  critical: 'bg-red-500/10 text-red-700 border-red-200',
-  low: 'bg-amber-400/20 text-amber-700 border-amber-200',
-  normal: 'bg-emerald-500/10 text-emerald-700 border-emerald-200',
-};
-
-export function EnhancedTankTable({ 
-  tanks, 
-  onTankClick, 
-  onServicedToggle, 
-  servicedTanks, 
+export const EnhancedTankTable = React.memo(function EnhancedTankTable({
+  tanks,
+  onTankClick,
+  onServicedToggle,
+  servicedTanks,
   loading = false,
-  className 
+  className
 }: EnhancedTankTableProps) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -157,15 +145,15 @@ export function EnhancedTankTable({
         ),
         cell: ({ row }) => {
           const percent = Math.round(row.getValue('current_level_percent') as number || 0);
-          const status = getStatus(percent, row.original.days_to_min_level);
-          
+          const status = getFuelStatus(percent, row.original.days_to_min_level);
+
           return (
             <div className="flex items-center space-x-2">
-              <PercentBar 
-                percent={percent} 
-                className="w-16" 
+              <PercentBar
+                percent={percent}
+                className="w-16"
               />
-              <Badge className={cn('text-xs', statusStyles[status])}>
+              <Badge className={cn('text-xs', statusBadgeStyles[status])}>
                 {percent}%
               </Badge>
             </div>
@@ -209,11 +197,11 @@ export function EnhancedTankTable({
         cell: ({ row }) => {
           const days = row.getValue('days_to_min_level') as number;
           if (days === null || days === undefined) return '—';
-          
-          const status = days <= 1.5 ? 'critical' : days <= 2.5 ? 'low' : 'normal';
-          
+
+          const status: FuelStatus = days <= 1.5 ? 'critical' : days <= 2.5 ? 'low' : 'normal';
+
           return (
-            <Badge className={cn('text-xs', statusStyles[status])}>
+            <Badge className={cn('text-xs', statusBadgeStyles[status])}>
               {days.toFixed(1)}d
             </Badge>
           );
@@ -239,15 +227,15 @@ export function EnhancedTankTable({
         header: 'Status',
         cell: ({ row }) => {
           const percent = Math.round(row.original.current_level_percent || 0);
-          const status = getStatus(percent, row.original.days_to_min_level);
-          
+          const status = getFuelStatus(percent, row.original.days_to_min_level);
+
           return (
             <div className="flex items-center space-x-1">
-              {status === 'critical' && <AlertTriangle className="h-4 w-4 text-red-500" />}
+              {status === 'critical' && <AlertTriangle className="h-4 w-4 text-fuel-critical" />}
               <span className={cn('text-xs font-medium', {
-                'text-red-600': status === 'critical',
-                'text-amber-600': status === 'low',
-                'text-green-600': status === 'normal',
+                'text-fuel-critical-600': status === 'critical',
+                'text-fuel-low-600': status === 'low',
+                'text-fuel-normal-600': status === 'normal',
               })}>
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </span>
@@ -520,4 +508,4 @@ export function EnhancedTankTable({
       </div>
     </div>
   );
-}
+});

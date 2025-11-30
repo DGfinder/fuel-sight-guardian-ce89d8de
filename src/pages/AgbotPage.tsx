@@ -96,7 +96,7 @@ function AgbotPageContent() {
   if (isLoading) {
     return (
       <AppLayout selectedGroup="" onGroupSelect={() => {}}>
-        <div className="min-h-screen w-full bg-muted flex items-center justify-center">
+        <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
             <p>Loading agbot data...</p>
@@ -109,10 +109,10 @@ function AgbotPageContent() {
   if (error) {
     return (
       <AppLayout selectedGroup="" onGroupSelect={() => {}}>
-        <div className="min-h-screen w-full bg-muted p-6">
+        <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100 p-6">
           <div className="max-w-4xl mx-auto">
-            <AgbotErrorBoundary 
-              error={error} 
+            <AgbotErrorBoundary
+              error={error}
               retry={() => window.location.reload()}
               showTechnicalDetails={true}
             />
@@ -124,10 +124,10 @@ function AgbotPageContent() {
 
   return (
     <AppLayout selectedGroup="" onGroupSelect={() => {}}>
-      <div className="min-h-screen w-full bg-muted">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
-          <div className="space-y-6 p-6">
-            {/* Header */}
+      <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20 py-6 space-y-6">
+          {/* Header Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -140,10 +140,10 @@ function AgbotPageContent() {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {/* Webhook Health Status - Compact */}
                 <AgbotWebhookHealthStatus showFullDetails={false} className="mr-2" />
-                
+
                 {/* System Monitoring Toggle */}
                 <Button
                   variant={showSystemMonitoring ? 'default' : 'outline'}
@@ -206,6 +206,7 @@ function AgbotPageContent() {
                 </Button>
               </div>
             </div>
+          </div>
 
             {/* Webhook Monitoring Panel - Enhanced Athara Monitor */}
             {showSystemMonitoring && (
@@ -222,10 +223,10 @@ function AgbotPageContent() {
               </div>
             )}
 
-            {/* Great Southern Fuels - Fleet Statistics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Fleet Overview */}
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all">
+          {/* Great Southern Fuels - Fleet Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Fleet Overview */}
+            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-600">Fleet Overview</h3>
                   <Signal className="h-5 w-5 text-green-600" />
@@ -246,8 +247,8 @@ function AgbotPageContent() {
                 </div>
               </div>
 
-              {/* Fuel Capacity & Volume */}
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all">
+            {/* Fuel Capacity & Volume */}
+            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-600">Fuel Inventory</h3>
                   <Gauge className="h-5 w-5 text-yellow-600" />
@@ -273,8 +274,8 @@ function AgbotPageContent() {
                 </div>
               </div>
 
-              {/* Fuel Levels Status */}
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all">
+            {/* Fuel Levels Status */}
+            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-600">Fuel Status</h3>
                   <TrendingUp className="h-5 w-5 text-green-600" />
@@ -309,8 +310,8 @@ function AgbotPageContent() {
                 </div>
               </div>
 
-              {/* Consumption Analytics */}
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all">
+            {/* Consumption Analytics */}
+            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-600">Consumption</h3>
                   <Activity className="h-5 w-5 text-yellow-600" />
@@ -334,8 +335,8 @@ function AgbotPageContent() {
               </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white p-4 rounded-lg border">
+          {/* Filters */}
+          <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-gray-200 shadow-sm">
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-muted-foreground" />
@@ -406,54 +407,60 @@ function AgbotPageContent() {
             )}
 
 
-            {/* Location Display */}
-            {locations && locations.length > 0 ? (
-              viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {locations.map((location) => (
-                    <AgbotLocationCard
-                      key={location.id}
-                      location={location}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <AgbotTable locations={locations} />
-              )
-            ) : (
-              <div className="text-center py-12 bg-white rounded-lg border">
-                <Signal className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {locations?.length === 0 && (searchFilter || onlineOnly || lowFuelOnly)
-                    ? 'No locations match your filters'
-                    : 'No agbot data available'
-                  }
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  {locations?.length === 0 && (searchFilter || onlineOnly || lowFuelOnly)
-                    ? 'Try adjusting your search criteria or filters.'
-                    : 'Configure Gasbot webhook to receive device data.'
-                  }
-                </p>
-                {(!locations || locations.length === 0) && !searchFilter && !onlineOnly && !lowFuelOnly && (
-                  <Button onClick={() => window.open('https://tankalert.greatsouthernfuels.com.au/api/gasbot-webhook', '_blank')} variant="outline">
-                    <Globe className="h-4 w-4 mr-2" />
-                    Test Webhook Endpoint
-                  </Button>
-                )}
+          {/* Location Display */}
+          {locations && locations.length > 0 ? (
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {locations.map((location) => (
+                  <AgbotLocationCard
+                    key={location.id}
+                    location={location}
+                  />
+                ))}
               </div>
-            )}
+            ) : (
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+                <div className="p-4 border-b border-gray-100">
+                  <h2 className="text-xl font-semibold text-gray-900">Gasbot Locations</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <AgbotTable locations={locations} />
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+              <Signal className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {locations?.length === 0 && (searchFilter || onlineOnly || lowFuelOnly)
+                  ? 'No locations match your filters'
+                  : 'No agbot data available'
+                }
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {locations?.length === 0 && (searchFilter || onlineOnly || lowFuelOnly)
+                  ? 'Try adjusting your search criteria or filters.'
+                  : 'Configure Gasbot webhook to receive device data.'
+                }
+              </p>
+              {(!locations || locations.length === 0) && !searchFilter && !onlineOnly && !lowFuelOnly && (
+                <Button onClick={() => window.open('https://tankalert.greatsouthernfuels.com.au/api/gasbot-webhook', '_blank')} variant="outline">
+                  <Globe className="h-4 w-4 mr-2" />
+                  Test Webhook Endpoint
+                </Button>
+              )}
+            </div>
+          )}
 
-            {/* Production Safety Info */}
-            <Alert>
-              <AlertDescription>
-                <strong>Webhook Environment:</strong> Gasbot sends fuel level data directly to this system via webhook.
-                Data is received in real-time as Gasbot devices report (typically hourly).
-                No mock/fake data is provided - only real webhook data from Gasbot is displayed.
-                Configure webhook in Gasbot dashboard: https://tankalert.greatsouthernfuels.com.au/api/gasbot-webhook
-              </AlertDescription>
-            </Alert>
-          </div>
+          {/* Production Safety Info */}
+          <Alert className="bg-white/80 backdrop-blur-sm border-gray-200">
+            <AlertDescription>
+              <strong>Webhook Environment:</strong> Gasbot sends fuel level data directly to this system via webhook.
+              Data is received in real-time as Gasbot devices report (typically hourly).
+              No mock/fake data is provided - only real webhook data from Gasbot is displayed.
+              Configure webhook in Gasbot dashboard: https://tankalert.greatsouthernfuels.com.au/api/gasbot-webhook
+            </AlertDescription>
+          </Alert>
         </div>
       </div>
       

@@ -533,12 +533,12 @@ export class UnifiedDataIntegrator {
 
   private async getAgBotLocationData(locationId: string): Promise<AgBotLocationData | null> {
     const { data, error } = await supabase
-      .from('agbot_locations')
+      .from('ta_agbot_locations')
       .select(`
         *,
-        assets:agbot_assets(*)
+        assets:ta_agbot_assets(*)
       `)
-      .eq('location_guid', locationId)
+      .eq('external_guid', locationId)
       .single();
 
     return error ? null : data;
@@ -716,7 +716,7 @@ export async function initializeUnifiedDataIntegration(): Promise<{
       // Test SmartFill connection
       supabase.from('smartfill_locations').select('count', { count: 'exact', head: true }),
       // Test AgBot connection
-      supabase.from('agbot_locations').select('count', { count: 'exact', head: true }),
+      supabase.from('ta_agbot_locations').select('count', { count: 'exact', head: true }),
       // Test Captive Payments connection
       supabase.from('captive_deliveries').select('count', { count: 'exact', head: true })
     ]);

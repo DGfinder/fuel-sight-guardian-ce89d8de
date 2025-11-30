@@ -25,6 +25,16 @@ function calculateTotalUllage(tanks: Tank[]): number {
   }, 0);
 }
 
+function formatVolume(liters: number): string {
+  if (liters >= 1_000_000) {
+    return `${(liters / 1_000_000).toFixed(1)}M L`;
+  }
+  if (liters >= 1_000) {
+    return `${(liters / 1_000).toFixed(1)}K L`;
+  }
+  return `${Math.round(liters)} L`;
+}
+
 export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsProps) {
   
   const kpis = useMemo(() => {
@@ -92,44 +102,38 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       subtitle: 'Low fuel level',
       icon: AlertTriangle,
       color: kpis.lowTanks === 0 ? 'text-success' : 'text-error',
-      bgColor: kpis.lowTanks === 0 ? 'bg-success/10' : 'bg-error/10',
-      borderColor: kpis.lowTanks === 0 ? 'border-success/20' : 'border-error/20',
-      alert: kpis.lowTanks > 0,
-      emoji: '🔴'
+      bgGradient: kpis.lowTanks === 0 ? 'from-green-100 to-green-50' : 'from-red-100 to-red-50',
+      alert: kpis.lowTanks > 0
     },
     {
       id: 'critical-days',
-      title: 'Tanks ≤ 2 Days to Min',
+      title: 'Tanks ≤ 2 Days',
       value: kpis.criticalDays.toString(),
       subtitle: 'Critical timeline',
       icon: Clock,
       color: kpis.criticalDays === 0 ? 'text-success' : 'text-warning',
-      bgColor: kpis.criticalDays === 0 ? 'bg-success/10' : 'bg-warning/10',
-      borderColor: kpis.criticalDays === 0 ? 'border-success/20' : 'border-warning/20',
-      alert: kpis.criticalDays > 0,
-      emoji: '🟡'
+      bgGradient: kpis.criticalDays === 0 ? 'from-green-100 to-green-50' : 'from-amber-100 to-amber-50',
+      alert: kpis.criticalDays > 0
     },
     {
       id: 'total-stock',
-      title: 'Total Fuel on Hand',
-      value: `${(kpis.totalStock / 1000).toFixed(0)}K L`,
+      title: 'Fuel on Hand',
+      value: formatVolume(kpis.totalStock),
       subtitle: 'Current inventory',
       icon: Droplets,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      emoji: '💧'
+      bgGradient: 'from-blue-100 to-blue-50',
+      alert: false
     },
     {
       id: 'total-ullage',
       title: 'Total Ullage',
-      value: isNaN(kpis.totalUllage) ? 'N/A' : `${Math.round(kpis.totalUllage / 1000)}K L`,
+      value: isNaN(kpis.totalUllage) ? 'N/A' : formatVolume(kpis.totalUllage),
       subtitle: 'Available capacity',
       icon: TrendingUp,
       color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200',
-      emoji: '⛽'
+      bgGradient: 'from-purple-100 to-purple-50',
+      alert: false
     },
     {
       id: 'avg-days',
@@ -138,9 +142,8 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
       subtitle: 'Fleet average',
       icon: Gauge,
       color: 'text-success',
-      bgColor: 'bg-success/10',
-      borderColor: 'border-success/20',
-      emoji: '⏳'
+      bgGradient: 'from-green-100 to-green-50',
+      alert: false
     }
   ];
 
@@ -164,42 +167,44 @@ export function KPICards({ tanks = [], onCardClick, selectedFilter }: KPICardsPr
             <Card
               animated
               className={cn(
-                "cursor-pointer border-2 h-full",
+                "cursor-pointer h-full transition-all duration-300",
+                "backdrop-blur-md bg-white/70 border border-white/30",
+                "shadow-lg hover:shadow-xl hover:-translate-y-1",
+                "rounded-xl overflow-hidden",
                 isSelected
-                  ? "ring-2 ring-primary shadow-lg border-primary/50 bg-primary/5"
-                  : "hover:border-primary/30 border-gray-200",
-                card.alert && "ring-1 ring-red-200 shadow-md"
+                  ? "ring-2 ring-primary shadow-xl border-primary/50"
+                  : "",
+                card.alert && "ring-2 ring-red-300/50 shadow-red-100/50"
               )}
               onClick={() => onCardClick(card.id)}
             >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{card.emoji}</span>
-                  <span className="font-semibold">{card.title}</span>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-semibold text-gray-700">
+                  {card.title}
+                </CardTitle>
+                <div className={cn(
+                  "p-2 rounded-xl",
+                  "bg-gradient-to-br",
+                  card.bgGradient
+                )}>
+                  <Icon className={cn("h-4 w-4", card.color)} />
                 </div>
-              </CardTitle>
-              <div className={cn("p-2 rounded-lg border", card.bgColor, card.borderColor)}>
-                <Icon className={cn("h-4 w-4", card.color)} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold text-gray-900">{card.value}</div>
-                  {card.alert && (
-                    <Badge variant="destructive" className="text-xs animate-pulse bg-red-100 text-red-800 border-red-200">
-                      Alert
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-gray-600 font-medium">
-                  {card.subtitle}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold tracking-tight text-gray-900">{card.value}</div>
+                <p className="text-xs text-gray-500 mt-1">{card.subtitle}</p>
+                {card.alert && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    <span className="text-xs font-medium text-red-600">Requires attention</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
         );
       })}
     </motion.div>

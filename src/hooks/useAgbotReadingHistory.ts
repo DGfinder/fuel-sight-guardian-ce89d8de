@@ -54,27 +54,15 @@ export function useAgbotReadingHistory({
     queryFn: async () => {
 
       // First get the location with its assets
+      // OPTIMIZED: Only fetch columns that are actually used
       const { data: location, error: locationError } = await supabase
-        .from('agbot_locations')
+        .from('ta_agbot_locations')
         .select(`
           id,
-          location_id,
           customer_name,
-          assets:agbot_assets(
+          assets:ta_agbot_assets(
             id,
-            asset_guid,
-            asset_profile_water_capacity,
-            asset_refill_capacity_litres,
-            asset_profile_max_depth,
-            asset_profile_max_pressure,
-            asset_profile_max_pressure_bar,
-            asset_profile_commodity,
-            device_battery_voltage,
-            device_temperature,
-            device_state,
-            device_network_id,
-            helmet_serial_number,
-            device_sku
+            capacity_liters
           )
         `)
         .eq('id', locationId)
@@ -99,24 +87,41 @@ export function useAgbotReadingHistory({
       const assetId = mainAsset.id;
 
       // Build query for readings
+      // OPTIMIZED: Only select columns that are mapped to interface
       let query = supabase
-        .from('agbot_readings_history')
-        .select('*', { count: 'exact' })
+        .from('ta_agbot_readings')
+        .select(`
+          id,
+          asset_id,
+          level_percent,
+          raw_percent,
+          reading_at,
+          is_online,
+          level_liters,
+          daily_consumption,
+          days_remaining,
+          depth_m,
+          pressure_bar,
+          battery_voltage,
+          temperature_c,
+          device_state,
+          created_at
+        `, { count: 'exact' })
         .eq('asset_id', assetId);
 
       // Date filtering
       if (dateFrom && dateTo) {
         query = query
-          .gte('reading_timestamp', dateFrom.toISOString())
-          .lte('reading_timestamp', dateTo.toISOString());
+          .gte('reading_at', dateFrom.toISOString())
+          .lte('reading_at', dateTo.toISOString());
       } else if (days) {
         const fromDate = new Date();
         fromDate.setDate(fromDate.getDate() - days);
-        query = query.gte('reading_timestamp', fromDate.toISOString());
+        query = query.gte('reading_at', fromDate.toISOString());
       }
 
       // Sorting
-      query = query.order('reading_timestamp', { ascending: sortOrder === 'asc' });
+      query = query.order('reading_at', { ascending: sortOrder === 'asc' });
 
       // Limit
       if (limit) {
@@ -132,20 +137,20 @@ export function useAgbotReadingHistory({
       const readings = (data || []).map((reading: any): AgbotHistoricalReading => ({
         id: reading.id,
         asset_id: reading.asset_id,
-        calibrated_fill_percentage: parseFloat(reading.calibrated_fill_percentage) || 0,
-        raw_fill_percentage: parseFloat(reading.raw_fill_percentage) || 0,
-        reading_timestamp: reading.reading_timestamp,
-        device_online: reading.device_online,
-        asset_reported_litres: reading.asset_reported_litres ? parseFloat(reading.asset_reported_litres) : null,
+        calibrated_fill_percentage: parseFloat(reading.level_percent) || 0,
+        raw_fill_percentage: parseFloat(reading.raw_percent) || 0,
+        reading_timestamp: reading.reading_at,
+        device_online: reading.is_online,
+        asset_reported_litres: reading.level_liters ? parseFloat(reading.level_liters) : null,
         daily_consumption: reading.daily_consumption ? parseFloat(reading.daily_consumption) : null,
         days_remaining: reading.days_remaining ? parseInt(reading.days_remaining) : null,
-        asset_depth: reading.asset_depth ? parseFloat(reading.asset_depth) : null,
-        asset_pressure: reading.asset_pressure ? parseFloat(reading.asset_pressure) : null,
-        asset_pressure_bar: reading.asset_pressure_bar ? parseFloat(reading.asset_pressure_bar) : null,
-        tank_depth: reading.tank_depth ? parseFloat(reading.tank_depth) : null,
-        tank_pressure: reading.tank_pressure ? parseFloat(reading.tank_pressure) : null,
-        device_battery_voltage: reading.device_battery_voltage ? parseFloat(reading.device_battery_voltage) : null,
-        device_temperature: reading.device_temperature ? parseFloat(reading.device_temperature) : null,
+        asset_depth: reading.depth_m ? parseFloat(reading.depth_m) : null,
+        asset_pressure: null,
+        asset_pressure_bar: reading.pressure_bar ? parseFloat(reading.pressure_bar) : null,
+        tank_depth: reading.depth_m ? parseFloat(reading.depth_m) : null,
+        tank_pressure: null,
+        device_battery_voltage: reading.battery_voltage ? parseFloat(reading.battery_voltage) : null,
+        device_temperature: reading.temperature_c ? parseFloat(reading.temperature_c) : null,
         device_state: reading.device_state,
         created_at: reading.created_at,
       }));
@@ -153,7 +158,7 @@ export function useAgbotReadingHistory({
       return {
         readings,
         totalCount: count || 0,
-        waterCapacity: location.water_capacity || mainAsset?.asset_profile_water_capacity || 0,
+        waterCapacity: mainAsset?.capacity_liters || 0,
         locationName: location.customer_name,
         asset: mainAsset // Include full asset details
       };

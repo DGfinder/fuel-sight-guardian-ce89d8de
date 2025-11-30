@@ -19,7 +19,7 @@ import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { getPerthToday } from '@/utils/timezone';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { businessRules } from '@/lib/validation';
 import type { Tank } from '@/types/fuel';

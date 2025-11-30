@@ -42,6 +42,11 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
       ? 'transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-black/20 hover:border-white/30 dark:hover:border-gray-600/40 cursor-pointer'
       : '';
 
+    // Focus visible styles for keyboard navigation accessibility
+    const focusStyles = onClick
+      ? 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+      : '';
+
     return (
       <div
         ref={ref}
@@ -49,9 +54,18 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
           'rounded-2xl p-6 relative overflow-hidden',
           variants[variant],
           hoverStyles,
+          focusStyles,
           className
         )}
         onClick={onClick}
+        tabIndex={onClick ? 0 : undefined}
+        role={onClick ? 'button' : undefined}
+        onKeyDown={onClick ? (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+          }
+        } : undefined}
       >
         {/* Gradient Overlay */}
         {gradient !== 'none' && (

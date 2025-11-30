@@ -214,8 +214,8 @@ export function useDipReadings(
       };
     },
     enabled: enabled,
-    staleTime: 60_000, // 1 minute
-    gcTime: 5 * 60_000, // 5 minutes
+    staleTime: 3 * 60_000, // 3 minutes
+    gcTime: 10 * 60_000, // 10 minutes
   });
 }
 

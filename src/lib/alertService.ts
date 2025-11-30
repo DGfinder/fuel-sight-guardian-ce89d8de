@@ -324,7 +324,7 @@ async function getExistingAgbotAlerts(assetIds: string[]): Promise<ExistingAlert
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   
   const { data, error } = await supabase
-    .from('agbot_alerts')
+    .from('ta_agbot_alerts')
     .select('id, agbot_asset_id, alert_type, created_at, acknowledged_at, snoozed_until')
     .in('agbot_asset_id', assetIds)
     .gte('created_at', twentyFourHoursAgo);
@@ -397,7 +397,7 @@ async function createTankAlert(tankId: string, condition: AlertCondition): Promi
 async function createAgbotAlert(assetId: string, condition: AlertCondition): Promise<boolean> {
   try {
     const { error } = await supabase
-      .from('agbot_alerts')
+      .from('ta_agbot_alerts')
       .insert({
         agbot_asset_id: assetId,
         alert_type: condition.type,
@@ -612,7 +612,7 @@ export async function getActiveTankAlertsCount(): Promise<number> {
 export async function getActiveAgbotAlertsCount(): Promise<number> {
   try {
     const { count, error } = await supabase
-      .from('agbot_alerts')
+      .from('ta_agbot_alerts')
       .select('*', { count: 'exact', head: true })
       .is('acknowledged_at', null)
       .or('snoozed_until.is.null,snoozed_until.lt.' + new Date().toISOString());
@@ -668,7 +668,7 @@ export async function getAlertsBreakdown(): Promise<{
 
     // Get agbot alerts breakdown  
     const agbotAlertsQuery = supabase
-      .from('agbot_alerts')
+      .from('ta_agbot_alerts')
       .select('alert_type')
       .is('acknowledged_at', null)
       .or('snoozed_until.is.null,snoozed_until.lt.' + new Date().toISOString());

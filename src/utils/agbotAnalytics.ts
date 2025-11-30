@@ -45,6 +45,19 @@ export const daysBetween = (date1: Date, date2: Date): number => {
   return Math.abs((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
 };
 
+// OPTIMIZATION: Pre-sort readings once to avoid redundant sorts across functions
+export const sortReadingsAsc = (readings: AgbotReading[]): AgbotReading[] => {
+  return [...readings].sort((a, b) =>
+    new Date(a.reading_timestamp).getTime() - new Date(b.reading_timestamp).getTime()
+  );
+};
+
+export const sortReadingsDesc = (readings: AgbotReading[]): AgbotReading[] => {
+  return [...readings].sort((a, b) =>
+    new Date(b.reading_timestamp).getTime() - new Date(a.reading_timestamp).getTime()
+  );
+};
+
 // Calculate percentage consumption between two readings
 export const calculatePercentageConsumption = (
   olderReading: AgbotReading,
@@ -317,7 +330,8 @@ export const determineConsumptionTrend = (readings: AgbotReading[]): 'increasing
 // Generate alerts based on analytics
 export const generateAlerts = (
   analytics: Partial<AgbotAnalytics>,
-  readings: AgbotReading[]
+  readings: AgbotReading[],
+  preSortedDesc?: AgbotReading[] // Optional pre-sorted descending array
 ): {
   unusual_consumption_alert: boolean;
   potential_leak_alert: boolean;
@@ -325,26 +339,248 @@ export const generateAlerts = (
 } => {
   const rollingAvg = analytics.rolling_avg_pct_per_day || 0;
   const baselineRate = 2.0; // 2% per day baseline
-  
+
   // Unusual consumption: >50% above baseline
   const unusual_consumption_alert = rollingAvg > (baselineRate * 1.5);
-  
+
   // Potential leak: consistently high consumption for 3+ days
-  const recentReadings = readings
-    .sort((a, b) => new Date(b.reading_timestamp).getTime() - new Date(a.reading_timestamp).getTime())
-    .slice(0, 72); // Last 3 days of hourly readings
-    
-  const recentHighConsumption = recentReadings.length > 24 && 
+  // Use pre-sorted array if provided, otherwise sort
+  const sortedDesc = preSortedDesc || sortReadingsDesc(readings);
+  const recentReadings = sortedDesc.slice(0, 72); // Last 3 days of hourly readings
+
+  const recentHighConsumption = recentReadings.length > 24 &&
     calculateRollingAverage(recentReadings) > (baselineRate * 2);
-  
+
   const potential_leak_alert = unusual_consumption_alert && recentHighConsumption;
-  
+
   // Device connectivity: <80% reliability score
   const device_connectivity_alert = (analytics.data_reliability_score || 100) < 80;
-  
+
   return {
     unusual_consumption_alert,
     potential_leak_alert,
     device_connectivity_alert
   };
+};
+
+// ============================================
+// OPTIMIZED: Calculate all analytics with single sort
+// ============================================
+
+/**
+ * Calculate all analytics for a set of readings in a single pass.
+ * OPTIMIZATION: Sorts readings ONCE and reuses across all calculations,
+ * reducing from 6+ sorts to just 1.
+ */
+export const calculateAllAgbotAnalytics = (
+  readings: AgbotReading[],
+  currentPercentage: number,
+  criticalThreshold: number = 20,
+  baselineRate: number = 2.0
+): AgbotAnalytics => {
+  if (readings.length < 2) {
+    return {
+      rolling_avg_pct_per_day: 0,
+      prev_day_pct_used: 0,
+      days_to_critical_level: null,
+      consumption_velocity: 0,
+      efficiency_score: 100,
+      data_reliability_score: 0,
+      last_refill_date: null,
+      refill_frequency_days: null,
+      predicted_next_refill: null,
+      daily_avg_consumption: 0,
+      weekly_pattern: new Array(7).fill(0),
+      consumption_trend: 'stable',
+      unusual_consumption_alert: false,
+      potential_leak_alert: false,
+      device_connectivity_alert: true
+    };
+  }
+
+  // SINGLE SORT - reused across all calculations
+  const sortedAsc = sortReadingsAsc(readings);
+  const sortedDesc = [...sortedAsc].reverse(); // O(n) reverse vs O(n log n) sort
+
+  // Calculate core metrics using pre-sorted data
+  const rolling_avg_pct_per_day = calculateRollingAverage(sortedAsc);
+  const prev_day_pct_used = calculatePreviousDayConsumptionOptimized(sortedDesc);
+  const days_to_critical_level = calculateDaysToCritical(
+    currentPercentage,
+    rolling_avg_pct_per_day,
+    criticalThreshold
+  );
+
+  // Calculate advanced metrics
+  const consumption_velocity = calculateConsumptionVelocityOptimized(sortedAsc);
+  const data_reliability_score = calculateDataReliabilityScoreOptimized(sortedAsc);
+  const efficiency_score = calculateEfficiencyScore(rolling_avg_pct_per_day, baselineRate);
+
+  // Analyze patterns using pre-sorted data
+  const refillAnalysis = analyzeRefillPatternOptimized(sortedAsc);
+  const predicted_next_refill = refillAnalysis.lastRefillDate && refillAnalysis.refillFrequencyDays
+    ? new Date(new Date(refillAnalysis.lastRefillDate).getTime() + (refillAnalysis.refillFrequencyDays * 24 * 60 * 60 * 1000)).toISOString()
+    : null;
+
+  const weekly_pattern = analyzeWeeklyPatternOptimized(sortedAsc);
+  const consumption_trend = consumption_velocity > 0.1 ? 'increasing' :
+    consumption_velocity < -0.1 ? 'decreasing' : 'stable';
+
+  // Generate alerts using pre-sorted data
+  const alerts = generateAlerts(
+    { rolling_avg_pct_per_day, data_reliability_score },
+    readings,
+    sortedDesc
+  );
+
+  return {
+    rolling_avg_pct_per_day,
+    prev_day_pct_used,
+    days_to_critical_level,
+    consumption_velocity,
+    efficiency_score,
+    data_reliability_score,
+    last_refill_date: refillAnalysis.lastRefillDate,
+    refill_frequency_days: refillAnalysis.refillFrequencyDays,
+    predicted_next_refill,
+    daily_avg_consumption: rolling_avg_pct_per_day,
+    weekly_pattern,
+    consumption_trend,
+    ...alerts
+  };
+};
+
+// Optimized versions that accept pre-sorted arrays
+const calculatePreviousDayConsumptionOptimized = (sortedDesc: AgbotReading[]): number => {
+  if (sortedDesc.length < 2) return 0;
+
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+  const yesterdayReadings = sortedDesc.filter(reading => {
+    const readingDate = new Date(reading.reading_timestamp);
+    return readingDate >= yesterday && readingDate < now;
+  });
+
+  if (yesterdayReadings.length >= 2) {
+    const oldest = yesterdayReadings[yesterdayReadings.length - 1];
+    const newest = yesterdayReadings[0];
+    return calculatePercentageConsumption(oldest, newest);
+  }
+
+  // Fallback: use latest readings
+  if (sortedDesc.length >= 2) {
+    const consumption = calculatePercentageConsumption(sortedDesc[1], sortedDesc[0]);
+    const hours = daysBetween(
+      new Date(sortedDesc[1].reading_timestamp),
+      new Date(sortedDesc[0].reading_timestamp)
+    ) * 24;
+    return hours > 0 ? Number((consumption * 24 / hours).toFixed(2)) : 0;
+  }
+
+  return 0;
+};
+
+const calculateConsumptionVelocityOptimized = (sortedAsc: AgbotReading[]): number => {
+  if (sortedAsc.length < 4) return 0;
+
+  const midpoint = Math.floor(sortedAsc.length / 2);
+  const firstHalf = sortedAsc.slice(0, midpoint);
+  const secondHalf = sortedAsc.slice(midpoint);
+
+  const firstHalfRate = calculateRollingAverage(firstHalf);
+  const secondHalfRate = calculateRollingAverage(secondHalf);
+
+  return Number((secondHalfRate - firstHalfRate).toFixed(2));
+};
+
+const analyzeRefillPatternOptimized = (sortedAsc: AgbotReading[]): {
+  lastRefillDate: string | null;
+  refillFrequencyDays: number | null;
+  refillEvents: Array<{ date: string; percentageIncrease: number }>;
+} => {
+  if (sortedAsc.length < 2) {
+    return { lastRefillDate: null, refillFrequencyDays: null, refillEvents: [] };
+  }
+
+  const refillEvents: Array<{ date: string; percentageIncrease: number }> = [];
+
+  for (let i = 1; i < sortedAsc.length; i++) {
+    const older = sortedAsc[i - 1];
+    const newer = sortedAsc[i];
+
+    if (detectRefill(older, newer)) {
+      refillEvents.push({
+        date: newer.reading_timestamp,
+        percentageIncrease: newer.calibrated_fill_percentage - older.calibrated_fill_percentage
+      });
+    }
+  }
+
+  if (refillEvents.length === 0) {
+    return { lastRefillDate: null, refillFrequencyDays: null, refillEvents: [] };
+  }
+
+  let totalDaysBetweenRefills = 0;
+  for (let i = 1; i < refillEvents.length; i++) {
+    totalDaysBetweenRefills += daysBetween(
+      new Date(refillEvents[i - 1].date),
+      new Date(refillEvents[i].date)
+    );
+  }
+
+  const avgDays = refillEvents.length > 1
+    ? totalDaysBetweenRefills / (refillEvents.length - 1)
+    : null;
+
+  return {
+    lastRefillDate: refillEvents[refillEvents.length - 1].date,
+    refillFrequencyDays: avgDays ? Number(avgDays.toFixed(1)) : null,
+    refillEvents
+  };
+};
+
+const calculateDataReliabilityScoreOptimized = (sortedAsc: AgbotReading[]): number => {
+  if (sortedAsc.length === 0) return 0;
+
+  const onlineReadings = sortedAsc.filter(r => r.device_online);
+  const uptime = (onlineReadings.length / sortedAsc.length) * 100;
+
+  let gapPenalty = 0;
+  for (let i = 1; i < sortedAsc.length; i++) {
+    const hours = daysBetween(
+      new Date(sortedAsc[i - 1].reading_timestamp),
+      new Date(sortedAsc[i].reading_timestamp)
+    ) * 24;
+
+    if (hours > 2) {
+      gapPenalty += Math.min(10, hours - 1);
+    }
+  }
+
+  return Number(Math.max(0, uptime - gapPenalty).toFixed(1));
+};
+
+const analyzeWeeklyPatternOptimized = (sortedAsc: AgbotReading[]): number[] => {
+  if (sortedAsc.length < 7) return new Array(7).fill(0);
+
+  const dayOfWeekConsumption = new Array(7).fill(0);
+  const dayOfWeekCounts = new Array(7).fill(0);
+
+  for (let i = 1; i < sortedAsc.length; i++) {
+    const older = sortedAsc[i - 1];
+    const newer = sortedAsc[i];
+
+    if (detectRefill(older, newer)) continue;
+
+    const consumption = calculatePercentageConsumption(older, newer);
+    const dayOfWeek = new Date(newer.reading_timestamp).getDay();
+
+    dayOfWeekConsumption[dayOfWeek] += consumption;
+    dayOfWeekCounts[dayOfWeek]++;
+  }
+
+  return dayOfWeekConsumption.map((total, index) =>
+    dayOfWeekCounts[index] > 0 ? Number((total / dayOfWeekCounts[index]).toFixed(2)) : 0
+  );
 };

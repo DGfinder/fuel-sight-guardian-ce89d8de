@@ -12,11 +12,11 @@ const fuelStatusVariants = cva(
         low: "border-fuel-low bg-fuel-low text-white shadow-sm",
         normal: "border-fuel-normal bg-fuel-normal text-white shadow-sm",
         unknown: "border-fuel-unknown bg-fuel-unknown text-white shadow-sm",
-        // Outline variants for subtle display
-        "critical-outline": "border-fuel-critical text-fuel-critical bg-fuel-critical/10",
-        "low-outline": "border-fuel-low text-fuel-low bg-fuel-low/10",
-        "normal-outline": "border-fuel-normal text-fuel-normal bg-fuel-normal/10",
-        "unknown-outline": "border-fuel-unknown text-fuel-unknown bg-fuel-unknown/10",
+        // Outline variants for subtle display (WCAG AA compliant contrast)
+        "critical-outline": "border-fuel-critical-200 text-fuel-critical-700 bg-fuel-critical-50",
+        "low-outline": "border-fuel-low-200 text-fuel-low-700 bg-fuel-low-50",
+        "normal-outline": "border-fuel-normal-200 text-fuel-normal-700 bg-fuel-normal-50",
+        "unknown-outline": "border-fuel-unknown-200 text-fuel-unknown-700 bg-fuel-unknown-50",
       },
       size: {
         default: "px-2.5 py-0.5 text-xs",

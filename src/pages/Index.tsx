@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, AlertTriangle, Filter, Map as MapIcon } from "lucide-react";
 import { AlertsDrawer } from '@/components/AlertsDrawer';
 import { TankDetailsModal } from '@/components/TankDetailsModal';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import { KPICards } from '@/components/KPICards';
 import { GroupSnapshotCards } from '@/components/GroupSnapshotCards';
@@ -269,7 +269,7 @@ export default function Index({ selectedGroup }: IndexProps) {
   const displayTanks = selectedGroup ? filteredTanks : permissionFilteredTanks;
 
   return (
-    <div className="min-h-screen w-full bg-muted overflow-x-hidden">
+    <div className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-white to-gray-50 overflow-x-hidden">
       <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12">
         {/* Unified Fuel Insights Panel */}
         <FuelInsightsPanel 
@@ -325,30 +325,30 @@ export default function Index({ selectedGroup }: IndexProps) {
         </div>
 
         {/* KPI Strip */}
-        <div>
-          <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-gray-900">Operational Overview</h2>
+        <section className="mb-8">
+          <h2 className="text-lg md:text-xl font-semibold mb-4 text-gray-900">Operational Overview</h2>
           <KPICards
             tanks={displayTanks}
             onCardClick={handleCardClick}
             selectedFilter={null}
           />
-        </div>
+        </section>
 
         {/* Group Overview - Only show on global dashboard */}
         {!selectedGroup && (
-          <div>
-            <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-gray-900">Fuel Group Overview</h2>
+          <section className="mb-8">
+            <h2 className="text-lg md:text-xl font-semibold mb-4 text-gray-900">Fuel Group Overview</h2>
             <GroupSnapshotCards
               groups={groupSnapshots}
               selectedGroup={null}
               onGroupClick={handleGroupClick}
             />
-          </div>
+          </section>
         )}
 
         {/* Tank Status Table */}
-        <div ref={tankTableRef}>
-          <div className="flex items-center justify-between mb-3 md:mb-4">
+        <section ref={tankTableRef} className="mb-8">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg md:text-xl font-semibold text-gray-900">
               {selectedGroup ? 'Tank Status' : 'All Tank Status'}
             </h2>
@@ -360,7 +360,7 @@ export default function Index({ selectedGroup }: IndexProps) {
             setEditDipModalOpen={setEditDipModalOpen}
             suppressNextRowClick={suppressNextRowClick}
           />
-        </div>
+        </section>
 
         <EditDipModal
           isOpen={editDipModalOpen && !!editDipTank}

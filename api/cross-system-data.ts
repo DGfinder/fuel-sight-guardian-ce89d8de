@@ -451,15 +451,15 @@ async function aggregateFuelLevelData(
   if (systems.includes('agbot')) {
     try {
       let query = supabase
-        .from('agbot_readings_history')
-        .select('calibrated_fill_percentage')
-        .gte('reading_time', interval.start)
-        .lte('reading_time', interval.end);
+        .from('ta_agbot_readings')
+        .select('level_percent')
+        .gte('reading_at', interval.start)
+        .lte('reading_at', interval.end);
 
       const { data } = await query;
       if (data && data.length > 0) {
         totalTanks += data.length;
-        avgFillLevel += data.reduce((sum, r) => sum + (r.calibrated_fill_percentage || 0), 0);
+        avgFillLevel += data.reduce((sum, r) => sum + (r.level_percent || 0), 0);
       }
     } catch (error) {
       console.warn('[CROSS_SYSTEM] AgBot aggregation failed:', error);
@@ -572,7 +572,7 @@ async function checkSystemHealth(system: string) {
     case 'agbot':
       try {
         const { count } = await supabase
-          .from('agbot_locations')
+          .from('ta_agbot_locations')
           .select('*', { count: 'exact', head: true });
         return {
           available: true,

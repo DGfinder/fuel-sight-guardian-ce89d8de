@@ -119,7 +119,7 @@ export function RecentActivity() {
           created_at,
           fuel_tanks (
             name,
-            tank_groups (
+            tank_groups!fuel_tanks_group_id_fkey (
               name
             )
           )

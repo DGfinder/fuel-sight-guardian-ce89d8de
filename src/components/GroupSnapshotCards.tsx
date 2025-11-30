@@ -64,20 +64,22 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
           <Card
             key={group.id}
             className={cn(
-              "cursor-pointer transition-all duration-200 border-2",
-              "hover:shadow-md hover:-translate-y-0.5 hover:border-[#008457]/30",
+              "cursor-pointer transition-all duration-300",
+              "backdrop-blur-md bg-white/75 border border-white/40",
+              "shadow-lg hover:shadow-2xl hover:-translate-y-1",
+              "rounded-xl overflow-hidden",
               "snap-start flex-shrink-0 w-[280px] md:w-auto",
               isSelected
-                ? "ring-2 ring-[#008457] shadow-lg border-[#008457]/50"
-                : "border-gray-200",
-              criticalTanks > 0 && "ring-1 ring-red-200 border-red-200"
+                ? "ring-2 ring-[#008457] shadow-xl border-[#008457]/50"
+                : "",
+              criticalTanks > 0 && "ring-2 ring-red-200/60"
             )}
             onClick={() => navigate(groupRoute(group.name))}
           >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#008457]/10 rounded-lg border border-[#008457]/20">
+                  <div className="p-3 rounded-full bg-gradient-to-br from-[#008457]/20 to-[#008457]/5 border border-[#008457]/20 shadow-inner">
                     <Building2 className="h-5 w-5 text-[#008457]" />
                   </div>
                   <div>
@@ -112,19 +114,21 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Level</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xl font-bold text-gray-900">{group.averageLevel}%</p>
-                    <div className="w-8 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={cn(
-                          "h-full rounded-full transition-all duration-300",
-                          group.averageLevel <= 29 ? "bg-red-500" :
-                          group.averageLevel <= 49 ? "bg-[#FEDF19]" : "bg-[#008457]"
-                        )}
-                        style={{ width: `${Math.max(group.averageLevel, 5)}%` }}
-                      />
-                    </div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Level</span>
+                    <span className="font-bold text-gray-900">{group.averageLevel}%</span>
+                  </div>
+                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        "bg-gradient-to-r",
+                        group.averageLevel <= 29 ? "from-red-500 to-red-400" :
+                        group.averageLevel <= 49 ? "from-amber-500 to-yellow-400" :
+                        "from-[#008457] to-emerald-400"
+                      )}
+                      style={{ width: `${Math.max(group.averageLevel, 5)}%` }}
+                    />
                   </div>
                 </div>
               </div>
@@ -139,27 +143,29 @@ export function GroupSnapshotCards({ groups, onGroupClick, selectedGroup }: Grou
                 </p>
               </div>
               
-              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100/50">
                 <div className="flex items-center gap-2 flex-wrap">
                   {criticalTanks > 0 && (
-                    <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200 text-xs">
-                      🔴 {criticalTanks} Critical
+                    <Badge variant="destructive" className="px-3 py-1 rounded-full font-medium text-xs shadow-sm backdrop-blur-sm bg-red-50/80 text-red-700 border-red-200/50">
+                      <span className="w-2 h-2 rounded-full bg-red-500 mr-2 inline-block"></span>
+                      {criticalTanks} Critical
                     </Badge>
                   )}
                   {lowTanks > 0 && (
-                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
-                      🟡 {lowTanks} Low
+                    <Badge variant="secondary" className="px-3 py-1 rounded-full font-medium text-xs shadow-sm backdrop-blur-sm bg-amber-50/80 text-amber-700 border-amber-200/50">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 mr-2 inline-block"></span>
+                      {lowTanks} Low
                     </Badge>
                   )}
                   {criticalTanks === 0 && lowTanks === 0 && (
-                    <Badge variant="default" className="bg-[#008457]/10 text-[#008457] border-[#008457]/20 text-xs">
+                    <Badge variant="default" className="px-3 py-1 rounded-full font-medium text-xs shadow-sm backdrop-blur-sm bg-[#008457]/10 text-[#008457] border-[#008457]/20">
                       <TrendingUp className="w-3 h-3 mr-1" />
                       All Good
                     </Badge>
                   )}
                 </div>
                 {isSelected && (
-                  <Badge variant="outline" className="text-xs border-[#008457]/30 text-[#008457]">
+                  <Badge variant="outline" className="text-xs border-[#008457]/30 text-[#008457] backdrop-blur-sm">
                     Active
                   </Badge>
                 )}

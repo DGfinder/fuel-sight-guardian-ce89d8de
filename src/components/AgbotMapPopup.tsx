@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, Eye, Clock, Signal, Wifi, WifiOff, Gauge, AlertTriangle } from 'lucide-react';
+import { MapPin, Eye, Clock, Signal, Wifi, WifiOff, Gauge, AlertTriangle, Timer, Droplets, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { MapItem } from '@/hooks/useMapData';
 import { getAgbotFuelStatus, getAgbotStatusText } from '@/components/map/MapIcons';
 import { formatTimestamp } from '@/hooks/useAgbotData';
@@ -17,25 +17,55 @@ export const AgbotMapPopup: React.FC<AgbotMapPopupProps> = ({ agbot, onViewDetai
   const isOnline = agbot.device_online ?? false;
   const fuelStatus = getAgbotFuelStatus(percentage);
   const statusText = getAgbotStatusText(percentage, isOnline);
-  
+
+  // Days remaining from unified view
+  const daysRemaining = (agbot as any).days_to_min;
+  const rollingAvg = (agbot as any).rolling_avg;
+
   const getPercentageColor = () => {
     if (!isOnline) return 'text-gray-500';
     if (percentage === null || percentage === undefined) return 'text-gray-400';
-    
+
     if (percentage <= 20) return 'text-red-600';
     if (percentage <= 50) return 'text-yellow-600';
     return 'text-green-600';
   };
 
   const getProgressColor = () => {
-    if (!isOnline || percentage === null || percentage === undefined) return undefined;
-    
+    if (!isOnline || percentage === null || percentage === undefined) return 'bg-gray-200';
+
     if (percentage <= 20) return 'bg-red-500';
     if (percentage <= 50) return 'bg-yellow-500';
     return 'bg-green-500';
   };
 
-  const showLowFuelWarning = isOnline && percentage !== null && percentage !== undefined && percentage <= 20;
+  // Consumption trend indicator
+  const getConsumptionTrend = () => {
+    if (rollingAvg === undefined || rollingAvg === null) return null;
+    if (rollingAvg > 500) return { icon: TrendingDown, color: 'text-red-500', label: 'High' };
+    if (rollingAvg > 200) return { icon: Minus, color: 'text-yellow-500', label: 'Moderate' };
+    return { icon: TrendingUp, color: 'text-green-500', label: 'Low' };
+  };
+
+  const trend = getConsumptionTrend();
+
+  // Days remaining urgency color
+  const getDaysColor = () => {
+    if (daysRemaining === null || daysRemaining === undefined) return 'text-gray-500';
+    if (daysRemaining <= 3) return 'text-red-600';
+    if (daysRemaining <= 7) return 'text-orange-500';
+    if (daysRemaining <= 14) return 'text-yellow-600';
+    return 'text-green-600';
+  };
+
+  // Alert banner based on status
+  const urgency = (agbot as any).urgency_status || fuelStatus;
+  const showAlert = isOnline && (urgency === 'critical' || urgency === 'urgent' || urgency === 'warning' || (percentage !== null && percentage !== undefined && percentage <= 20));
+  const alertConfig = {
+    critical: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', label: 'Critical - Immediate attention required' },
+    urgent: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', label: 'Urgent - Schedule refill soon' },
+    warning: { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-800', label: 'Warning - Monitor closely' },
+  };
 
   return (
     <div className="min-w-[280px] max-w-[320px] p-3 space-y-3">
@@ -56,83 +86,75 @@ export const AgbotMapPopup: React.FC<AgbotMapPopupProps> = ({ agbot, onViewDetai
             )}
           </div>
           <div className="flex flex-col items-end gap-1 ml-2 flex-shrink-0">
-            <Badge variant={isOnline ? "default" : "secondary"} className="text-xs">
+            <Badge variant={isOnline ? "default" : "secondary"} className="text-xs flex items-center gap-1">
+              {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
               {isOnline ? 'Online' : 'Offline'}
             </Badge>
-            <Badge 
-              variant={fuelStatus === 'critical' ? "destructive" : fuelStatus === 'low' ? "secondary" : "outline"} 
+            <Badge
+              variant={fuelStatus === 'critical' ? "destructive" : fuelStatus === 'low' ? "secondary" : "outline"}
               className="text-xs"
             >
+              <Signal className="h-3 w-3 mr-1" />
               Agbot
             </Badge>
           </div>
         </div>
       </div>
 
-      {/* Fuel Level */}
+      {/* Large Fuel Level Display */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Fuel Level</span>
-          <div className="flex items-center gap-1">
-            {isOnline ? (
-              <Wifi className="h-3 w-3 text-green-500" />
-            ) : (
-              <WifiOff className="h-3 w-3 text-red-500" />
-            )}
-            <Signal className="h-3 w-3 text-gray-400" />
-          </div>
-        </div>
-        
-        <div className="text-center">
-          <div className={`text-2xl font-bold ${getPercentageColor()}`}>
-            {percentage !== null && percentage !== undefined 
-              ? `${percentage.toFixed(1)}%` 
+        <div className="text-center p-3 rounded-lg bg-gray-50 border border-gray-100">
+          <div className={`text-3xl font-bold ${getPercentageColor()}`}>
+            {percentage !== null && percentage !== undefined
+              ? `${percentage.toFixed(1)}%`
               : 'No Data'
             }
           </div>
           {percentage !== null && percentage !== undefined && (
-            <Progress 
-              value={percentage} 
-              className="h-2 mt-2" 
-              style={{ backgroundColor: getProgressColor() }}
+            <Progress
+              value={percentage}
+              className={`h-2 mt-2 ${getProgressColor()}`}
             />
           )}
         </div>
       </div>
 
-      {/* Status Information */}
-      <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="text-center">
-            <div className="text-gray-500">Status</div>
-            <div className={`font-semibold ${getPercentageColor()}`}>
-              {statusText}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-gray-500">Type</div>
-            <div className="font-semibold">
-              Cellular
-            </div>
+      {/* Key Metrics Row */}
+      <div className="grid grid-cols-2 gap-2">
+        {/* Days Remaining */}
+        <div className="flex items-center gap-2 p-2 rounded-md bg-gray-50 border border-gray-100">
+          <Timer className={`h-4 w-4 ${getDaysColor()}`} />
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Days Left</span>
+            <span className={`text-sm font-bold ${getDaysColor()}`}>
+              {daysRemaining !== null && daysRemaining !== undefined
+                ? daysRemaining <= 0 ? '0' : Math.ceil(daysRemaining)
+                : '—'}
+            </span>
           </div>
         </div>
 
-        {agbot.installation_status_label && (
-          <div className="text-center">
-            <div className="text-xs text-gray-500">Installation</div>
-            <Badge variant="outline" className="text-xs">
-              {agbot.installation_status_label}
-            </Badge>
+        {/* Consumption Rate */}
+        <div className="flex items-center gap-2 p-2 rounded-md bg-gray-50 border border-gray-100">
+          <Droplets className="h-4 w-4 text-blue-500" />
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Usage/Day</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-bold text-gray-700">
+                {rollingAvg ? `${Math.round(rollingAvg)}L` : '—'}
+              </span>
+              {trend && <trend.icon className={`h-3 w-3 ${trend.color}`} />}
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Low Fuel Warning */}
-      {showLowFuelWarning && (
-        <div className="flex items-center gap-2 p-2 rounded-md bg-red-50 border border-red-200">
-          <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
-          <span className="text-xs text-red-800">
-            Critical fuel level - immediate attention required
+      {/* Alert Banner */}
+      {showAlert && (
+        <div className={`flex items-center gap-2 p-2 rounded-md ${alertConfig[urgency as keyof typeof alertConfig]?.bg || alertConfig.critical.bg} border ${alertConfig[urgency as keyof typeof alertConfig]?.border || alertConfig.critical.border}`}>
+          <AlertTriangle className={`h-4 w-4 ${alertConfig[urgency as keyof typeof alertConfig]?.text || alertConfig.critical.text} flex-shrink-0`} />
+          <span className={`text-xs ${alertConfig[urgency as keyof typeof alertConfig]?.text || alertConfig.critical.text}`}>
+            {alertConfig[urgency as keyof typeof alertConfig]?.label || alertConfig.critical.label}
           </span>
         </div>
       )}
@@ -154,7 +176,7 @@ export const AgbotMapPopup: React.FC<AgbotMapPopupProps> = ({ agbot, onViewDetai
       )}
 
       {/* Action Button */}
-      <Button 
+      <Button
         onClick={() => onViewDetails(agbot)}
         className="w-full h-8 text-xs"
         size="sm"

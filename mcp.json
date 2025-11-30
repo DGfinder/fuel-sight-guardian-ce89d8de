@@ -3,7 +3,7 @@
     "supabase": {
       "command": "node",
       "args": ["./tools/mcp-supabase-server.js"],
-      "cwd": "/mnt/c/Users/Hayden/Downloads/fuel-sight-guardian-ce89d8de",
+      "cwd": "C:\\Users\\Hayden\\Downloads\\fuel-sight-guardian-ce89d8de",
       "env": {}
     }
   }

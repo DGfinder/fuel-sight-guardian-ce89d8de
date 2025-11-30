@@ -57,6 +57,7 @@ const CustomerReports = lazy(() => import('@/pages/customer/CustomerReports'));
 // Admin Pages
 const FleetRefillCalendar = lazy(() => import('@/pages/admin/FleetRefillCalendar'));
 const CustomerAccountManagement = lazy(() => import('@/pages/admin/CustomerAccountManagement'));
+const FuelManagement = lazy(() => import('@/pages/admin/FuelManagement'));
 
 // Customer Portal Layout
 import { CustomerPortalLayout } from '@/components/customer/CustomerPortalLayout';
@@ -468,7 +469,21 @@ function AppContent() {
                       </ProtectedRoute>
                     }
                   />
-                  <Route 
+
+                  {/* Fuel Management Admin */}
+                  <Route
+                    path="/admin/fuel-management"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <RouteErrorBoundary routeName="Fuel Management" showHomeButton={true}>
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <FuelManagement />
+                          </AppLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/alerts" 
                     element={
                       <ProtectedRoute>

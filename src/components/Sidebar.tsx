@@ -25,14 +25,15 @@ import {
   Signal,
   Database,
   Calendar,
-  Users
+  Users,
+  Wrench
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { supabase } from '@/lib/supabase';
 import { safeReactKey, safeStringProperty } from '@/lib/typeGuards';
 import { useUserPermissions, useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
-import { useTanks } from "@/hooks/useTanks";
+import { useTaTanksCompat as useTanks } from "@/hooks/useTaTanksCompat";
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getActiveAlertsCount } from '@/lib/alertService';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,13 +115,14 @@ const ALL_NAV_ITEMS = [
     ]
   },
   { path: '/fleet-calendar', label: 'Fleet Calendar', icon: Calendar, badge: null, group: null, adminOnly: true },
-  { path: '/settings/customers', label: 'Customer Portal', icon: Users, badge: null, group: null, adminOnly: true }
+  { path: '/settings/customers', label: 'Customer Portal', icon: Users, badge: null, group: null, adminOnly: true },
+  { path: '/admin/fuel-management', label: 'Fuel Admin', icon: Wrench, badge: null, group: null, adminOnly: true }
 ];
 
 const SidebarSkeleton = () => (
   <aside
     className={cn(
-      "fixed top-0 left-0 h-full w-64 bg-primary border-r-4 border-secondary z-40 flex flex-col justify-between",
+      "fixed top-0 left-0 h-full w-64 bg-gsf-green border-r-4 border-gsf-gold z-40 flex flex-col justify-between",
       "rounded-r-xl shadow-lg"
     )}
     style={{ minHeight: '100vh' }}
@@ -362,14 +364,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar panel - mobile header is now in AppLayout */}
       <aside
         className={cn(
-          "fixed left-0 w-64 bg-primary border-r-4 border-secondary z-40 flex flex-col justify-between transition-transform duration-200",
+          "fixed left-0 w-64 bg-gsf-green border-r-4 border-gsf-gold z-40 flex flex-col justify-between transition-transform duration-200",
           "rounded-r-xl shadow-lg",
           isMobile
             ? cn(
                 "top-14 h-[calc(100vh-3.5rem)]", // Offset below mobile header (56px)
                 open ? "translate-x-0" : "-translate-x-full"
               )
-            : "top-0 h-full border-t-4 translate-x-0"
+            : "top-0 h-full border-t-4 border-t-gsf-gold translate-x-0"
         )}
         aria-label="Sidebar"
         style={{ minHeight: isMobile ? 'calc(100vh - 3.5rem)' : '100vh' }}
@@ -386,7 +388,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="font-bold text-lg text-white text-center leading-tight tracking-wide">
                 TankAlert
               </span>
-              <span className="text-sm font-medium text-secondary tracking-wide text-center">
+              <span className="text-sm font-medium text-gsf-gold tracking-wide text-center">
                 Great Southern Fuels
               </span>
             </div>
@@ -494,7 +496,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const body = `Hi Hayden,\n\nI need help with TankAlert.\n\nIssue Description:\n[Please describe your issue here]\n\n---\nSystem Information:\nPage: ${location.pathname}\nTimestamp: ${new Date().toLocaleString()}`;
                 window.open(`mailto:Hayden@stevemacs.com.au?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
               }}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-white border-2 border-secondary rounded-lg font-bold hover:bg-primary/90 transition-colors shadow-md"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-gsf-green text-white border-2 border-gsf-gold rounded-lg font-bold hover:bg-gsf-green/90 transition-colors shadow-md"
             >
               <Mail className="w-5 h-5" />
               Get Help
@@ -510,17 +512,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Sticky Footer */}
-        <div className="p-4 border-t border-white/20 flex items-center justify-between bg-primary sticky bottom-0">
+        <div className="p-4 border-t border-gsf-gold/30 flex items-center justify-between bg-gsf-green sticky bottom-0">
           <Link
             to="/settings"
-            className="flex items-center gap-1 text-white hover:text-secondary transition-colors"
+            className="flex items-center gap-1 text-white hover:text-gsf-gold transition-colors"
           >
             <Settings className="w-5 h-5" />
             <span className="font-semibold">Settings</span>
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1 text-white hover:text-secondary transition-colors"
+            className="flex items-center gap-1 text-white hover:text-gsf-gold transition-colors"
           >
             Logout
           </button>

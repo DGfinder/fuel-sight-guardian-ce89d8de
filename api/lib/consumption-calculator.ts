@@ -8,9 +8,28 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 interface Reading {
-  calibrated_fill_percentage: number;
-  reading_timestamp: string;
-  asset_reported_litres: number | null;
+  level_percent: number;
+  reading_at: string;
+  level_liters: number | null;
+}
+
+/**
+ * Check if level_percent data is reliable (not mostly zeros)
+ */
+function isPercentDataReliable(readings: Reading[]): boolean {
+  if (readings.length === 0) return false;
+  const nonZeroCount = readings.filter(r => r.level_percent > 0).length;
+  // Consider reliable if at least 50% of readings have non-zero percentages
+  return (nonZeroCount / readings.length) >= 0.5;
+}
+
+/**
+ * Check if level_liters data is reliable (has enough non-null values)
+ */
+function isLitersDataReliable(readings: Reading[]): boolean {
+  if (readings.length === 0) return false;
+  const validCount = readings.filter(r => r.level_liters !== null && r.level_liters > 0).length;
+  return (validCount / readings.length) >= 0.5;
 }
 
 interface ConsumptionResult {
@@ -38,11 +57,11 @@ export async function calculateConsumption(
     startDate.setDate(startDate.getDate() - daysToAnalyze);
 
     const { data: readings, error } = await supabase
-      .from('agbot_readings_history')
-      .select('calibrated_fill_percentage, reading_timestamp, asset_reported_litres')
+      .from('ta_agbot_readings')
+      .select('level_percent, reading_at, level_liters')
       .eq('asset_id', assetId)
-      .gte('reading_timestamp', startDate.toISOString())
-      .order('reading_timestamp', { ascending: true });
+      .gte('reading_at', startDate.toISOString())
+      .order('reading_at', { ascending: true });
 
     if (error) {
       console.error('Failed to fetch readings for consumption calc:', error);
@@ -71,43 +90,80 @@ export async function calculateConsumption(
       };
     }
 
-    // Calculate consumption using linear regression
-    const regression = calculateLinearRegression(filteredReadings);
+    // Determine which data source to use for regression
+    const usePercentData = isPercentDataReliable(filteredReadings);
+    const useLitersData = isLitersDataReliable(filteredReadings);
 
-    // Calculate daily consumption in percentage
-    const dailyConsumptionPercentage = Math.abs(regression.slope);
-
-    // Calculate daily consumption in litres (if capacity known)
+    let dailyConsumptionPercentage: number = 0;
     let dailyConsumptionLitres: number | null = null;
-    if (tankCapacity && tankCapacity > 0) {
-      dailyConsumptionLitres = (dailyConsumptionPercentage / 100) * tankCapacity;
-    }
-
-    // Calculate days remaining
     let daysRemaining: number | null = null;
-    if (dailyConsumptionPercentage > 0.1) {
-      // Only calculate if consumption is meaningful (> 0.1% per day)
-      daysRemaining = currentLevel / dailyConsumptionPercentage;
-      // Cap at reasonable maximum (e.g., 365 days)
-      if (daysRemaining > 365) {
-        daysRemaining = 365;
+    let r2: number = 0;
+
+    if (usePercentData) {
+      // Use percentage-based regression (original method)
+      const regression = calculateLinearRegression(filteredReadings, 'percent');
+      dailyConsumptionPercentage = Math.abs(regression.slope);
+      r2 = regression.r2;
+
+      // Calculate daily consumption in litres (if capacity known)
+      if (tankCapacity && tankCapacity > 0) {
+        dailyConsumptionLitres = (dailyConsumptionPercentage / 100) * tankCapacity;
       }
+
+      // Calculate days remaining from percentage
+      if (dailyConsumptionPercentage > 0.1) {
+        daysRemaining = currentLevel / dailyConsumptionPercentage;
+      }
+    } else if (useLitersData && tankCapacity && tankCapacity > 0) {
+      // Use liters-based regression (fallback when percent data is bad)
+      console.log(`   📊 Using liters-based consumption calculation (percent data unreliable)`);
+      const regression = calculateLinearRegression(filteredReadings, 'liters');
+      dailyConsumptionLitres = Math.abs(regression.slope);
+      r2 = regression.r2;
+
+      // Calculate percentage consumption from liters
+      dailyConsumptionPercentage = (dailyConsumptionLitres / tankCapacity) * 100;
+
+      // Calculate days remaining from current liters
+      // Get current level in liters from most recent reading
+      const currentLevelLiters = filteredReadings[filteredReadings.length - 1]?.level_liters;
+      if (dailyConsumptionLitres > 0 && currentLevelLiters && currentLevelLiters > 0) {
+        daysRemaining = currentLevelLiters / dailyConsumptionLitres;
+      }
+    } else {
+      // No reliable data available
+      console.log(`   ⚠️  No reliable consumption data available`);
+      return {
+        ...getEmptyResult(),
+        data_points: filteredReadings.length,
+        confidence: 'low'
+      };
     }
 
-    // Determine trend
-    const trend = determineTrend(regression.slope, filteredReadings);
+    // Cap days remaining at reasonable maximum
+    if (daysRemaining !== null && daysRemaining > 365) {
+      daysRemaining = 365;
+    }
+
+    // Ensure days remaining is at least 0
+    if (daysRemaining !== null && daysRemaining < 0) {
+      daysRemaining = 0;
+    }
+
+    // Determine trend based on consumption percentage
+    const trend = determineTrend(-dailyConsumptionPercentage, filteredReadings);
 
     // Determine confidence based on data quality
     const confidence = determineConfidence(
       filteredReadings.length,
-      regression.r2,
+      r2,
       daysToAnalyze
     );
 
     return {
-      daily_consumption_litres: dailyConsumptionLitres,
-      daily_consumption_percentage: dailyConsumptionPercentage,
-      days_remaining: daysRemaining,
+      daily_consumption_litres: dailyConsumptionLitres ? Math.round(dailyConsumptionLitres * 100) / 100 : null,
+      daily_consumption_percentage: Math.round(dailyConsumptionPercentage * 100) / 100,
+      days_remaining: daysRemaining !== null ? Math.round(daysRemaining) : null,
       trend,
       confidence,
       data_points: filteredReadings.length
@@ -129,7 +185,7 @@ function filterRefillEvents(readings: Reading[]): Reading[] {
   for (let i = 1; i < readings.length; i++) {
     const prev = readings[i - 1];
     const current = readings[i];
-    const change = current.calibrated_fill_percentage - prev.calibrated_fill_percentage;
+    const change = current.level_percent - prev.level_percent;
 
     // Skip if this looks like a refill (increase > 10%)
     if (change > 10) {
@@ -144,21 +200,31 @@ function filterRefillEvents(readings: Reading[]): Reading[] {
 
 /**
  * Calculate linear regression to find consumption trend
- * Returns slope (percentage per day) and R² (quality of fit)
+ * Returns slope (per day) and R² (quality of fit)
+ * @param readings - Array of readings
+ * @param mode - 'percent' for level_percent, 'liters' for level_liters
  */
-function calculateLinearRegression(readings: Reading[]): { slope: number; r2: number } {
-  const n = readings.length;
-
+function calculateLinearRegression(
+  readings: Reading[],
+  mode: 'percent' | 'liters' = 'percent'
+): { slope: number; r2: number } {
   // Convert timestamps to days since first reading
-  const firstTime = new Date(readings[0].reading_timestamp).getTime();
-  const points: { x: number; y: number }[] = readings.map((r) => ({
-    x: (new Date(r.reading_timestamp).getTime() - firstTime) / (1000 * 60 * 60 * 24),
-    y: r.calibrated_fill_percentage
-  }));
+  const firstTime = new Date(readings[0].reading_at).getTime();
+  const points: { x: number; y: number }[] = readings
+    .filter((r) => mode === 'percent' ? true : r.level_liters !== null)
+    .map((r) => ({
+      x: (new Date(r.reading_at).getTime() - firstTime) / (1000 * 60 * 60 * 24),
+      y: mode === 'percent' ? r.level_percent : (r.level_liters || 0)
+    }));
 
-  // Calculate means
-  const meanX = points.reduce((sum, p) => sum + p.x, 0) / n;
-  const meanY = points.reduce((sum, p) => sum + p.y, 0) / n;
+  if (points.length < 2) {
+    return { slope: 0, r2: 0 };
+  }
+
+  // Calculate means using filtered points length
+  const pointsCount = points.length;
+  const meanX = points.reduce((sum, p) => sum + p.x, 0) / pointsCount;
+  const meanY = points.reduce((sum, p) => sum + p.y, 0) / pointsCount;
 
   // Calculate slope and R²
   let numerator = 0;
@@ -191,9 +257,9 @@ function determineTrend(
   // Compare first half to second half of readings
   const mid = Math.floor(readings.length / 2);
   const firstHalfAvg =
-    readings.slice(0, mid).reduce((sum, r) => sum + r.calibrated_fill_percentage, 0) / mid;
+    readings.slice(0, mid).reduce((sum, r) => sum + r.level_percent, 0) / mid;
   const secondHalfAvg =
-    readings.slice(mid).reduce((sum, r) => sum + r.calibrated_fill_percentage, 0) /
+    readings.slice(mid).reduce((sum, r) => sum + r.level_percent, 0) /
     (readings.length - mid);
 
   const change = secondHalfAvg - firstHalfAvg;
@@ -246,10 +312,10 @@ export async function updateAssetConsumption(
 ): Promise<boolean> {
   try {
     const { error } = await supabase
-      .from('agbot_assets')
+      .from('ta_agbot_assets')
       .update({
-        asset_daily_consumption: consumption.daily_consumption_litres,
-        asset_days_remaining: consumption.days_remaining,
+        daily_consumption_liters: consumption.daily_consumption_litres,
+        days_remaining: consumption.days_remaining,
         updated_at: new Date().toISOString()
       })
       .eq('id', assetId);
@@ -278,18 +344,18 @@ export async function recalculateAllAssets(): Promise<{
   try {
     // Fetch all active assets with current levels and capacity
     const { data: assets, error } = await supabase
-      .from('agbot_assets')
+      .from('ta_agbot_assets')
       .select(
         `
         id,
-        latest_calibrated_fill_percentage,
-        asset_profile_water_capacity,
-        agbot_locations!inner (
-          disabled
+        current_level_percent,
+        capacity_liters,
+        ta_agbot_locations!inner (
+          is_disabled
         )
       `
       )
-      .eq('agbot_locations.disabled', false);
+      .eq('ta_agbot_locations.is_disabled', false);
 
     if (error) {
       console.error('Failed to fetch assets for recalculation:', error);
@@ -306,8 +372,8 @@ export async function recalculateAllAssets(): Promise<{
       try {
         const consumption = await calculateConsumption(
           asset.id,
-          asset.latest_calibrated_fill_percentage || 0,
-          asset.asset_profile_water_capacity
+          asset.current_level_percent || 0,
+          asset.capacity_liters
         );
 
         const success = await updateAssetConsumption(asset.id, consumption);

@@ -29,12 +29,21 @@ export const useAgbotReadingsHistory = (assetId: string, days: number = 30) => {
       const daysAgo = new Date();
       daysAgo.setDate(daysAgo.getDate() - days);
       
-      const { data, error } = await supabase
-        .from('agbot_readings_history')
-        .select('calibrated_fill_percentage, raw_fill_percentage, reading_timestamp, device_online, created_at')
+      const { data: rawData, error } = await supabase
+        .from('ta_agbot_readings')
+        .select('level_percent, raw_percent, reading_at, is_online, created_at')
         .eq('asset_id', assetId)
-        .gte('reading_timestamp', daysAgo.toISOString())
-        .order('reading_timestamp', { ascending: true });
+        .gte('reading_at', daysAgo.toISOString())
+        .order('reading_at', { ascending: true });
+
+      // Map new column names to old interface
+      const data = rawData?.map(r => ({
+        calibrated_fill_percentage: r.level_percent,
+        raw_fill_percentage: r.raw_percent,
+        reading_timestamp: r.reading_at,
+        device_online: r.is_online,
+        created_at: r.created_at
+      }));
       
       if (error) {
         console.error('Error fetching agbot readings history:', error);
@@ -52,7 +61,7 @@ export const useAgbotReadingsHistory = (assetId: string, days: number = 30) => {
 // Hook to calculate analytics for a specific agbot location
 export const useAgbotLocationAnalytics = (location: AgbotLocation | null) => {
   const mainAsset = location?.assets?.[0];
-  const assetId = mainAsset?.asset_guid;
+  const assetId = mainAsset?.external_guid;
   
   const { data: readings, isLoading, error } = useAgbotReadingsHistory(assetId || '', 30);
   
@@ -84,7 +93,7 @@ export const useAgbotLocationAnalytics = (location: AgbotLocation | null) => {
       const rolling_avg_pct_per_day = calculateRollingAverage(readings);
       const prev_day_pct_used = calculatePreviousDayConsumption(readings);
       const days_to_critical_level = calculateDaysToCritical(
-        location.latest_calibrated_fill_percentage || 0,
+        location.calibrated_fill_level || 0,
         rolling_avg_pct_per_day,
         20 // Critical threshold at 20%
       );
@@ -135,140 +144,162 @@ export const useAgbotLocationAnalytics = (location: AgbotLocation | null) => {
 };
 
 // Hook to get analytics for all agbot locations
+// OPTIMIZED: Uses batch query instead of N+1 pattern, leverages pre-computed DB fields
 export const useAgbotLocationsWithAnalytics = () => {
   return useQuery({
     queryKey: ['agbot-locations-with-analytics'],
     queryFn: async (): Promise<AgbotLocationWithAnalytics[]> => {
-      // First get all locations
+      // Step 1: Get all locations with assets (includes pre-computed fields)
       const { data: locations, error: locationsError } = await supabase
-        .from('agbot_locations')
+        .from('ta_agbot_locations')
         .select(`
           *,
-          assets:agbot_assets(*)
+          assets:ta_agbot_assets(
+            id,
+            capacity_liters,
+            daily_consumption_liters,
+            days_remaining,
+            is_online,
+            current_level_percent
+          )
         `)
-        .order('location_id');
-      
+        .order('name');
+
       if (locationsError) {
         console.error('Error fetching agbot locations:', locationsError);
         throw locationsError;
       }
-      
+
       if (!locations || locations.length === 0) {
         return [];
       }
-      
-      // Get analytics for each location
-      const locationsWithAnalytics = await Promise.all(
-        locations.map(async (location) => {
-          const mainAsset = location.assets?.[0];
-          if (!mainAsset) {
-            // Return location with default analytics if no assets
-            return {
-              ...location,
-              analytics: {
-                rolling_avg_pct_per_day: 0,
-                prev_day_pct_used: 0,
-                days_to_critical_level: null,
-                consumption_velocity: 0,
-                efficiency_score: 100,
-                data_reliability_score: 0,
-                last_refill_date: null,
-                refill_frequency_days: null,
-                predicted_next_refill: null,
-                daily_avg_consumption: 0,
-                weekly_pattern: new Array(7).fill(0),
-                consumption_trend: 'stable' as const,
-                unusual_consumption_alert: false,
-                potential_leak_alert: false,
-                device_connectivity_alert: true
-              }
-            };
+
+      // Step 2: Collect all asset IDs for batch query
+      const assetIds = locations
+        .flatMap(loc => loc.assets?.map((a: any) => a.id) || [])
+        .filter(Boolean);
+
+      // Step 3: Single batch query for all readings (fixes N+1 pattern)
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - 30);
+
+      let readingsByAsset = new Map<string, AgbotReading[]>();
+
+      if (assetIds.length > 0) {
+        const { data: allReadings } = await supabase
+          .from('ta_agbot_readings')
+          .select('asset_id, level_percent, raw_percent, reading_at, is_online, created_at')
+          .in('asset_id', assetIds)
+          .gte('reading_at', daysAgo.toISOString())
+          .order('reading_at', { ascending: true });
+
+        // Group readings by asset_id (O(n) instead of N queries)
+        (allReadings || []).forEach((r: any) => {
+          if (!readingsByAsset.has(r.asset_id)) {
+            readingsByAsset.set(r.asset_id, []);
           }
-          
-          // Get historical readings for this asset
-          const daysAgo = new Date();
-          daysAgo.setDate(daysAgo.getDate() - 30);
-          
-          const { data: readings } = await supabase
-            .from('agbot_readings_history')
-            .select('calibrated_fill_percentage, raw_fill_percentage, reading_timestamp, device_online, created_at')
-            .eq('asset_id', mainAsset.asset_guid)
-            .gte('reading_timestamp', daysAgo.toISOString())
-            .order('reading_timestamp', { ascending: true });
-          
-          if (!readings || readings.length < 2) {
-            // Return default analytics for insufficient data
-            return {
-              ...location,
-              analytics: {
-                rolling_avg_pct_per_day: 0,
-                prev_day_pct_used: 0,
-                days_to_critical_level: null,
-                consumption_velocity: 0,
-                efficiency_score: 100,
-                data_reliability_score: 0,
-                last_refill_date: null,
-                refill_frequency_days: null,
-                predicted_next_refill: null,
-                daily_avg_consumption: 0,
-                weekly_pattern: new Array(7).fill(0),
-                consumption_trend: 'stable' as const,
-                unusual_consumption_alert: false,
-                potential_leak_alert: false,
-                device_connectivity_alert: true
-              }
-            };
-          }
-          
-          // Calculate analytics
-          const rolling_avg_pct_per_day = calculateRollingAverage(readings);
-          const prev_day_pct_used = calculatePreviousDayConsumption(readings);
-          const days_to_critical_level = calculateDaysToCritical(
-            location.latest_calibrated_fill_percentage || 0,
+          readingsByAsset.get(r.asset_id)!.push({
+            calibrated_fill_percentage: r.level_percent,
+            raw_fill_percentage: r.raw_percent,
+            reading_timestamp: r.reading_at,
+            device_online: r.is_online,
+            created_at: r.created_at
+          });
+        });
+      }
+
+      // Step 4: Build analytics using pre-computed fields + batch readings
+      const defaultAnalytics: AgbotAnalytics = {
+        rolling_avg_pct_per_day: 0,
+        prev_day_pct_used: 0,
+        days_to_critical_level: null,
+        consumption_velocity: 0,
+        efficiency_score: 100,
+        data_reliability_score: 0,
+        last_refill_date: null,
+        refill_frequency_days: null,
+        predicted_next_refill: null,
+        daily_avg_consumption: 0,
+        weekly_pattern: new Array(7).fill(0),
+        consumption_trend: 'stable' as const,
+        unusual_consumption_alert: false,
+        potential_leak_alert: false,
+        device_connectivity_alert: true
+      };
+
+      return locations.map((location) => {
+        const mainAsset = location.assets?.[0];
+        if (!mainAsset) {
+          return { ...location, analytics: defaultAnalytics };
+        }
+
+        const readings = readingsByAsset.get(mainAsset.id) || [];
+
+        // Use pre-computed fields from database when available
+        const dailyConsumptionLiters = mainAsset.daily_consumption_liters;
+        const capacityLiters = mainAsset.capacity_liters;
+
+        // Calculate rolling avg from pre-computed or fallback to calculation
+        const rolling_avg_pct_per_day = (dailyConsumptionLiters && capacityLiters && capacityLiters > 0)
+          ? (dailyConsumptionLiters / capacityLiters) * 100
+          : (readings.length >= 2 ? calculateRollingAverage(readings) : 0);
+
+        // Use pre-computed days_remaining from database
+        const days_to_critical_level = mainAsset.days_remaining ??
+          (readings.length >= 2 ? calculateDaysToCritical(
+            location.calibrated_fill_level || 0,
             rolling_avg_pct_per_day,
             20
-          );
-          
-          const consumption_velocity = calculateConsumptionVelocity(readings);
-          const data_reliability_score = calculateDataReliabilityScore(readings);
-          const efficiency_score = calculateEfficiencyScore(rolling_avg_pct_per_day, 2.0);
-          
-          const refillAnalysis = analyzeRefillPattern(readings);
-          const predicted_next_refill = refillAnalysis.lastRefillDate && refillAnalysis.refillFrequencyDays
-            ? new Date(new Date(refillAnalysis.lastRefillDate).getTime() + (refillAnalysis.refillFrequencyDays * 24 * 60 * 60 * 1000)).toISOString()
-            : null;
-          
-          const weekly_pattern = analyzeWeeklyPattern(readings);
-          const consumption_trend = determineConsumptionTrend(readings);
-          
-          const partialAnalytics = {
-            rolling_avg_pct_per_day,
-            data_reliability_score
-          };
-          const alerts = generateAlerts(partialAnalytics, readings);
-          
+          ) : null);
+
+        if (readings.length < 2) {
           return {
             ...location,
             analytics: {
+              ...defaultAnalytics,
               rolling_avg_pct_per_day,
-              prev_day_pct_used,
               days_to_critical_level,
-              consumption_velocity,
-              efficiency_score,
-              data_reliability_score,
-              last_refill_date: refillAnalysis.lastRefillDate,
-              refill_frequency_days: refillAnalysis.refillFrequencyDays,
-              predicted_next_refill,
               daily_avg_consumption: rolling_avg_pct_per_day,
-              weekly_pattern,
-              consumption_trend,
-              ...alerts
+              device_connectivity_alert: !mainAsset.is_online
             }
           };
-        })
-      );
-      
-      return locationsWithAnalytics;
+        }
+
+        // Calculate remaining metrics from readings
+        const prev_day_pct_used = calculatePreviousDayConsumption(readings);
+        const consumption_velocity = calculateConsumptionVelocity(readings);
+        const data_reliability_score = calculateDataReliabilityScore(readings);
+        const efficiency_score = calculateEfficiencyScore(rolling_avg_pct_per_day, 2.0);
+
+        const refillAnalysis = analyzeRefillPattern(readings);
+        const predicted_next_refill = refillAnalysis.lastRefillDate && refillAnalysis.refillFrequencyDays
+          ? new Date(new Date(refillAnalysis.lastRefillDate).getTime() + (refillAnalysis.refillFrequencyDays * 24 * 60 * 60 * 1000)).toISOString()
+          : null;
+
+        const weekly_pattern = analyzeWeeklyPattern(readings);
+        const consumption_trend = determineConsumptionTrend(readings);
+
+        const alerts = generateAlerts({ rolling_avg_pct_per_day, data_reliability_score }, readings);
+
+        return {
+          ...location,
+          analytics: {
+            rolling_avg_pct_per_day,
+            prev_day_pct_used,
+            days_to_critical_level,
+            consumption_velocity,
+            efficiency_score,
+            data_reliability_score,
+            last_refill_date: refillAnalysis.lastRefillDate,
+            refill_frequency_days: refillAnalysis.refillFrequencyDays,
+            predicted_next_refill,
+            daily_avg_consumption: rolling_avg_pct_per_day,
+            weekly_pattern,
+            consumption_trend,
+            ...alerts
+          }
+        };
+      });
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes

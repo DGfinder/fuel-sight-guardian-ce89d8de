@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AlertTriangle, Eye, MoreVertical, ChevronDown, ChevronRight, ChevronUp, ArrowUpDown, EyeOff, Expand, Minimize2 } from 'lucide-react';
+import { AlertTriangle, Eye, MoreVertical, ChevronDown, ChevronRight, ChevronUp, ArrowUpDown, EyeOff, Expand, Minimize2, Search } from 'lucide-react';
 import { Tank } from '@/types/fuel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -18,28 +18,12 @@ import { useTankModal } from '@/contexts/TankModalContext';
 import { formatPerthRelativeTime, formatPerthDisplay, getPerthToday } from '@/utils/timezone';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { logger } from '@/lib/logger';
+import { getFuelStatus, statusBadgeStyles, groupStatusColors, getDaysTextColor, FuelStatus } from '@/lib/fuel-colors';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
-function getStatus(percent: number, days: number | null): 'critical' | 'low' | 'normal' {
-  // Critical: Immediate action required (≤1.5 days OR ≤10% fuel)
-  if (percent <= 0.1 || (days !== null && days <= 1.5)) return 'critical';
-  
-  // Low: Schedule soon (≤2.5 days OR ≤20% fuel)
-  if (percent <= 0.2 || (days !== null && days <= 2.5)) return 'low';
-  
-  // Normal: No immediate concern (>2.5 days AND >20% fuel)
-  return 'normal';
-}
-
-const statusStyles = {
-  critical: 'bg-red-500/10 text-red-700',
-  low: 'bg-amber-400/20 text-amber-700',
-  normal: 'bg-emerald-500/10 text-emerald-700',
-};
-
-const StatusBadge: React.FC<{ status: 'critical' | 'low' | 'normal' }> = ({ status }) => (
-  <span className={cn('px-2 py-1 rounded text-xs font-semibold', statusStyles[status])}>
+const StatusBadge: React.FC<{ status: FuelStatus }> = ({ status }) => (
+  <span className={cn('px-2 py-1 rounded text-xs font-semibold', statusBadgeStyles[status])}>
     {status === 'normal' ? 'Normal' : status.charAt(0).toUpperCase() + status.slice(1)}
   </span>
 );
@@ -54,21 +38,23 @@ interface TankRowProps {
   onServicedToggle: (tankId: string, serviced: boolean) => void;
   isServiced: boolean;
   today: string;
+  onPrefetch?: () => void;
 }
 
 const fmt = (n: number | null | undefined) => typeof n === 'number' && !isNaN(n) ? n.toLocaleString('en-AU') : '—';
 
-const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefObject<boolean> }> = ({ 
-  tank, 
-  onClick, 
-  todayBurnRate, 
-  isMobile, 
-  setEditDipTank, 
+const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefObject<boolean> }> = ({
+  tank,
+  onClick,
+  todayBurnRate,
+  isMobile,
+  setEditDipTank,
   setEditDipModalOpen,
   onServicedToggle,
   isServiced,
   today,
-  suppressNextRowClick
+  suppressNextRowClick,
+  onPrefetch
 }) => {
   // Calculate percentage above minimum level (not total percentage)
   const percent = useMemo(() => {
@@ -81,13 +67,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
     if (usableCapacity <= 0) return 0;
     return Math.max(0, Math.round((currentAboveMin / usableCapacity) * 100));
   }, [tank.current_level, tank.min_level, tank.safe_level]);
-  const status = useMemo(() => {
-    if (tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 2) return 'critical';
-    if (tank.days_to_min_level !== null && tank.days_to_min_level !== undefined && tank.days_to_min_level <= 5) return 'low';
-    if (percent <= 10) return 'critical';
-    if (percent <= 20) return 'low';
-    return 'normal';
-  }, [percent, tank.days_to_min_level]);
+  const status = useMemo(() => getFuelStatus(percent, tank.days_to_min_level), [percent, tank.days_to_min_level]);
   const lastDipTs = tank.last_dip?.created_at ? new Date(tank.last_dip.created_at) : null;
   const isDipOld = lastDipTs ? ((Date.now() - lastDipTs.getTime()) > 4 * 24 * 60 * 60 * 1000) : false;
   const ullage = typeof tank.safe_level === 'number' && typeof tank.current_level === 'number' ? tank.safe_level - tank.current_level : null;
@@ -124,7 +104,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
             <span>Safe Level:</span>
             <span className="text-right">{fmt(tank.safe_level)} L</span>
             <span>Days to Min:</span>
-            <span className={cn('text-right', status === 'critical' ? 'text-red-500' : status === 'low' ? 'text-amber-500' : '')}>{tank.days_to_min_level ?? '—'}</span>
+            <span className={cn('text-right', getDaysTextColor(tank.days_to_min_level))}>{tank.days_to_min_level ?? '—'}</span>
             <span>Rolling Avg (L/day):</span>
             <span className="text-right">
               {typeof rollingAvg === 'number' && rollingAvg > 0
@@ -160,6 +140,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
               'even:bg-gray-50/50 dark:even:bg-gray-800/50',
               isServiced && 'bg-gray-50 text-gray-400 hover:bg-gray-100/60 dark:bg-gray-800/60'
             )}
+            onMouseEnter={onPrefetch}
             onClick={e => {
               if (suppressNextRowClick.current) {
                 suppressNextRowClick.current = false;
@@ -198,10 +179,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
               <PercentBar percent={percent} />
               <span className="text-xs text-gray-700">{percent}%</span>
             </td>
-            <td className={cn('px-3 py-2 text-center',
-              typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 2 ? 'text-red-500' :
-              typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 5 ? 'text-amber-500' : 'text-gray-500')
-            }>
+            <td className={cn('px-3 py-2 text-center', getDaysTextColor(tank.days_to_min_level))}>
               {tank.days_to_min_level ?? '—'}
             </td>
             <td className="px-3 py-2 text-center">
@@ -265,6 +243,7 @@ interface NestedGroupAccordionProps {
   today: string;
   suppressNextRowClick: React.MutableRefObject<boolean>;
   isMobile: boolean;
+  onPrefetchTank?: (tankId: string) => void;
 }
 
 const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
@@ -279,7 +258,8 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   isServiced,
   today,
   suppressNextRowClick,
-  isMobile
+  isMobile,
+  onPrefetchTank
 }) => {
   // Group by group_name, then subgroup
   const grouped = useMemo(() => {
@@ -341,12 +321,12 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   // Function to get group status based on tank conditions
   const getGroupStatus = (groupTanks: Tank[]) => {
     const allTanks = [...groupTanks];
-    
+
     const criticalTanks = allTanks.filter(tank => {
       const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
       return percent <= 10 || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 2);
     });
-    
+
     const warningTanks = allTanks.filter(tank => {
       const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
       return (percent > 10 && percent <= 20) || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level > 2 && tank.days_to_min_level <= 5);
@@ -355,6 +335,22 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
     if (criticalTanks.length > 0) return 'critical';
     if (warningTanks.length > 0) return 'warning';
     return 'normal';
+  };
+
+  // Function to get detailed group stats for inline display
+  const getGroupStats = (groupTanks: Tank[]) => {
+    const criticalCount = groupTanks.filter(tank => {
+      const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
+      return percent <= 10 || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 2);
+    }).length;
+
+    const warningCount = groupTanks.filter(tank => {
+      const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
+      return (percent > 10 && percent <= 20) ||
+             (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level > 2 && tank.days_to_min_level <= 5);
+    }).length;
+
+    return { criticalCount, warningCount };
   };
 
   // Track expanded state for all subgroup accordions per group
@@ -378,83 +374,143 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
       {grouped.map(group => {
         const allGroupTanks = [...group.tanks, ...group.subGroups.flatMap(sg => sg.tanks)];
         const groupStatus = getGroupStatus(allGroupTanks);
+        const { criticalCount, warningCount } = getGroupStats(allGroupTanks);
         const totalTanks = allGroupTanks.length;
-        
-        const statusColors = {
-          critical: 'border-l-red-500 bg-red-50/50 hover:bg-red-50',
-          warning: 'border-l-amber-500 bg-amber-50/50 hover:bg-amber-50',
-          normal: 'border-l-green-500 bg-green-50/50 hover:bg-green-50'
-        };
+
+        const statusColors = groupStatusColors;
 
         return (
-          <AccordionItem value={group.id} key={group.id} className="border-none mb-2">
-            <AccordionTrigger className={`px-6 py-4 font-semibold text-gray-800 sticky top-0 z-10 shadow-sm border border-gray-200 rounded-lg flex items-center justify-between group transition-all duration-200 border-l-4 ${statusColors[groupStatus]}`}>
-              <div className="flex items-center gap-4">
+          <AccordionItem value={group.id} key={group.id} className="border-none mb-3">
+            <AccordionTrigger
+              className={cn(
+                "px-5 py-4 font-semibold text-gray-800",
+                "sticky top-0 z-10",
+                "backdrop-blur-md bg-white/80 border border-white/40",
+                "rounded-xl shadow-lg hover:shadow-xl",
+                "transition-all duration-300 hover:-translate-y-0.5",
+                "flex items-center justify-between group",
+                "border-l-4",
+                statusColors[groupStatus]
+              )}
+            >
+              <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-lg font-bold">{group.name}</span>
-                <Badge variant="outline" className="bg-white/80 text-gray-600 border-gray-300">
+
+                {/* Tank count badge */}
+                <Badge variant="outline" className="bg-white/80 text-gray-600 border-gray-200/50 shadow-sm">
                   {totalTanks} tanks
                 </Badge>
-                {group.shouldShowSubgroups && group.subGroups.length > 0 && (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+
+                {/* Critical count - only if > 0 */}
+                {criticalCount > 0 && (
+                  <Badge className="bg-red-50/80 text-red-700 border border-red-200/50 shadow-sm backdrop-blur-sm">
+                    <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 inline-block"></span>
+                    {criticalCount} critical
+                  </Badge>
+                )}
+
+                {/* Warning count - only if > 0 */}
+                {warningCount > 0 && (
+                  <Badge className="bg-amber-50/80 text-amber-700 border border-amber-200/50 shadow-sm backdrop-blur-sm">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5 inline-block"></span>
+                    {warningCount} low
+                  </Badge>
+                )}
+
+                {/* Subgroups badge - only show if more than 1 subgroup */}
+                {group.shouldShowSubgroups && group.subGroups.length > 1 && (
+                  <Badge className="bg-blue-50/80 text-blue-700 border border-blue-200/50 shadow-sm backdrop-blur-sm">
                     {group.subGroups.length} subgroups
                   </Badge>
                 )}
               </div>
-              {group.shouldShowSubgroups && group.subGroups.length > 0 && (
-                <div className="flex items-center gap-2 mr-2">
-                  {expandedGroups[group.id] ? (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      className="h-8 px-2 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); toggleAllSubgroups(group.id, false); }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          toggleAllSubgroups(group.id, false);
-                        }
-                      }}
-                    >
-                      <Minimize2 className="w-4 h-4 mr-1" /> Collapse all
-                    </div>
-                  ) : (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      className="h-8 px-2 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); toggleAllSubgroups(group.id, true); }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          toggleAllSubgroups(group.id, true);
-                        }
-                      }}
-                    >
-                      <Expand className="w-4 h-4 mr-1" /> Expand all
-                    </div>
-                  )}
-                </div>
-              )}
             </AccordionTrigger>
             <AccordionContent className="bg-white dark:bg-gray-900 border-l-4 border-l-gray-200 ml-2">
+              {/* Expand/Collapse all subgroups - only if > 1 subgroup */}
+              {group.shouldShowSubgroups && group.subGroups.length > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 mb-2 bg-slate-50/80 backdrop-blur-sm rounded-lg border border-slate-100">
+                  <span className="text-sm text-gray-600 font-medium">
+                    {group.subGroups.length} locations
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-3 text-xs font-medium bg-white/80 hover:bg-white"
+                    onClick={() => toggleAllSubgroups(group.id, !expandedGroups[group.id])}
+                  >
+                    {expandedGroups[group.id] ? (
+                      <>
+                        <Minimize2 className="w-3.5 h-3.5 mr-1.5" />
+                        Collapse All
+                      </>
+                    ) : (
+                      <>
+                        <Expand className="w-3.5 h-3.5 mr-1.5" />
+                        Expand All
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
               {/* Subgroups - only show if shouldShowSubgroups is true */}
               {group.shouldShowSubgroups && group.subGroups.length > 0 ? (
-                <Accordion 
-                  type="multiple" 
-                  value={expandedSubgroups[group.id] || []} 
+                <Accordion
+                  type="multiple"
+                  value={expandedSubgroups[group.id] || []}
                   onValueChange={(value) => setExpandedSubgroups(prev => ({...prev, [group.id]: value}))}
                   className="w-full"
                 >
-                  {group.subGroups.map(sub => (
-                    <AccordionItem value={sub.id} key={sub.id} className="border-none">
-                      <AccordionTrigger className="bg-gray-100 px-4 py-2 font-semibold text-gray-700 flex items-center gap-3">
-                        {sub.name}
-                        <Badge variant="outline" className="bg-gray-100 text-gray-700">
-                          {sub.tanks.length} tank{sub.tanks.length !== 1 ? 's' : ''}
-                        </Badge>
-                      </AccordionTrigger>
+                  {group.subGroups.map(sub => {
+                    const subStatus = getGroupStatus(sub.tanks);
+                    const { criticalCount: subCritical, warningCount: subWarning } = getGroupStats(sub.tanks);
+
+                    return (
+                      <AccordionItem value={sub.id} key={sub.id} className="border-none mb-2">
+                        <AccordionTrigger
+                          className={cn(
+                            "px-4 py-3 rounded-lg",
+                            "backdrop-blur-sm shadow-sm",
+                            "font-semibold transition-all duration-200",
+                            "hover:shadow-md",
+                            "flex items-center justify-between w-full",
+                            // Solid border for visibility
+                            "border",
+                            // Status-aware colors with higher opacity
+                            subStatus === 'critical' && "bg-red-50/90 border-red-200 text-red-900",
+                            subStatus === 'warning' && "bg-amber-50/90 border-amber-200 text-amber-900",
+                            subStatus === 'normal' && "bg-white/90 border-gray-200 text-gray-800"
+                          )}
+                        >
+                          {/* Left side - Name */}
+                          <span className="font-semibold text-left flex-1 min-w-0 truncate pr-4">
+                            {sub.name}
+                          </span>
+
+                          {/* Right side - Badges in fixed order */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Tank count - always shown */}
+                            <Badge variant="outline" className="bg-white/80 text-gray-600 border-gray-300">
+                              {sub.tanks.length} tank{sub.tanks.length !== 1 ? 's' : ''}
+                            </Badge>
+
+                            {/* Critical count - only if > 0 */}
+                            {subCritical > 0 && (
+                              <Badge className="bg-red-100 text-red-700 border border-red-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 inline-block"></span>
+                                {subCritical} critical
+                              </Badge>
+                            )}
+
+                            {/* Warning count - only if > 0 */}
+                            {subWarning > 0 && (
+                              <Badge className="bg-amber-100 text-amber-700 border border-amber-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span>
+                                {subWarning} low
+                              </Badge>
+                            )}
+                          </div>
+                        </AccordionTrigger>
                       <AccordionContent className="bg-white dark:bg-gray-900">
                         {/* Use virtualization for large subgroups */}
                         {sub.tanks.length > 50 ? (
@@ -468,17 +524,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                               <div style={style} key={sub.tanks[index].id}>
                                 <table className="w-full">
                                   <tbody>
-                                    <TankRow 
-                                      tank={sub.tanks[index]} 
-                                      onClick={onTankClick} 
-                                      todayBurnRate={todayBurnRate} 
-                                      setEditDipTank={setEditDipTank} 
-                                      setEditDipModalOpen={setEditDipModalOpen} 
+                                    <TankRow
+                                      tank={sub.tanks[index]}
+                                      onClick={onTankClick}
+                                      todayBurnRate={todayBurnRate}
+                                      setEditDipTank={setEditDipTank}
+                                      setEditDipModalOpen={setEditDipModalOpen}
                                       onServicedToggle={onServicedToggle}
                                       isServiced={isServiced(sub.tanks[index].id)}
                                       today={today}
-                                      isMobile={isMobile} 
+                                      isMobile={isMobile}
                                       suppressNextRowClick={suppressNextRowClick}
+                                      onPrefetch={() => onPrefetchTank?.(sub.tanks[index].id)}
                                     />
                                   </tbody>
                                 </table>
@@ -489,8 +546,8 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                           <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
                               <thead>
-                                <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                                  <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-center">
+                                <tr className="bg-gray-50/90 backdrop-blur-sm font-semibold text-gray-600 text-xs uppercase tracking-wider sticky top-0 shadow-sm border-b border-gray-200/50">
+                                  <th className="sticky left-0 z-10 bg-gray-50/90 backdrop-blur-sm px-3 py-3 text-center">
                                     <Checkbox
                                       checked={sub.tanks.every(tank => isServiced(tank.id))}
                                       onCheckedChange={(checked) => {
@@ -501,7 +558,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                       className="h-4 w-4 text-green-700"
                                     />
                                   </th>
-                                  <th className="sticky left-[42px] z-10 bg-inherit px-3 py-3 text-left">
+                                  <th className="sticky left-[42px] z-10 bg-gray-50/90 backdrop-blur-sm px-3 py-3 text-left">
                                     <SortButton field="location">Location / Tank</SortButton>
                                   </th>
                                   <th className="px-3 py-3 text-center">
@@ -512,28 +569,29 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                   </th>
                                   <th className="px-3 py-3 text-center">% Above Min</th>
                                   <th className="px-3 py-3 text-center">Days-to-Min</th>
-                                  <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
-                                  <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
+                                  <th className="px-3 py-3 text-center">Rolling Avg</th>
+                                  <th className="px-3 py-3 text-center">Prev Day</th>
                                   <th className="px-3 py-3 text-center">Status</th>
                                   <th className="px-3 py-3 text-center">Last Dip</th>
-                                  <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
+                                  <th className="hidden md:table-cell px-3 py-3 text-right">Ullage</th>
                                   <th className="px-3 py-3 text-center">Actions</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {sortTanks(sub.tanks).map(tank => (
-                                  <TankRow 
-                                    key={tank.id} 
-                                    tank={tank} 
-                                    onClick={onTankClick} 
-                                    todayBurnRate={todayBurnRate} 
-                                    setEditDipTank={setEditDipTank} 
-                                    setEditDipModalOpen={setEditDipModalOpen} 
+                                  <TankRow
+                                    key={tank.id}
+                                    tank={tank}
+                                    onClick={onTankClick}
+                                    todayBurnRate={todayBurnRate}
+                                    setEditDipTank={setEditDipTank}
+                                    setEditDipModalOpen={setEditDipModalOpen}
                                     onServicedToggle={onServicedToggle}
                                     isServiced={isServiced(tank.id)}
                                     today={today}
-                                    isMobile={isMobile} 
+                                    isMobile={isMobile}
                                     suppressNextRowClick={suppressNextRowClick}
+                                    onPrefetch={() => onPrefetchTank?.(tank.id)}
                                   />
                                 ))}
                               </tbody>
@@ -542,7 +600,8 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                         )}
                       </AccordionContent>
                     </AccordionItem>
-                  ))}
+                    );
+                  })}
                 </Accordion>
               ) : null}
               {/* Tanks not in subgroups OR all tanks when subgroups are flattened */}
@@ -553,8 +612,8 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse">
                         <thead>
-                          <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                            <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-center">
+                          <tr className="bg-gray-50/90 backdrop-blur-sm font-semibold text-gray-600 text-xs uppercase tracking-wider sticky top-0 shadow-sm border-b border-gray-200/50">
+                            <th className="sticky left-0 z-10 bg-gray-50/90 backdrop-blur-sm px-3 py-3 text-center">
                               <Checkbox
                                 checked={group.tanks.every(tank => isServiced(tank.id))}
                                 onCheckedChange={(checked) => {
@@ -565,7 +624,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                 className="h-4 w-4 text-green-700"
                               />
                             </th>
-                            <th className="sticky left-[42px] z-10 bg-inherit px-3 py-3 text-left">
+                            <th className="sticky left-[42px] z-10 bg-gray-50/90 backdrop-blur-sm px-3 py-3 text-left">
                               <SortButton field="location">Location / Tank</SortButton>
                             </th>
                             <th className="px-3 py-3 text-center">
@@ -576,11 +635,11 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                             </th>
                             <th className="px-3 py-3 text-center">% Above Min</th>
                             <th className="px-3 py-3 text-center">Days-to-Min</th>
-                            <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
-                            <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
+                            <th className="px-3 py-3 text-center">Rolling Avg</th>
+                            <th className="px-3 py-3 text-center">Prev Day</th>
                             <th className="px-3 py-3 text-center">Status</th>
                             <th className="px-3 py-3 text-center">Last Dip</th>
-                            <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
+                            <th className="hidden md:table-cell px-3 py-3 text-right">Ullage</th>
                             <th className="px-3 py-3 text-center">Actions</th>
                           </tr>
                         </thead>
@@ -599,17 +658,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                     <div style={style} key={tank.id}>
                                       <table className="w-full">
                                         <tbody>
-                                          <TankRow 
-                                            tank={tank} 
-                                            onClick={onTankClick} 
-                                            todayBurnRate={todayBurnRate} 
-                                            setEditDipTank={setEditDipTank} 
-                                            setEditDipModalOpen={setEditDipModalOpen} 
+                                          <TankRow
+                                            tank={tank}
+                                            onClick={onTankClick}
+                                            todayBurnRate={todayBurnRate}
+                                            setEditDipTank={setEditDipTank}
+                                            setEditDipModalOpen={setEditDipModalOpen}
                                             onServicedToggle={onServicedToggle}
                                             isServiced={isServiced(tank.id)}
                                             today={today}
-                                            isMobile={isMobile} 
+                                            isMobile={isMobile}
                                             suppressNextRowClick={suppressNextRowClick}
+                                            onPrefetch={() => onPrefetchTank?.(tank.id)}
                                           />
                                         </tbody>
                                       </table>
@@ -627,8 +687,8 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse">
                         <thead>
-                          <tr className="bg-white dark:bg-gray-900 font-semibold text-gray-700 sticky top-0 shadow-xs">
-                            <th className="sticky left-0 z-10 bg-inherit px-3 py-3 text-center">
+                          <tr className="bg-gray-50/90 backdrop-blur-sm font-semibold text-gray-600 text-xs uppercase tracking-wider sticky top-0 shadow-sm border-b border-gray-200/50">
+                            <th className="sticky left-0 z-10 bg-gray-50/90 backdrop-blur-sm px-3 py-3 text-center">
                               <Checkbox
                                 checked={group.tanks.every(tank => isServiced(tank.id))}
                                 onCheckedChange={(checked) => {
@@ -639,7 +699,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                                 className="h-4 w-4 text-green-700"
                               />
                             </th>
-                            <th className="sticky left-[42px] z-10 bg-inherit px-3 py-3 text-left">
+                            <th className="sticky left-[42px] z-10 bg-gray-50/90 backdrop-blur-sm px-3 py-3 text-left">
                               <SortButton field="location">Location / Tank</SortButton>
                             </th>
                             <th className="px-3 py-3 text-center">
@@ -650,28 +710,29 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                             </th>
                             <th className="px-3 py-3 text-center">% Above Min</th>
                             <th className="px-3 py-3 text-center">Days-to-Min</th>
-                            <th className="px-3 py-3 text-center">Rolling Avg (L/day)</th>
-                            <th className="px-3 py-3 text-center">Prev Day Used (L)</th>
+                            <th className="px-3 py-3 text-center">Rolling Avg</th>
+                            <th className="px-3 py-3 text-center">Prev Day</th>
                             <th className="px-3 py-3 text-center">Status</th>
                             <th className="px-3 py-3 text-center">Last Dip</th>
-                            <th className="hidden md:table-cell px-3 py-3 text-right">Ullage (L)</th>
+                            <th className="hidden md:table-cell px-3 py-3 text-right">Ullage</th>
                             <th className="px-3 py-3 text-center">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {sortTanks(group.tanks).map(tank => (
-                            <TankRow 
-                              key={tank.id} 
-                              tank={tank} 
-                              onClick={onTankClick} 
-                              todayBurnRate={todayBurnRate} 
-                              setEditDipTank={setEditDipTank} 
-                              setEditDipModalOpen={setEditDipModalOpen} 
+                            <TankRow
+                              key={tank.id}
+                              tank={tank}
+                              onClick={onTankClick}
+                              todayBurnRate={todayBurnRate}
+                              setEditDipTank={setEditDipTank}
+                              setEditDipModalOpen={setEditDipModalOpen}
                               onServicedToggle={onServicedToggle}
                               isServiced={isServiced(tank.id)}
                               today={today}
-                              isMobile={isMobile} 
+                              isMobile={isMobile}
                               suppressNextRowClick={suppressNextRowClick}
+                              onPrefetch={() => onPrefetchTank?.(tank.id)}
                             />
                           ))}
                         </tbody>
@@ -697,7 +758,7 @@ export interface TankStatusTableProps {
   suppressNextRowClick?: React.MutableRefObject<boolean>;
 }
 
-export const TankStatusTable: React.FC<TankStatusTableProps> = ({
+export const TankStatusTable = React.memo<TankStatusTableProps>(({
   tanks,
   onTankClick,
   todayBurnRate,
@@ -769,6 +830,27 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
     onTankClick?.(tank);
   }, [onTankClick, openModal, setEditDipModalOpen, setEditDipTank]);
 
+  // Prefetch tank dip readings on hover for instant modal loading
+  const prefetchTankDips = useCallback((tankId: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ['ta-dip-readings', { tankId }],
+      queryFn: async () => {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        const { data } = await supabase
+          .from('ta_tank_dips')
+          .select('*')
+          .eq('tank_id', tankId)
+          .is('archived_at', null)
+          .gte('measured_at', startDate.toISOString())
+          .order('measured_at', { ascending: false })
+          .limit(50);
+        return data || [];
+      },
+      staleTime: 2 * 60 * 1000, // 2 minutes
+    });
+  }, [queryClient]);
+
   // Sorting logic for tanks within a group/subgroup
   const sortTanks = useCallback((tanksToSort: Tank[]) => {
     const field = (sortConfig.field || 'location') as keyof Tank; // Default to location
@@ -834,21 +916,31 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4 mb-4">
-        <Input 
-          placeholder="Search by location or group" 
-          className="flex-1" 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by location or group"
+            className="pl-10 backdrop-blur-sm bg-white/70 border-white/30 shadow-sm focus:shadow-md transition-shadow"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        {/* Hide serviced button - disabled until functionality is implemented
         <Button
           size="sm"
-          variant="outline"
+          variant={hideServiced ? "default" : "outline"}
           onClick={() => setHideServiced(p => !p)}
-          className="flex items-center gap-2"
+          className={cn(
+            "flex items-center gap-2 transition-all",
+            hideServiced
+              ? "bg-[#008457] text-white hover:bg-[#008457]/90"
+              : "backdrop-blur-sm bg-white/70 hover:bg-white/90"
+          )}
         >
           {hideServiced ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
           {hideServiced ? 'Show all' : 'Hide serviced'}
         </Button>
+        */}
       </div>
       
       <NestedGroupAccordion
@@ -864,7 +956,8 @@ export const TankStatusTable: React.FC<TankStatusTableProps> = ({
         today={today}
         suppressNextRowClick={suppressNextRowClick}
         isMobile={isMobile}
+        onPrefetchTank={prefetchTankDips}
       />
     </div>
   );
-}; 
+}); 

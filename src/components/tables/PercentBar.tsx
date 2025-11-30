@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { getBarColor } from '@/lib/fuel-colors';
 
 interface PercentBarProps {
   percent: number;
@@ -9,20 +10,14 @@ interface PercentBarProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-export default function PercentBar({ 
-  percent, 
-  className = '', 
+export default function PercentBar({
+  percent,
+  className = '',
   animated = true,
   showValue = false,
   size = 'md'
 }: PercentBarProps) {
   const pct = Math.min(Math.max(percent, 0), 100);
-  
-  const getColor = (p: number) => {
-    if (p < 20) return 'bg-red-500';
-    if (p < 40) return 'bg-amber-400';
-    return 'bg-emerald-600';
-  };
 
   const getSizes = () => {
     switch (size) {
@@ -32,7 +27,7 @@ export default function PercentBar({
     }
   };
 
-  const color = getColor(pct);
+  const color = getBarColor(pct);
   const sizes = getSizes();
 
   if (animated) {

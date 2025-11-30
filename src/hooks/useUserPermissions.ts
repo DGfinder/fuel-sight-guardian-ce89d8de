@@ -9,6 +9,8 @@ export interface UserPermissions {
     id: string;
     name: string;
     subgroups: string[];
+    subgroupIds: string[];
+    hasSubgroupRestriction: boolean;
   }>;
 }
 
@@ -50,61 +52,63 @@ export const useUserPermissions = () => {
 
         if (hasAllGroupAccess) {
           // Admins, managers, and schedulers can access all groups
-          
+          // Use ta_groups (new schema) for future-proofing
           const { data: allGroups, error: groupsError } = await supabase
-            .from('tank_groups')
-            .select('id, name');
+            .from('ta_groups')
+            .select('id, name')
+            .eq('is_active', true);
 
           if (!groupsError && allGroups) {
             accessibleGroups = allGroups.map(group => ({
               id: group.id,
               name: group.name,
-              subgroups: [] // Users with all group access have access to all subgroups
+              subgroups: [], // Users with all group access have access to all subgroups
+              subgroupIds: [],
+              hasSubgroupRestriction: false
             }));
           }
         } else {
-          // Regular users: get their specific group permissions
-          
-          // Use manual join approach to avoid Supabase relationship ambiguity
-          const { data: userGroupIds, error: userGroupsError } = await supabase
-            .from('user_group_permissions')
-            .select('group_id')
+          // Regular users: get their specific group/subgroup permissions
+          // Use user_ta_group_permissions view (includes both group and subgroup level permissions)
+          const { data: userPerms, error: userPermsError } = await supabase
+            .from('user_ta_group_permissions')
+            .select('group_id, group_name, subgroup_id, subgroup_name, permission_level')
             .eq('user_id', user.id);
 
-          if (!userGroupsError && userGroupIds && userGroupIds.length > 0) {
-            const groupIds = userGroupIds.map(ug => ug.group_id);
-            
-            const { data: groupDetails, error: groupDetailsError } = await supabase
-              .from('tank_groups')
-              .select('id, name')
-              .in('id', groupIds);
-              
-            const userGroups = groupDetails?.map(group => ({
-              group_id: group.id,
-              tank_groups: { id: group.id, name: group.name }
-            })) || [];
+          if (!userPermsError && userPerms && userPerms.length > 0) {
+            // Group by group_id and collect subgroups
+            const groupMap = new Map<string, {
+              id: string;
+              name: string;
+              subgroups: string[];
+              subgroupIds: string[];
+              hasSubgroupRestriction: boolean;
+            }>();
 
-            if (!groupDetailsError && userGroups.length > 0) {
-            // Get subgroup restrictions for each group
-            const { data: subgroupRestrictions } = await supabase
-              .from('user_subgroup_permissions')
-              .select('group_id, subgroup_name')
-              .eq('user_id', user.id);
+            userPerms.forEach(perm => {
+              if (!perm.group_id) return;
 
-            const subgroupsByGroup = new Map();
-            subgroupRestrictions?.forEach(restriction => {
-              if (!subgroupsByGroup.has(restriction.group_id)) {
-                subgroupsByGroup.set(restriction.group_id, []);
+              if (!groupMap.has(perm.group_id)) {
+                groupMap.set(perm.group_id, {
+                  id: perm.group_id,
+                  name: perm.group_name || 'Unknown Group',
+                  subgroups: [],
+                  subgroupIds: [],
+                  hasSubgroupRestriction: perm.permission_level === 'subgroup'
+                });
               }
-              subgroupsByGroup.get(restriction.group_id).push(restriction.subgroup_name);
+
+              const group = groupMap.get(perm.group_id)!;
+
+              // If this is a subgroup-level permission, add the subgroup info
+              if (perm.subgroup_name && perm.subgroup_id) {
+                group.subgroups.push(perm.subgroup_name);
+                group.subgroupIds.push(perm.subgroup_id);
+                group.hasSubgroupRestriction = true;
+              }
             });
 
-            accessibleGroups = userGroups.map(userGroup => ({
-              id: userGroup.group_id,
-              name: (userGroup as any).tank_groups.name,
-              subgroups: subgroupsByGroup.get(userGroup.group_id) || []
-            }));
-            }
+            accessibleGroups = Array.from(groupMap.values());
           }
         }
 
@@ -113,12 +117,15 @@ export const useUserPermissions = () => {
           role: String(userRole || 'viewer'),
           isAdmin: Boolean(isAdmin),
           display_name: String(roleData.display_name || user.email || 'User'),
-          accessibleGroups: Array.isArray(accessibleGroups) ? 
+          accessibleGroups: Array.isArray(accessibleGroups) ?
             accessibleGroups.map(group => ({
               id: String(group?.id || ''),
               name: String(group?.name || 'Unknown Group'),
-              subgroups: Array.isArray(group?.subgroups) ? 
-                group.subgroups.map(sub => String(sub)).filter(Boolean) : []
+              subgroups: Array.isArray(group?.subgroups) ?
+                group.subgroups.map(sub => String(sub)).filter(Boolean) : [],
+              subgroupIds: Array.isArray(group?.subgroupIds) ?
+                group.subgroupIds.map(id => String(id)).filter(Boolean) : [],
+              hasSubgroupRestriction: Boolean(group?.hasSubgroupRestriction)
             })).filter(group => group.id) : []
         };
 
@@ -132,7 +139,13 @@ export const useUserPermissions = () => {
           role: 'viewer',
           isAdmin: false,
           display_name: user?.email || 'User',
-          accessibleGroups: []
+          accessibleGroups: [] as Array<{
+            id: string;
+            name: string;
+            subgroups: string[];
+            subgroupIds: string[];
+            hasSubgroupRestriction: boolean;
+          }>
         };
       }
     },
@@ -155,13 +168,21 @@ export const useUserPermissions = () => {
           accessibleGroups: []
         };
       }
-      
+
       // Ensure all properties are properly typed
       return {
         role: typeof data.role === 'string' ? data.role : 'viewer',
         isAdmin: Boolean(data.isAdmin),
         display_name: typeof data.display_name === 'string' ? data.display_name : 'User',
-        accessibleGroups: Array.isArray(data.accessibleGroups) ? data.accessibleGroups : []
+        accessibleGroups: Array.isArray(data.accessibleGroups)
+          ? data.accessibleGroups.map(g => ({
+              id: g?.id || '',
+              name: g?.name || '',
+              subgroups: Array.isArray(g?.subgroups) ? g.subgroups : [],
+              subgroupIds: Array.isArray(g?.subgroupIds) ? g.subgroupIds : [],
+              hasSubgroupRestriction: Boolean(g?.hasSubgroupRestriction)
+            }))
+          : []
       };
     },
   });
@@ -308,31 +329,35 @@ export function useFilterTanksBySubgroup() {
   const filterTanks = (tanks: any[]) => {
     // Return empty array if still loading or no data
     if (!tanks || !permissions || isLoading) return [];
-    
+
     // Safety check for accessibleGroups
     if (!permissions.accessibleGroups || !Array.isArray(permissions.accessibleGroups)) {
       console.warn('⚠️ [SUBGROUP FILTER] accessibleGroups is undefined or not an array:', permissions);
       return [];
     }
-    
+
     if (permissions.isAdmin || permissions.role === 'scheduler') return tanks;
 
     return tanks.filter(tank => {
       // Check group access first
-      const hasGroupAccess = permissions.accessibleGroups.some(group => group && group.id === tank.group_id);
-      if (!hasGroupAccess) return false;
-
-      // If tank has no subgroup, group access is sufficient
-      if (!tank.subgroup) return true;
-
-      // Check subgroup access
       const group = permissions.accessibleGroups.find(g => g && g.id === tank.group_id);
       if (!group) return false;
 
-      // If user has no subgroup restrictions, they can access all subgroups in the group
-      if (!group.subgroups || !Array.isArray(group.subgroups) || group.subgroups.length === 0) return true;
+      // If user has no subgroup restrictions, they can access all tanks in the group
+      if (!group.hasSubgroupRestriction) return true;
 
-      return group.subgroups.includes(tank.subgroup);
+      // User has subgroup-level restrictions
+      // If tank has no subgroup_id, check by subgroup name as fallback
+      if (tank.subgroup_id) {
+        // Check using subgroup_id (preferred - new schema)
+        return group.subgroupIds.includes(tank.subgroup_id);
+      } else if (tank.subgroup) {
+        // Fallback to subgroup name (legacy compatibility)
+        return group.subgroups.includes(tank.subgroup);
+      }
+
+      // Tank has no subgroup assigned - deny access if user has subgroup restrictions
+      return false;
     });
   };
 

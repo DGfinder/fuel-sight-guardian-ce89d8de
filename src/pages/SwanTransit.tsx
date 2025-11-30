@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import AppLayout from '@/components/AppLayout';
 import { KPICards } from '@/components/KPICards';
 import { TankStatusTable } from '@/components/TankStatusTable';
@@ -52,15 +52,15 @@ export default function SwanTransitPage() {
 
     return (
       <AppLayout selectedGroup={SWAN_TRANSIT_GROUP_NAME} onGroupSelect={() => {}}>
-        <div className="min-h-screen w-full bg-muted flex items-center justify-center">
-          <div className="p-6 text-center space-y-4 bg-white rounded-lg shadow-md">
+        <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+          <div className="p-6 text-center space-y-4 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
             <div className="w-16 h-16 text-red-500 mx-auto">⚠️</div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Error loading Swan Transit data</h3>
               <p className="text-red-600 mt-1">{errorMessage}</p>
             </div>
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
               Reload Page
@@ -75,7 +75,7 @@ export default function SwanTransitPage() {
   if (isLoading) {
     return (
       <AppLayout selectedGroup={SWAN_TRANSIT_GROUP_NAME} onGroupSelect={() => {}}>
-        <div className="min-h-screen w-full bg-muted flex items-center justify-center">
+        <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
             <div className="text-lg">Loading Swan Transit data...</div>
@@ -87,23 +87,24 @@ export default function SwanTransitPage() {
 
   return (
     <AppLayout selectedGroup={SWAN_TRANSIT_GROUP_NAME} onGroupSelect={() => {}}>
-      <div className="min-h-screen w-full bg-muted">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20">
-          <section className="pt-4 pb-2">
+      <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20 py-6 space-y-6">
+          {/* Header Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Swan Transit Dashboard</h1>
-                <p className="text-gray-600 mt-1 break-words max-w-full">Monitoring {swanTanks.length} tanks in Swan Transit</p>
+                <p className="text-gray-600 mt-1">Monitoring {swanTanks.length} tanks in Swan Transit</p>
               </div>
             </div>
-            <div className="mt-4 overflow-x-auto">
-              <div className="flex gap-4 flex-nowrap w-full">
-                <KPICards tanks={swanTanks} onCardClick={() => {}} selectedFilter={null} />
-              </div>
+            <div className="mt-6">
+              <KPICards tanks={swanTanks} onCardClick={() => {}} selectedFilter={null} />
             </div>
-          </section>
-          <section className="pt-2 pb-4">
-            <div className="flex items-center justify-between mb-4">
+          </div>
+
+          {/* Tank Status Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+            <div className="p-4 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-900">Tank Status</h2>
             </div>
             <div className="overflow-x-auto">
@@ -117,7 +118,7 @@ export default function SwanTransitPage() {
                 setEditDipModalOpen={setEditDipModalOpen}
               />
             </div>
-          </section>
+          </div>
 
           <TankDetailsModal
             tank={selectedTank}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 
 // Simple test to show your analytics are working
 export const QuickTankTest: React.FC = () => {

@@ -9,9 +9,17 @@
       "Bash(cat:*)",
       "Bash(echo:*)",
       "Bash(npx tsc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(dir \"C:\\Users\\Hayden\\Downloads\\fuel-sight-guardian-ce89d8de\\.env\")",
+      "mcp__supabase__supabase_query",
+      "Bash(timeout 5 node:*)",
+      "mcp__supabase__supabase_insert"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

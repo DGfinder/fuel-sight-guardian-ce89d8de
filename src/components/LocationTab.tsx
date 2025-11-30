@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, ExternalLink, Navigation, AlertCircle, CheckCircle, Activity, AlertTriangle } from 'lucide-react';
 import { Tank } from '@/types/fuel';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { getFuelStatus } from '@/components/ui/fuel-status';
 import { TankMapPopup } from '@/components/TankMapPopup';
 import { useTankModal } from '@/contexts/TankModalContext';

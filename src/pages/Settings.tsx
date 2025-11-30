@@ -14,7 +14,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import type { Tables } from '@/types/supabase';
-import { Moon, Sun, Monitor, Palette, Bell, Shield, User, Settings as SettingsIcon } from 'lucide-react';
+import { Moon, Sun, Monitor, Palette, Bell, Shield, User, Settings as SettingsIcon, Users, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface UserRoleRow {
   role: string;
@@ -168,10 +169,11 @@ function Settings() {
       <h1 className="text-3xl font-bold mb-6 text-center">Settings</h1>
       
       <Tabs defaultValue="account" className="w-full flex-1">
-        <TabsList className={`grid w-full mb-6 ${isAdmin ? 'grid-cols-5' : 'grid-cols-3'}`}>
+        <TabsList className={`grid w-full mb-6 ${isAdmin ? 'grid-cols-6' : 'grid-cols-3'}`}>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          {isAdmin && <TabsTrigger value="customers">Customers</TabsTrigger>}
           {isAdmin && <TabsTrigger value="gasbot">Gasbot Sync</TabsTrigger>}
           {isAdmin && <TabsTrigger value="smartfill">SmartFill</TabsTrigger>}
         </TabsList>
@@ -675,6 +677,76 @@ function Settings() {
             )}
           </div>
         </TabsContent>
+
+        {isAdmin && (
+        <TabsContent value="customers">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Customer Portal Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground">
+                  Manage customer accounts for the self-service portal. Customers can view their assigned tanks,
+                  request deliveries, and access consumption reports.
+                </p>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card className="border-2 hover:border-primary transition-colors">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold mb-1">Customer Accounts</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Create, edit, and manage customer portal accounts
+                          </p>
+                        </div>
+                        <Users className="h-8 w-8 text-primary" />
+                      </div>
+                      <Link to="/settings/customers">
+                        <Button className="w-full mt-4 gap-2">
+                          Manage Customers
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 hover:border-primary transition-colors">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold mb-1">Fleet Calendar</h3>
+                          <p className="text-sm text-muted-foreground">
+                            View predicted refill dates for all AgBot tanks
+                          </p>
+                        </div>
+                        <Bell className="h-8 w-8 text-primary" />
+                      </div>
+                      <Link to="/fleet-calendar">
+                        <Button variant="outline" className="w-full mt-4 gap-2">
+                          View Calendar
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2">Quick Stats</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Customer statistics will appear here once accounts are created.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        )}
 
         {isAdmin && (
         <TabsContent value="gasbot">

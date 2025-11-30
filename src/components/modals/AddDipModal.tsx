@@ -266,15 +266,26 @@ export default function AddDipModal({
 		const perthIso = `${datePart}T${timePart}:00+08:00`;
 		const createdAtIso = new Date(perthIso).toISOString();
 
-		const insertData = {
+      // Get business_id from ta_tanks for the new schema
+      const { data: tankData } = await supabase
+        .from('ta_tanks')
+        .select('business_id')
+        .eq('id', formData.tankId)
+        .single();
+
+      const insertData = {
         tank_id: formData.tankId,
-        value: Math.round(dipValueAsNumber), // Ensure integer for database schema
-			created_at: createdAtIso,
-        recorded_by: userId,
-        created_by_name: userProfile?.full_name || null,
+        business_id: tankData?.business_id,
+        level_liters: Math.round(dipValueAsNumber),
+        measured_at: createdAtIso,
+        measured_by: userId,
+        measured_by_name: userProfile?.full_name || null,
+        method: 'dipstick',
+        source_channel: 'frontend',
+        quality_status: 'ok',
         notes: null
       };
-      
+
       console.log('🔢 [DIP SUBMISSION] Type conversions:', {
         originalDipValue: formData.dipValue,
         asNumber: dipValueAsNumber,
@@ -283,21 +294,21 @@ export default function AddDipModal({
         userId: userId,
         dateISO: formData.dipDate.toISOString()
       });
-      
-      console.log('💾 [DIP SUBMISSION] Inserting to database:', insertData);
+
+      console.log('💾 [DIP SUBMISSION] Inserting to ta_tank_dips:', insertData);
       console.log('🔐 [DIP SUBMISSION] Authentication state:', {
         userId: userId,
         hasUserProfile: !!userProfile
       });
-      
+
       // Check network connectivity
       if (!navigator.onLine) {
         throw new Error('No internet connection. Please check your network and try again.');
       }
-      
+
       console.log('🌐 [DIP SUBMISSION] Network status: Online, attempting database insert...');
-      
-      const { data, error } = await supabase.from('dip_readings').insert(insertData).select();
+
+      const { data, error } = await supabase.from('ta_tank_dips').insert(insertData).select();
       
       console.log('📥 [DIP SUBMISSION] Database response:', { data, error });
       
@@ -318,13 +329,17 @@ export default function AddDipModal({
         await Promise.all([
           // Primary tank query (standardized key)
           queryClient.invalidateQueries({ queryKey: ['tanks'] }),
+          // TA unified schema queries
+          queryClient.invalidateQueries({ queryKey: ['ta-tanks-compat'] }),
+          queryClient.invalidateQueries({ queryKey: ['ta-tanks'] }),
           // Related queries
           queryClient.invalidateQueries({ queryKey: ['tankHistory'] }),
           queryClient.invalidateQueries({ queryKey: ['tankAlerts'] }),
           queryClient.invalidateQueries({ queryKey: ['dip_readings'] }),
           queryClient.invalidateQueries({ queryKey: ['activeAlerts'] }),
           // Force refetch of active tank queries
-          queryClient.refetchQueries({ queryKey: ['tanks'], type: 'active' })
+          queryClient.refetchQueries({ queryKey: ['tanks'], type: 'active' }),
+          queryClient.refetchQueries({ queryKey: ['ta-tanks-compat'], type: 'active' })
         ]);
         console.log('✅ [DIP SUBMISSION] Queries invalidated and refetched successfully');
         

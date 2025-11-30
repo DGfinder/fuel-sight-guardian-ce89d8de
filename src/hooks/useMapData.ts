@@ -2,9 +2,11 @@ import { useMemo } from 'react';
 import { useTanks } from '@/hooks/useTanks';
 import { useAgbotLocations } from '@/hooks/useAgbotData';
 import { useSmartFillLocations } from '@/hooks/useSmartFillData';
+import { useUnifiedMapData, UnifiedMapLocation } from '@/hooks/useUnifiedMapData';
 import { AgbotLocation } from '@/services/agbot-api';
 import { SmartFillLocation } from '@/services/smartfill-api';
 import { Tank } from '@/hooks/useTanks';
+import { logger } from '@/lib/logger';
 
 // Enhanced map item interface that can represent tanks, agbot devices, and smartfill locations
 export interface MapItem {
@@ -111,7 +113,7 @@ function transformSmartFillToMapItem(smartfillLocation: SmartFillLocation): MapI
   const tankFillPercentages = tanks
     .map(tank => tank?.latest_volume_percent)
     .filter(percent => typeof percent === 'number');
-  
+
   const averageFillPercent = tankFillPercentages.length > 0
     ? tankFillPercentages.reduce((sum, percent) => sum + percent, 0) / tankFillPercentages.length
     : smartfillLocation.latest_volume_percent;
@@ -126,25 +128,90 @@ function transformSmartFillToMapItem(smartfillLocation: SmartFillLocation): MapI
     product_type: 'SmartFill Monitored',
     latest_dip_date: smartfillLocation.latest_update_time,
     source: 'smartfill',
-    
+
     // SmartFill specific fields
     unit_number: smartfillLocation.unit_number,
     timezone: smartfillLocation.timezone,
     customer_name: smartfillLocation.customer_name,
     tanks: smartfillLocation.tanks,
-    
+
     originalData: smartfillLocation
   };
 }
 
+// Transform unified map location to map item (from ta_unified_map_locations view)
+function transformUnifiedToMapItem(unified: UnifiedMapLocation): MapItem {
+  return {
+    id: unified.id,
+    location: unified.location,
+    latitude: unified.latitude ?? undefined,
+    longitude: unified.longitude ?? undefined,
+    current_level_percent: unified.current_level_percent,
+    group_name: unified.group_name ?? undefined,
+    product_type: unified.product_type ?? undefined,
+    latest_dip_date: unified.latest_reading_at,
+    source: unified.source,
+
+    // Manual tank fields
+    current_level: unified.current_level_liters ?? undefined,
+    days_to_min_level: unified.days_to_min,
+    rolling_avg: unified.rolling_avg ?? undefined,
+    subgroup: unified.subgroup_name ?? undefined,
+    safe_level: unified.capacity_liters ?? undefined,
+
+    // Agbot fields
+    device_online: unified.device_online ?? undefined,
+    customer_name: unified.customer_name ?? undefined,
+  };
+}
+
 // Enhanced hook that provides tank, agbot, and smartfill data for map display
-export const useMapData = () => {
+// Now uses unified view (ta_unified_map_locations) for single-query performance
+export const useMapData = (options?: { useUnifiedView?: boolean }) => {
+  const useUnifiedView = options?.useUnifiedView ?? true; // Default to unified view
+
+  // Unified view - single query (preferred)
+  const unifiedQuery = useUnifiedMapData({ enabled: useUnifiedView });
+
+  // Legacy queries - fallback for SmartFill (not in unified view yet)
   const tanksQuery = useTanks();
   const agbotQuery = useAgbotLocations();
   const smartfillQuery = useSmartFillLocations();
 
   // Combine and transform data using useMemo (stable, no cache thrashing)
   const combinedData = useMemo(() => {
+    if (useUnifiedView && unifiedQuery.data && unifiedQuery.data.length > 0) {
+      // Use unified view data - single query!
+      logger.debug(`[MAP_DATA] Using unified view: ${unifiedQuery.data.length} locations`);
+
+      const unifiedItems = unifiedQuery.data.map(transformUnifiedToMapItem);
+      const manualItems = unifiedItems.filter(item => item.source === 'manual');
+      const agbotItems = unifiedItems.filter(item => item.source === 'agbot');
+
+      // SmartFill still comes from legacy hook (not in unified view)
+      const smartfillLocations = smartfillQuery.data || [];
+      const smartfillItems = smartfillLocations
+        .filter(location => location.latitude && location.longitude)
+        .map(transformSmartFillToMapItem);
+
+      const allItems = [...unifiedItems, ...smartfillItems];
+
+      return {
+        allItems,
+        manualTanks: manualItems,
+        agbotDevices: agbotItems,
+        smartfillLocations: smartfillItems,
+        counts: {
+          total: allItems.length,
+          manual: manualItems.length,
+          agbot: agbotItems.length,
+          smartfill: smartfillItems.length
+        }
+      };
+    }
+
+    // Fallback to legacy multi-query approach
+    logger.debug('[MAP_DATA] Using legacy multi-query approach');
     const tanks = tanksQuery.data || [];
     const agbotLocations = agbotQuery.data || [];
     const smartfillLocations = smartfillQuery.data || [];
@@ -176,11 +243,16 @@ export const useMapData = () => {
         smartfill: smartfillMapItems.length
       }
     };
-  }, [tanksQuery.data, agbotQuery.data, smartfillQuery.data]);
+  }, [useUnifiedView, unifiedQuery.data, tanksQuery.data, agbotQuery.data, smartfillQuery.data]);
 
   // Calculate loading and error states
-  const isLoading = tanksQuery.isLoading || agbotQuery.isLoading || smartfillQuery.isLoading;
-  const error = tanksQuery.error || agbotQuery.error || smartfillQuery.error;
+  const isLoading = useUnifiedView
+    ? unifiedQuery.isLoading || smartfillQuery.isLoading
+    : tanksQuery.isLoading || agbotQuery.isLoading || smartfillQuery.isLoading;
+
+  const error = useUnifiedView
+    ? unifiedQuery.error || smartfillQuery.error
+    : tanksQuery.error || agbotQuery.error || smartfillQuery.error;
 
   return {
     data: combinedData,
@@ -192,21 +264,28 @@ export const useMapData = () => {
     isLoading,
     error,
     refetch: () => {
-      tanksQuery.refetch();
-      agbotQuery.refetch();
+      if (useUnifiedView) {
+        unifiedQuery.refetch();
+      } else {
+        tanksQuery.refetch();
+        agbotQuery.refetch();
+      }
       smartfillQuery.refetch();
     },
 
     // Individual query states for debugging
+    unifiedQuery,
     tanksQuery,
     agbotQuery,
     smartfillQuery,
 
     // Utility functions
     invalidate: () => {
-      tanksQuery.invalidate();
-      // agbotQuery and smartfillQuery use React Query, so we need to invalidate using the same method
-      // This will be handled by the respective hooks
+      if (useUnifiedView) {
+        // Unified query invalidation handled by the hook
+      } else {
+        tanksQuery.invalidate();
+      }
     },
 
     // Get unique groups for filtering

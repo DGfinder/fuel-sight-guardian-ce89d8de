@@ -2,19 +2,24 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useCustomerAccount, useUpdateLastLogin } from '@/hooks/useCustomerAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: 'admin' | 'manager' | 'depot_manager' | 'operator' | 'viewer';
   requiredGroup?: string;
+  /** Restrict to specific account type: 'customer' for customer portal, 'gsf_staff' for GSF routes, 'both' for shared routes */
+  requiredAccountType?: 'customer' | 'gsf_staff' | 'both';
 }
 
-export function ProtectedRoute({ children, requiredRole, requiredGroup }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requiredRole, requiredGroup, requiredAccountType }: ProtectedRouteProps) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const { data: permissions, isLoading: permissionsLoading } = useUserPermissions();
+  const { data: customerAccount, isLoading: customerLoading } = useCustomerAccount();
+  const { mutate: updateLastLogin } = useUpdateLastLogin();
 
   useEffect(() => {
     const getSession = async () => {
@@ -58,7 +63,14 @@ export function ProtectedRoute({ children, requiredRole, requiredGroup }: Protec
     };
   }, []);
 
-  if (loading || permissionsLoading) {
+  // Update last login for customer accounts
+  useEffect(() => {
+    if (customerAccount && session) {
+      updateLastLogin();
+    }
+  }, [customerAccount?.id, session]);
+
+  if (loading || permissionsLoading || customerLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
@@ -68,6 +80,55 @@ export function ProtectedRoute({ children, requiredRole, requiredGroup }: Protec
 
   if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Determine user type
+  const isCustomer = !!customerAccount && customerAccount.account_type === 'customer';
+  const isGSFStaff = !!permissions && permissions.role !== null;
+
+  // Handle account type routing
+  if (requiredAccountType === 'customer') {
+    // Customer-only route - redirect GSF staff
+    if (!isCustomer) {
+      return <Navigate to="/" replace />;
+    }
+    // Check if customer account is active
+    if (!customerAccount?.is_active) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-yellow-600 mb-2">Account Inactive</h2>
+            <p className="text-gray-600">Your account has been deactivated.</p>
+            <p className="text-sm text-gray-500 mt-2">Please contact Great Southern Fuels for assistance.</p>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.replace('/login');
+              }}
+              className="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      );
+    }
+    // Customer is authenticated and active - allow access
+    return <>{children}</>;
+  }
+
+  if (requiredAccountType === 'gsf_staff') {
+    // GSF staff-only route - redirect customers to their portal
+    if (isCustomer) {
+      return <Navigate to="/customer" replace />;
+    }
+  }
+
+  // For 'both' or no requiredAccountType specified, proceed with existing role/permission checks
+  // But first, if user is a customer accessing a non-customer route, redirect them
+  if (isCustomer && !requiredAccountType) {
+    // Customer trying to access GSF routes - redirect to customer portal
+    return <Navigate to="/customer" replace />;
   }
 
   if (!permissions || permissions.role === null) {

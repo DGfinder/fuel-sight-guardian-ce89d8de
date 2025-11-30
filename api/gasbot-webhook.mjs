@@ -97,137 +97,257 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Webhook authentication secret
 const WEBHOOK_SECRET = process.env.GASBOT_WEBHOOK_SECRET || 'FSG-gasbot-webhook-2025';
 
-// Transform Gasbot webhook data to our database format
+// Transform Gasbot webhook data to ta_agbot_locations format
 function transformGasbotLocationData(gasbotData) {
-  // Generate consistent location_guid based on location name (same logic as CSV import)
-  const locationName = gasbotData.LocationId || 'unknown';
-  const locationGuid = `location-${locationName.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+  // Use external LocationGuid if available, otherwise generate from location name
+  const externalGuid = gasbotData.LocationGuid ||
+    `location-${(gasbotData.LocationId || 'unknown').replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
 
   // Parse address into components if available
   const addressParts = (gasbotData.LocationAddress || '').split(',').map(part => part.trim());
-  
+
   return {
-    location_guid: locationGuid,
+    external_guid: externalGuid,
+    name: gasbotData.LocationId || 'Unknown Location',
     customer_name: gasbotData.TenancyName || 'Unknown Customer',
-    customer_guid: `customer-${gasbotData.TenancyName?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
-    location_id: gasbotData.LocationId,
-    address1: addressParts[0] || gasbotData.LocationAddress || '',
-    address2: addressParts[1] || '',
-    state: addressParts[2] || '',
-    postcode: addressParts[3] || '',
-    country: 'Australia',
-    latest_calibrated_fill_percentage: parseFloat(gasbotData.LocationCalibratedFillLevel || gasbotData.AssetCalibratedFillLevel) || 0,
+    customer_guid: gasbotData.CustomerGuid || `customer-${gasbotData.TenancyName?.replace(/\s+/g, '-').toLowerCase() || 'unknown'}`,
+    tenancy_name: gasbotData.TenancyName,
+
+    // Address fields
+    address: gasbotData.LocationAddress || addressParts[0] || '',
+    state: addressParts.length >= 3 ? addressParts[2] : (gasbotData.LocationState || ''),
+    postcode: addressParts.length >= 4 ? addressParts[3] : (gasbotData.LocationPostcode || ''),
+    country: gasbotData.LocationCountry || 'Australia',
+    latitude: parseFloat(gasbotData.LocationLat) || null,
+    longitude: parseFloat(gasbotData.LocationLng) || null,
+
+    // Status
     installation_status: gasbotData.LocationInstallationStatus || (gasbotData.DeviceOnline ? 1 : 0),
     installation_status_label: gasbotData.DeviceOnline ? 'Active' : 'Offline',
-    location_status: gasbotData.DeviceOnline ? 1 : 0,
-    location_status_label: gasbotData.DeviceOnline ? 'Active' : 'Offline',
-    latest_telemetry_epoch: gasbotData.LocationLastCalibratedTelemetryEpoch ? 
-      Math.floor(parseFloat(gasbotData.LocationLastCalibratedTelemetryEpoch)) : 
-      (gasbotData.LocationLastCalibratedTelemetryTimestamp ? 
-        Math.floor(new Date(validateAndNormalizeTimestamp(gasbotData.LocationLastCalibratedTelemetryTimestamp, 'LocationLastCalibratedTelemetryTimestamp')).getTime()) : Date.now()),
-    latest_telemetry: validateAndNormalizeTimestamp(
+    is_disabled: gasbotData.LocationDisabledStatus || false,
+
+    // Aggregated consumption (from webhook)
+    daily_consumption_liters: parseFloat(gasbotData.LocationDailyConsumption) || null,
+    days_remaining: parseInt(gasbotData.LocationDaysRemaining) || null,
+    calibrated_fill_level: parseFloat(gasbotData.LocationCalibratedFillLevel) || null,
+
+    // Timestamps
+    last_telemetry_at: validateAndNormalizeTimestamp(
       gasbotData.LocationLastCalibratedTelemetryTimestamp || gasbotData.AssetLastCalibratedTelemetryTimestamp,
-      'latest_telemetry'
+      'last_telemetry_at'
     ),
-    lat: parseFloat(gasbotData.LocationLat) || null,
-    lng: parseFloat(gasbotData.LocationLng) || null,
-    disabled: gasbotData.LocationDisabledStatus || !gasbotData.DeviceOnline,
-    
-    // New comprehensive fields
-    location_category: gasbotData.LocationCategory,
-    location_calibrated_fill_level: parseFloat(gasbotData.LocationCalibratedFillLevel) || null,
-    location_last_calibrated_telemetry_epoch: convertEpochToBigInt(gasbotData.LocationLastCalibratedTelemetryEpoch),
-    location_last_calibrated_telemetry_timestamp: gasbotData.LocationLastCalibratedTelemetryTimestamp || null,
-    location_disabled_status: gasbotData.LocationDisabledStatus || false,
-    location_daily_consumption: parseFloat(gasbotData.LocationDailyConsumption) || null,
-    location_days_remaining: parseInt(gasbotData.LocationDaysRemaining) || null,
-    location_installation_status_code: gasbotData.LocationInstallationStatus || null,
-    location_guid_external: gasbotData.LocationGuid,
-    tenancy_name: gasbotData.TenancyName,
-    
-    raw_data: gasbotData // Store complete webhook data for reference
+    last_telemetry_epoch: convertEpochToBigInt(gasbotData.LocationLastCalibratedTelemetryEpoch) ||
+      (gasbotData.LocationLastCalibratedTelemetryTimestamp ?
+        Math.floor(new Date(validateAndNormalizeTimestamp(gasbotData.LocationLastCalibratedTelemetryTimestamp, 'last_telemetry_epoch')).getTime()) : Date.now())
   };
 }
 
+// Transform Gasbot webhook data to ta_agbot_assets format
 function transformGasbotAssetData(gasbotData, locationId) {
-  // Generate consistent asset_guid based on asset serial number
-  const assetSerial = gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber || 'unknown';
-  const assetGuid = `asset-${assetSerial.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+  // Use external AssetGuid if available, otherwise generate from serial
+  const externalGuid = gasbotData.AssetGuid ||
+    `asset-${(gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber || 'unknown').replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+
+  // Calculate percentage from liters if AssetCalibratedFillLevel is missing
+  const reportedLiters = parseFloat(gasbotData.AssetReportedLitres) || null;
+  const capacity = parseFloat(gasbotData.AssetProfileWaterCapacity) || null;
+  const calibratedPercent = parseFloat(gasbotData.AssetCalibratedFillLevel);
+
+  // Use calibrated percentage if available, otherwise calculate from liters/capacity
+  let levelPercent = calibratedPercent;
+  if (!levelPercent && levelPercent !== 0 && reportedLiters && capacity && capacity > 0) {
+    levelPercent = (reportedLiters / capacity) * 100;
+  }
 
   return {
     location_id: locationId,
-    asset_guid: assetGuid,
-    asset_serial_number: gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber,
-    asset_disabled: gasbotData.AssetDisabledStatus || !gasbotData.DeviceOnline,
-    asset_profile_guid: `profile-gasbot-tank`,
-    asset_profile_name: gasbotData.AssetProfileName || 'Gasbot Tank',
+    external_guid: externalGuid,
+
+    // Tank Identity
+    name: gasbotData.AssetSerialNumber || gasbotData.AssetProfileName || 'Unknown Asset',
+    serial_number: gasbotData.AssetSerialNumber || gasbotData.DeviceSerialNumber,
+    profile_name: gasbotData.AssetProfileName || 'Gasbot Tank',
+    profile_guid: gasbotData.AssetProfileGuid || 'profile-gasbot-tank',
+    commodity: gasbotData.AssetProfileCommodity,
+
+    // Tank Dimensions
+    capacity_liters: capacity,
+    max_depth_m: parseFloat(gasbotData.AssetProfileMaxDepth) || null,
+    max_pressure_bar: parseFloat(gasbotData.AssetProfileMaxPressureBar) || null,
+    max_display_percent: parseFloat(gasbotData.AssetProfileMaxDisplayPercentageFill) || null,
+
+    // Current Tank Level
+    current_level_liters: reportedLiters,
+    current_level_percent: levelPercent || 0,
+    current_raw_percent: parseFloat(gasbotData.AssetRawFillLevel || gasbotData.AssetCalibratedFillLevel) || levelPercent || 0,
+    current_depth_m: parseFloat(gasbotData.AssetDepth) || null,
+    current_pressure_bar: parseFloat(gasbotData.AssetPressureBar) || null,
+    ullage_liters: parseFloat(gasbotData.AssetRefillCapacityLitres) || null,
+
+    // Consumption Analytics (from Gasbot)
+    daily_consumption_liters: parseFloat(gasbotData.AssetDailyConsumption) || null,
+    days_remaining: parseInt(gasbotData.AssetDaysRemaining) || null,
+
+    // Device Hardware
     device_guid: gasbotData.DeviceGuid || `device-${gasbotData.DeviceSerialNumber}`,
-    device_serial_number: gasbotData.DeviceSerialNumber,
-    device_id: gasbotData.DeviceSerialNumber,
-    device_sku_guid: gasbotData.DeviceSKU || 'sku-gasbot',
-    device_sku_model: gasbotData.DeviceModel || 43111,
-    device_sku_name: 'Gasbot Cellular Tank Monitor',
-    device_model_label: 'Gasbot Cellular Tank Monitor',
+    device_serial: gasbotData.DeviceSerialNumber,
     device_model: gasbotData.DeviceModel || 43111,
-    device_online: gasbotData.DeviceOnline || false,
-    device_activation_date: gasbotData.DeviceActivationTimestamp ?
-      validateAndNormalizeTimestamp(gasbotData.DeviceActivationTimestamp, 'DeviceActivationTimestamp') : null,
-    device_activation_epoch: convertEpochToBigInt(gasbotData.DeviceActivationEpoch),
-    latest_calibrated_fill_percentage: parseFloat(gasbotData.AssetCalibratedFillLevel) || 0,
-    latest_raw_fill_percentage: parseFloat(gasbotData.AssetRawFillLevel || gasbotData.AssetCalibratedFillLevel) || 0,
-    latest_telemetry_event_timestamp: validateAndNormalizeTimestamp(
-      gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp'
-    ),
-    latest_telemetry_event_epoch: gasbotData.AssetLastCalibratedTelemetryEpoch ? 
-      Math.floor(parseFloat(gasbotData.AssetLastCalibratedTelemetryEpoch)) : 
-      (gasbotData.AssetLastCalibratedTelemetryTimestamp ? 
-        Math.floor(new Date(validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp')).getTime()) : Date.now()),
-    latest_reported_lat: parseFloat(gasbotData.AssetLatestReportedLat) || null,
-    latest_reported_lng: parseFloat(gasbotData.AssetLatestReportedLng) || null,
-    subscription_id: '',
-    
-    // New comprehensive asset fields
-    asset_raw_fill_level: parseFloat(gasbotData.AssetRawFillLevel) || null,
-    asset_last_raw_telemetry_epoch: convertEpochToBigInt(gasbotData.AssetLastRawTelemetryEpoch),
-    asset_last_raw_telemetry_timestamp: gasbotData.AssetLastRawTelemetryTimestamp ?
-      validateAndNormalizeTimestamp(gasbotData.AssetLastRawTelemetryTimestamp, 'AssetLastRawTelemetryTimestamp') : null,
-    asset_last_calibrated_telemetry_epoch: convertEpochToBigInt(gasbotData.AssetLastCalibratedTelemetryEpoch),
-    asset_last_calibrated_telemetry_timestamp: gasbotData.AssetLastCalibratedTelemetryTimestamp ?
-      validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'AssetLastCalibratedTelemetryTimestamp') : null,
-    asset_updated_epoch: convertEpochToBigInt(gasbotData.AssetUpdatedEpoch),
-    asset_updated_timestamp: gasbotData.AssetUpdatedTimestamp ?
-      validateAndNormalizeTimestamp(gasbotData.AssetUpdatedTimestamp, 'AssetUpdatedTimestamp') : null,
-    asset_daily_consumption: parseFloat(gasbotData.AssetDailyConsumption) || null,
-    asset_days_remaining: parseInt(gasbotData.AssetDaysRemaining) || null,
-    asset_reported_litres: parseFloat(gasbotData.AssetReportedLitres) || null,
-    asset_depth: parseFloat(gasbotData.AssetDepth) || null,
-    asset_pressure: parseFloat(gasbotData.AssetPressure) || null,
-    asset_refill_capacity_litres: parseFloat(gasbotData.AssetRefillCapacityLitres) || null,
-    asset_pressure_bar: parseFloat(gasbotData.AssetPressureBar) || null,
-    asset_profile_water_capacity: parseFloat(gasbotData.AssetProfileWaterCapacity) || null,
-    asset_profile_max_depth: parseFloat(gasbotData.AssetProfileMaxDepth) || null,
-    asset_profile_max_pressure: parseFloat(gasbotData.AssetProfileMaxPressure) || null,
-    asset_profile_max_pressure_bar: parseFloat(gasbotData.AssetProfileMaxPressureBar) || null,
-    asset_profile_max_display_percentage_fill: parseFloat(gasbotData.AssetProfileMaxDisplayPercentageFill) || null,
-    asset_profile_commodity: gasbotData.AssetProfileCommodity,
-    
-    // New comprehensive device fields
-    device_last_telemetry_timestamp: gasbotData.DeviceLastTelemetryTimestamp ?
-      validateAndNormalizeTimestamp(gasbotData.DeviceLastTelemetryTimestamp, 'DeviceLastTelemetryTimestamp') : null,
-    device_last_telemetry_epoch: convertEpochToBigInt(gasbotData.DeviceLastTelemetryEpoch),
+    device_model_name: gasbotData.DeviceModelLabel || 'Gasbot Cellular Tank Monitor',
     device_sku: gasbotData.DeviceSKU,
-    device_battery_voltage: parseFloat(gasbotData.DeviceBatteryVoltage) || null,
-    device_temperature: parseFloat(gasbotData.DeviceTemperature) || null,
-    device_activation_timestamp: gasbotData.DeviceActivationTimestamp ? 
-      validateAndNormalizeTimestamp(gasbotData.DeviceActivationTimestamp, 'DeviceActivationTimestamp_2') : null,
-    device_state: gasbotData.DeviceState,
     device_network_id: gasbotData.DeviceNetworkId,
-    
-    // Other fields
-    helmet_serial_number: gasbotData.HelmetSerialNumber,
-    
+    helmet_serial: gasbotData.HelmetSerialNumber,
+
+    // Device Health (Premium!)
+    is_online: gasbotData.DeviceOnline || false,
+    is_disabled: gasbotData.AssetDisabledStatus || false,
+    device_state: gasbotData.DeviceState,
+    battery_voltage: parseFloat(gasbotData.DeviceBatteryVoltage) || null,
+    temperature_c: parseFloat(gasbotData.DeviceTemperature) || null,
+
+    // Timestamps
+    device_activated_at: gasbotData.DeviceActivationTimestamp ?
+      validateAndNormalizeTimestamp(gasbotData.DeviceActivationTimestamp, 'device_activated_at') : null,
+    device_activation_epoch: convertEpochToBigInt(gasbotData.DeviceActivationEpoch),
+    last_telemetry_at: validateAndNormalizeTimestamp(
+      gasbotData.AssetLastCalibratedTelemetryTimestamp, 'last_telemetry_at'
+    ),
+    last_telemetry_epoch: convertEpochToBigInt(gasbotData.AssetLastCalibratedTelemetryEpoch) ||
+      (gasbotData.AssetLastCalibratedTelemetryTimestamp ?
+        Math.floor(new Date(validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'last_telemetry_epoch')).getTime()) : Date.now()),
+    last_raw_telemetry_at: gasbotData.AssetLastRawTelemetryTimestamp ?
+      validateAndNormalizeTimestamp(gasbotData.AssetLastRawTelemetryTimestamp, 'last_raw_telemetry_at') : null,
+    last_calibrated_telemetry_at: gasbotData.AssetLastCalibratedTelemetryTimestamp ?
+      validateAndNormalizeTimestamp(gasbotData.AssetLastCalibratedTelemetryTimestamp, 'last_calibrated_telemetry_at') : null,
+    asset_updated_at: gasbotData.AssetUpdatedTimestamp ?
+      validateAndNormalizeTimestamp(gasbotData.AssetUpdatedTimestamp, 'asset_updated_at') : null,
+    asset_updated_epoch: convertEpochToBigInt(gasbotData.AssetUpdatedEpoch),
+
     raw_data: gasbotData
   };
+}
+
+// Transform reading data for ta_agbot_readings
+function transformReadingData(gasbotData, assetId) {
+  // Calculate percentage from liters if AssetCalibratedFillLevel is missing
+  const reportedLiters = parseFloat(gasbotData.AssetReportedLitres) || null;
+  const capacity = parseFloat(gasbotData.AssetProfileWaterCapacity) || null;
+  const calibratedPercent = parseFloat(gasbotData.AssetCalibratedFillLevel);
+
+  // Use calibrated percentage if available, otherwise calculate from liters/capacity
+  let levelPercent = calibratedPercent;
+  if (!levelPercent && levelPercent !== 0 && reportedLiters && capacity && capacity > 0) {
+    levelPercent = (reportedLiters / capacity) * 100;
+    console.log(`   📊 Calculated level_percent from liters: ${levelPercent.toFixed(2)}% (${reportedLiters}L / ${capacity}L)`);
+  }
+
+  return {
+    asset_id: assetId,
+
+    // Tank level readings
+    level_liters: reportedLiters,
+    level_percent: levelPercent || 0,
+    raw_percent: parseFloat(gasbotData.AssetRawFillLevel || gasbotData.AssetCalibratedFillLevel) || levelPercent || 0,
+    depth_m: parseFloat(gasbotData.AssetDepth) || null,
+    pressure_bar: parseFloat(gasbotData.AssetPressureBar) || null,
+
+    // Device state snapshot
+    is_online: gasbotData.DeviceOnline || false,
+    battery_voltage: parseFloat(gasbotData.DeviceBatteryVoltage) || null,
+    temperature_c: parseFloat(gasbotData.DeviceTemperature) || null,
+    device_state: gasbotData.DeviceState,
+
+    // Pre-calculated analytics
+    daily_consumption: parseFloat(gasbotData.AssetDailyConsumption || gasbotData.LocationDailyConsumption) || null,
+    days_remaining: parseInt(gasbotData.AssetDaysRemaining || gasbotData.LocationDaysRemaining) || null,
+
+    // Timestamps
+    reading_at: validateAndNormalizeTimestamp(
+      gasbotData.AssetLastCalibratedTelemetryTimestamp || new Date().toISOString(),
+      'reading_at'
+    ),
+    telemetry_epoch: convertEpochToBigInt(gasbotData.AssetLastCalibratedTelemetryEpoch) ||
+      (gasbotData.AssetLastCalibratedTelemetryTimestamp ?
+        Math.floor(new Date(gasbotData.AssetLastCalibratedTelemetryTimestamp).getTime()) : Date.now())
+  };
+}
+
+// Check for alert conditions and create alerts
+async function checkAndCreateAlerts(supabase, asset, gasbotData, previousAsset) {
+  const alerts = [];
+  const batteryVoltage = parseFloat(gasbotData.DeviceBatteryVoltage);
+  const daysRemaining = parseInt(gasbotData.AssetDaysRemaining);
+  const fillPercent = parseFloat(gasbotData.AssetCalibratedFillLevel);
+
+  // Low battery alert (< 3.3V is warning, < 3.2V is critical)
+  if (batteryVoltage && batteryVoltage < 3.3) {
+    alerts.push({
+      asset_id: asset.id,
+      alert_type: 'low_battery',
+      severity: batteryVoltage < 3.2 ? 'critical' : 'warning',
+      title: `Low Battery: ${batteryVoltage.toFixed(2)}V`,
+      message: `Device battery is ${batteryVoltage < 3.2 ? 'critically' : ''} low at ${batteryVoltage.toFixed(2)}V`,
+      current_value: batteryVoltage,
+      threshold_value: 3.3,
+      previous_value: previousAsset?.battery_voltage || null
+    });
+  }
+
+  // Low fuel alert (< 7 days remaining or < 15% fill)
+  if (daysRemaining && daysRemaining <= 7) {
+    alerts.push({
+      asset_id: asset.id,
+      alert_type: 'low_fuel',
+      severity: daysRemaining <= 3 ? 'critical' : 'warning',
+      title: `Low Fuel: ${daysRemaining} days remaining`,
+      message: `Tank has approximately ${daysRemaining} days of fuel remaining`,
+      current_value: daysRemaining,
+      threshold_value: 7,
+      previous_value: previousAsset?.days_remaining || null
+    });
+  } else if (fillPercent && fillPercent <= 15) {
+    alerts.push({
+      asset_id: asset.id,
+      alert_type: 'low_fuel',
+      severity: fillPercent <= 10 ? 'critical' : 'warning',
+      title: `Low Fill Level: ${fillPercent.toFixed(1)}%`,
+      message: `Tank is at ${fillPercent.toFixed(1)}% fill level`,
+      current_value: fillPercent,
+      threshold_value: 15,
+      previous_value: previousAsset?.current_level_percent || null
+    });
+  }
+
+  // Device offline alert
+  if (previousAsset?.is_online === true && gasbotData.DeviceOnline === false) {
+    alerts.push({
+      asset_id: asset.id,
+      alert_type: 'device_offline',
+      severity: 'warning',
+      title: 'Device Offline',
+      message: `Device ${gasbotData.DeviceSerialNumber} has gone offline`,
+      current_value: 0,
+      threshold_value: 1,
+      previous_value: 1
+    });
+  }
+
+  // Insert alerts (deduplicating by checking for recent active alerts of same type)
+  for (const alert of alerts) {
+    // Check if there's already an active alert of this type for this asset
+    const { data: existingAlert } = await supabase
+      .from('ta_agbot_alerts')
+      .select('id')
+      .eq('asset_id', alert.asset_id)
+      .eq('alert_type', alert.alert_type)
+      .eq('is_active', true)
+      .single();
+
+    if (!existingAlert) {
+      await supabase.from('ta_agbot_alerts').insert(alert);
+    }
+  }
+
+  return alerts.length;
 }
 
 export default async function handler(req, res) {
@@ -323,41 +443,62 @@ export default async function handler(req, res) {
         console.log(`   📡 Device: ${tankData.DeviceState} (Online: ${tankData.DeviceOnline})`);
         console.log(`   📈 Consumption: ${tankData.AssetDailyConsumption || tankData.LocationDailyConsumption}L/day`);
         
-        // 1. Upsert location
+        // 1. Upsert location to ta_agbot_locations
         const locationData = transformGasbotLocationData(tankData);
         const { data: location, error: locationError } = await supabase
-          .from('agbot_locations')
-          .upsert(locationData, { 
-            onConflict: 'location_guid',
-            ignoreDuplicates: false 
+          .from('ta_agbot_locations')
+          .upsert(locationData, {
+            onConflict: 'external_guid',
+            ignoreDuplicates: false
           })
           .select()
           .single();
-          
+
         if (locationError) {
           throw new Error(`Location upsert failed: ${locationError.message}`);
         }
-        
+
         console.log(`   ✅ Location updated: ${location.id}`);
-        
-        // 2. Upsert asset
+
+        // 2. Get previous asset state for alert comparison
+        const assetExternalGuid = tankData.AssetGuid ||
+          `asset-${(tankData.AssetSerialNumber || tankData.DeviceSerialNumber || 'unknown').replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+
+        const { data: previousAsset } = await supabase
+          .from('ta_agbot_assets')
+          .select('id, is_online, battery_voltage, days_remaining, current_level_percent')
+          .eq('external_guid', assetExternalGuid)
+          .single();
+
+        // 3. Upsert asset to ta_agbot_assets
         const assetData = transformGasbotAssetData(tankData, location.id);
         const { data: asset, error: assetError } = await supabase
-          .from('agbot_assets')
-          .upsert(assetData, { 
-            onConflict: 'asset_guid',
-            ignoreDuplicates: false 
+          .from('ta_agbot_assets')
+          .upsert(assetData, {
+            onConflict: 'external_guid',
+            ignoreDuplicates: false
           })
           .select()
           .single();
-          
+
         if (assetError) {
           throw new Error(`Asset upsert failed: ${assetError.message}`);
         }
 
         console.log(`   ✅ Asset updated: ${asset.id}`);
 
-        // 2.5. Calculate consumption from historical data
+        // 4. Check for alerts (premium feature)
+        let alertsTriggered = 0;
+        try {
+          alertsTriggered = await checkAndCreateAlerts(supabase, asset, tankData, previousAsset);
+          if (alertsTriggered > 0) {
+            console.log(`   🚨 ${alertsTriggered} alert(s) triggered`);
+          }
+        } catch (alertError) {
+          console.log(`   ⚠️  Alert check failed: ${alertError.message}`);
+        }
+
+        // 5. Calculate consumption from historical data
         try {
           const consumption = await calculateConsumption(
             asset.id,
@@ -378,43 +519,19 @@ export default async function handler(req, res) {
           console.log(`   ⚠️  Consumption calculation failed: ${consumptionError.message}`);
         }
 
-        // 3. Create historical reading with comprehensive data
-        const readingData = {
-          asset_id: asset.id,
-          calibrated_fill_percentage: parseFloat(tankData.AssetCalibratedFillLevel) || 0,
-          raw_fill_percentage: parseFloat(tankData.AssetRawFillLevel || tankData.AssetCalibratedFillLevel) || 0,
-          reading_timestamp: validateAndNormalizeTimestamp(
-            tankData.AssetLastCalibratedTelemetryTimestamp || new Date().toISOString(),
-            'reading_timestamp'
-          ),
-          device_online: tankData.DeviceOnline || false,
-          telemetry_epoch: convertEpochToBigInt(tankData.AssetLastCalibratedTelemetryEpoch) ||
-            (tankData.AssetLastCalibratedTelemetryTimestamp ?
-              Math.floor(new Date(tankData.AssetLastCalibratedTelemetryTimestamp).getTime()) : Date.now()),
-          
-          // New comprehensive reading fields
-          asset_raw_fill_level: parseFloat(tankData.AssetRawFillLevel) || null,
-          asset_reported_litres: parseFloat(tankData.AssetReportedLitres) || null,
-          device_battery_voltage: parseFloat(tankData.DeviceBatteryVoltage) || null,
-          device_temperature: parseFloat(tankData.DeviceTemperature) || null,
-          device_state: tankData.DeviceState,
-          asset_depth: parseFloat(tankData.AssetDepth) || null,
-          asset_pressure: parseFloat(tankData.AssetPressure) || null,
-          asset_pressure_bar: parseFloat(tankData.AssetPressureBar) || null,
-          daily_consumption: parseFloat(tankData.AssetDailyConsumption || tankData.LocationDailyConsumption) || null,
-          days_remaining: parseInt(tankData.AssetDaysRemaining || tankData.LocationDaysRemaining) || null
-        };
-        
+        // 6. Create historical reading in ta_agbot_readings
+        const readingData = transformReadingData(tankData, asset.id);
+
         const { error: readingError } = await supabase
-          .from('agbot_readings_history')
+          .from('ta_agbot_readings')
           .insert(readingData);
-          
+
         if (readingError) {
           console.log(`   ⚠️  Reading insert failed: ${readingError.message}`);
         } else {
           console.log(`   ✅ Reading recorded`);
         }
-        
+
         processedCount++;
         
       } catch (recordError) {
@@ -425,18 +542,19 @@ export default async function handler(req, res) {
     }
     
     const duration = Date.now() - startTime;
-    
-    // Log webhook success to sync logs
+
+    // Log webhook success to ta_agbot_sync_log
     await supabase
-      .from('agbot_sync_logs')
+      .from('ta_agbot_sync_log')
       .insert({
         sync_type: 'gasbot_webhook',
-        sync_status: errorCount === 0 ? 'success' : 'partial',
+        status: errorCount === 0 ? 'success' : 'partial',
         locations_processed: processedCount,
         assets_processed: processedCount,
         readings_processed: processedCount,
+        alerts_triggered: 0, // Could aggregate from loop if needed
         error_message: errors.length > 0 ? errors.slice(0, 3).join('; ') : null,
-        sync_duration_ms: duration,
+        duration_ms: duration,
         started_at: new Date(startTime).toISOString(),
         completed_at: new Date().toISOString()
       });
@@ -466,18 +584,19 @@ export default async function handler(req, res) {
     console.error('\n💥 WEBHOOK PROCESSING FAILED');
     console.error('Error:', error.message);
     console.error('Stack:', error.stack);
-    
-    // Log webhook failure
+
+    // Log webhook failure to ta_agbot_sync_log
     await supabase
-      .from('agbot_sync_logs')
+      .from('ta_agbot_sync_log')
       .insert({
         sync_type: 'gasbot_webhook',
-        sync_status: 'error',
+        status: 'error',
         locations_processed: 0,
         assets_processed: 0,
         readings_processed: 0,
+        alerts_triggered: 0,
         error_message: error.message,
-        sync_duration_ms: duration,
+        duration_ms: duration,
         started_at: new Date(startTime).toISOString(),
         completed_at: new Date().toISOString()
       });

@@ -64,7 +64,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useTankHistory, useTankRecorders, useTankReadingStats, useGroupTankHistory, useGroupTankRecorders } from '@/hooks/useTankHistory';
 import { useFuelAnalytics } from '@/hooks/useFuelAnalytics';

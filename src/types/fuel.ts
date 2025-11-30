@@ -37,6 +37,26 @@ export interface TankRow {
   notes?: string;
   latitude?: number;
   longitude?: number;
+
+  // Enhanced Analytics (from ta_tank_analytics)
+  trend_direction?: 'increasing' | 'decreasing' | 'stable';
+  trend_percent_change?: number;
+  last_refill_date?: string;
+  last_refill_volume?: number;
+  avg_refill_interval_days?: number;
+  consumption_stddev?: number;
+  predictability?: 'high' | 'medium' | 'low' | 'unknown';
+  days_since_last_dip?: number;
+  data_quality?: 'fresh' | 'stale' | 'outdated' | 'no_data';
+  peak_daily_consumption?: number;
+  consumption_7_days?: number;
+  consumption_30_days?: number;
+  is_anomaly?: boolean;
+  anomaly_type?: 'high_usage' | 'low_usage' | null;
+  optimal_order_date?: string;
+  order_urgency?: 'order_now' | 'order_soon' | 'ok';
+  consumption_vs_group_percent?: number;
+  efficiency_trend?: 'improving' | 'degrading' | 'stable';
 }
 
 export type Tank = TankRow;

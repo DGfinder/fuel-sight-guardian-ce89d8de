@@ -10,6 +10,7 @@ export interface BulkDipReading {
   recorded_by: string | null;
   created_by_name: string | null;
   notes?: string;
+  business_id?: string; // Will be fetched if not provided
 }
 
 export interface BulkDipResult {
@@ -38,11 +39,45 @@ export function useBulkDipEntry() {
       for (let i = 0; i < readings.length; i += batchSize) {
         const batch = readings.slice(i, i + batchSize);
         const currentBatch = Math.floor(i / batchSize) + 1;
-        
+
         try {
+          // Get unique tank IDs in this batch that need business_id lookup
+          const tankIdsNeedingBusinessId = [...new Set(
+            batch.filter(r => !r.business_id).map(r => r.tank_id)
+          )];
+
+          // Fetch business_ids for tanks that need them
+          let businessIdMap: Record<string, string> = {};
+          if (tankIdsNeedingBusinessId.length > 0) {
+            const { data: tankData } = await supabase
+              .from('ta_tanks')
+              .select('id, business_id')
+              .in('id', tankIdsNeedingBusinessId);
+
+            if (tankData) {
+              businessIdMap = Object.fromEntries(
+                tankData.map(t => [t.id, t.business_id])
+              );
+            }
+          }
+
+          // Transform batch to ta_tank_dips format
+          const taTankDipsBatch = batch.map(reading => ({
+            tank_id: reading.tank_id,
+            business_id: reading.business_id || businessIdMap[reading.tank_id],
+            level_liters: reading.value,
+            measured_at: reading.created_at,
+            measured_by: reading.recorded_by,
+            measured_by_name: reading.created_by_name,
+            method: 'dipstick',
+            source_channel: 'frontend',
+            quality_status: 'ok',
+            notes: reading.notes || null,
+          }));
+
           const { data, error } = await supabase
-            .from('dip_readings')
-            .insert(batch)
+            .from('ta_tank_dips')
+            .insert(taTankDipsBatch)
             .select();
 
           if (error) {
@@ -73,11 +108,15 @@ export function useBulkDipEntry() {
       return result;
     },
     onSuccess: async (result) => {
-      // Invalidate relevant queries
+      // Invalidate relevant queries including TA unified schema
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['tanks'] }),
+        queryClient.invalidateQueries({ queryKey: ['ta-tanks-compat'] }),
+        queryClient.invalidateQueries({ queryKey: ['ta-tanks'] }),
         queryClient.invalidateQueries({ queryKey: ['tankHistory'] }),
         queryClient.invalidateQueries({ queryKey: ['tankAlerts'] }),
+        queryClient.invalidateQueries({ queryKey: ['dip_readings'] }),
+        queryClient.refetchQueries({ queryKey: ['ta-tanks-compat'], type: 'active' }),
       ]);
 
       // Show appropriate toast based on results

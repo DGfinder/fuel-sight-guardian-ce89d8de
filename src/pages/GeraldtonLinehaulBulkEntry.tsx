@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { Calendar, ArrowLeft, Save, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { useTankGroups } from '@/hooks/useTankGroups';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { supabase } from '@/lib/supabase';

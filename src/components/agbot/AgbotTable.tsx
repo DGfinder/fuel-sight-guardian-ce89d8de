@@ -27,7 +27,7 @@ interface AgbotTableProps {
 type SortField = 'location' | 'customer' | 'percentage' | 'status' | 'lastReading' | 'capacity' | 'consumption' | 'daysRemaining';
 type SortDirection = 'asc' | 'desc';
 
-export default function AgbotTable({ locations, className }: AgbotTableProps) {
+const AgbotTable = React.memo(function AgbotTable({ locations, className }: AgbotTableProps) {
   const { openModal } = useAgbotModal();
   const [sortField, setSortField] = useState<SortField>('location');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -380,4 +380,6 @@ export default function AgbotTable({ locations, className }: AgbotTableProps) {
       )}
     </div>
   );
-}
+});
+
+export default AgbotTable;

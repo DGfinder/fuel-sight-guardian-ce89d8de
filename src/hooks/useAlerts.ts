@@ -22,7 +22,7 @@ export function useAlerts(tankId?: string) {
             location,
             group_id,
             product_type,
-            tank_groups ( name )
+            tank_groups!fuel_tanks_group_id_fkey ( name )
           )
         `)
         .is('acknowledged_at', null)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTanks } from "@/hooks/useTanks";
+import { useTaTanksCompat as useTanks } from "@/hooks/useTaTanksCompat";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/types/supabase";
 import { Button } from "@/components/ui/button";

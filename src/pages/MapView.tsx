@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
-import { useMapData } from '@/hooks/useMapData';
+import { useMapData, MapItem } from '@/hooks/useMapData';
 import { useTankModal } from '@/contexts/TankModalContext';
 import { useAgbotModal } from '@/contexts/AgbotModalContext';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { TankMapPopup } from '@/components/TankMapPopup';
 import { AgbotMapPopup } from '@/components/AgbotMapPopup';
-import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route, Signal, Info, ChevronUp } from 'lucide-react';
+import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route, Signal, Info, ChevronUp, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -32,6 +32,98 @@ import { getIconForTank, getIconForAgbot } from '@/components/map/MapIcons';
 
 type MapStyle = 'light' | 'dark' | 'satellite' | 'terrain';
 
+// Smart cluster icon with urgency indicators
+const createClusterCustomIcon = (cluster: any) => {
+  const markers = cluster.getAllChildMarkers();
+  const childCount = cluster.getChildCount();
+
+  // Count by urgency status
+  let criticalCount = 0;
+  let urgentCount = 0;
+  let warningCount = 0;
+
+  markers.forEach((marker: any) => {
+    // Get urgency from marker data
+    const item = marker.options?.data;
+    const percentage = item?.current_level_percent;
+
+    // Determine urgency status
+    let status = 'ok';
+    if (item?.urgency_status) {
+      status = item.urgency_status;
+    } else if (percentage !== null && percentage !== undefined) {
+      if (percentage <= 10) status = 'critical';
+      else if (percentage <= 20) status = 'urgent';
+      else if (percentage <= 30) status = 'warning';
+    }
+
+    if (status === 'critical') criticalCount++;
+    else if (status === 'urgent') urgentCount++;
+    else if (status === 'warning') warningCount++;
+  });
+
+  // Cluster color = worst status present
+  let bgColor = '#16a34a'; // green (ok)
+  let ringColor = 'rgba(22, 163, 74, 0.3)';
+  let pulseClass = '';
+
+  if (criticalCount > 0) {
+    bgColor = '#dc2626'; // red
+    ringColor = 'rgba(220, 38, 38, 0.3)';
+    pulseClass = 'cluster-pulse-critical';
+  } else if (urgentCount > 0) {
+    bgColor = '#ea580c'; // orange
+    ringColor = 'rgba(234, 88, 12, 0.3)';
+    pulseClass = 'cluster-pulse-urgent';
+  } else if (warningCount > 0) {
+    bgColor = '#f59e0b'; // amber
+    ringColor = 'rgba(245, 158, 11, 0.3)';
+  }
+
+  // Badge showing critical count if any
+  const badge = criticalCount > 0
+    ? `<span class="cluster-badge">${criticalCount}</span>`
+    : '';
+
+  return L.divIcon({
+    html: `
+      <div class="cluster-marker ${pulseClass}" style="--cluster-color: ${bgColor}; --ring-color: ${ringColor}">
+        <span class="cluster-count">${childCount}</span>
+        ${badge}
+      </div>
+    `,
+    className: 'custom-cluster-icon',
+    iconSize: L.point(44, 44),
+  });
+};
+
+// Heatmap layer component
+const HeatmapLayer = ({ show, data }: { show: boolean; data: [number, number, number][] }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!show || data.length === 0) return;
+
+    // @ts-ignore - leaflet.heat types
+    const heat = L.heatLayer(data, {
+      radius: 35,
+      blur: 25,
+      maxZoom: 12,
+      gradient: {
+        0.2: '#22c55e',
+        0.4: '#84cc16',
+        0.6: '#eab308',
+        0.8: '#f97316',
+        1.0: '#dc2626'
+      }
+    }).addTo(map);
+
+    return () => { map.removeLayer(heat); };
+  }, [map, show, data]);
+
+  return null;
+};
+
 // Optimized markers component with React.memo
 interface MapMarkersProps {
   items: any[];
@@ -44,21 +136,46 @@ const MapMarkers = React.memo(({ items, openModal, openModalFromMap }: MapMarker
     () =>
       items
         .filter(item => item.latitude && item.longitude)
-        .map(item => (
-          <Marker
-            key={item.id}
-            position={[item.latitude!, item.longitude!]}
-            icon={item.source === 'manual' ? getIconForTank(item) : getIconForAgbot(item)}
-          >
-            <Popup>
-              {item.source === 'manual' ? (
-                <TankMapPopup tank={item} onViewDetails={openModal} />
-              ) : (
-                <AgbotMapPopup agbot={item} onViewDetails={openModalFromMap} />
-              )}
-            </Popup>
-          </Marker>
-        )),
+        .map(item => {
+          // Determine marker class based on status
+          const getMarkerClass = () => {
+            const classes: string[] = [];
+            const urgency = item.urgency_status;
+            const pct = item.current_level_percent;
+
+            if (urgency === 'critical' || (pct !== null && pct <= 10)) {
+              classes.push('marker-critical');
+            } else if (urgency === 'urgent' || (pct !== null && pct <= 20)) {
+              classes.push('marker-urgent');
+            }
+
+            // Check for stale data (>24h old)
+            if (item.latest_dip_date) {
+              const hoursSince = (Date.now() - new Date(item.latest_dip_date).getTime()) / (1000 * 60 * 60);
+              if (hoursSince > 24) classes.push('marker-stale');
+            }
+
+            return classes.join(' ');
+          };
+
+          return (
+            <Marker
+              key={item.id}
+              position={[item.latitude!, item.longitude!]}
+              icon={item.source === 'manual' ? getIconForTank(item) : getIconForAgbot(item)}
+              // @ts-ignore - pass data for cluster icon function
+              data={item}
+            >
+              <Popup>
+                {item.source === 'manual' ? (
+                  <TankMapPopup tank={item} onViewDetails={openModal} />
+                ) : (
+                  <AgbotMapPopup agbot={item} onViewDetails={openModalFromMap} />
+                )}
+              </Popup>
+            </Marker>
+          );
+        }),
     [items, openModal, openModalFromMap]
   );
 
@@ -74,8 +191,8 @@ function MapView() {
   const hasAnyData = (manualTanks?.length || 0) > 0 || (agbotDevices?.length || 0) > 0;
   const isPartiallyLoaded = hasAnyData && isLoading;
   const fullyLoaded = !isLoading;
-  const { openModal } = useTankModal();
-  const { openModalFromMap } = useAgbotModal();
+  const { openModalFromMap: openTankModalFromMap } = useTankModal();
+  const { openModalFromMap: openAgbotModalFromMap } = useAgbotModal();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -84,6 +201,26 @@ function MapView() {
   const [mapStyle, setMapStyle] = useState<MapStyle>('light');
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+
+  // Heatmap data (consumption-weighted)
+  const heatmapData = useMemo((): [number, number, number][] => {
+    if (!allItems) return [];
+    return allItems
+      .filter(item => item.latitude && item.longitude)
+      .map(item => {
+        // Intensity based on urgency (critical = highest)
+        let intensity = 0.3;
+        const pct = item.current_level_percent;
+        if (pct !== null && pct !== undefined) {
+          if (pct <= 10) intensity = 1.0;
+          else if (pct <= 20) intensity = 0.8;
+          else if (pct <= 30) intensity = 0.6;
+          else intensity = 0.3;
+        }
+        return [item.latitude!, item.longitude!, intensity] as [number, number, number];
+      });
+  }, [allItems]);
 
   // Map cleanup hook for React 19 compatibility
   useMapCleanup();
@@ -377,6 +514,16 @@ function MapView() {
                 >
                   <Clock className={cn("h-4 w-4", autoRefresh && "animate-pulse")} />
                 </Button>
+
+                <Button
+                  variant={showHeatmap ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowHeatmap(!showHeatmap)}
+                  className="h-9 w-9 p-0"
+                  title={showHeatmap ? "Hide heatmap" : "Show urgency heatmap"}
+                >
+                  <Flame className={cn("h-4 w-4", showHeatmap && "text-orange-400")} />
+                </Button>
               </div>
             </div>
 
@@ -529,13 +676,27 @@ function MapView() {
             attribution={mapStyles[mapStyle].attribution}
           />
 
-          <MarkerClusterGroup>
-            <MapMarkers
-              items={filteredItems}
-              openModal={openModal}
-              openModalFromMap={openModalFromMap}
-            />
-          </MarkerClusterGroup>
+          {/* Heatmap layer (togglable) */}
+          <HeatmapLayer show={showHeatmap} data={heatmapData} />
+
+          {/* Only render clusters when we have data (fixes 0,0 bug) */}
+          {filteredItems.length > 0 && (
+            <MarkerClusterGroup
+              chunkedLoading
+              iconCreateFunction={createClusterCustomIcon}
+              maxClusterRadius={60}
+              spiderfyOnMaxZoom={true}
+              showCoverageOnHover={false}
+              animate={true}
+              animateAddingMarkers={true}
+            >
+              <MapMarkers
+                items={filteredItems}
+                openModal={openTankModalFromMap}
+                openModalFromMap={openAgbotModalFromMap}
+              />
+            </MarkerClusterGroup>
+          )}
         </MapContainer>
       </div>
     </div>

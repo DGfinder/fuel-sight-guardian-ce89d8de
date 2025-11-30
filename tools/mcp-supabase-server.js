@@ -25,6 +25,7 @@ config({ path: join(rootDir, '.env') });
 // Get Supabase configuration from environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ Error: SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required');
@@ -35,9 +36,13 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   process.exit(1);
 }
 
-console.log('✅ MCP Supabase Server starting...');
-console.log(`🔗 Connecting to: ${SUPABASE_URL.substring(0, 30)}...`);
-console.log(`🔑 Using anon key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('⚠️ Warning: SUPABASE_SERVICE_ROLE_KEY not set - execute_sql will not be available');
+}
+
+console.error('✅ MCP Supabase Server starting...');
+console.error(`🔗 Connecting to: ${SUPABASE_URL.substring(0, 30)}...`);
+console.error(`🔑 Using anon key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -175,6 +180,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['function_name'],
         },
       },
+      {
+        name: 'execute_sql',
+        description: 'Execute raw SQL query on the Supabase database (requires service role key)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            code: {
+              type: 'string',
+              description: 'The SQL query to execute',
+            },
+          },
+          required: ['code'],
+        },
+      },
     ],
   };
 });
@@ -283,11 +302,66 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'supabase_rpc': {
         const { function_name, params = {} } = args;
         const { data, error } = await supabase.rpc(function_name, params);
-        
+
         if (error) {
           throw new McpError(ErrorCode.InternalError, `RPC call failed: ${error.message}`);
         }
-        
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(data, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'execute_sql': {
+        if (!SUPABASE_SERVICE_ROLE_KEY) {
+          throw new McpError(ErrorCode.InternalError, 'SUPABASE_SERVICE_ROLE_KEY is required for execute_sql');
+        }
+
+        const { code } = args;
+
+        // Use the Supabase REST API to execute raw SQL via the pg_query endpoint
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            query: code,
+          }),
+        });
+
+        // If the RPC endpoint doesn't work, try using supabase-js with service role
+        // Create a service role client for SQL execution
+        const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+          },
+        });
+
+        // Use the rpc method with a custom SQL function or direct query
+        // Supabase doesn't have a direct SQL endpoint, so we'll use the postgres extension
+        const { data, error } = await serviceClient.rpc('exec_sql', { sql_query: code });
+
+        if (error) {
+          // If exec_sql function doesn't exist, provide helpful message
+          if (error.message.includes('function') && error.message.includes('does not exist')) {
+            throw new McpError(
+              ErrorCode.InternalError,
+              `SQL execution failed. You need to create the exec_sql function first. Run this in Supabase SQL Editor:\n\nCREATE OR REPLACE FUNCTION exec_sql(sql_query TEXT)\nRETURNS JSON\nLANGUAGE plpgsql\nSECURITY DEFINER\nAS $$\nDECLARE\n  result JSON;\nBEGIN\n  EXECUTE sql_query INTO result;\n  RETURN result;\nEXCEPTION WHEN OTHERS THEN\n  RETURN json_build_object('error', SQLERRM);\nEND;\n$$;`
+            );
+          }
+          throw new McpError(ErrorCode.InternalError, `SQL execution failed: ${error.message}`);
+        }
+
         return {
           content: [
             {

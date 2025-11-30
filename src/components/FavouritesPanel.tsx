@@ -3,7 +3,7 @@ import { useFavourites } from '@/hooks/useFavourites';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Droplets, Star, Clock } from 'lucide-react';
-import { useTanks } from '@/hooks/useTanks';
+import { useTaTanksCompat as useTanks } from '@/hooks/useTaTanksCompat';
 import { supabase } from '@/lib/supabase';
 
 export function FavouritesPanel() {
