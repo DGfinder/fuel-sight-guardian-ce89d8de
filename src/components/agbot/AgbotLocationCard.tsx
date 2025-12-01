@@ -124,7 +124,7 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
           {/* Volume and Capacity Information */}
           {mainAsset && displayPercentage !== null && (
             <div className="text-center">
-              <div className="text-lg font-semibold text-blue-600">
+              <div className="text-lg font-semibold text-slate-700">
                 {(() => {
                   const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
                   const capacity = location.raw_data?.AssetProfileWaterCapacity ||
@@ -182,16 +182,16 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
           <div className="space-y-3">
             {/* Consumption Analytics */}
             {(mainAsset.asset_daily_consumption || location.location_daily_consumption || mainAsset.asset_days_remaining) && (
-              <div className="p-3 bg-blue-50 rounded-lg">
+              <div className="p-3 bg-slate-50 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-blue-800">Consumption</span>
-                  <TrendingDown className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-800">Consumption</span>
+                  <TrendingDown className="h-4 w-4 text-slate-600" />
                 </div>
                 <div className="space-y-1 text-xs">
                   {(mainAsset.asset_daily_consumption || location.location_daily_consumption) && (
                     <div className="flex justify-between">
-                      <span className="text-blue-600">Daily Usage:</span>
-                      <span className="font-semibold text-blue-800">
+                      <span className="text-slate-600">Daily Usage:</span>
+                      <span className="font-semibold text-slate-800">
                         {(() => {
                           const dailyConsumptionPct = mainAsset.asset_daily_consumption || location.location_daily_consumption;
                           const capacityFromName = mainAsset.asset_profile_name?.match(/[\d,]+/)?.[0]?.replace(/,/g, '');
@@ -207,8 +207,8 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
                   )}
                   {mainAsset.asset_days_remaining && (
                     <div className="flex justify-between">
-                      <span className="text-blue-600">Days Remaining:</span>
-                      <span className="font-semibold text-blue-800">{mainAsset.asset_days_remaining}</span>
+                      <span className="text-slate-600">Days Remaining:</span>
+                      <span className="font-semibold text-slate-800">{mainAsset.asset_days_remaining}</span>
                     </div>
                   )}
                 </div>
@@ -248,8 +248,8 @@ export default function AgbotLocationCard({ location }: AgbotLocationCardProps) 
 
         {/* Multiple Assets Indicator */}
         {allAssets.length > 1 && (
-          <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
-            <span className="text-sm text-blue-700">
+          <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+            <span className="text-sm text-slate-700">
               {allAssets.length} devices at this location
             </span>
             <Badge variant="secondary" className="text-xs">

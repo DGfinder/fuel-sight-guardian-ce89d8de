@@ -509,11 +509,12 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
         console.log(`   Assets to process: ${atharaLocation.assets?.length || 0}`);
 
         // Upsert location to new ta_agbot_locations table
+        // Use 'name' for conflict resolution to prevent duplicates from different sync sources
         const locationData = transformLocationData(atharaLocation);
         const { data: location, error: locationError } = await supabase
           .from('ta_agbot_locations')
           .upsert(locationData, {
-            onConflict: 'external_guid',
+            onConflict: 'name',
             ignoreDuplicates: false
           })
           .select()
@@ -735,11 +736,12 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
     for (const atharaLocation of atharaLocations) {
       try {
         // Upsert location to new ta_agbot_locations table
+        // Use 'name' for conflict resolution to prevent duplicates from different sync sources
         const locationData = transformLocationData(atharaLocation);
         const { data: location, error: locationError } = await supabase
           .from('ta_agbot_locations')
           .upsert(locationData, {
-            onConflict: 'external_guid',
+            onConflict: 'name',
             ignoreDuplicates: false
           })
           .select()
@@ -1498,11 +1500,12 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         console.log(`\n📍 Processing Row ${i + 1}: ${csvRow.locationId}`);
         
         // Transform and upsert location to new ta_agbot_locations table
+        // Use 'name' for conflict resolution to prevent duplicates from different sync sources
         const locationData = transformCSVLocationData(csvRow);
         const { data: location, error: locationError } = await supabase
           .from('ta_agbot_locations')
           .upsert(locationData, {
-            onConflict: 'external_guid',
+            onConflict: 'name',
             ignoreDuplicates: false
           })
           .select()
