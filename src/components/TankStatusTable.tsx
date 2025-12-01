@@ -22,11 +22,53 @@ import { getFuelStatus, statusBadgeStyles, groupStatusColors, getDaysTextColor, 
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
-const StatusBadge: React.FC<{ status: FuelStatus }> = ({ status }) => (
-  <span className={cn('px-2 py-1 rounded text-xs font-semibold', statusBadgeStyles[status])}>
-    {status === 'normal' ? 'Normal' : status.charAt(0).toUpperCase() + status.slice(1)}
-  </span>
-);
+const StatusBadge: React.FC<{
+  status: FuelStatus;
+  percent?: number;
+  daysToMin?: number | null;
+}> = ({ status, percent, daysToMin }) => {
+  // Determine the reason for the status
+  const getStatusReason = () => {
+    if (status === 'normal') return null;
+
+    const reasons: string[] = [];
+    if (status === 'critical') {
+      if (percent !== undefined && percent <= 10) reasons.push(`${percent}% (≤10%)`);
+      if (daysToMin !== null && daysToMin !== undefined && daysToMin <= 1.5) {
+        reasons.push(`${daysToMin.toFixed(1)} days (≤1.5)`);
+      }
+    } else if (status === 'low') {
+      if (percent !== undefined && percent <= 20) reasons.push(`${percent}% (≤20%)`);
+      if (daysToMin !== null && daysToMin !== undefined && daysToMin <= 2.5) {
+        reasons.push(`${daysToMin.toFixed(1)} days (≤2.5)`);
+      }
+    }
+    return reasons.length > 0 ? reasons.join(' & ') : null;
+  };
+
+  const reason = getStatusReason();
+
+  if (reason) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={cn('px-2 py-1 rounded text-xs font-semibold cursor-help', statusBadgeStyles[status])}>
+            {status === 'normal' ? 'Normal' : status.charAt(0).toUpperCase() + status.slice(1)}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{reason}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <span className={cn('px-2 py-1 rounded text-xs font-semibold', statusBadgeStyles[status])}>
+      {status === 'normal' ? 'Normal' : status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+};
 
 interface TankRowProps {
   tank: Tank;
@@ -95,7 +137,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
           />
           <span className="font-bold flex-1 text-left">{tank.location}</span>
           <PercentBar percent={percent} />
-          <StatusBadge status={status as 'critical' | 'low' | 'normal'} />
+          <StatusBadge status={status as 'critical' | 'low' | 'normal'} percent={percent} daysToMin={tank.days_to_min_level} />
         </AccordionTrigger>
         <AccordionContent>
           <div className="grid grid-cols-2 gap-2 text-sm px-3 pb-2">
@@ -194,7 +236,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
                   : <span>{Math.round(tank.prev_day_used).toLocaleString()}</span>
                 : '—'}
             </td>
-            <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} /></td>
+            <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} percent={percent} daysToMin={tank.days_to_min_level} /></td>
             <td className="px-3 py-2 text-center">
               {tank.last_dip?.created_at
                 ? formatPerthRelativeTime(tank.last_dip.created_at)
@@ -280,6 +322,11 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
       }
     });
     
+    // Sort subgroups alphabetically within each group
+    Object.values(result).forEach(group => {
+      group.subGroups.sort((a, b) => a.name.localeCompare(b.name));
+    });
+
     // Determine which groups should show subgroups
     Object.values(result).forEach(group => {
       const totalTanks = group.tanks.length + group.subGroups.reduce((sum, sg) => sum + sg.tanks.length, 0);
@@ -319,17 +366,18 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   }, [tanks]);
 
   // Function to get group status based on tank conditions
+  // Thresholds aligned with getFuelStatus: critical ≤1.5 days, low ≤2.5 days
   const getGroupStatus = (groupTanks: Tank[]) => {
     const allTanks = [...groupTanks];
 
     const criticalTanks = allTanks.filter(tank => {
       const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return percent <= 10 || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 2);
+      return percent <= 10 || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 1.5);
     });
 
     const warningTanks = allTanks.filter(tank => {
       const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return (percent > 10 && percent <= 20) || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level > 2 && tank.days_to_min_level <= 5);
+      return (percent > 10 && percent <= 20) || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level > 1.5 && tank.days_to_min_level <= 2.5);
     });
 
     if (criticalTanks.length > 0) return 'critical';
@@ -338,16 +386,17 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   };
 
   // Function to get detailed group stats for inline display
+  // Thresholds aligned with getFuelStatus: critical ≤1.5 days, low ≤2.5 days
   const getGroupStats = (groupTanks: Tank[]) => {
     const criticalCount = groupTanks.filter(tank => {
       const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return percent <= 10 || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 2);
+      return percent <= 10 || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 1.5);
     }).length;
 
     const warningCount = groupTanks.filter(tank => {
       const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
       return (percent > 10 && percent <= 20) ||
-             (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level > 2 && tank.days_to_min_level <= 5);
+             (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level > 1.5 && tank.days_to_min_level <= 2.5);
     }).length;
 
     return { criticalCount, warningCount };
