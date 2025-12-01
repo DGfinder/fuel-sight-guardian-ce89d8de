@@ -367,17 +367,28 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
 
   // Function to get group status based on tank conditions
   // Thresholds aligned with getFuelStatus: critical ≤1.5 days, low ≤2.5 days
+  // Only check thresholds if values exist (don't default null to 0)
   const getGroupStatus = (groupTanks: Tank[]) => {
     const allTanks = [...groupTanks];
 
     const criticalTanks = allTanks.filter(tank => {
-      const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return percent <= 10 || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 1.5);
+      const hasPercent = typeof tank.current_level_percent === 'number';
+      const hasDays = typeof tank.days_to_min_level === 'number';
+
+      const percentCritical = hasPercent && tank.current_level_percent! <= 10;
+      const daysCritical = hasDays && tank.days_to_min_level! <= 1.5;
+
+      return percentCritical || daysCritical;
     });
 
     const warningTanks = allTanks.filter(tank => {
-      const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return (percent > 10 && percent <= 20) || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level > 1.5 && tank.days_to_min_level <= 2.5);
+      const hasPercent = typeof tank.current_level_percent === 'number';
+      const hasDays = typeof tank.days_to_min_level === 'number';
+
+      const percentWarning = hasPercent && tank.current_level_percent! > 10 && tank.current_level_percent! <= 20;
+      const daysWarning = hasDays && tank.days_to_min_level! > 1.5 && tank.days_to_min_level! <= 2.5;
+
+      return percentWarning || daysWarning;
     });
 
     if (criticalTanks.length > 0) return 'critical';
@@ -387,16 +398,26 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
 
   // Function to get detailed group stats for inline display
   // Thresholds aligned with getFuelStatus: critical ≤1.5 days, low ≤2.5 days
+  // Only check thresholds if values exist (don't default null to 0)
   const getGroupStats = (groupTanks: Tank[]) => {
     const criticalCount = groupTanks.filter(tank => {
-      const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return percent <= 10 || (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level <= 1.5);
+      const hasPercent = typeof tank.current_level_percent === 'number';
+      const hasDays = typeof tank.days_to_min_level === 'number';
+
+      const percentCritical = hasPercent && tank.current_level_percent! <= 10;
+      const daysCritical = hasDays && tank.days_to_min_level! <= 1.5;
+
+      return percentCritical || daysCritical;
     }).length;
 
     const warningCount = groupTanks.filter(tank => {
-      const percent = typeof tank.current_level_percent === 'number' ? tank.current_level_percent : 0;
-      return (percent > 10 && percent <= 20) ||
-             (typeof tank.days_to_min_level === 'number' && tank.days_to_min_level > 1.5 && tank.days_to_min_level <= 2.5);
+      const hasPercent = typeof tank.current_level_percent === 'number';
+      const hasDays = typeof tank.days_to_min_level === 'number';
+
+      const percentWarning = hasPercent && tank.current_level_percent! > 10 && tank.current_level_percent! <= 20;
+      const daysWarning = hasDays && tank.days_to_min_level! > 1.5 && tank.days_to_min_level! <= 2.5;
+
+      return percentWarning || daysWarning;
     }).length;
 
     return { criticalCount, warningCount };
