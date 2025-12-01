@@ -365,28 +365,39 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
     return groupsArray;
   }, [tanks]);
 
+  // Helper function to calculate percent the same way as TankRow
+  // This ensures group status matches individual row status
+  const calculateTankPercent = (tank: Tank): number | null => {
+    if (typeof tank.current_level !== 'number' ||
+        typeof tank.min_level !== 'number' ||
+        typeof tank.safe_level !== 'number') {
+      return null;
+    }
+    const usableCapacity = tank.safe_level - tank.min_level;
+    const currentAboveMin = tank.current_level - tank.min_level;
+    if (usableCapacity <= 0) return null;
+    return Math.max(0, Math.round((currentAboveMin / usableCapacity) * 100));
+  };
+
   // Function to get group status based on tank conditions
-  // Thresholds aligned with getFuelStatus: critical ≤1.5 days, low ≤2.5 days
-  // Only check thresholds if values exist (don't default null to 0)
+  // Uses same percent calculation as TankRow for consistency
   const getGroupStatus = (groupTanks: Tank[]) => {
-    const allTanks = [...groupTanks];
+    const criticalTanks = groupTanks.filter(tank => {
+      const percent = calculateTankPercent(tank);
+      const days = tank.days_to_min_level;
 
-    const criticalTanks = allTanks.filter(tank => {
-      const hasPercent = typeof tank.current_level_percent === 'number';
-      const hasDays = typeof tank.days_to_min_level === 'number';
-
-      const percentCritical = hasPercent && tank.current_level_percent! <= 10;
-      const daysCritical = hasDays && tank.days_to_min_level! <= 1.5;
+      const percentCritical = percent !== null && percent <= 10;
+      const daysCritical = typeof days === 'number' && days <= 1.5;
 
       return percentCritical || daysCritical;
     });
 
-    const warningTanks = allTanks.filter(tank => {
-      const hasPercent = typeof tank.current_level_percent === 'number';
-      const hasDays = typeof tank.days_to_min_level === 'number';
+    const warningTanks = groupTanks.filter(tank => {
+      const percent = calculateTankPercent(tank);
+      const days = tank.days_to_min_level;
 
-      const percentWarning = hasPercent && tank.current_level_percent! > 10 && tank.current_level_percent! <= 20;
-      const daysWarning = hasDays && tank.days_to_min_level! > 1.5 && tank.days_to_min_level! <= 2.5;
+      const percentWarning = percent !== null && percent > 10 && percent <= 20;
+      const daysWarning = typeof days === 'number' && days > 1.5 && days <= 2.5;
 
       return percentWarning || daysWarning;
     });
@@ -397,25 +408,24 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   };
 
   // Function to get detailed group stats for inline display
-  // Thresholds aligned with getFuelStatus: critical ≤1.5 days, low ≤2.5 days
-  // Only check thresholds if values exist (don't default null to 0)
+  // Uses same percent calculation as TankRow for consistency
   const getGroupStats = (groupTanks: Tank[]) => {
     const criticalCount = groupTanks.filter(tank => {
-      const hasPercent = typeof tank.current_level_percent === 'number';
-      const hasDays = typeof tank.days_to_min_level === 'number';
+      const percent = calculateTankPercent(tank);
+      const days = tank.days_to_min_level;
 
-      const percentCritical = hasPercent && tank.current_level_percent! <= 10;
-      const daysCritical = hasDays && tank.days_to_min_level! <= 1.5;
+      const percentCritical = percent !== null && percent <= 10;
+      const daysCritical = typeof days === 'number' && days <= 1.5;
 
       return percentCritical || daysCritical;
     }).length;
 
     const warningCount = groupTanks.filter(tank => {
-      const hasPercent = typeof tank.current_level_percent === 'number';
-      const hasDays = typeof tank.days_to_min_level === 'number';
+      const percent = calculateTankPercent(tank);
+      const days = tank.days_to_min_level;
 
-      const percentWarning = hasPercent && tank.current_level_percent! > 10 && tank.current_level_percent! <= 20;
-      const daysWarning = hasDays && tank.days_to_min_level! > 1.5 && tank.days_to_min_level! <= 2.5;
+      const percentWarning = percent !== null && percent > 10 && percent <= 20;
+      const daysWarning = typeof days === 'number' && days > 1.5 && days <= 2.5;
 
       return percentWarning || daysWarning;
     }).length;
