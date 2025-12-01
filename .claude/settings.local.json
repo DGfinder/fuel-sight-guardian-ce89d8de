@@ -14,7 +14,7 @@
       "mcp__supabase__supabase_query",
       "Bash(timeout 5 node:*)",
       "mcp__supabase__supabase_insert",
-      "mcp__supabase__apply_migration"
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

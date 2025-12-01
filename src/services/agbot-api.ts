@@ -853,7 +853,10 @@ export async function getAgbotLocations(): Promise<AgbotLocation[]> {
     .from('ta_agbot_locations')
     .select(`
       *,
-      assets:ta_agbot_assets(*)
+      assets:ta_agbot_assets(
+        *,
+        readings:ta_agbot_readings(reading_at)
+      )
     `)
     .eq('is_disabled', false)
     .order('name');
@@ -865,33 +868,42 @@ export async function getAgbotLocations(): Promise<AgbotLocation[]> {
 
   // Transform new schema field names to legacy interface for backward compatibility
   return (data || []).map(loc => {
-    const assets = (loc.assets || []).map((asset: any) => ({
-      ...asset,
-      id: asset.id,
-      location_id: asset.location_id,
-      asset_guid: asset.external_guid,
-      asset_serial_number: asset.serial_number,
-      asset_disabled: asset.is_disabled,
-      asset_profile_name: asset.profile_name,
-      asset_profile_guid: asset.profile_guid,
-      asset_profile_water_capacity: asset.capacity_liters,
-      device_guid: asset.device_guid,
-      device_serial_number: asset.device_serial,
-      device_sku_model: asset.device_model,
-      device_sku_name: asset.device_model_name,
-      device_online: asset.is_online,
-      latest_calibrated_fill_percentage: asset.current_level_percent,
-      latest_raw_fill_percentage: asset.current_raw_percent,
-      latest_telemetry_event_timestamp: asset.last_telemetry_at,
-      latest_telemetry_event_epoch: asset.last_telemetry_epoch,
-      asset_daily_consumption: asset.daily_consumption_liters,
-      asset_days_remaining: asset.days_remaining,
-      asset_refill_capacity_litres: asset.ullage_liters,
-      asset_reported_litres: asset.current_level_liters,
-      device_battery_voltage: asset.battery_voltage,
-      device_temperature: asset.temperature_c,
-      device_state: asset.device_state
-    }));
+    const assets = (loc.assets || []).map((asset: any) => {
+      // Get the most recent reading_at from this asset's readings
+      const assetReadings = (asset.readings || [])
+        .map((r: any) => r.reading_at)
+        .filter(Boolean)
+        .sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime());
+      const latestAssetReading = assetReadings[0] || asset.last_telemetry_at;
+
+      return {
+        ...asset,
+        id: asset.id,
+        location_id: asset.location_id,
+        asset_guid: asset.external_guid,
+        asset_serial_number: asset.serial_number,
+        asset_disabled: asset.is_disabled,
+        asset_profile_name: asset.profile_name,
+        asset_profile_guid: asset.profile_guid,
+        asset_profile_water_capacity: asset.capacity_liters,
+        device_guid: asset.device_guid,
+        device_serial_number: asset.device_serial,
+        device_sku_model: asset.device_model,
+        device_sku_name: asset.device_model_name,
+        device_online: asset.is_online,
+        latest_calibrated_fill_percentage: asset.current_level_percent,
+        latest_raw_fill_percentage: asset.current_raw_percent,
+        latest_telemetry_event_timestamp: latestAssetReading, // Use reading timestamp
+        latest_telemetry_event_epoch: asset.last_telemetry_epoch,
+        asset_daily_consumption: asset.daily_consumption_liters,
+        asset_days_remaining: asset.days_remaining,
+        asset_refill_capacity_litres: asset.ullage_liters,
+        asset_reported_litres: asset.current_level_liters,
+        device_battery_voltage: asset.battery_voltage,
+        device_temperature: asset.temperature_c,
+        device_state: asset.device_state
+      };
+    });
 
     // Calculate location-level fill percentage from assets
     const assetPercentages = assets
@@ -900,6 +912,13 @@ export async function getAgbotLocations(): Promise<AgbotLocation[]> {
     const avgFillPercentage = assetPercentages.length > 0
       ? assetPercentages.reduce((sum: number, p: number) => sum + p, 0) / assetPercentages.length
       : loc.calibrated_fill_level || 0;
+
+    // Get the most recent reading_at from all assets' readings for this location
+    const allReadingTimestamps = (loc.assets || [])
+      .flatMap((a: any) => (a.readings || []).map((r: any) => r.reading_at))
+      .filter(Boolean)
+      .sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime());
+    const latestReadingTime = allReadingTimestamps[0] || loc.last_telemetry_at;
 
     return {
       ...loc,
@@ -921,9 +940,9 @@ export async function getAgbotLocations(): Promise<AgbotLocation[]> {
       installation_status_label: loc.installation_status_label,
       // Key fields for frontend display
       latest_calibrated_fill_percentage: avgFillPercentage,
-      latest_telemetry: loc.last_telemetry_at,
+      latest_telemetry: latestReadingTime, // Derived from readings table
       latest_telemetry_epoch: loc.last_telemetry_epoch,
-      last_reading_time: loc.last_telemetry_at, // Used by device status checks
+      last_reading_time: latestReadingTime, // Used by device status checks
       location_daily_consumption: loc.daily_consumption_liters,
       location_days_remaining: loc.days_remaining,
       location_calibrated_fill_level: loc.calibrated_fill_level,
