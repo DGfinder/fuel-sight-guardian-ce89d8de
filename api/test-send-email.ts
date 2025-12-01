@@ -136,25 +136,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select(
         `
         agbot_location_id,
-        ta_agbot_locations!inner (
+        agbot_locations!inner (
           id,
-          name,
-          address,
+          location_id,
+          address1,
           customer_name,
-          calibrated_fill_level,
-          last_telemetry_at,
-          is_disabled,
-          ta_agbot_assets (
+          latest_calibrated_fill_percentage,
+          latest_telemetry,
+          disabled,
+          agbot_assets (
             id,
-            is_online,
-            capacity_liters,
-            daily_consumption_liters,
-            days_remaining,
-            device_serial,
-            current_level_liters,
-            ullage_liters,
-            battery_voltage,
-            commodity
+            device_online,
+            asset_profile_water_capacity,
+            asset_daily_consumption,
+            asset_days_remaining,
+            device_serial_number,
+            asset_reported_litres,
+            asset_refill_capacity_litres,
+            device_battery_voltage,
+            asset_profile_commodity
           )
         )
       `
@@ -164,36 +164,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!assignedTanksError && assignedTanks && assignedTanks.length > 0) {
       // Contact has specific tank assignments
       locations = assignedTanks
-        .map((assignment: any) => assignment.ta_agbot_locations)
-        .filter((loc: any) => loc && !loc.is_disabled);
+        .map((assignment: any) => assignment.agbot_locations)
+        .filter((loc: any) => loc && !loc.disabled);
     } else {
       // Fallback - fetch ALL tanks for this customer
       const { data: allLocations, error: locationsError } = await supabase
-        .from('ta_agbot_locations')
+        .from('agbot_locations')
         .select(
           `
           id,
-          name,
-          address,
+          location_id,
+          address1,
           customer_name,
-          calibrated_fill_level,
-          last_telemetry_at,
-          ta_agbot_assets (
+          latest_calibrated_fill_percentage,
+          latest_telemetry,
+          agbot_assets (
             id,
-            is_online,
-            capacity_liters,
-            daily_consumption_liters,
-            days_remaining,
-            device_serial,
-            current_level_liters,
-            ullage_liters,
-            battery_voltage,
-            commodity
+            device_online,
+            asset_profile_water_capacity,
+            asset_daily_consumption,
+            asset_days_remaining,
+            device_serial_number,
+            asset_reported_litres,
+            asset_refill_capacity_litres,
+            device_battery_voltage,
+            asset_profile_commodity
           )
         `
         )
         .eq('customer_name', typedContact.customer_name)
-        .eq('is_disabled', false);
+        .eq('disabled', false);
 
       if (locationsError) {
         throw new Error(`Failed to fetch locations: ${locationsError.message}`);
@@ -230,22 +230,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Transform data for email template
     const emailData = locations.map((loc: any) => {
-      const asset = loc.ta_agbot_assets?.[0] || {};
+      const asset = loc.agbot_assets?.[0] || {};
       return {
-        location_id: loc.name || 'Unknown',
+        location_id: loc.location_id || 'Unknown',
         asset_id: asset.id || null, // Asset UUID for querying readings history
-        address1: loc.address || 'Unknown Location',
-        latest_calibrated_fill_percentage: loc.calibrated_fill_level || 0,
-        latest_telemetry: loc.last_telemetry_at,
-        device_online: asset.is_online || false,
-        asset_profile_water_capacity: asset.capacity_liters || null,
-        asset_daily_consumption: asset.daily_consumption_liters || null,
-        asset_days_remaining: asset.days_remaining || null,
-        device_serial_number: asset.device_serial || null,
-        asset_reported_litres: asset.current_level_liters || null,
-        asset_refill_capacity_litres: asset.ullage_liters || null,
-        device_battery_voltage: asset.battery_voltage || null,
-        asset_profile_commodity: asset.commodity || null
+        address1: loc.address1 || 'Unknown Location',
+        latest_calibrated_fill_percentage: loc.latest_calibrated_fill_percentage || 0,
+        latest_telemetry: loc.latest_telemetry,
+        device_online: asset.device_online || false,
+        asset_profile_water_capacity: asset.asset_profile_water_capacity || null,
+        asset_daily_consumption: asset.asset_daily_consumption || null,
+        asset_days_remaining: asset.asset_days_remaining || null,
+        device_serial_number: asset.device_serial_number || null,
+        asset_reported_litres: asset.asset_reported_litres || null,
+        asset_refill_capacity_litres: asset.asset_refill_capacity_litres || null,
+        device_battery_voltage: asset.device_battery_voltage || null,
+        asset_profile_commodity: asset.asset_profile_commodity || null
       };
     });
 
