@@ -19,6 +19,7 @@ import { AlertsDrawer } from './components/AlertsDrawer';
 import { AgbotModalProvider } from './contexts/AgbotModalContext';
 import AgbotDetailsModal from './components/AgbotDetailsModal';
 import AppLayout from '@/components/AppLayout';
+import { supabase } from '@/lib/supabase';
 
 // Lazy load page components for better code splitting
 const Index = lazy(() => import("@/pages/Index"));
@@ -156,6 +157,41 @@ function WindowFocusHandler() {
   return null; // This is a behavior-only component
 }
 
+// Force refresh listener - listens for admin-triggered refresh broadcasts
+function ForceRefreshListener() {
+  useEffect(() => {
+    const channel = supabase.channel('force-refresh');
+
+    channel
+      .on('broadcast', { event: 'refresh' }, async () => {
+        console.log('[FORCE REFRESH] Admin triggered refresh - clearing caches and reloading');
+
+        // Clear service worker caches
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        }
+
+        // Clear localStorage cache keys
+        const cacheKeys = ['fuel-data-cache', 'fuel-data-last-sync'];
+        cacheKeys.forEach(key => localStorage.removeItem(key));
+
+        // Clear React Query cache
+        queryClient.clear();
+
+        // Force hard reload (bypass cache)
+        window.location.reload();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return null;
+}
+
 function HashRedirector() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -177,6 +213,8 @@ function AppContent() {
       <QueryClientProvider client={queryClient}>
         {/* Custom window focus handler - only refetch if user was away >5 minutes */}
         <WindowFocusHandler />
+        {/* Listen for admin-triggered force refresh broadcasts */}
+        <ForceRefreshListener />
         <TooltipProvider>
           <AppStateProvider>
             <BrowserRouter

@@ -14,7 +14,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import type { Tables } from '@/types/supabase';
-import { Moon, Sun, Monitor, Palette, Bell, Shield, User, Settings as SettingsIcon, Users, ArrowRight } from 'lucide-react';
+import { Moon, Sun, Monitor, Palette, Bell, Shield, User, Settings as SettingsIcon, Users, ArrowRight, RefreshCw } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Link } from 'react-router-dom';
 
 interface UserRoleRow {
@@ -131,6 +142,8 @@ function Settings() {
   });
 
   const [fullName, setFullName] = useState('');
+  const [isForceRefreshing, setIsForceRefreshing] = useState(false);
+
   useEffect(() => {
     if (profile?.full_name) {
       setFullName(profile.full_name);
@@ -735,6 +748,84 @@ function Settings() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Force Refresh All Users */}
+                <Card className="border-2 border-orange-200 dark:border-orange-800">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="font-semibold mb-1">Force Refresh All Users</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Trigger a hard refresh for all connected users. This clears their caches and reloads the app.
+                        </p>
+                      </div>
+                      <RefreshCw className="h-8 w-8 text-orange-500" />
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full border-orange-300 hover:bg-orange-50 dark:border-orange-700 dark:hover:bg-orange-950"
+                          disabled={isForceRefreshing}
+                        >
+                          {isForceRefreshing ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Broadcasting...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Force Refresh All Users
+                            </>
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Force Refresh All Users?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will immediately trigger a hard refresh for all users currently connected to the app.
+                            Their browser caches will be cleared and the page will reload. Use this after deploying updates
+                            to ensure everyone gets the latest version.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              setIsForceRefreshing(true);
+                              try {
+                                const channel = supabase.channel('force-refresh');
+                                await channel.subscribe();
+                                await channel.send({
+                                  type: 'broadcast',
+                                  event: 'refresh',
+                                  payload: { timestamp: Date.now(), triggeredBy: user?.email }
+                                });
+                                await supabase.removeChannel(channel);
+                                toast({
+                                  title: 'Refresh Broadcast Sent',
+                                  description: 'All connected users will refresh their browsers.',
+                                });
+                              } catch (error) {
+                                toast({
+                                  title: 'Broadcast Failed',
+                                  description: 'Failed to send refresh signal. Please try again.',
+                                  variant: 'destructive'
+                                });
+                              } finally {
+                                setIsForceRefreshing(false);
+                              }
+                            }}
+                          >
+                            Force Refresh
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </CardContent>
+                </Card>
 
                 <div className="p-4 bg-muted rounded-lg">
                   <h4 className="font-medium mb-2">Quick Stats</h4>
