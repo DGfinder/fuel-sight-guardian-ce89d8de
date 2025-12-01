@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { motion } from 'framer-motion';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface DataPoint {
   date: Date;
@@ -32,6 +33,10 @@ export function FuelConsumptionChart({
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [hoveredPoint, setHoveredPoint] = useState<DataPoint | null>(null);
+  const { shouldReduceMotion } = useReducedMotion();
+
+  // Disable animations on mobile/slow networks for better performance
+  const effectiveAnimated = animated && !shouldReduceMotion;
 
   useEffect(() => {
     if (!data.length || !svgRef.current) return;
@@ -122,13 +127,13 @@ export function FuelConsumptionChart({
         .attr('opacity', 0.8)
         .attr('d', consumptionLine);
 
-      if (animated) {
+      if (effectiveAnimated) {
         const totalLength = path.node()?.getTotalLength() || 0;
         path
           .attr('stroke-dasharray', totalLength + ' ' + totalLength)
           .attr('stroke-dashoffset', totalLength)
           .transition()
-          .duration(2000)
+          .duration(1000) // Reduced from 2000ms for better performance
           .ease(d3.easeQuadInOut)
           .attr('stroke-dashoffset', 0);
       }
@@ -142,7 +147,7 @@ export function FuelConsumptionChart({
       .attr('class', 'data-point')
       .attr('cx', d => xScale(d.date))
       .attr('cy', d => yScaleConsumption(d.consumption))
-      .attr('r', animated ? 0 : 4)
+      .attr('r', effectiveAnimated ? 0 : 4)
       .attr('fill', d => colorScale(d.tankId))
       .attr('stroke', 'white')
       .attr('stroke-width', 2)
@@ -166,11 +171,11 @@ export function FuelConsumptionChart({
         }
       });
 
-    if (animated) {
+    if (effectiveAnimated) {
       circles
         .transition()
-        .duration(2000)
-        .delay((d, i) => i * 50)
+        .duration(800) // Reduced from 2000ms
+        .delay((d, i) => i * 20) // Reduced stagger from 50ms to 20ms
         .attr('r', 4);
     }
 
@@ -229,7 +234,7 @@ export function FuelConsumptionChart({
       .style('fill', '#374151')
       .text('Date');
 
-  }, [data, width, height, animated, showGrid]);
+  }, [data, width, height, effectiveAnimated, showGrid]);
 
   return (
     <div className={`relative ${className}`}>
@@ -237,19 +242,19 @@ export function FuelConsumptionChart({
         ref={svgRef}
         width={width}
         height={height}
-        initial={{ opacity: 0 }}
+        initial={shouldReduceMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: shouldReduceMotion ? 0.1 : 0.5 }}
         className="overflow-visible"
       />
-      
+
       {showTooltip && hoveredPoint && (
         <motion.div
           ref={tooltipRef}
           className="absolute bg-white border border-gray-200 rounded-lg shadow-lg p-3 pointer-events-none z-10"
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
+          exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
           style={{
             left: `${width / 2}px`,
             top: `${height / 4}px`,
@@ -292,6 +297,8 @@ export function TankGauge({
   animated = true
 }: TankGaugeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const { shouldReduceMotion } = useReducedMotion();
+  const effectiveAnimated = animated && !shouldReduceMotion;
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -335,7 +342,7 @@ export function TankGauge({
       .attr('transform', `translate(${centerX},${centerY})`)
       .attr('fill', colors[status]);
 
-    if (animated) {
+    if (effectiveAnimated) {
       const arcTween = (newAngle: number) => {
         return () => {
           const interpolate = d3.interpolate(-Math.PI / 2, newAngle);
@@ -353,7 +360,7 @@ export function TankGauge({
 
       path
         .transition()
-        .duration(1500)
+        .duration(800) // Reduced from 1500ms
         .ease(d3.easeQuadOut)
         .attrTween('d', arcTween(angle));
     }
@@ -376,14 +383,14 @@ export function TankGauge({
       .attr('fill', '#6b7280')
       .text(tankName);
 
-  }, [level, capacity, status, size, animated]);
+  }, [level, capacity, status, size, effectiveAnimated]);
 
   return (
     <motion.div
       className="relative"
-      initial={{ scale: 0.8, opacity: 0 }}
+      initial={shouldReduceMotion ? false : { scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: shouldReduceMotion ? 0.1 : 0.5 }}
     >
       <svg
         ref={svgRef}

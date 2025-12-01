@@ -20,6 +20,7 @@ import { AgbotModalProvider } from './contexts/AgbotModalContext';
 import AgbotDetailsModal from './components/AgbotDetailsModal';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/lib/supabase';
+import { getNetworkQualityMultiplier, isSlowNetwork } from '@/hooks/useReducedMotion';
 
 // Lazy load page components for better code splitting
 const Index = lazy(() => import("@/pages/Index"));
@@ -73,6 +74,10 @@ const PageLoader = () => (
   </div>
 );
 
+// Base intervals (will be multiplied by network quality)
+const BASE_REFETCH_INTERVAL = 2 * 60 * 1000; // 2 minutes (was 30 seconds)
+const BASE_STALE_TIME = 2 * 60 * 1000; // 2 minutes
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -83,18 +88,27 @@ const queryClient = new QueryClient({
         if (status >= 400 && status < 500 && ![408, 429].includes(status)) {
           return false;
         }
-        return failureCount < 3;
+        // Reduce retries on slow networks
+        return failureCount < (isSlowNetwork() ? 2 : 3);
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
       refetchOnMount: true,
-      staleTime: 2 * 60 * 1000, // 2 minutes for real-time data
+      // Stale time: 2 minutes (network-aware refetching handles slow connections)
+      staleTime: BASE_STALE_TIME,
       gcTime: 10 * 60 * 1000, // 10 minutes garbage collection (formerly cacheTime)
-      // Background refetch for fresh data
+      // Device-aware background refetch
       refetchInterval: (query) => {
-        // Refetch tank data every 30 seconds if page is visible
+        // Refetch tank data when page is visible
         if ((query as Query)?.queryKey?.[0] === 'tanks' && document.visibilityState === 'visible') {
+          // Check if mobile or slow network
+          const isMobileOrSlow = window.innerWidth <= 768 || isSlowNetwork();
+          if (isMobileOrSlow) {
+            // Mobile/slow: 2 min base, up to 12 min on very slow networks
+            return BASE_REFETCH_INTERVAL * getNetworkQualityMultiplier();
+          }
+          // Desktop on fast network: 30 seconds (original behavior)
           return 30 * 1000;
         }
         return false;
@@ -163,8 +177,44 @@ function ForceRefreshListener() {
     const channel = supabase.channel('force-refresh');
 
     channel
-      .on('broadcast', { event: 'refresh' }, async () => {
-        console.log('[FORCE REFRESH] Admin triggered refresh - clearing caches and reloading');
+      .on('broadcast', { event: 'refresh' }, async (message) => {
+        console.log('[FORCE REFRESH] Admin triggered refresh - sending acknowledgment');
+
+        const sessionId = message.payload?.sessionId;
+
+        // Get current user info and send acknowledgment before reloading
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const currentUser = session?.user;
+
+          if (currentUser && sessionId) {
+            // Send acknowledgment BEFORE reload on dedicated ack channel
+            const ackChannel = supabase.channel('force-refresh-ack');
+            await ackChannel.subscribe();
+
+            await ackChannel.send({
+              type: 'broadcast',
+              event: 'ack',
+              payload: {
+                sessionId: sessionId,
+                oduserId: currentUser.id,
+                email: currentUser.email,
+                fullName: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Unknown',
+                acknowledgedAt: Date.now(),
+              }
+            });
+
+            // Brief delay to ensure message delivery
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            await supabase.removeChannel(ackChannel);
+          }
+        } catch (error) {
+          console.error('[FORCE REFRESH] Failed to send ack:', error);
+          // Continue with reload regardless of ack failure
+        }
+
+        console.log('[FORCE REFRESH] Clearing caches and reloading');
 
         // Clear service worker caches
         if ('caches' in window) {
@@ -186,6 +236,41 @@ function ForceRefreshListener() {
 
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return null;
+}
+
+// Track user presence for force-refresh acknowledgment feature
+function PresenceTracker() {
+  useEffect(() => {
+    let presenceChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    const initPresence = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      presenceChannel = supabase.channel('app-presence');
+
+      presenceChannel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel?.track({
+            oduserId: session.user.id,
+            email: session.user.email,
+            fullName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
+            onlineAt: new Date().toISOString(),
+          });
+        }
+      });
+    };
+
+    initPresence();
+
+    return () => {
+      if (presenceChannel) {
+        supabase.removeChannel(presenceChannel);
+      }
     };
   }, []);
 
@@ -215,6 +300,8 @@ function AppContent() {
         <WindowFocusHandler />
         {/* Listen for admin-triggered force refresh broadcasts */}
         <ForceRefreshListener />
+        {/* Track user presence for force-refresh acknowledgments */}
+        <PresenceTracker />
         <TooltipProvider>
           <AppStateProvider>
             <BrowserRouter

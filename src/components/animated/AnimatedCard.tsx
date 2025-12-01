@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, MotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface AnimatedCardProps extends MotionProps {
   children: React.ReactNode;
@@ -70,13 +71,17 @@ export function AnimatedCard({
   hover = true,
   ...motionProps
 }: AnimatedCardProps) {
-  const selectedVariant = variants[variant];
-  
+  const { shouldReduceMotion } = useReducedMotion();
+
+  // On mobile/reduced motion: use simple fade only, no hover effects
+  const selectedVariant = shouldReduceMotion ? variants.fade : variants[variant];
+  const effectiveHover = hover && !shouldReduceMotion;
+
   return (
     <motion.div
       className={cn(
         "rounded-lg border bg-card text-card-foreground shadow-sm",
-        hover && "cursor-pointer",
+        effectiveHover && "cursor-pointer",
         className
       )}
       custom={direction}
@@ -84,12 +89,12 @@ export function AnimatedCard({
       animate="visible"
       variants={selectedVariant}
       transition={{
-        duration,
-        delay,
+        duration: shouldReduceMotion ? 0.2 : duration,
+        delay: shouldReduceMotion ? 0 : delay,
         ease: "easeOut"
       }}
-      whileHover={hover ? "hover" : undefined}
-      {...(hover && hoverVariants)}
+      whileHover={effectiveHover ? "hover" : undefined}
+      {...(effectiveHover && hoverVariants)}
       {...motionProps}
     >
       {children}
@@ -142,6 +147,26 @@ export function AnimatedTankCard({
   delay = 0,
   onClick
 }: AnimatedTankCardProps) {
+  const { shouldReduceMotion } = useReducedMotion();
+
+  // On mobile/reduced motion: disable pulsing animations and spring physics
+  const animateProps = shouldReduceMotion
+    ? { opacity: 1, y: 0, scale: 1 }
+    : { opacity: 1, y: 0, scale: 1, ...statusAnimations[status] };
+
+  const hoverProps = shouldReduceMotion
+    ? undefined
+    : {
+        scale: 1.02,
+        y: -4,
+        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+        transition: {
+          type: "spring",
+          stiffness: 400,
+          damping: 25
+        }
+      };
+
   return (
     <motion.div
       className={cn(
@@ -152,29 +177,15 @@ export function AnimatedTankCard({
         status === 'normal' && "border-green-200 bg-green-50/50",
         className
       )}
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ 
-        opacity: 1, 
-        y: 0, 
-        scale: 1,
-        ...statusAnimations[status]
-      }}
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.95 }}
+      animate={animateProps}
       transition={{
-        duration: 0.4,
-        delay,
+        duration: shouldReduceMotion ? 0.15 : 0.4,
+        delay: shouldReduceMotion ? 0 : delay,
         ease: "easeOut"
       }}
-      whileHover={{
-        scale: 1.02,
-        y: -4,
-        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-        transition: {
-          type: "spring",
-          stiffness: 400,
-          damping: 25
-        }
-      }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={hoverProps}
+      whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
       onClick={onClick}
     >
       {children}
@@ -194,6 +205,9 @@ export function AnimatedCardGrid({
   className,
   stagger = 0.1
 }: AnimatedCardGridProps) {
+  const { shouldReduceMotion } = useReducedMotion();
+
+  // On mobile/reduced motion: no stagger delay
   return (
     <motion.div
       className={className}
@@ -203,7 +217,7 @@ export function AnimatedCardGrid({
         hidden: {},
         visible: {
           transition: {
-            staggerChildren: stagger
+            staggerChildren: shouldReduceMotion ? 0 : stagger
           }
         }
       }}

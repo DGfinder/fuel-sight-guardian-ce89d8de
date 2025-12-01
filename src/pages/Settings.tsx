@@ -27,6 +27,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Link } from 'react-router-dom';
+import { ForceRefreshAckModal, Acknowledgment, PresenceUser } from '@/components/ForceRefreshAckModal';
 
 interface UserRoleRow {
   role: string;
@@ -144,11 +145,81 @@ function Settings() {
   const [fullName, setFullName] = useState('');
   const [isForceRefreshing, setIsForceRefreshing] = useState(false);
 
+  // Force refresh acknowledgment tracking state
+  const [showAckModal, setShowAckModal] = useState(false);
+  const [refreshSessionId, setRefreshSessionId] = useState<string | null>(null);
+  const [acknowledgments, setAcknowledgments] = useState<Acknowledgment[]>([]);
+  const [connectedUsers, setConnectedUsers] = useState<PresenceUser[]>([]);
+
   useEffect(() => {
     if (profile?.full_name) {
       setFullName(profile.full_name);
     }
   }, [profile]);
+
+  // Listen to presence when ack modal is open
+  useEffect(() => {
+    if (!showAckModal) return;
+
+    const presenceChannel = supabase.channel('app-presence');
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const users: PresenceUser[] = Object.values(state)
+          .flat()
+          .map((p: any) => ({
+            oduserId: p.oduserId,
+            email: p.email,
+            fullName: p.fullName,
+            onlineAt: p.onlineAt,
+          }))
+          // Filter out the current admin
+          .filter((u: PresenceUser) => u.oduserId !== user?.id);
+        setConnectedUsers(users);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [showAckModal, user?.id]);
+
+  // Listen for acknowledgments
+  useEffect(() => {
+    if (!refreshSessionId) return;
+
+    const ackChannel = supabase.channel('force-refresh-ack');
+
+    ackChannel
+      .on('broadcast', { event: 'ack' }, (message) => {
+        if (message.payload?.sessionId === refreshSessionId) {
+          setAcknowledgments(prev => {
+            // Prevent duplicates
+            if (prev.some(a => a.userId === message.payload.oduserId)) {
+              return prev;
+            }
+            return [...prev, {
+              userId: message.payload.oduserId,
+              email: message.payload.email,
+              fullName: message.payload.fullName,
+              acknowledgedAt: message.payload.acknowledgedAt,
+            }];
+          });
+        }
+      })
+      .subscribe();
+
+    // Auto-cleanup after 60 seconds
+    const cleanup = setTimeout(() => {
+      supabase.removeChannel(ackChannel);
+    }, 60000);
+
+    return () => {
+      clearTimeout(cleanup);
+      supabase.removeChannel(ackChannel);
+    };
+  }, [refreshSessionId]);
 
   const updateNameMutation = useMutation({
     mutationFn: async (newName: string) => {
@@ -795,18 +866,29 @@ function Settings() {
                           <AlertDialogAction
                             onClick={async () => {
                               setIsForceRefreshing(true);
+
+                              // Generate unique session ID for this refresh
+                              const sessionId = crypto.randomUUID();
+                              setRefreshSessionId(sessionId);
+                              setAcknowledgments([]);
+                              setShowAckModal(true);
+
                               try {
                                 const channel = supabase.channel('force-refresh');
                                 await channel.subscribe();
                                 await channel.send({
                                   type: 'broadcast',
                                   event: 'refresh',
-                                  payload: { timestamp: Date.now(), triggeredBy: user?.email }
+                                  payload: {
+                                    sessionId,
+                                    timestamp: Date.now(),
+                                    triggeredBy: user?.email
+                                  }
                                 });
                                 await supabase.removeChannel(channel);
                                 toast({
                                   title: 'Refresh Broadcast Sent',
-                                  description: 'All connected users will refresh their browsers.',
+                                  description: 'Monitoring for user acknowledgments...',
                                 });
                               } catch (error) {
                                 toast({
@@ -814,6 +896,8 @@ function Settings() {
                                   description: 'Failed to send refresh signal. Please try again.',
                                   variant: 'destructive'
                                 });
+                                setShowAckModal(false);
+                                setRefreshSessionId(null);
                               } finally {
                                 setIsForceRefreshing(false);
                               }
@@ -1120,6 +1204,19 @@ function Settings() {
         </TabsContent>
         )}
       </Tabs>
+
+      {/* Force Refresh Acknowledgment Modal */}
+      <ForceRefreshAckModal
+        open={showAckModal}
+        onClose={() => {
+          setShowAckModal(false);
+          // Keep sessionId for a bit to catch late acks, then clear
+          setTimeout(() => setRefreshSessionId(null), 5000);
+        }}
+        acknowledgments={acknowledgments}
+        connectedUsers={connectedUsers}
+        isLoading={isForceRefreshing}
+      />
     </div>
   );
 }
