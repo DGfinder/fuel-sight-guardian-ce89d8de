@@ -410,7 +410,13 @@ function transformLocationData(atharaLocation: AtharaLocation) {
     installation_status_label: atharaLocation.installationStatusLabel,
     is_disabled: atharaLocation.disabled || false,
     calibrated_fill_level: atharaLocation.latestCalibratedFillPercentage,
-    last_telemetry_at: atharaLocation.latestTelemetry,
+    // Use epoch timestamp to generate proper UTC ISO string (avoids timezone issues with string format)
+    // Handle both seconds (10 digits) and milliseconds (13 digits) epoch formats
+    last_telemetry_at: atharaLocation.latestTelemetryEpoch
+      ? new Date(atharaLocation.latestTelemetryEpoch > 10000000000
+          ? atharaLocation.latestTelemetryEpoch
+          : atharaLocation.latestTelemetryEpoch * 1000).toISOString()
+      : atharaLocation.latestTelemetry,
     last_telemetry_epoch: atharaLocation.latestTelemetryEpoch,
     updated_at: new Date().toISOString()
   };
@@ -443,7 +449,13 @@ function transformAssetData(atharaAsset: AtharaAsset, locationId: string) {
     temperature_c: (atharaAsset as any).deviceTemperature,
     device_activated_at: atharaAsset.deviceActivationDate,
     device_activation_epoch: atharaAsset.deviceActivationEpoch,
-    last_telemetry_at: atharaAsset.latestTelemetryEventTimestamp,
+    // Use epoch timestamp to generate proper UTC ISO string (avoids timezone issues with string format)
+    // Handle both seconds (10 digits) and milliseconds (13 digits) epoch formats
+    last_telemetry_at: atharaAsset.latestTelemetryEventEpoch
+      ? new Date(atharaAsset.latestTelemetryEventEpoch > 10000000000
+          ? atharaAsset.latestTelemetryEventEpoch
+          : atharaAsset.latestTelemetryEventEpoch * 1000).toISOString()
+      : atharaAsset.latestTelemetryEventTimestamp,
     last_telemetry_epoch: atharaAsset.latestTelemetryEventEpoch,
     raw_data: atharaAsset,
     updated_at: new Date().toISOString()
