@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/send-agbot-reports",
-      "schedule": "15 23 * * *"
+      "schedule": "15 * * * *"
     }
   ],
   "rewrites": [

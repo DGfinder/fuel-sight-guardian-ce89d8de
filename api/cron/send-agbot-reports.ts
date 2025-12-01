@@ -1,6 +1,6 @@
 // AgBot Reports Cron Job V2 - Enhanced with Analytics
 // Sends daily/weekly/monthly email reports to customers about their AgBot tank statuses
-// Scheduled to run daily at 7 AM AWST (Perth time)
+// Scheduled to run hourly at :15 past the hour, sends to customers based on their preferred_send_hour (Perth time)
 // URL: https://fuel-sight-guardian-ce89d8de.vercel.app/api/cron/send-agbot-reports
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -118,16 +118,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const currentDate = new Date();
 
+    // Calculate current Perth hour (UTC+8)
+    const perthHour = (currentDate.getUTCHours() + 8) % 24;
+    console.log(`[CRON] Current Perth hour: ${perthHour}:15`);
+
     // Step 1: Recalculate consumption for all assets before sending emails
     console.log('[CRON] Recalculating consumption for all assets...');
     const consumptionResult = await recalculateAllAssets();
     console.log(`[CRON] Consumption recalculation: ${consumptionResult.updated} updated, ${consumptionResult.failed} failed`);
 
-    // Fetch all enabled customer contacts for all report frequencies
+    // Fetch all enabled customer contacts whose preferred_send_hour matches current Perth hour
     const { data: allContacts, error: contactsError} = await supabase
       .from('customer_contacts')
       .select('*')
       .eq('enabled', true)
+      .eq('preferred_send_hour', perthHour)
       .in('report_frequency', ['daily', 'weekly', 'monthly']);
 
     if (contactsError) {
@@ -137,8 +142,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!allContacts || allContacts.length === 0) {
       return res.status(200).json({
         success: true,
-        message: 'No customers to email',
+        message: `No customers scheduled for ${perthHour}:15 Perth time`,
         emailsSent: 0,
+        perthHour,
         timestamp: new Date().toISOString()
       });
     }
@@ -152,9 +158,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (contacts.length === 0) {
       return res.status(200).json({
         success: true,
-        message: 'No reports scheduled for today',
+        message: `No reports scheduled for ${perthHour}:15 Perth time today (day/frequency filter)`,
         emailsSent: 0,
         totalContacts: allContacts.length,
+        perthHour,
         timestamp: new Date().toISOString()
       });
     }
@@ -434,13 +441,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       success: true,
-      message: 'Fuel reports sent successfully',
+      message: `Fuel reports sent successfully for ${perthHour}:15 Perth time`,
       results: {
         emailsSent,
         emailsFailed,
         totalContacts: contacts.length,
         totalEligibleToday: allContacts.length,
         usingEnhancedReports: USE_ENHANCED_REPORTS,
+        perthHour,
         duration
       },
       errors: errors.length > 0 ? errors : undefined,

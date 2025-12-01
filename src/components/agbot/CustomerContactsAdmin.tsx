@@ -61,6 +61,7 @@ interface CustomerContact {
   contact_position: string | null;
   report_frequency: string;
   report_format: string;
+  preferred_send_hour: number;
   enabled: boolean;
   last_email_sent_at: string | null;
   created_at: string;
@@ -86,6 +87,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     contact_position: '',
     report_frequency: 'daily',
     report_format: 'summary',
+    preferred_send_hour: 7,
     enabled: true
   });
 
@@ -361,6 +363,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       contact_position: contact.contact_position || '',
       report_frequency: contact.report_frequency,
       report_format: contact.report_format,
+      preferred_send_hour: contact.preferred_send_hour ?? 7,
       enabled: contact.enabled
     });
 
@@ -382,6 +385,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       contact_position: '',
       report_frequency: 'daily',
       report_format: 'summary',
+      preferred_send_hour: 7,
       enabled: true
     });
     setAvailableTanks([]);
@@ -507,7 +511,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                     placeholder="+61 4XX XXX XXX"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="report_frequency">Report Frequency</Label>
                     <Select
@@ -523,6 +527,25 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                         <SelectItem value="daily">Daily</SelectItem>
                         <SelectItem value="weekly">Weekly</SelectItem>
                         <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="preferred_send_hour">Send Time (Perth)</Label>
+                    <Select
+                      value={String(formData.preferred_send_hour)}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, preferred_send_hour: parseInt(value) })
+                      }
+                    >
+                      <SelectTrigger id="preferred_send_hour">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5:15 AM</SelectItem>
+                        <SelectItem value="6">6:15 AM</SelectItem>
+                        <SelectItem value="7">7:15 AM</SelectItem>
+                        <SelectItem value="8">8:15 AM</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
