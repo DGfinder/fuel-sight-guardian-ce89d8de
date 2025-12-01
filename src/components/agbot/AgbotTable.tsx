@@ -261,10 +261,15 @@ const AgbotTable = React.memo(function AgbotTable({ locations, className }: Agbo
                             (capacityFromName ? parseInt(capacityFromName) : 50000);
             const currentVolume = percentage ? Math.round((percentage / 100) * capacity) : 0;
             
-            // Consumption data - convert percentage to actual litres
-            const dailyConsumptionPct = mainAsset?.asset_daily_consumption || location.location_daily_consumption;
-            const dailyConsumptionLitres = dailyConsumptionPct ? Math.round((dailyConsumptionPct / 100) * capacity) : null;
-            const daysRemaining = mainAsset?.asset_days_remaining;
+            // Consumption data - already in litres from database
+            const dailyConsumptionLitres = mainAsset?.asset_daily_consumption || location.location_daily_consumption;
+            const dailyConsumptionLitresRounded = dailyConsumptionLitres ? Math.round(dailyConsumptionLitres) : null;
+
+            // Calculate days remaining: use database value, or calculate from current volume / daily consumption
+            let daysRemaining = mainAsset?.asset_days_remaining;
+            if (!daysRemaining && dailyConsumptionLitres && dailyConsumptionLitres > 0) {
+              daysRemaining = Math.round(currentVolume / dailyConsumptionLitres);
+            }
             
             return (
               <TableRow 
@@ -313,14 +318,9 @@ const AgbotTable = React.memo(function AgbotTable({ locations, className }: Agbo
                 
                 {/* Daily Usage */}
                 <TableCell>
-                  {dailyConsumptionLitres ? (
+                  {dailyConsumptionLitresRounded ? (
                     <div className="text-sm">
-                      <div className="font-semibold">{dailyConsumptionLitres.toLocaleString()}L</div>
-                      <div className="text-xs text-muted-foreground">per day</div>
-                    </div>
-                  ) : dailyConsumptionPct ? (
-                    <div className="text-sm">
-                      <div className="font-semibold">{dailyConsumptionPct.toFixed(1)}%</div>
+                      <div className="font-semibold">{dailyConsumptionLitresRounded.toLocaleString()}L</div>
                       <div className="text-xs text-muted-foreground">per day</div>
                     </div>
                   ) : (
