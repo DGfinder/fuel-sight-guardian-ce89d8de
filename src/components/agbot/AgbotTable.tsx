@@ -12,10 +12,11 @@ import { Button } from '@/components/ui/button';
 import { ArrowUpDown, ArrowUp, ArrowDown, Wifi, WifiOff, Signal, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgbotLocation } from '@/services/agbot-api';
-import { 
-  usePercentageColor, 
-  usePercentageBackground, 
-  formatTimestamp 
+import {
+  usePercentageColor,
+  usePercentageBackground,
+  formatTimestamp,
+  getDeviceOnlineStatus
 } from '@/hooks/useAgbotData';
 import { useAgbotModal } from '@/contexts/AgbotModalContext';
 
@@ -353,18 +354,31 @@ const AgbotTable = React.memo(function AgbotTable({ locations, className }: Agbo
                   </div>
                 </TableCell>
                 
-                {/* Last Reading */}
+                {/* Last Reading - Smart display with freshness coloring */}
                 <TableCell>
-                  <div className="text-sm">
-                    <div className={isOnline ? 'text-green-600' : 'text-red-600'}>
-                      {formatTimestamp(location.latest_telemetry)}
-                    </div>
-                    {location.latest_telemetry && (
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(location.latest_telemetry).toLocaleDateString()}
+                  {(() => {
+                    const deviceStatus = getDeviceOnlineStatus(location.latest_telemetry);
+                    const minutesAgo = deviceStatus.minutesAgo;
+                    const showDate = minutesAgo > 1440; // Only show date for readings > 24 hours old
+
+                    return (
+                      <div className="text-sm">
+                        <div className={cn(
+                          "font-medium",
+                          minutesAgo < 240 ? 'text-green-600' :   // Green: < 4 hours
+                          minutesAgo < 720 ? 'text-yellow-600' :  // Yellow: 4-12 hours
+                          'text-red-600'                          // Red: > 12 hours
+                        )}>
+                          {formatTimestamp(location.latest_telemetry)}
+                        </div>
+                        {showDate && location.latest_telemetry && (
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(location.latest_telemetry).toLocaleDateString()}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </TableCell>
               </TableRow>
             );

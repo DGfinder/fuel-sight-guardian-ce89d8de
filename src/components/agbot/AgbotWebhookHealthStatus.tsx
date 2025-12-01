@@ -159,17 +159,36 @@ export function AgbotWebhookHealthStatus({ showFullDetails = false, className }:
   };
 
   if (!showFullDetails) {
-    // Compact status indicator
+    // Compact status indicator with animated pulse
+    const isHealthy = webhookHealth.status === 'healthy';
+    const isWarning = webhookHealth.status === 'warning' || webhookHealth.status === 'stale';
+
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        <div className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
-        <span className="text-sm text-muted-foreground">
-          Gasbot Webhook: {getStatusText()}
+        {/* Animated pulse indicator */}
+        <span className="relative flex h-2.5 w-2.5">
+          {isHealthy && (
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+          )}
+          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+            isHealthy ? 'bg-green-500' :
+            isWarning ? 'bg-yellow-500' :
+            webhookHealth.status === 'error' ? 'bg-red-500' : 'bg-gray-400'
+          }`}></span>
         </span>
+
+        <span className={`text-sm font-medium ${
+          isHealthy ? 'text-green-600' :
+          isWarning ? 'text-yellow-600' :
+          webhookHealth.status === 'error' ? 'text-red-600' : 'text-gray-500'
+        }`}>
+          {isHealthy ? 'LIVE' : getStatusText()}
+        </span>
+
         {webhookHealth.lastWebhook && (
-          <Badge variant="outline" className="text-xs">
-            Last: {formatTimestamp(webhookHealth.lastWebhook.started_at)}
-          </Badge>
+          <span className="text-sm text-muted-foreground">
+            • {formatTimestamp(webhookHealth.lastWebhook.started_at)}
+          </span>
         )}
       </div>
     );

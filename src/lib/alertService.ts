@@ -317,27 +317,11 @@ async function getExistingTankAlerts(tankIds: string[]): Promise<ExistingAlert[]
 
 /**
  * Get existing alerts for Agbot devices (within last 24 hours to avoid spam)
+ * NOTE: ta_agbot_alerts table does not exist - returning empty array
  */
 async function getExistingAgbotAlerts(assetIds: string[]): Promise<ExistingAlert[]> {
-  if (assetIds.length === 0) return [];
-  
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  
-  const { data, error } = await supabase
-    .from('ta_agbot_alerts')
-    .select('id, agbot_asset_id, alert_type, created_at, acknowledged_at, snoozed_until')
-    .in('agbot_asset_id', assetIds)
-    .gte('created_at', twentyFourHoursAgo);
-  
-  if (error) {
-    console.error('Error fetching existing agbot alerts:', error);
-    return [];
-  }
-  
-  return data.map(item => ({
-    ...item,
-    agbot_asset_id: item.agbot_asset_id
-  })) as ExistingAlert[];
+  // Table ta_agbot_alerts doesn't exist - return empty array
+  return [];
 }
 
 /**
@@ -393,29 +377,11 @@ async function createTankAlert(tankId: string, condition: AlertCondition): Promi
 
 /**
  * Create new agbot alert in database
+ * NOTE: ta_agbot_alerts table does not exist - returning false (no-op)
  */
 async function createAgbotAlert(assetId: string, condition: AlertCondition): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('ta_agbot_alerts')
-      .insert({
-        agbot_asset_id: assetId,
-        alert_type: condition.type,
-        message: condition.message,
-        priority: condition.priority,
-        created_at: new Date().toISOString()
-      });
-    
-    if (error) {
-      console.error('Error creating agbot alert:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Exception creating agbot alert:', error);
-    return false;
-  }
+  // Table ta_agbot_alerts doesn't exist - no-op
+  return false;
 }
 
 /**
@@ -608,29 +574,11 @@ export async function getActiveTankAlertsCount(): Promise<number> {
 
 /**
  * Get active agbot alerts count for display in UI
+ * NOTE: ta_agbot_alerts table does not exist - returning 0
  */
 export async function getActiveAgbotAlertsCount(): Promise<number> {
-  try {
-    const { count, error } = await supabase
-      .from('ta_agbot_alerts')
-      .select('*', { count: 'exact', head: true })
-      .is('acknowledged_at', null)
-      .or('snoozed_until.is.null,snoozed_until.lt.' + new Date().toISOString());
-    
-    if (error) {
-      // Suppress 404 errors (table doesn't exist) - just return 0
-      if (error.code === 'PGRST116' || error.message?.includes('does not exist')) {
-        return 0;
-      }
-      console.error('Error getting active agbot alerts count:', error);
-      return 0;
-    }
-    
-    return count || 0;
-  } catch (error) {
-    console.error('Exception getting active agbot alerts count:', error);
-    return 0;
-  }
+  // Table ta_agbot_alerts doesn't exist - return 0
+  return 0;
 }
 
 /**
@@ -652,6 +600,7 @@ export async function getActiveAlertsCount(): Promise<number> {
 
 /**
  * Get detailed alerts breakdown for dashboard
+ * NOTE: ta_agbot_alerts table does not exist - agbot breakdown returns zeros
  */
 export async function getAlertsBreakdown(): Promise<{
   tank: { total: number; critical: number; low: number; noReading: number; maintenance: number };
@@ -660,23 +609,11 @@ export async function getAlertsBreakdown(): Promise<{
 }> {
   try {
     // Get tank alerts breakdown
-    const tankAlertsQuery = supabase
+    const tankAlertsResult = await supabase
       .from('tank_alerts')
       .select('alert_type')
       .is('acknowledged_at', null)
       .or('snoozed_until.is.null,snoozed_until.lt.' + new Date().toISOString());
-
-    // Get agbot alerts breakdown  
-    const agbotAlertsQuery = supabase
-      .from('ta_agbot_alerts')
-      .select('alert_type')
-      .is('acknowledged_at', null)
-      .or('snoozed_until.is.null,snoozed_until.lt.' + new Date().toISOString());
-
-    const [tankAlertsResult, agbotAlertsResult] = await Promise.all([
-      tankAlertsQuery,
-      agbotAlertsQuery
-    ]);
 
     // Count tank alerts by type
     const tankAlerts = tankAlertsResult.data || [];
@@ -688,15 +625,14 @@ export async function getAlertsBreakdown(): Promise<{
       maintenance: tankAlerts.filter(a => a.alert_type === 'maintenance').length
     };
 
-    // Count agbot alerts by type
-    const agbotAlerts = agbotAlertsResult.data || [];
+    // Agbot alerts table doesn't exist - return zeros
     const agbotBreakdown = {
-      total: agbotAlerts.length,
-      critical: agbotAlerts.filter(a => a.alert_type === 'critical_fuel').length,
-      low: agbotAlerts.filter(a => a.alert_type === 'low_fuel').length,
-      offline: agbotAlerts.filter(a => a.alert_type === 'device_offline').length,
-      stale: agbotAlerts.filter(a => a.alert_type === 'data_stale').length,
-      signal: agbotAlerts.filter(a => a.alert_type === 'signal_issue').length
+      total: 0,
+      critical: 0,
+      low: 0,
+      offline: 0,
+      stale: 0,
+      signal: 0
     };
 
     return {

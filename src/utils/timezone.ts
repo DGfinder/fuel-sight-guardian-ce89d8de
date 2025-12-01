@@ -156,9 +156,7 @@ export function formatPerthRelativeTime(date: Date | string | number): string {
   
   // Format past times
   if (minutesAgo < 1) {
-    return 'Just now';
-  } else if (minutesAgo < 5) {
-    return `${minutesAgo} min ago`;
+    return '<1 min';
   } else if (minutesAgo < 60) {
     return `${minutesAgo} min ago`;
   } else if (minutesAgo < 1440) { // Less than 24 hours

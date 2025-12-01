@@ -126,30 +126,37 @@ function AgbotPageContent() {
     <AppLayout selectedGroup="" onGroupSelect={() => {}}>
       <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20 py-6 space-y-6">
-          {/* Header Section */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Signal className="h-6 w-6 text-green-600" />
+          {/* Hero Header Section */}
+          <div className="bg-gradient-to-br from-green-900 via-green-800 to-emerald-900 rounded-2xl p-6 lg:p-8 text-white shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+              {/* Left: Icon + Title */}
+              <div className="flex items-center gap-4">
+                {/* Large animated icon */}
+                <div className="relative">
+                  <div className="w-14 h-14 lg:w-16 lg:h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                    <Signal className="h-7 w-7 lg:h-8 lg:w-8 text-green-300" />
+                  </div>
+                  {/* Pulse animation overlay */}
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-pulse" />
                 </div>
+
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Gasbot Monitoring</h1>
-                  <p className="text-gray-600 mt-1">
-                    Real-time webhook data - {summary.totalAssets} devices across {summary.totalLocations} locations
+                  <h1 className="text-2xl lg:text-3xl font-bold">Gasbot Monitoring</h1>
+                  <p className="text-green-200 mt-1 text-sm lg:text-base">
+                    Real-time fuel monitoring across your fleet
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {/* Webhook Health Status - Compact */}
-                <AgbotWebhookHealthStatus showFullDetails={false} className="mr-2" />
 
+              {/* Right: Action buttons - Glass morphism style */}
+              <div className="flex gap-2 flex-wrap">
                 {/* System Monitoring Toggle */}
                 <Button
-                  variant={showSystemMonitoring ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setShowSystemMonitoring(!showSystemMonitoring)}
-                  className={showSystemMonitoring ? 'bg-green-600 hover:bg-green-700' : ''}
+                  className={`${showSystemMonitoring
+                    ? 'bg-white/20 text-white'
+                    : 'bg-white/10 hover:bg-white/20 text-white/90'} backdrop-blur-sm border-white/20`}
                 >
                   <AlertTriangle className="h-4 w-4 mr-1" />
                   Athara Monitor
@@ -157,54 +164,65 @@ function AgbotPageContent() {
 
                 {/* Customer Contacts Toggle */}
                 <Button
-                  variant={showCustomerContacts ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setShowCustomerContacts(!showCustomerContacts)}
-                  className={showCustomerContacts ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                  className={`${showCustomerContacts
+                    ? 'bg-white/20 text-white'
+                    : 'bg-white/10 hover:bg-white/20 text-white/90'} backdrop-blur-sm border-white/20`}
                 >
                   <Mail className="h-4 w-4 mr-1" />
                   Email Contacts
                 </Button>
 
                 {/* View Toggle - Grid | Table */}
-                <div className="flex border rounded-lg bg-white">
+                <div className="flex rounded-lg overflow-hidden bg-white/10 backdrop-blur-sm">
                   <Button
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => handleViewChange('grid')}
-                    className={`rounded-r-none ${viewMode === 'grid' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                    className={`rounded-none ${viewMode === 'grid'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-transparent hover:bg-white/10 text-white/70'}`}
                     title="Grid View"
                   >
                     <Grid3X3 className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant={viewMode === 'table' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => handleViewChange('table')}
-                    className={`rounded-l-none ${viewMode === 'table' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                    className={`rounded-none ${viewMode === 'table'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-transparent hover:bg-white/10 text-white/70'}`}
                     title="Table View"
                   >
                     <List className="h-4 w-4" />
                   </Button>
                 </div>
+
                 <Button
-                  variant="outline"
+                  size="sm"
                   onClick={() => setShowCSVImport(true)}
                   disabled={isImporting}
-                  className="flex items-center gap-2 border-yellow-500 text-yellow-700 hover:bg-yellow-50"
+                  className="bg-amber-500/80 hover:bg-amber-500 text-white backdrop-blur-sm border-amber-400/30"
                 >
-                  <Upload className={`h-4 w-4 ${isImporting ? 'animate-spin' : ''}`} />
+                  <Upload className={`h-4 w-4 mr-1 ${isImporting ? 'animate-spin' : ''}`} />
                   {isImporting ? 'Importing...' : 'Import CSV'}
                 </Button>
-                <Button
-                  onClick={() => setShowSystemMonitoring(!showSystemMonitoring)}
-                  variant={showSystemMonitoring ? 'default' : 'outline'}
-                  className={`flex items-center gap-2 ${showSystemMonitoring ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                >
-                  <Globe className="h-4 w-4" />
-                  {showSystemMonitoring ? 'Hide Webhook Status' : 'Webhook Status'}
-                </Button>
               </div>
+            </div>
+
+            {/* Status bar */}
+            <div className="mt-6 flex flex-wrap items-center gap-3 lg:gap-4">
+              {/* Live indicator with webhook status */}
+              <AgbotWebhookHealthStatus showFullDetails={false} className="!bg-white/10 !backdrop-blur-sm !rounded-full !px-4 !py-2" />
+
+              <span className="text-green-200/80 hidden sm:inline">•</span>
+              <span className="text-green-200 text-sm">
+                {summary.onlineAssets} of {summary.totalAssets} devices online
+              </span>
+              <span className="text-green-200/80 hidden sm:inline">•</span>
+              <span className="text-green-200 text-sm">
+                {summary.totalLocations} locations
+              </span>
             </div>
           </div>
 
@@ -223,117 +241,155 @@ function AgbotPageContent() {
               </div>
             )}
 
-          {/* Great Southern Fuels - Fleet Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Fleet Overview */}
-            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
+          {/* Fleet Statistics - Bold Gradient Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            {/* Fleet Overview - Green Theme */}
+            <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-emerald-600 p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
+              {/* Decorative background circles */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+              <div className="relative">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-gray-600">Fleet Overview</h3>
-                  <Signal className="h-5 w-5 text-green-600" />
+                  <h3 className="text-sm font-medium text-white/80">Fleet Overview</h3>
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Signal className="h-5 w-5 text-white" />
+                  </div>
                 </div>
+
                 <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Locations</span>
-                    <span className="text-sm font-bold text-gray-900">{summary.totalLocations}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/70">Locations</span>
+                    <span className="text-2xl font-bold text-white">{summary.totalLocations}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Active Devices</span>
-                    <span className="text-sm font-bold text-green-600">{summary.onlineAssets}/{summary.totalAssets}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/70">Active Devices</span>
+                    <span className="text-xl font-bold text-white">{summary.onlineAssets}/{summary.totalAssets}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500">
+                  <div className="flex justify-between text-xs text-white/60 pt-2 border-t border-white/10">
                     <span>Agricultural: {summary.categories.agricultural}</span>
                     <span>Commercial: {summary.categories.commercial}</span>
                   </div>
                 </div>
               </div>
+            </div>
 
-            {/* Fuel Capacity & Volume */}
-            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
+            {/* Fuel Inventory - Amber/Orange Theme */}
+            <div className="group relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
+              {/* Decorative background circles */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+              <div className="relative">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-gray-600">Fuel Inventory</h3>
-                  <Gauge className="h-5 w-5 text-yellow-600" />
+                  <h3 className="text-sm font-medium text-white/80">Fuel Inventory</h3>
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Gauge className="h-5 w-5 text-white" />
+                  </div>
                 </div>
+
                 <div className="space-y-3">
                   <div>
-                    <div className="text-2xl font-bold text-yellow-600">
+                    <div className="text-3xl font-bold text-white">
                       {(summary.currentFuelVolume / 1000).toFixed(1)}k
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-sm text-white/70">
                       of {(summary.totalCapacity / 1000).toFixed(0)}k liters
                     </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-white/20 rounded-full h-2.5">
                     <div
-                      className="bg-yellow-600 h-2 rounded-full"
+                      className="bg-white h-2.5 rounded-full transition-all duration-500"
                       style={{ width: `${summary.fleetUtilization}%` }}
                     ></div>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-sm text-white/70">
                     Fleet Utilization: {summary.fleetUtilization}%
                   </div>
                 </div>
               </div>
+            </div>
 
-            {/* Fuel Levels Status */}
-            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
+            {/* Fuel Status - Dynamic Color Based on Average */}
+            <div className={`group relative overflow-hidden p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 bg-gradient-to-br ${
+              summary.averageFillPercentage < 30
+                ? 'from-red-500 to-rose-600'
+                : summary.averageFillPercentage < 50
+                ? 'from-amber-500 to-orange-600'
+                : 'from-green-500 to-emerald-600'
+            }`}>
+              {/* Decorative background circles */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+              <div className="relative">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-gray-600">Fuel Status</h3>
-                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  <h3 className="text-sm font-medium text-white/80">Fuel Status</h3>
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-white" />
+                  </div>
                 </div>
+
                 <div className="space-y-3">
                   <div className="text-center">
-                    <div className={`text-2xl font-bold ${usePercentageColor(summary.averageFillPercentage)}`}>
+                    <div className="text-4xl font-bold text-white">
                       {summary.averageFillPercentage}%
                     </div>
-                    <div className="text-xs text-gray-500 mb-3">Average Level</div>
+                    <div className="text-sm text-white/70">Average Level</div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    {summary.criticalCount > 0 && (
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-red-600">{summary.criticalCount}</div>
-                        <div className="text-xs text-gray-500">Empty</div>
-                      </div>
-                    )}
-                    {summary.lowFuelCount > 0 && (
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-yellow-600">{summary.lowFuelCount}</div>
-                        <div className="text-xs text-gray-500">Low</div>
-                      </div>
-                    )}
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-green-600">
+                  <div className="flex justify-around text-center pt-2 border-t border-white/10">
+                    <div>
+                      <div className="text-lg font-bold text-white">{summary.criticalCount}</div>
+                      <div className="text-xs text-white/60">Empty</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-white">{summary.lowFuelCount}</div>
+                      <div className="text-xs text-white/60">Low</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-white">
                         {summary.totalAssets - summary.lowFuelCount - summary.criticalCount}
                       </div>
-                      <div className="text-xs text-gray-500">Good</div>
+                      <div className="text-xs text-white/60">Good</div>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
 
-            {/* Consumption Analytics */}
-            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
+            {/* Consumption Analytics - Blue Theme */}
+            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
+              {/* Decorative background circles */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+              <div className="relative">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-gray-600">Consumption</h3>
-                  <Activity className="h-5 w-5 text-yellow-600" />
+                  <h3 className="text-sm font-medium text-white/80">Consumption</h3>
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Activity className="h-5 w-5 text-white" />
+                  </div>
                 </div>
+
                 <div className="space-y-3">
                   <div>
-                    <div className="text-2xl font-bold text-gray-900">
+                    <div className="text-3xl font-bold text-white">
                       {summary.dailyConsumption.toFixed(1)}L
                     </div>
-                    <div className="text-xs text-gray-500">per day</div>
+                    <div className="text-sm text-white/70">per day</div>
                   </div>
                   {summary.estimatedDaysRemaining && (
-                    <div className="text-center pt-2">
-                      <div className="text-sm font-bold text-gray-700">
+                    <div className="pt-2 border-t border-white/10">
+                      <div className="text-xl font-bold text-white">
                         ~{summary.estimatedDaysRemaining} days
                       </div>
-                      <div className="text-xs text-muted-foreground">remaining at current rate</div>
+                      <div className="text-sm text-white/60">remaining at current rate</div>
                     </div>
                   )}
                 </div>
               </div>
             </div>
+          </div>
 
           {/* Filters */}
           <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-gray-200 shadow-sm">
