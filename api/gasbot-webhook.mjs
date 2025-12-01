@@ -9,54 +9,68 @@ import { calculateConsumption, updateAssetConsumption } from './lib/consumption-
 const PERTH_TIMEZONE = 'Australia/Perth';
 
 /**
- * Validate and normalize timestamp to Perth timezone
- * Handles common data quality issues with incoming timestamps
+ * Validate and normalize timestamp to UTC
+ * Gasbot sends timestamps in Perth local time without timezone info,
+ * so we need to interpret them as Perth time (UTC+8) before converting to UTC
  */
 function validateAndNormalizeTimestamp(timestamp, fieldName = 'timestamp') {
   if (!timestamp) {
     console.warn(`⚠️  Empty ${fieldName}, using current time`);
     return new Date().toISOString();
   }
-  
+
   try {
     let date;
-    
+
     // Handle different input formats
     if (typeof timestamp === 'number') {
-      // Epoch timestamp - could be seconds or milliseconds
+      // Epoch timestamps are already in UTC (milliseconds since 1970-01-01 UTC)
       date = timestamp > 1000000000000 ? new Date(timestamp) : new Date(timestamp * 1000);
     } else if (typeof timestamp === 'string') {
-      date = new Date(timestamp);
+      // Check if timestamp already has timezone info
+      const hasTimezone = timestamp.includes('Z') ||
+                          timestamp.includes('+') ||
+                          (timestamp.includes('-') && timestamp.lastIndexOf('-') > 9);
+
+      if (hasTimezone) {
+        // Already has timezone, parse as-is
+        date = new Date(timestamp);
+      } else {
+        // No timezone info - Gasbot sends Perth local time, so treat as UTC+8
+        // Append Perth timezone offset so JavaScript interprets correctly
+        date = new Date(timestamp + '+08:00');
+        console.log(`📍 Interpreted "${timestamp}" as Perth time -> ${date.toISOString()}`);
+      }
     } else {
       throw new Error('Invalid timestamp type');
     }
-    
+
     // Validate the date is reasonable
     const now = new Date();
     const year = date.getFullYear();
     const minutesDiff = (now.getTime() - date.getTime()) / (1000 * 60);
-    
+
     // Check for obvious data quality issues
     if (isNaN(date.getTime())) {
       console.error(`🚫 Invalid ${fieldName}: ${timestamp}`);
       return new Date().toISOString();
     }
-    
+
     if (year < 2020 || year > now.getFullYear() + 1) {
       console.warn(`⚠️  Suspicious year in ${fieldName}: ${year} from ${timestamp}`);
     }
-    
+
     if (minutesDiff < -60) { // More than 1 hour in the future
       console.warn(`⚠️  Future ${fieldName}: ${timestamp} (${Math.abs(minutesDiff).toFixed(0)} min ahead)`);
     }
-    
+
     if (minutesDiff > 7 * 24 * 60) { // More than 1 week old
       console.warn(`⚠️  Very old ${fieldName}: ${timestamp} (${(minutesDiff / (24 * 60)).toFixed(0)} days old)`);
     }
-    
-    // Return normalized ISO string
+
+    // Return normalized ISO string (always UTC)
     return date.toISOString();
-    
+
   } catch (error) {
     console.error(`🚫 Failed to parse ${fieldName}: ${timestamp}`, error.message);
     return new Date().toISOString();
