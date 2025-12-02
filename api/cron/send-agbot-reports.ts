@@ -182,12 +182,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let locations: any[] = [];
 
         // Step 1: Try to fetch specifically assigned tanks from junction table
-        const { data: assignedTanks, error: assignedTanksError } = await supabase
+        // Step 1a: Get assigned tank IDs from junction table
+        const { data: tankAssignments, error: assignmentsError } = await supabase
           .from('customer_contact_tanks')
-          .select(
-            `
-            agbot_location_id,
-            ta_agbot_locations!inner (
+          .select('agbot_location_id')
+          .eq('customer_contact_id', contact.id);
+
+        if (!assignmentsError && tankAssignments && tankAssignments.length > 0) {
+          // Step 1b: Fetch the full tank data from ta_agbot_locations using the IDs
+          const tankIds = tankAssignments.map(a => a.agbot_location_id);
+          const { data: assignedTanks, error: tanksError } = await supabase
+            .from('ta_agbot_locations')
+            .select(
+              `
               id,
               name,
               address,
@@ -207,17 +214,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 battery_voltage,
                 commodity
               )
+            `
             )
-          `
-          )
-          .eq('customer_contact_id', contact.id);
+            .in('id', tankIds);
 
-        if (!assignedTanksError && assignedTanks && assignedTanks.length > 0) {
-          // Contact has specific tank assignments - use only these
-          locations = assignedTanks
-            .map((assignment: any) => assignment.ta_agbot_locations)
-            .filter((loc: any) => loc && !loc.is_disabled);
-        } else {
+          if (!tanksError && assignedTanks && assignedTanks.length > 0) {
+            // Contact has specific tank assignments - use only these
+            locations = assignedTanks.filter((loc: any) => !loc.is_disabled);
+          }
+        }
+
+        if (locations.length === 0) {
           // Step 2: Fallback - fetch ALL tanks for this customer (backward compatible)
           const { data: allLocations, error: locationsError } = await supabase
             .from('ta_agbot_locations')
