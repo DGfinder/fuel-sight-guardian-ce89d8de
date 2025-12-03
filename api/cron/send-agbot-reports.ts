@@ -70,6 +70,54 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Send email with retry logic and exponential backoff
+ * Attempts to send email up to maxRetries times with increasing delays
+ */
+async function sendEmailWithRetry(
+  emailOptions: Parameters<typeof resend.emails.send>[0],
+  maxRetries = 3
+): Promise<Awaited<ReturnType<typeof resend.emails.send>>> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await resend.emails.send(emailOptions);
+
+      if (result.error) {
+        // Resend returned an error - treat as retriable
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+          console.log(`[RETRY] Attempt ${attempt}/${maxRetries} failed: ${result.error.message}`);
+          console.log(`[RETRY] Waiting ${delay}ms before retry...`);
+          await sleep(delay);
+          continue;
+        }
+        // Max retries reached, return the error
+        return result;
+      }
+
+      // Success
+      if (attempt > 1) {
+        console.log(`[RETRY] Email sent successfully on attempt ${attempt}/${maxRetries}`);
+      }
+      return result;
+    } catch (error) {
+      // Network error or exception
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+        console.log(`[RETRY] Attempt ${attempt}/${maxRetries} threw error: ${(error as Error).message}`);
+        console.log(`[RETRY] Waiting ${delay}ms before retry...`);
+        await sleep(delay);
+        continue;
+      }
+      // Max retries reached, throw the error
+      throw error;
+    }
+  }
+
+  // Should never reach here, but TypeScript needs this
+  throw new Error('Max retries exceeded');
+}
+
 // Rate limiting configuration
 const BATCH_SIZE = 50; // Send 50 emails per batch
 const DELAY_BETWEEN_BATCHES = 2000; // 2 second delay between batches
@@ -179,6 +227,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Process each customer contact in the batch
       for (const contact of batch) {
         try {
+        // Idempotency check: Skip if email was recently sent (within last hour)
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const reportFrequency = contact.report_frequency as 'daily' | 'weekly' | 'monthly';
+        const { data: recentSends, error: recentSendsError } = await supabase
+          .from('customer_email_logs')
+          .select('id, sent_at')
+          .eq('customer_contact_id', contact.id)
+          .eq('email_type', `${reportFrequency}_report`)
+          .gte('sent_at', oneHourAgo.toISOString())
+          .order('sent_at', { ascending: false })
+          .limit(1);
+
+        if (!recentSendsError && recentSends && recentSends.length > 0) {
+          console.warn(`[IDEMPOTENT] Skipping ${contact.contact_email} (${contact.customer_name}) - already sent ${reportFrequency} report at ${recentSends[0].sent_at}`);
+          continue; // Skip to next contact
+        }
+
         let locations: any[] = [];
 
         // Step 1: Try to fetch specifically assigned tanks from junction table
@@ -373,8 +438,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ? ccEmails.split(',').map((e: string) => e.trim()).filter((e: string) => e)
           : [];
 
-        // Send email via Resend
-        const emailResponse = await resend.emails.send({
+        // Send email via Resend with retry logic
+        const emailResponse = await sendEmailWithRetry({
           from: DEFAULT_FROM_EMAIL,
           to: contact.contact_email,
           cc: ccList.length > 0 ? ccList : undefined,
@@ -393,7 +458,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (emailResponse.error) {
-          throw new Error(`Resend error: ${emailResponse.error.message}`);
+          throw new Error(`Resend error after retries: ${emailResponse.error.message}`);
         }
 
         emailsSent++;

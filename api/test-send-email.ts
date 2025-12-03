@@ -54,6 +54,62 @@ function sanitizeTagValue(value: string): string {
     .substring(0, 50);                  // Limit length for Resend
 }
 
+/**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Send email with retry logic and exponential backoff
+ * Attempts to send email up to maxRetries times with increasing delays
+ */
+async function sendEmailWithRetry(
+  resendClient: Resend,
+  emailOptions: Parameters<typeof resendClient.emails.send>[0],
+  maxRetries = 3
+): Promise<Awaited<ReturnType<typeof resendClient.emails.send>>> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await resendClient.emails.send(emailOptions);
+
+      if (result.error) {
+        // Resend returned an error - treat as retriable
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+          console.log(`[RETRY] Attempt ${attempt}/${maxRetries} failed: ${result.error.message}`);
+          console.log(`[RETRY] Waiting ${delay}ms before retry...`);
+          await sleep(delay);
+          continue;
+        }
+        // Max retries reached, return the error
+        return result;
+      }
+
+      // Success
+      if (attempt > 1) {
+        console.log(`[RETRY] Test email sent successfully on attempt ${attempt}/${maxRetries}`);
+      }
+      return result;
+    } catch (error) {
+      // Network error or exception
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+        console.log(`[RETRY] Attempt ${attempt}/${maxRetries} threw error: ${(error as Error).message}`);
+        console.log(`[RETRY] Waiting ${delay}ms before retry...`);
+        await sleep(delay);
+        continue;
+      }
+      // Max retries reached, throw the error
+      throw error;
+    }
+  }
+
+  // Should never reach here, but TypeScript needs this
+  throw new Error('Max retries exceeded');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
@@ -90,6 +146,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       received: req.method
     });
   }
+
+  // Authentication check - require Bearer token
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.replace('Bearer ', '');
+  const ADMIN_SECRET = process.env.ADMIN_API_SECRET || process.env.CRON_SECRET;
+
+  if (!token || token !== ADMIN_SECRET) {
+    console.error('[AUTH ERROR] Unauthorized test email request');
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Valid Bearer token required. Set ADMIN_API_SECRET environment variable.'
+    });
+  }
+
+  console.log('[AUTH] Test email request authenticated successfully');
 
   try {
     // Get parameters from request body
@@ -349,7 +420,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log('[RESEND] CC recipients:', ccList);
     }
 
-    const emailResponse = await resendClient.emails.send({
+    const emailResponse = await sendEmailWithRetry(resendClient, {
       from: DEFAULT_FROM_EMAIL,
       to: typedContact.contact_email,
       cc: ccList.length > 0 ? ccList : undefined,
