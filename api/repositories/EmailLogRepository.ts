@@ -25,7 +25,6 @@ export interface EmailLog {
   locations_count?: number | null;
   low_fuel_alerts?: number | null;
   critical_alerts?: number | null;
-  tenant_id?: string | null;
   created_at?: string;
 }
 
@@ -53,7 +52,6 @@ export class EmailLogRepository {
         locations_count: log.locations_count,
         low_fuel_alerts: log.low_fuel_alerts,
         critical_alerts: log.critical_alerts,
-        tenant_id: log.tenant_id,
       })
       .select()
       .single();

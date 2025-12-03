@@ -27,7 +27,6 @@ export interface Tank {
   calibrated_fill_level: number | null;
   last_telemetry_at: string | null;
   is_disabled: boolean;
-  tenant_id?: string | null;
   ta_agbot_assets?: Asset[];
 }
 
@@ -65,7 +64,6 @@ export class TankRepository {
         calibrated_fill_level,
         last_telemetry_at,
         is_disabled,
-        tenant_id,
         ta_agbot_assets (
           id,
           is_online,
@@ -104,7 +102,6 @@ export class TankRepository {
         calibrated_fill_level,
         last_telemetry_at,
         is_disabled,
-        tenant_id,
         ta_agbot_assets (
           id,
           is_online,
@@ -143,7 +140,6 @@ export class TankRepository {
         calibrated_fill_level,
         last_telemetry_at,
         is_disabled,
-        tenant_id,
         ta_agbot_assets (
           id,
           is_online,
@@ -184,7 +180,6 @@ export class TankRepository {
         calibrated_fill_level,
         last_telemetry_at,
         is_disabled,
-        tenant_id,
         ta_agbot_assets (
           id,
           is_online,

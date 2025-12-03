@@ -19,7 +19,6 @@ export interface Contact {
   last_email_sent_at: string | null;
   created_at?: string;
   updated_at?: string;
-  tenant_id?: string | null;
 }
 
 export class ContactRepository {
