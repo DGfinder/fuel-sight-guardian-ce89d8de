@@ -261,6 +261,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         if (!locations || locations.length === 0) {
+          console.warn(`[CRON] No locations found for contact ${contact.contact_email} (${contact.customer_name})`);
           continue;
         }
 
