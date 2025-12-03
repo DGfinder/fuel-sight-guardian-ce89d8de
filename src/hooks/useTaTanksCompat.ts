@@ -44,7 +44,7 @@ export const useTaTanksCompat = () => {
         // Core identification
         id: t.id,
         location: t.name, // ta_tanks uses 'name', old used 'location'
-        product_type: 'Diesel', // Default, ta_tanks doesn't have this currently
+        product_type: t.product_name || 'Unknown', // Product name from ta_products table
 
         // Levels - map to old field names
         safe_level: t.capacity_liters,
