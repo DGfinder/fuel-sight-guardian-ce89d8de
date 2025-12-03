@@ -21,6 +21,7 @@ import AgbotDetailsModal from './components/AgbotDetailsModal';
 import AppLayout from '@/components/AppLayout';
 import { supabase } from '@/lib/supabase';
 import { getNetworkQualityMultiplier, isSlowNetwork } from '@/hooks/useReducedMotion';
+import { useTenantInit } from '@/hooks/useTenantInit';
 
 // Lazy load page components for better code splitting
 const Index = lazy(() => import("@/pages/Index"));
@@ -42,6 +43,7 @@ const AlertsPage = lazy(() => import('@/pages/AlertsPage'));
 const HealthPage = lazy(() => import('@/pages/HealthPage'));
 const MapView = lazy(() => import('@/pages/MapView'));
 const PerformancePage = lazy(() => import('@/pages/PerformancePage'));
+const ProductAnalyticsPage = lazy(() => import('@/pages/ProductAnalyticsPage'));
 const DipHistoryPage = lazy(() => import('@/pages/DipHistoryPage'));
 const AgbotPage = lazy(() => import('@/pages/AgbotPage'));
 const AgbotPredictions = lazy(() => import('@/pages/AgbotPredictions'));
@@ -288,10 +290,24 @@ function HashRedirector() {
 }
 
 function AppContent() {
+  // Initialize tenant context for multi-tenant routing
+  const { isReady: tenantReady, tenant, error: tenantError } = useTenantInit();
+
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const { selectedTank, open, closeModal } = useTankModal();
   const { editDipOpen, editDipTank, closeEditDip, alertsOpen, closeAlerts } = useGlobalModals();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
+
+  // Show loading state while tenant initializes
+  if (!tenantReady) {
+    return <PageLoader />;
+  }
+
+  // Show error if tenant initialization failed
+  if (tenantError) {
+    console.error('Tenant initialization error:', tenantError);
+    // Continue anyway - will fall back to public schema
+  }
 
   return (
     <>
@@ -362,7 +378,17 @@ function AppContent() {
                           </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
-                    } 
+                    }
+                  />
+                  <Route path="/analytics/products" element={
+                      <ProtectedRoute requiredRole="admin">
+                        <RouteErrorBoundary routeName="Product Analytics" showHomeButton={true}>
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <ProductAnalyticsPage />
+                          </AppLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
                   />
                   <Route
                     path="/swan-transit" 
