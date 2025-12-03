@@ -200,7 +200,7 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
   } = data;
 
   const reportTitle = getReportTitle(reportFrequency);
-  const showCharts = reportFrequency === 'weekly' || reportFrequency === 'monthly';
+  const showCharts = true; // Show 7-day trend for all report frequencies
 
   // Only show combined summary for single-tank emails
   // Multi-tank emails show info per-tank instead
@@ -317,24 +317,13 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                          </span>
                        </p>
 
-                       <!-- Comparison Badges -->
-                       <table width="100%" cellpadding="0" cellspacing="0">
-                         <tr>
-                           <td style="width: 48%; padding: 8px 12px; background: ${BG_WHITE}; border-radius: 6px;">
-                             <p style="font-size: 10px; color: ${TEXT_MUTED}; margin: 0 0 2px 0; text-transform: uppercase; letter-spacing: 0.4px;">vs Yesterday</p>
-                             <p style="font-size: 15px; font-weight: 600; color: ${getComparisonColor(analytics.vs_yesterday_pct)}; margin: 0;">
-                               ${formatComparison(analytics.vs_yesterday_pct)}
-                             </p>
-                           </td>
-                           <td width="4%"></td>
-                           <td style="width: 48%; padding: 8px 12px; background: ${BG_WHITE}; border-radius: 6px;">
-                             <p style="font-size: 10px; color: ${TEXT_MUTED}; margin: 0 0 2px 0; text-transform: uppercase; letter-spacing: 0.4px;">vs 7-Day Avg</p>
-                             <p style="font-size: 15px; font-weight: 600; color: ${getComparisonColor(analytics.vs_7d_avg_pct)}; margin: 0;">
-                               ${formatComparison(analytics.vs_7d_avg_pct)}
-                             </p>
-                           </td>
-                         </tr>
-                       </table>
+                       <!-- Comparison Badge -->
+                       <div style="padding: 10px 12px; background: ${BG_WHITE}; border-radius: 6px; margin-top: 8px;">
+                         <p style="font-size: 10px; color: ${TEXT_MUTED}; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.4px;">vs 7-Day Average</p>
+                         <p style="font-size: 16px; font-weight: 600; color: ${getComparisonColor(analytics.vs_7d_avg_pct)}; margin: 0;">
+                           ${formatComparison(analytics.vs_7d_avg_pct)}
+                         </p>
+                       </div>
                      </td>
                    </tr>
                  </table>`
@@ -922,8 +911,6 @@ ${index + 1}. ${tankName} [UNSERVICEABLE]
             // Only show comparison if values are meaningful (not 0)
             const consumption24hText = analytics && (analytics.consumption_24h_litres > 0 || analytics.consumption_7d_litres > 0)
               ? `\n     24h usage: ${formatNumber(analytics.consumption_24h_litres)} L ${analytics.trend_indicator} (${analytics.consumption_24h_pct.toFixed(1)}%)${
-                  analytics.vs_yesterday_pct !== 0 ? `\n       vs Yesterday: ${formatComparison(analytics.vs_yesterday_pct)}` : ''
-                }${
                   analytics.vs_7d_avg_pct !== 0 ? `\n       vs 7-Day Avg: ${formatComparison(analytics.vs_7d_avg_pct)}` : ''
                 }`
               : '';

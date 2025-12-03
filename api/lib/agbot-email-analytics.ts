@@ -290,16 +290,6 @@ export async function getTankConsumptionAnalytics(
     ? nonZeroDays.reduce((a, b) => a + b, 0) / nonZeroDays.length
     : 0;
 
-  const yesterday = consumption7d.daily_values[5] || 0;
-  const today = consumption7d.daily_values[6] || 0;
-
-  // Only calculate comparison if we have meaningful data for both days
-  // Skip if today is 0 (report runs early before data accumulates)
-  const vsYesterday =
-    consumption7d.daily_values.length >= 2 && yesterday > 0 && today > 0
-      ? Math.max(-999, Math.min(999, ((today - yesterday) / yesterday) * 100))
-      : 0;
-
   // Only compare to average if we have meaningful data
   const vs7DAvg =
     dailyAvg > 0 && consumption24h.litres > 0
@@ -342,7 +332,6 @@ export async function getTankConsumptionAnalytics(
     estimated_refill_date,
     last_refill_date: null, // TODO: Implement refill detection
 
-    vs_yesterday_pct: Math.round(vsYesterday),
     vs_7d_avg_pct: Math.round(vs7DAvg),
 
     efficiency_score: Math.round(efficiency_score),
