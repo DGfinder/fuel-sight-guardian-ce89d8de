@@ -73,7 +73,12 @@ const fuelLevelBarVariants = cva(
   }
 )
 
-// Utility function to determine fuel status from percentage
+/**
+ * Simplified fuel status based on percentage only.
+ * Note: For full status logic including days-to-min, use getFuelStatus from fuel-colors.ts
+ * @param percentage - Current fuel percentage (0-100)
+ * @returns Fuel status level
+ */
 export const getFuelStatus = (percentage: number | null | undefined): 'critical' | 'low' | 'normal' | 'unknown' => {
   if (percentage === null || percentage === undefined) return 'unknown';
   if (percentage <= 10) return 'critical';
@@ -81,14 +86,18 @@ export const getFuelStatus = (percentage: number | null | undefined): 'critical'
   return 'normal';
 }
 
-// Utility function to get fuel status display text
+/**
+ * Get fuel status display text with percentage
+ * @param percentage - Current fuel percentage (0-100)
+ * @returns Formatted status text
+ */
 export const getFuelStatusText = (percentage: number | null | undefined): string => {
   const status = getFuelStatus(percentage);
   switch (status) {
     case 'critical': return `Critical (${percentage?.toFixed(1)}%)`;
     case 'low': return `Low (${percentage?.toFixed(1)}%)`;
     case 'normal': return `Normal (${percentage?.toFixed(1)}%)`;
-    case 'unknown': return 'Unknown';
+    case 'unknown': return 'No Data';
   }
 }
 

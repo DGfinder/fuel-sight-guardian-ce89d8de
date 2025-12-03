@@ -13,7 +13,12 @@ export function getFuelStatus(
   percent: number | null | undefined,
   daysToMin?: number | null
 ): FuelStatus {
-  const pct = percent ?? 0;
+  // If no percent data is available, return unknown
+  if (percent === null || percent === undefined) {
+    return 'unknown';
+  }
+
+  const pct = percent;
 
   // Critical: Immediate action required (≤10% OR ≤1.5 days)
   if (pct <= 10 || (daysToMin !== null && daysToMin !== undefined && daysToMin <= 1.5)) {

@@ -22,6 +22,16 @@ import { getFuelStatus, statusBadgeStyles, groupStatusColors, getDaysTextColor, 
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
+const getStatusDisplayText = (status: FuelStatus): string => {
+  switch (status) {
+    case 'critical': return 'Critical';
+    case 'low': return 'Low';
+    case 'normal': return 'Normal';
+    case 'unknown': return 'No Data';
+    default: return 'Unknown';
+  }
+};
+
 const StatusBadge: React.FC<{
   status: FuelStatus;
   percent?: number;
@@ -29,7 +39,7 @@ const StatusBadge: React.FC<{
 }> = ({ status, percent, daysToMin }) => {
   // Determine the reason for the status
   const getStatusReason = () => {
-    if (status === 'normal') return null;
+    if (status === 'normal' || status === 'unknown') return null;
 
     const reasons: string[] = [];
     if (status === 'critical') {
@@ -53,7 +63,7 @@ const StatusBadge: React.FC<{
       <Tooltip>
         <TooltipTrigger asChild>
           <span className={cn('px-2 py-1 rounded text-xs font-semibold cursor-help', statusBadgeStyles[status])}>
-            {status === 'normal' ? 'Normal' : status.charAt(0).toUpperCase() + status.slice(1)}
+            {getStatusDisplayText(status)}
           </span>
         </TooltipTrigger>
         <TooltipContent>
@@ -65,7 +75,7 @@ const StatusBadge: React.FC<{
 
   return (
     <span className={cn('px-2 py-1 rounded text-xs font-semibold', statusBadgeStyles[status])}>
-      {status === 'normal' ? 'Normal' : status.charAt(0).toUpperCase() + status.slice(1)}
+      {getStatusDisplayText(status)}
     </span>
   );
 };
@@ -101,12 +111,12 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
   // Calculate percentage above minimum level (not total percentage)
   const percent = useMemo(() => {
     if (typeof tank.current_level !== 'number' || typeof tank.min_level !== 'number' || typeof tank.safe_level !== 'number') {
-      return 0;
+      return null;
     }
     const usableCapacity = tank.safe_level - tank.min_level;
     const currentAboveMin = tank.current_level - tank.min_level;
-    
-    if (usableCapacity <= 0) return 0;
+
+    if (usableCapacity <= 0) return null;
     return Math.max(0, Math.round((currentAboveMin / usableCapacity) * 100));
   }, [tank.current_level, tank.min_level, tank.safe_level]);
   const status = useMemo(() => getFuelStatus(percent, tank.days_to_min_level), [percent, tank.days_to_min_level]);
@@ -136,8 +146,12 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
             }}
           />
           <span className="font-bold flex-1 text-left">{tank.location}</span>
-          <PercentBar percent={percent} />
-          <StatusBadge status={status as 'critical' | 'low' | 'normal'} percent={percent} daysToMin={tank.days_to_min_level} />
+          {percent !== null ? (
+            <PercentBar percent={percent} />
+          ) : (
+            <span className="text-xs text-gray-400">—</span>
+          )}
+          <StatusBadge status={status as 'critical' | 'low' | 'normal' | 'unknown'} percent={percent ?? undefined} daysToMin={tank.days_to_min_level} />
         </AccordionTrigger>
         <AccordionContent>
           <div className="grid grid-cols-2 gap-2 text-sm px-3 pb-2">
@@ -218,8 +232,14 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
               </div>
             </td>
             <td className="px-3 py-2 text-center w-32">
-              <PercentBar percent={percent} />
-              <span className="text-xs text-gray-700">{percent}%</span>
+              {percent !== null ? (
+                <>
+                  <PercentBar percent={percent} />
+                  <span className="text-xs text-gray-700">{percent}%</span>
+                </>
+              ) : (
+                <span className="text-xs text-gray-400">—</span>
+              )}
             </td>
             <td className={cn('px-3 py-2 text-center', getDaysTextColor(tank.days_to_min_level))}>
               {tank.days_to_min_level ?? '—'}

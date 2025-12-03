@@ -144,18 +144,27 @@ export const EnhancedTankTable = React.memo(function EnhancedTankTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const percent = Math.round(row.getValue('current_level_percent') as number || 0);
+          const percentValue = row.getValue('current_level_percent') as number | null | undefined;
+          const percent = percentValue !== null && percentValue !== undefined ? Math.round(percentValue) : null;
           const status = getFuelStatus(percent, row.original.days_to_min_level);
 
           return (
             <div className="flex items-center space-x-2">
-              <PercentBar
-                percent={percent}
-                className="w-16"
-              />
-              <Badge className={cn('text-xs', statusBadgeStyles[status])}>
-                {percent}%
-              </Badge>
+              {percent !== null ? (
+                <>
+                  <PercentBar
+                    percent={percent}
+                    className="w-16"
+                  />
+                  <Badge className={cn('text-xs', statusBadgeStyles[status])}>
+                    {percent}%
+                  </Badge>
+                </>
+              ) : (
+                <Badge className={cn('text-xs', statusBadgeStyles.unknown)}>
+                  No Data
+                </Badge>
+              )}
             </div>
           );
         },
