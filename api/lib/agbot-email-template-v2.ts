@@ -332,10 +332,17 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
             // Weekly data (for weekly/monthly reports) - only show if we have valid data
             const weeklyDataHtml =
               hasValidAnalytics && showCharts
-                ? `<p style="font-size: 12px; color: ${TEXT_SECONDARY}; margin: 5px 0;">
-                     7-day usage: ${formatNumber(analytics.consumption_7d_litres)} L (${analytics.consumption_7d_pct.toFixed(1)}%)
-                   </p>
-                   <img src="${generateSparklineUrl(analytics.sparkline_7d, BRAND_GREEN)}" alt="7-day trend" style="margin: 5px 0;" />`
+                ? `<div style="margin: 16px 0; padding: 12px; background: ${BG_WHITE}; border-radius: 8px; border: 1px solid #e5e7eb;">
+                     <p style="font-size: 11px; color: ${TEXT_MUTED}; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">
+                       7-Day Consumption Trend
+                     </p>
+                     <img src="${generate7DayTrendChartUrl(analytics)}"
+                          alt="7-day consumption trend"
+                          style="width: 100%; max-width: 500px; height: auto; display: block;" />
+                     <p style="font-size: 12px; color: ${TEXT_SECONDARY}; margin: 8px 0 0 0;">
+                       Total 7-day usage: ${formatNumber(analytics.consumption_7d_litres)} L (${analytics.consumption_7d_pct.toFixed(1)}% of capacity)
+                     </p>
+                   </div>`
                 : hasValidAnalytics
                 ? `<p style="font-size: 12px; color: ${TEXT_SECONDARY}; margin: 5px 0; font-style: italic;">
                      Avg daily: ~${formatNumber(analytics.daily_avg_consumption_litres)} L/day
