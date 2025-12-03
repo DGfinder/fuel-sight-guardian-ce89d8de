@@ -1,26 +1,39 @@
 /**
- * Recalculate Consumption API Endpoint
- * Triggers recalculation of daily consumption for all active tanks
- * URL: POST /api/recalculate-consumption
+ * Unified Location Data Endpoint
+ * POST /api/agbot/unified-location - Get unified location data from all systems
  *
- * REFACTORED: Now uses AgBotController and ConsumptionAnalysisService
- * Original: 69 lines calling lib/consumption-calculator.js
- * New: 35 lines delegating to controller (50% reduction)
+ * This endpoint combines data from SmartFill, AgBot, and Captive Payments
+ * to provide a unified view of a location across all systems.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { AgBotController } from './controllers/AgBotController.js';
-import { AgBotDataService } from './services/AgBotDataService.js';
-import { AgBotAnalyticsService } from './services/AgBotAnalyticsService.js';
-import { ConsumptionAnalysisService } from './services/ConsumptionAnalysisService.js';
-import { LocationIntegrationService } from './services/LocationIntegrationService.js';
-import { AgBotLocationRepository } from './repositories/AgBotLocationRepository.js';
-import { AgBotAssetRepository } from './repositories/AgBotAssetRepository.js';
-import { ReadingsHistoryRepository } from './repositories/ReadingsHistoryRepository.js';
-import { AtharaAgBotProvider } from './infrastructure/agbot/AtharaAgBotProvider.js';
+import { AgBotController } from '../controllers/AgBotController.js';
+import { AgBotDataService } from '../services/AgBotDataService.js';
+import { AgBotAnalyticsService } from '../services/AgBotAnalyticsService.js';
+import { ConsumptionAnalysisService } from '../services/ConsumptionAnalysisService.js';
+import { LocationIntegrationService } from '../services/LocationIntegrationService.js';
+import { AgBotLocationRepository } from '../repositories/AgBotLocationRepository.js';
+import { AgBotAssetRepository } from '../repositories/AgBotAssetRepository.js';
+import { ReadingsHistoryRepository } from '../repositories/ReadingsHistoryRepository.js';
+import { AtharaAgBotProvider } from '../infrastructure/agbot/AtharaAgBotProvider.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Support both GET (for API info) and POST (for data retrieval)
+  if (req.method === 'GET') {
+    return res.json({
+      success: true,
+      service: 'Unified Location Data API',
+      timestamp: new Date().toISOString(),
+      features: [
+        'Multi-system data integration',
+        'Data correlation and quality assessment',
+        'Historical data aggregation',
+        'Intelligent caching',
+      ],
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
@@ -63,10 +76,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       integrationService
     );
 
-    // Delegate to controller
-    return controller.recalculateConsumption(req, res);
+    return controller.getUnifiedLocation(req, res);
   } catch (error) {
-    console.error('[Recalculate Consumption] Request failed:', error);
+    console.error('[Unified Location] Request failed:', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

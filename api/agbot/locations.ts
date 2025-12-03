@@ -1,27 +1,23 @@
 /**
- * Recalculate Consumption API Endpoint
- * Triggers recalculation of daily consumption for all active tanks
- * URL: POST /api/recalculate-consumption
- *
- * REFACTORED: Now uses AgBotController and ConsumptionAnalysisService
- * Original: 69 lines calling lib/consumption-calculator.js
- * New: 35 lines delegating to controller (50% reduction)
+ * AgBot Locations Endpoint
+ * GET /api/agbot/locations - Get all locations (optionally filtered by customer)
+ * GET /api/agbot/locations?id=:id - Get specific location with assets
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { AgBotController } from './controllers/AgBotController.js';
-import { AgBotDataService } from './services/AgBotDataService.js';
-import { AgBotAnalyticsService } from './services/AgBotAnalyticsService.js';
-import { ConsumptionAnalysisService } from './services/ConsumptionAnalysisService.js';
-import { LocationIntegrationService } from './services/LocationIntegrationService.js';
-import { AgBotLocationRepository } from './repositories/AgBotLocationRepository.js';
-import { AgBotAssetRepository } from './repositories/AgBotAssetRepository.js';
-import { ReadingsHistoryRepository } from './repositories/ReadingsHistoryRepository.js';
-import { AtharaAgBotProvider } from './infrastructure/agbot/AtharaAgBotProvider.js';
+import { AgBotController } from '../controllers/AgBotController.js';
+import { AgBotDataService } from '../services/AgBotDataService.js';
+import { AgBotAnalyticsService } from '../services/AgBotAnalyticsService.js';
+import { ConsumptionAnalysisService } from '../services/ConsumptionAnalysisService.js';
+import { LocationIntegrationService } from '../services/LocationIntegrationService.js';
+import { AgBotLocationRepository } from '../repositories/AgBotLocationRepository.js';
+import { AgBotAssetRepository } from '../repositories/AgBotAssetRepository.js';
+import { ReadingsHistoryRepository } from '../repositories/ReadingsHistoryRepository.js';
+import { AtharaAgBotProvider } from '../infrastructure/agbot/AtharaAgBotProvider.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
+  if (req.method !== 'GET') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
@@ -63,10 +59,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       integrationService
     );
 
-    // Delegate to controller
-    return controller.recalculateConsumption(req, res);
+    // Route to appropriate method
+    const { id } = req.query;
+    if (id) {
+      return controller.getLocation(req, res);
+    } else {
+      return controller.getLocations(req, res);
+    }
   } catch (error) {
-    console.error('[Recalculate Consumption] Request failed:', error);
+    console.error('[AgBot Locations] Request failed:', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
