@@ -294,14 +294,20 @@ export class EmailService {
    * TODO: Replace with database-driven config
    */
   public async getEmailConfig(): Promise<EmailConfig> {
-    const fromEmail = (process.env.RESEND_VERIFIED_EMAIL ||
+    const rawEmail = (process.env.RESEND_VERIFIED_EMAIL ||
       'alert@tankalert.greatsouthernfuels.com.au').trim();
+
+    // Extract email address if full format provided (e.g., "Name <email@example.com>")
+    // This handles misconfigured env vars that include the name
+    const emailMatch = rawEmail.match(/<([^>]+)>/);
+    const fromEmail = emailMatch ? emailMatch[1].trim() : rawEmail;
+
     const fromName = 'Tank Alert';
     const replyTo = 'hayden@stevemacs.com.au';
 
     // Validate critical config
     if (!fromEmail || !fromEmail.includes('@')) {
-      throw new Error(`Invalid FROM email configuration: "${fromEmail}"`);
+      throw new Error(`Invalid FROM email configuration: "${fromEmail}" (raw: "${rawEmail}")`);
     }
 
     if (!fromName || fromName.trim() === '') {
