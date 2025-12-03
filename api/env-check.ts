@@ -15,11 +15,12 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
       // Only boolean checks - no values exposed
       services: {
-        database: !!process.env.VITE_SUPABASE_URL && !!process.env.VITE_SUPABASE_ANON_KEY,
+        // Check backend-only environment variables (not VITE_ prefixed)
+        database: !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY,
         storage: !!process.env.BLOB_READ_WRITE_TOKEN,
         configured: !!(
-          process.env.VITE_SUPABASE_URL &&
-          process.env.VITE_SUPABASE_ANON_KEY
+          process.env.SUPABASE_URL &&
+          process.env.SUPABASE_ANON_KEY
         )
       },
 

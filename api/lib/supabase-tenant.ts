@@ -49,11 +49,12 @@ function debugLog(message: string, data?: any) {
 export async function createTenantClient(
   authToken?: string
 ): Promise<TenantClientResult> {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  // Use backend-only environment variables (never use VITE_ variables in backend code)
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables');
+    throw new Error('Missing Supabase environment variables (SUPABASE_URL and SUPABASE_ANON_KEY)');
   }
 
   // Create client with auth token if provided
@@ -151,8 +152,8 @@ export async function createTenantClientFromRequest(
  * Use createTenantClient() for new code
  */
 export const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.VITE_SUPABASE_ANON_KEY!,
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!,
   {
     auth: {
       persistSession: false,

@@ -9,8 +9,9 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       environment: {
         node: process.version,
         envVars: Object.keys(process.env).length,
-        hasSupabaseUrl: !!process.env.VITE_SUPABASE_URL,
-        hasSupabaseKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+        // Check backend-only environment variables (not VITE_ prefixed)
+        hasSupabaseUrl: !!process.env.SUPABASE_URL,
+        hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
         hasLytxKey: !!process.env.LYTX_API_KEY
       },
       vercel: {

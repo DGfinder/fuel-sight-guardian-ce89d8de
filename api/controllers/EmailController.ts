@@ -350,10 +350,17 @@ export class EmailController {
    * 3. Supabase authenticated admin/manager user
    */
   private async isAuthorizedAsync(req: VercelRequest): Promise<boolean> {
+    console.log('[EmailController AUTH] Starting authentication check');
+    console.log('[EmailController AUTH] Headers:', {
+      hasVercelSignature: !!req.headers['x-vercel-signature'],
+      hasAuthorization: !!req.headers.authorization,
+      authType: req.headers.authorization?.split(' ')[0]
+    });
+
     // Check 1: Vercel Cron signature
     const isVercelCron = req.headers['x-vercel-signature'] !== undefined;
     if (isVercelCron) {
-      console.log('[EmailController AUTH] Vercel Cron signature detected');
+      console.log('[EmailController AUTH] ✅ Vercel Cron signature detected - authorized');
       return true;
     }
 
@@ -362,8 +369,13 @@ export class EmailController {
 
     // Check 2: Static Bearer token (for external services)
     const adminSecret = process.env.ADMIN_API_SECRET || process.env.CRON_SECRET;
+    console.log('[EmailController AUTH] Static token check:', {
+      hasToken: !!token,
+      hasAdminSecret: !!adminSecret,
+      tokenMatches: token && adminSecret && token === adminSecret
+    });
     if (token && adminSecret && token === adminSecret) {
-      console.log('[EmailController AUTH] Static Bearer token validated');
+      console.log('[EmailController AUTH] ✅ Static Bearer token validated - authorized');
       return true;
     }
 
@@ -388,9 +400,9 @@ export class EmailController {
           console.warn('[EmailController AUTH] Failed to parse JWT expiration, continuing with validation');
         }
 
-        const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-        // Use VITE_SUPABASE_ANON_KEY as it has the actual anon key (not service role)
-        const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+        // Use backend-only environment variables (never use VITE_ variables in backend code)
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
         if (!supabaseUrl || !supabaseAnonKey) {
           console.error('[EmailController AUTH] Supabase env vars missing');
@@ -442,7 +454,13 @@ export class EmailController {
       }
     }
 
-    console.error('[EmailController AUTH] Unauthorized: Invalid or expired session token');
+    console.error('[EmailController AUTH] ❌ Unauthorized - all authentication methods failed:', {
+      vercelCronHeader: !!req.headers['x-vercel-signature'],
+      hasAuthHeader: !!authHeader,
+      hasCronSecret: !!(process.env.ADMIN_API_SECRET || process.env.CRON_SECRET),
+      hasSupabaseEnvVars: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
+      message: 'No valid credentials provided. Need either: Vercel Cron header, ADMIN_API_SECRET/CRON_SECRET, or valid Supabase admin token'
+    });
     return false;
   }
 
