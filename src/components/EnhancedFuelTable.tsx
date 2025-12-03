@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { useFavourites } from '@/hooks/useFavourites';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/lib/supabase';
+import { getProductBadgeClasses } from '@/lib/product-colors';
 
 interface EnhancedFuelTableProps {
   tanks?: Tank[];
@@ -290,7 +291,10 @@ export function EnhancedFuelTable({ tanks = [], onTankClick, defaultOpenGroup = 
                               </div>
                             </TableCell>
                             <TableCell className="px-4 py-2 font-normal">
-                              <Badge variant="outline" className="font-mono">
+                              <Badge
+                                variant="outline"
+                                className={cn("font-mono", getProductBadgeClasses(tank.product_type))}
+                              >
                                 {tank.product_type}
                               </Badge>
                             </TableCell>

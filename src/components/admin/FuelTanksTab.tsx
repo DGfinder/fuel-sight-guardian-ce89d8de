@@ -47,6 +47,7 @@ import { AdminDataTable, type Column } from './AdminDataTable';
 import { BulkActionsBar, bulkActions } from './BulkActionsBar';
 import { FuelTankDialog } from './FuelTankDialog';
 import { useFuelTanksCrud } from '@/hooks/admin/useFuelTanksCrud';
+import { getProductBadgeClasses } from '@/lib/product-colors';
 import type { FuelTank, TankFilters, ProductType, TankStatus } from '@/types/admin';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -143,7 +144,14 @@ export function FuelTanksTab() {
       key: 'product_type',
       header: 'Product',
       sortable: true,
-      render: (row) => <Badge variant="outline">{row.product_type}</Badge>,
+      render: (row) => (
+        <Badge
+          variant="outline"
+          className={getProductBadgeClasses(row.product_type)}
+        >
+          {row.product_type}
+        </Badge>
+      ),
     },
     {
       key: 'current_level',
