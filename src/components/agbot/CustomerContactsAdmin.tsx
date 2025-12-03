@@ -28,6 +28,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
+import { getValidSessionToken, TokenValidationError } from '@/lib/auth/tokenValidator';
 import { Mail, UserPlus, Power, PowerOff, Edit, Trash2, CheckCircle2, XCircle, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -319,18 +320,14 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     try {
       setSendingTestEmail(contact.id);
 
-      // Get current session for authentication
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        throw new Error('You must be logged in to send test emails');
-      }
+      // Get a validated, fresh token (with automatic refresh if needed)
+      const token = await getValidSessionToken();
 
       const response = await fetch('/api/test-send-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ contact_id: contact.id })
       });
@@ -351,10 +348,31 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       fetchContacts();
     } catch (error) {
       console.error('Failed to send test email:', (error as Error).message);
-      toast.error(
-        `❌ Failed to send test email\n${(error as Error).message}`,
-        { duration: 8000 }
-      );
+
+      // Handle authentication errors specifically
+      if (error instanceof TokenValidationError) {
+        if (error.code === 'NO_SESSION' || error.code === 'SESSION_ERROR') {
+          toast.error(
+            '🔒 Your session has expired. Please log in again.',
+            { duration: 8000 }
+          );
+        } else if (error.code === 'REFRESH_FAILED') {
+          toast.error(
+            '🔒 Session refresh failed. Please log in again.',
+            { duration: 8000 }
+          );
+        } else {
+          toast.error(
+            `❌ Authentication error: ${error.message}`,
+            { duration: 8000 }
+          );
+        }
+      } else {
+        toast.error(
+          `❌ Failed to send test email\n${(error as Error).message}`,
+          { duration: 8000 }
+        );
+      }
     } finally {
       setSendingTestEmail(null);
     }

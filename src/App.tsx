@@ -298,6 +298,30 @@ function AppContent() {
   const { editDipOpen, editDipTank, closeEditDip, alertsOpen, closeAlerts } = useGlobalModals();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
 
+  // Initialize and refresh Supabase session on app load
+  // This prevents intermittent 401 errors due to uninitialized or expired tokens
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        console.log('[APP] Initializing Supabase session on load');
+        // Force session refresh to ensure valid token
+        const { data: { session }, error } = await supabase.auth.refreshSession();
+
+        if (error) {
+          console.error('[APP] Failed to refresh session on load:', error.message);
+        } else if (session) {
+          console.log('[APP] Session refreshed successfully, expires at:', new Date(session.expires_at! * 1000).toISOString());
+        } else {
+          console.log('[APP] No active session found');
+        }
+      } catch (error) {
+        console.error('[APP] Auth initialization error:', error);
+      }
+    };
+
+    initializeAuth();
+  }, []); // Run once on mount
+
   // Show loading state while tenant initializes
   if (!tenantReady) {
     return <PageLoader />;

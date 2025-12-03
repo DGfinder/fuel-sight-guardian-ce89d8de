@@ -370,6 +370,24 @@ export class EmailController {
     // Check 3: Supabase authenticated admin user
     if (authHeader?.startsWith('Bearer ') && token) {
       try {
+        // Check token expiration before making API calls (fail fast)
+        try {
+          const tokenPayload = this.parseJWT(token);
+          if (tokenPayload.exp) {
+            const expiresAt = tokenPayload.exp * 1000;
+            const now = Date.now();
+            if (now >= expiresAt) {
+              console.error('[EmailController AUTH] Token is expired', {
+                expired_at: new Date(expiresAt).toISOString(),
+                current_time: new Date(now).toISOString()
+              });
+              return false;
+            }
+          }
+        } catch (parseError) {
+          console.warn('[EmailController AUTH] Failed to parse JWT expiration, continuing with validation');
+        }
+
         const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
         // Use VITE_SUPABASE_ANON_KEY as it has the actual anon key (not service role)
         const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
@@ -388,7 +406,12 @@ export class EmailController {
         const { data: { user }, error } = await supabase.auth.getUser();
 
         if (error || !user) {
-          console.error('[EmailController AUTH] Invalid Supabase token:', error?.message);
+          console.error('[EmailController AUTH] Invalid or expired Supabase token:', {
+            error: error?.message,
+            tokenExists: !!token,
+            tokenLength: token?.length,
+            tokenPrefix: token?.substring(0, 20) + '...'
+          });
           return false;
         }
 
@@ -419,7 +442,29 @@ export class EmailController {
       }
     }
 
-    console.error('[EmailController AUTH] Unauthorized request - no valid credentials');
+    console.error('[EmailController AUTH] Unauthorized: Invalid or expired session token');
     return false;
+  }
+
+  /**
+   * Parse a JWT token to extract the payload (for expiration checking)
+   * @param token JWT token string
+   * @returns Decoded token payload
+   */
+  private parseJWT(token: string): any {
+    try {
+      // JWT format: header.payload.signature
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        throw new Error('Invalid JWT format');
+      }
+
+      // Decode base64url payload
+      const payload = parts[1];
+      const decoded = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8');
+      return JSON.parse(decoded);
+    } catch (error) {
+      throw new Error(`Failed to parse JWT: ${(error as Error).message}`);
+    }
   }
 }
