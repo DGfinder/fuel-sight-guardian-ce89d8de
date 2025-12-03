@@ -319,10 +319,18 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     try {
       setSendingTestEmail(contact.id);
 
+      // Get current session for authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        throw new Error('You must be logged in to send test emails');
+      }
+
       const response = await fetch('/api/test-send-email', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ contact_id: contact.id })
       });
@@ -335,7 +343,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       }
 
       toast.success(
-        `✅ Test email sent to ${contact.contact_email}!\nTanks included: ${data.data.tanks_included}\nEmail ID: ${data.data.email_id?.substring(0, 8)}...`,
+        `✅ Test email sent to ${contact.contact_email}!\nTanks included: ${data.tanks_count}\nEmail ID: ${data.email_id?.substring(0, 8)}...`,
         { duration: 6000 }
       );
 

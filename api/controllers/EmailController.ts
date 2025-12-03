@@ -76,7 +76,7 @@ export class EmailController {
     }
 
     // Authentication
-    if (!this.isAuthorized(req)) {
+    if (!(await this.isAuthorizedAsync(req))) {
       return res.status(401).json({
         error: 'Unauthorized',
         message: 'Valid authentication required',
@@ -143,7 +143,7 @@ export class EmailController {
     }
 
     // Authentication
-    if (!this.isAuthorized(req)) {
+    if (!(await this.isAuthorizedAsync(req))) {
       return res.status(401).json({
         error: 'Unauthorized',
         message: 'Valid Bearer token required. Set ADMIN_API_SECRET environment variable.',
@@ -267,7 +267,7 @@ export class EmailController {
     }
 
     // Authentication
-    if (!this.isAuthorized(req)) {
+    if (!(await this.isAuthorizedAsync(req))) {
       return res.status(401).json({
         error: 'Unauthorized',
         message: 'Valid Bearer token required',
@@ -361,23 +361,79 @@ export class EmailController {
 
   /**
    * Check if request is authorized
+   * Supports three authentication methods:
+   * 1. Vercel Cron signature (x-vercel-signature header)
+   * 2. Static Bearer token (ADMIN_API_SECRET or CRON_SECRET)
+   * 3. Supabase authenticated admin/manager user
    */
-  private isAuthorized(req: VercelRequest): boolean {
-    // Check for Vercel Cron signature
+  private async isAuthorizedAsync(req: VercelRequest): Promise<boolean> {
+    // Check 1: Vercel Cron signature
     const isVercelCron = req.headers['x-vercel-signature'] !== undefined;
     if (isVercelCron) {
       console.log('[EmailController AUTH] Vercel Cron signature detected');
       return true;
     }
 
-    // Check for Bearer token
     const authHeader = req.headers.authorization;
     const token = authHeader?.replace('Bearer ', '');
-    const adminSecret = process.env.ADMIN_API_SECRET || process.env.CRON_SECRET;
 
+    // Check 2: Static Bearer token (for external services)
+    const adminSecret = process.env.ADMIN_API_SECRET || process.env.CRON_SECRET;
     if (token && adminSecret && token === adminSecret) {
-      console.log('[EmailController AUTH] Bearer token validated');
+      console.log('[EmailController AUTH] Static Bearer token validated');
       return true;
+    }
+
+    // Check 3: Supabase authenticated admin user
+    if (authHeader?.startsWith('Bearer ') && token) {
+      try {
+        const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+        // Use VITE_SUPABASE_ANON_KEY as it has the actual anon key (not service role)
+        const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.error('[EmailController AUTH] Supabase env vars missing');
+          return false;
+        }
+
+        // Create a new Supabase client with the user's token
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader } }
+        });
+
+        // Verify the user token
+        const { data: { user }, error } = await supabase.auth.getUser();
+
+        if (error || !user) {
+          console.error('[EmailController AUTH] Invalid Supabase token:', error?.message);
+          return false;
+        }
+
+        // Check user role
+        const { data: roles, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        if (roleError) {
+          console.error('[EmailController AUTH] Failed to fetch user role:', roleError.message);
+          return false;
+        }
+
+        const isAdmin = roles?.role === 'admin' || roles?.role === 'manager';
+
+        if (isAdmin) {
+          console.log(`[EmailController AUTH] Authenticated admin user: ${user.email}`);
+          return true;
+        } else {
+          console.warn(`[EmailController AUTH] User ${user.email} lacks admin role (role: ${roles?.role})`);
+          return false;
+        }
+      } catch (error) {
+        console.error('[EmailController AUTH] Supabase auth check failed:', error);
+        return false;
+      }
     }
 
     console.error('[EmailController AUTH] Unauthorized request - no valid credentials');
