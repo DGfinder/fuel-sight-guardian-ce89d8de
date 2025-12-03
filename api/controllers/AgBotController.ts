@@ -142,96 +142,6 @@ export class AgBotController {
   }
 
   /**
-   * POST /api/agbot/sync
-   * Sync all locations from provider
-   */
-  async syncAll(req: VercelRequest, res: VercelResponse) {
-    if (!this.isAuthorized(req)) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    try {
-      const { include_readings = true } = req.body || {};
-
-      console.log('[AgBotController] Starting full sync...');
-
-      const result = await this.dataService.syncAllLocations({
-        syncType: 'manual',
-        includeReadings: include_readings,
-      });
-
-      if (result.success) {
-        return res.status(200).json({
-          success: true,
-          data: result,
-          message: `Successfully synced ${result.synced} locations`,
-          timestamp: new Date().toISOString(),
-        });
-      } else {
-        return res.status(500).json({
-          success: false,
-          data: result,
-          error: 'Sync completed with errors',
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error('[AgBotController] Error during sync:', error);
-      return res.status(500).json({
-        success: false,
-        error: (error as Error).message,
-      });
-    }
-  }
-
-  /**
-   * POST /api/agbot/sync/:id
-   * Sync a specific location
-   */
-  async syncLocation(req: VercelRequest, res: VercelResponse) {
-    if (!this.isAuthorized(req)) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    try {
-      const { id } = req.query;
-
-      if (!id || typeof id !== 'string') {
-        return res.status(400).json({
-          success: false,
-          error: 'Location ID is required',
-        });
-      }
-
-      console.log(`[AgBotController] Syncing location ${id}...`);
-
-      const result = await this.dataService.syncLocation(id);
-
-      if (result.success) {
-        return res.status(200).json({
-          success: true,
-          data: result,
-          message: `Successfully synced location ${id}`,
-          timestamp: new Date().toISOString(),
-        });
-      } else {
-        return res.status(500).json({
-          success: false,
-          data: result,
-          error: `Failed to sync location ${id}`,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error('[AgBotController] Error syncing location:', error);
-      return res.status(500).json({
-        success: false,
-        error: (error as Error).message,
-      });
-    }
-  }
-
-  /**
    * GET /api/agbot/analytics/fleet
    * Get fleet-wide summary analytics
    */
@@ -420,32 +330,6 @@ export class AgBotController {
       });
     } catch (error) {
       console.error('[AgBotController] Error fetching unified location:', error);
-      return res.status(500).json({
-        success: false,
-        error: (error as Error).message,
-      });
-    }
-  }
-
-  /**
-   * GET /api/agbot/provider/health
-   * Check provider connection health
-   */
-  async checkProviderConnection(req: VercelRequest, res: VercelResponse) {
-    if (!this.isAuthorized(req)) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    try {
-      const health = await this.dataService.checkProviderConnection();
-
-      return res.status(200).json({
-        success: true,
-        data: health,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('[AgBotController] Error checking provider connection:', error);
       return res.status(500).json({
         success: false,
         error: (error as Error).message,

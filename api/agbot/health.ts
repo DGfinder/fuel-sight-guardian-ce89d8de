@@ -15,7 +15,6 @@ import { LocationIntegrationService } from '../services/LocationIntegrationServi
 import { AgBotLocationRepository } from '../repositories/AgBotLocationRepository.js';
 import { AgBotAssetRepository } from '../repositories/AgBotAssetRepository.js';
 import { ReadingsHistoryRepository } from '../repositories/ReadingsHistoryRepository.js';
-import { AtharaAgBotProvider } from '../infrastructure/agbot/AtharaAgBotProvider.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -34,15 +33,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const assetRepo = new AgBotAssetRepository(supabase);
     const readingsRepo = new ReadingsHistoryRepository(supabase);
 
-    // Initialize provider
-    const provider = new AtharaAgBotProvider(
-      process.env.ATHARA_API_KEY || '',
-      process.env.ATHARA_API_SECRET || '',
-      process.env.ATHARA_BASE_URL || 'https://api.athara.io'
-    );
-
     // Initialize services
-    const dataService = new AgBotDataService(provider, locationRepo, assetRepo, readingsRepo);
+    const dataService = new AgBotDataService(locationRepo, assetRepo, readingsRepo);
     const analyticsService = new AgBotAnalyticsService(readingsRepo, assetRepo, locationRepo);
     const consumptionService = new ConsumptionAnalysisService(readingsRepo, assetRepo);
     const integrationService = new LocationIntegrationService(
@@ -61,11 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     // Route to appropriate method
-    const { id, provider: checkProvider } = req.query;
+    const { id } = req.query;
 
-    if (checkProvider === 'true') {
-      return controller.checkProviderConnection(req, res);
-    } else if (id) {
+    if (id) {
       return controller.getLocationHealth(req, res);
     } else {
       return controller.getFleetHealth(req, res);

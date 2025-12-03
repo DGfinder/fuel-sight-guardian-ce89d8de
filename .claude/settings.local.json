@@ -1,19 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/HaydenHamilton/.cursor/**)",
+      "mcp__supabase__list_tables",
+      "Bash(git commit -m \"$(cat <<''EOF''\nPhase 4: Complete architectural refactoring to service/controller pattern\n\nSUMMARY:\nRefactored email system from procedural to clean architecture with\ndependency injection, dramatically improving modularity, testability,\nand maintainability.\n\nINFRASTRUCTURE LAYER (Email Providers):\n- Created IEmailProvider interface for provider abstraction\n- Implemented ResendEmailProvider with built-in retry logic (3 attempts)\n- Implemented MockEmailProvider for unit testing\n- Enables easy swapping between email providers (Resend, Sendgrid, SES)\n\nREPOSITORY LAYER (Data Access):\n- Created ContactRepository - all customer_contacts queries\n  * findByPreferredHour, findById, findByToken, updateLastEmailSent\n  * Centralized contact data access, 13 methods\n- Created TankRepository - all ta_agbot_locations queries\n  * findAssignedTanks, findByCustomerName, findTanksForContact\n  * Hybrid logic: specific assignments → customer fallback\n- Created EmailLogRepository - all customer_email_logs queries\n  * create, findRecentSend, updateDeliveryStatus, recordOpened\n  * Statistics, bounce tracking, retry management\n\nSERVICE LAYER (Business Logic):\n- Created EmailService - core orchestration\n  * sendScheduledReports: main cron entry point\n  * sendEmail: single email with idempotency + retry\n  * batchSendEmails: rate-limited batch processing\n  * filterByFrequency: daily/weekly/monthly logic\n  * 250 lines of reusable business logic\n- Created ReportGeneratorService - report generation\n  * generate: orchestrates template + analytics\n  * transformTankData: DB → template format\n  * calculateAnalytics: fleet summary stats\n  * Consolidates template logic\n\nCONTROLLER LAYER (HTTP Handlers):\n- Created EmailController - thin HTTP handlers\n  * sendScheduledReports: cron endpoint handler\n  * sendTestEmail: test endpoint handler\n  * previewEmail: preview endpoint handler\n  * isAuthorized: unified auth (Vercel Cron + Bearer token)\n  * Dependency injection in constructor\n  * Consistent error handling and response formatting\n\nENDPOINT REFACTORING:\n- api/cron/send-agbot-reports.ts: 477 lines → 35 lines (93% reduction)\n- api/test-send-email.ts: 350+ lines → 33 lines (90% reduction)\n- api/email/preview.ts: 356 lines → 33 lines (91% reduction)\n- All endpoints now delegate to EmailController\n- Original files backed up with .backup extension\n\nBENEFITS:\n✅ 10x easier to test (mockable dependencies)\n✅ Zero code duplication (all endpoints share EmailService)\n✅ Swappable infrastructure (change email provider in 1 line)\n✅ Easier to extend (add SMS/Slack by creating new services)\n✅ Better error handling (consistent across all layers)\n✅ Cleaner separation of concerns (HTTP ≠ Business Logic ≠ Data Access)\n✅ Maintainable (services < 300 lines each)\n\nARCHITECTURE:\n┌─────────────────────────────────────┐\n│ Endpoints (HTTP) - Thin wrappers    │\n├─────────────────────────────────────┤\n│ Controllers - Auth & validation     │\n├─────────────────────────────────────┤\n│ Services - Business logic           │\n├─────────────────────────────────────┤\n│ Repositories - Data access          │\n├─────────────────────────────────────┤\n│ Infrastructure - Email providers    │\n└─────────────────────────────────────┘\n\nTESTING:\n- All services are unit testable with mocks\n- No actual database or email sends required\n- MockEmailProvider records all sent emails for assertions\n- Example: Test retry logic by mocking provider failures\n\nNEXT STEPS:\n- Write comprehensive unit tests for all services\n- Replace hard-coded config with database-driven config\n- Add metrics/observability to service layer\n- Create admin UI for configuration management\n\n🤖 Generated with Claude Code (https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)",
+      "mcp__supabase__list_migrations",
       "mcp__supabase__execute_sql",
-      "Bash(cut:*)",
-      "Bash(node:*)",
-      "Bash(curl:*)",
-      "Bash(cat:*)",
-      "Bash(echo:*)",
-      "Bash(npx tsc:*)",
+      "mcp__supabase__apply_migration",
       "Bash(find:*)",
-      "Bash(dir \"C:\\Users\\Hayden\\Downloads\\fuel-sight-guardian-ce89d8de\\.env\")",
-      "mcp__supabase__supabase_query",
-      "Bash(timeout 5 node:*)",
-      "mcp__supabase__supabase_insert",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
       "Bash(git push:*)"
     ],
     "deny": [],
