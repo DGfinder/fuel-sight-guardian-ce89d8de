@@ -293,7 +293,7 @@ export class EmailService {
    * Get email configuration from environment/database
    * TODO: Replace with database-driven config
    */
-  private async getEmailConfig(): Promise<EmailConfig> {
+  public async getEmailConfig(): Promise<EmailConfig> {
     const fromEmail = (process.env.RESEND_VERIFIED_EMAIL ||
       'alert@tankalert.greatsouthernfuels.com.au').trim();
     const fromName = 'Tank Alert';

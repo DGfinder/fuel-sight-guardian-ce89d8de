@@ -190,17 +190,7 @@ export class EmailController {
       console.log(`[EmailController] Found ${tanks.length} tanks for test email`);
 
       // Get email config
-      const config = {
-        from_email:
-          process.env.RESEND_VERIFIED_EMAIL ||
-          'alert@tankalert.greatsouthernfuels.com.au',
-        from_name: 'Tank Alert',
-        reply_to: 'hayden@stevemacs.com.au',
-        support_email: 'support@greatsouthernfuel.com.au',
-        logo_url:
-          'https://www.greatsouthernfuels.com.au/wp-content/uploads/2024/08/9d8131_1317ed20e5274adc9fd15fe2196d2cb8mv2.webp',
-        primary_color: '#059669',
-      };
+      const config = await this.emailService.getEmailConfig();
 
       // Send email via service
       const result = await this.emailService.sendEmail({
@@ -310,14 +300,7 @@ export class EmailController {
 
       // Generate report (don't send)
       const reportGenerator = new ReportGeneratorService(this.supabase);
-      const config = {
-        from_email: 'alert@tankalert.greatsouthernfuels.com.au',
-        from_name: 'Tank Alert',
-        reply_to: 'hayden@stevemacs.com.au',
-        support_email: 'support@greatsouthernfuel.com.au',
-        logo_url:
-          'https://www.greatsouthernfuels.com.au/wp-content/uploads/2024/08/9d8131_1317ed20e5274adc9fd15fe2196d2cb8mv2.webp',
-      };
+      const config = await this.emailService.getEmailConfig();
 
       const report = await reportGenerator.generate({
         tanks,
