@@ -11,7 +11,12 @@ const QUICKCHART_API = 'https://quickchart.io/chart';
  * Generate a 7-day consumption trend chart for a single tank
  */
 export function generate7DayTrendChartUrl(tankData: TankConsumptionData): string {
-  const labels = ['6d ago', '5d ago', '4d ago', '3d ago', '2d ago', 'Yesterday', 'Today'];
+  // Generate actual day names for the past 7 days
+  const labels = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - i));
+    return date.toLocaleDateString('en-AU', { weekday: 'short' });
+  });
 
   const chartConfig = {
     type: 'line',

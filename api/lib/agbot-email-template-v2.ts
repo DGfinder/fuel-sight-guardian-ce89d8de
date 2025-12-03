@@ -565,53 +565,7 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
           })
           .join('');
 
-  // Fleet analytics section (for weekly/monthly) - Premium styling
-  const fleetAnalyticsHtml =
-    showCharts && tanksAnalytics && tanksAnalytics.length > 0
-      ? `
-        <tr>
-          <td style="padding: 0 40px 28px;">
-            <!-- Section Header -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px;">
-              <tr>
-                <td>
-                  <p style="color: ${TEXT_DARK}; font-size: 13px; font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: 0.8px;">
-                    Fleet Analytics
-                  </p>
-                </td>
-              </tr>
-            </table>
-
-            ${
-              fleetSummary
-                ? `
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${BG_LIGHT}; border-radius: 8px; margin-bottom: 16px;">
-              <tr>
-                <td style="padding: 16px;">
-                  <p style="font-size: 13px; color: ${TEXT_SECONDARY}; margin: 0 0 8px 0;">
-                    Fleet trend: <span style="color: ${TEXT_DARK}; font-weight: 600;">${getTrendEmoji(fleetSummary.fleet_trend)} ${fleetSummary.fleet_trend}</span>
-                  </p>
-                  <p style="font-size: 13px; color: ${TEXT_SECONDARY}; margin: 0;">
-                    Top consumer: <span style="color: ${TEXT_DARK}; font-weight: 600;">${fleetSummary.most_consumed_tank}</span> · ${formatNumber(fleetSummary.most_consumed_amount)} L/24h
-                  </p>
-                </td>
-              </tr>
-            </table>
-            `
-                : ''
-            }
-
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td align="center">
-                  <img src="${generateFleetComparisonChartUrl(tanksAnalytics)}" alt="Fleet Comparison" style="max-width: 100%; height: auto; border-radius: 8px;" />
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      `
-      : '';
+  // Fleet analytics section removed - not providing value per user feedback
 
 
   // Unsubscribe link
@@ -767,9 +721,6 @@ export function generateAgBotEmailHtmlV2(data: AgBotEmailDataV2): string {
                   ${tankCardsHtml}
                 </td>
               </tr>
-
-              <!-- Fleet Analytics (weekly/monthly only) -->
-              ${fleetAnalyticsHtml}
 
               <!-- Footer -->
               <tr>

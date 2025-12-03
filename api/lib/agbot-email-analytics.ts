@@ -41,7 +41,7 @@ export interface TankConsumptionData {
   efficiency_score: number;
 
   // 7-day sparkline data (for visualization)
-  sparkline_7d: number[]; // Array of 7 daily consumption values
+  sparkline_7d: (number | null)[]; // Array of 7 daily consumption values (null for missing data)
 }
 
 export interface FleetSummary {
@@ -101,7 +101,7 @@ export async function fetch24HourConsumption(
 export async function fetch7DayConsumption(
   supabase: SupabaseClient<Database>,
   assetId: string
-): Promise<{ litres: number; pct: number; daily_values: number[] }> {
+): Promise<{ litres: number; pct: number; daily_values: (number | null)[] }> {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -113,7 +113,7 @@ export async function fetch7DayConsumption(
     .order('reading_at', { ascending: true });
 
   if (error || !data || data.length < 2) {
-    return { litres: 0, pct: 0, daily_values: new Array(7).fill(0) };
+    return { litres: 0, pct: 0, daily_values: new Array(7).fill(null) };
   }
 
   const oldest = data[0];
@@ -130,7 +130,7 @@ export async function fetch7DayConsumption(
       : 0;
 
   // Calculate daily values for sparkline (last 7 days)
-  const daily_values: number[] = [];
+  const daily_values: (number | null)[] = [];
   for (let i = 6; i >= 0; i--) {
     const dayStart = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
     const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
@@ -149,7 +149,7 @@ export async function fetch7DayConsumption(
           : 0;
       daily_values.push(Math.round(dayConsumption));
     } else {
-      daily_values.push(0);
+      daily_values.push(null); // Use null for missing data to show gaps in chart
     }
   }
 
@@ -267,10 +267,9 @@ export async function getTankConsumptionAnalytics(
       days_remaining: location.asset_days_remaining,
       estimated_refill_date: null,
       last_refill_date: null,
-      vs_yesterday_pct: 0,
       vs_7d_avg_pct: 0,
       efficiency_score: 100,
-      sparkline_7d: new Array(7).fill(0),
+      sparkline_7d: new Array(7).fill(null),
     };
   }
 
