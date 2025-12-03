@@ -294,12 +294,26 @@ export class EmailService {
    * TODO: Replace with database-driven config
    */
   private async getEmailConfig(): Promise<EmailConfig> {
+    const fromEmail = (process.env.RESEND_VERIFIED_EMAIL ||
+      'alert@tankalert.greatsouthernfuels.com.au').trim();
+    const fromName = 'Tank Alert';
+    const replyTo = 'hayden@stevemacs.com.au';
+
+    // Validate critical config
+    if (!fromEmail || !fromEmail.includes('@')) {
+      throw new Error(`Invalid FROM email configuration: "${fromEmail}"`);
+    }
+
+    if (!fromName || fromName.trim() === '') {
+      throw new Error(`Invalid FROM name configuration: "${fromName}"`);
+    }
+
+    console.log(`[EmailService] Email config loaded - FROM: "${fromName} <${fromEmail}>"`);
+
     return {
-      from_email:
-        process.env.RESEND_VERIFIED_EMAIL ||
-        'alert@tankalert.greatsouthernfuels.com.au',
-      from_name: 'Tank Alert',
-      reply_to: 'hayden@stevemacs.com.au',
+      from_email: fromEmail,
+      from_name: fromName,
+      reply_to: replyTo,
       support_email: 'support@greatsouthernfuel.com.au',
       logo_url:
         'https://www.greatsouthernfuels.com.au/wp-content/uploads/2024/08/9d8131_1317ed20e5274adc9fd15fe2196d2cb8mv2.webp',

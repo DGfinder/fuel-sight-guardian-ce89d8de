@@ -66,11 +66,11 @@ export class EmailController {
     console.log('[EmailController] Send scheduled reports endpoint called');
     console.log('[EmailController] Method:', req.method);
 
-    // Only accept POST
-    if (req.method !== 'POST') {
+    // Accept GET (Vercel Cron) or POST (manual trigger)
+    if (req.method !== 'GET' && req.method !== 'POST') {
       return res.status(405).json({
         error: 'Method not allowed',
-        expected: 'POST',
+        expected: 'GET or POST',
         received: req.method,
       });
     }

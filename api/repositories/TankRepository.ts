@@ -210,15 +210,31 @@ export class TankRepository {
    * 2. Fallback to all tanks for that customer
    */
   async findTanksForContact(contactId: string, customerName: string): Promise<Tank[]> {
+    console.log(`[TankRepo] Finding tanks for contact ${contactId}, customer: ${customerName}`);
+
     // Try specific assignments first
     const assignedTanks = await this.findAssignedTanks(contactId);
 
     if (assignedTanks.length > 0) {
+      console.log(`[TankRepo] ✅ Found ${assignedTanks.length} assigned tanks`);
       return assignedTanks;
     }
 
+    console.log(`[TankRepo] No assigned tanks found, falling back to customer_name query`);
+
     // Fallback to all customer tanks
-    return this.findByCustomerName(customerName);
+    const customerTanks = await this.findByCustomerName(customerName);
+    console.log(`[TankRepo] Fallback query returned ${customerTanks.length} tanks`);
+
+    if (customerTanks.length === 0) {
+      console.warn(`⚠️  [TankRepo] NO TANKS FOUND for ${customerName}`);
+      console.warn(`   - Contact ID: ${contactId}`);
+      console.warn(`   - Customer Name: "${customerName}"`);
+      console.warn(`   - Possible cause: Data not migrated to ta_agbot_locations`);
+      console.warn(`   - Action: Run database/migrations/migrate_agbot_data_to_ta.sql`);
+    }
+
+    return customerTanks;
   }
 
   /**
