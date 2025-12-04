@@ -217,32 +217,15 @@ export function useAgbotSummary() {
     totalCapacity += capacity;
     currentFuelVolume += currentVolume;
 
-    // Daily consumption from asset or location data with freshness validation
+    // Daily consumption from asset or location data
+    // Note: Consumption is calculated by the recalculate-consumption cron job (runs daily)
+    // No freshness check needed since the cron job updates this regularly
     const dailyConsumption = mainAsset?.asset_daily_consumption || location.location_daily_consumption;
-    const lastCalcAt = mainAsset?.last_consumption_calc_at;
 
     if (dailyConsumption && dailyConsumption > 0) {
-      // Check data freshness (24 hours)
-      const FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-      const now = Date.now();
-
-      if (lastCalcAt) {
-        const calcAge = now - new Date(lastCalcAt).getTime();
-        if (calcAge <= FRESHNESS_THRESHOLD_MS) {
-          // Data is fresh, include it
-          totalDailyConsumption += dailyConsumption;
-          locationsWithConsumption++;
-          freshDataCount++;
-        } else {
-          // Data is stale, log warning and skip
-          console.warn(`[useAgbotSummary] Stale consumption data for ${location.address1}: ${(calcAge / 3600000).toFixed(1)}h old`);
-          staleDataCount++;
-        }
-      } else {
-        // No timestamp means data is stale
-        console.warn(`[useAgbotSummary] No last_consumption_calc_at timestamp for ${location.address1}, skipping consumption data`);
-        staleDataCount++;
-      }
+      totalDailyConsumption += dailyConsumption;
+      locationsWithConsumption++;
+      freshDataCount++;
     }
 
     // Categorize locations

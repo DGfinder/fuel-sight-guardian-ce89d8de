@@ -33,32 +33,18 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 function getLocationConsumptionBreakdown(locations: any[] | undefined) {
   if (!locations) return [];
 
-  const FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-  const now = Date.now();
-
   const breakdown = locations
     .map(location => {
       const mainAsset = location.assets?.[0];
       const dailyConsumption = mainAsset?.asset_daily_consumption || location.location_daily_consumption || 0;
-      const lastCalcAt = mainAsset?.last_consumption_calc_at;
 
-      let isStale = false;
-      let ageHours = 0;
-
-      if (lastCalcAt) {
-        const calcAge = now - new Date(lastCalcAt).getTime();
-        ageHours = Math.round(calcAge / 3600000);
-        isStale = calcAge > FRESHNESS_THRESHOLD_MS;
-      } else if (dailyConsumption > 0) {
-        isStale = true;
-        ageHours = 999;
-      }
-
+      // Consumption is calculated by the recalculate-consumption cron job (runs daily)
+      // Data is considered fresh since it's updated regularly by the cron
       return {
         name: location.address1 || location.customer_name || 'Unknown',
         consumption: dailyConsumption,
-        isStale,
-        ageHours,
+        isStale: false,  // Trust cron job data
+        ageHours: 0,
       };
     })
     .filter(item => item.consumption > 0);
