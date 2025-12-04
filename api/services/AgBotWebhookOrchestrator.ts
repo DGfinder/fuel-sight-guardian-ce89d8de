@@ -223,12 +223,21 @@ export class AgBotWebhookOrchestrator {
     // 6. Calculate consumption (non-blocking, errors logged but don't fail the webhook)
     try {
       if (asset.current_level_percent !== null && asset.capacity_liters) {
-        await this.consumptionService.calculateConsumption(
+        const consumption = await this.consumptionService.calculateConsumption(
           asset.id,
           asset.current_level_percent,
           asset.capacity_liters
         );
-        console.log(`   📈 Consumption calculated`);
+
+        // Save the consumption results to the asset
+        await this.assetRepo.updateConsumption(asset.id, {
+          daily_consumption_liters: consumption.daily_consumption_litres || 0,
+          days_remaining: consumption.days_remaining || 0,
+          last_consumption_calc_at: new Date().toISOString(),
+          consumption_calc_confidence: consumption.confidence,
+        });
+
+        console.log(`   📈 Consumption calculated and saved: ${consumption.daily_consumption_litres}L/day, ${consumption.days_remaining} days remaining (${consumption.confidence} confidence)`);
       }
     } catch (error) {
       console.warn(`   ⚠️  Consumption calculation failed: ${(error as Error).message}`);
