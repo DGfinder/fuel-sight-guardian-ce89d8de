@@ -223,8 +223,8 @@ export class AgBotAnalyticsService {
       return { litres: 0, pct: 0 };
     }
 
-    const oldest = readings[readings.length - 1]; // Most recent is first
-    const newest = readings[0];
+    const oldest = readings[0]; // Oldest is first (ascending order)
+    const newest = readings[readings.length - 1];
 
     const pctConsumed = Math.max(0, (oldest.level_percent || 0) - (newest.level_percent || 0));
     const litresConsumed =
@@ -250,8 +250,8 @@ export class AgBotAnalyticsService {
       return { litres: 0, pct: 0, daily_values: new Array(7).fill(0) };
     }
 
-    const oldest = readings[readings.length - 1];
-    const newest = readings[0];
+    const oldest = readings[0]; // Oldest is first (ascending order)
+    const newest = readings[readings.length - 1];
 
     const pctConsumed = Math.max(0, (oldest.level_percent || 0) - (newest.level_percent || 0));
     const litresConsumed =
@@ -304,8 +304,8 @@ export class AgBotAnalyticsService {
       return { litres: null, pct: null };
     }
 
-    const oldest = readings[readings.length - 1];
-    const newest = readings[0];
+    const oldest = readings[0]; // Oldest is first (ascending order)
+    const newest = readings[readings.length - 1];
 
     const pctConsumed = Math.max(0, (oldest.level_percent || 0) - (newest.level_percent || 0));
     const litresConsumed =

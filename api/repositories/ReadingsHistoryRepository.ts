@@ -115,7 +115,7 @@ export class ReadingsHistoryRepository {
       .select('*')
       .eq('asset_id', assetId)
       .gte('reading_at', cutoffDate.toISOString())
-      .order('reading_at', { ascending: false });
+      .order('reading_at', { ascending: true }); // Ascending order for consumption calculations
 
     if (error) {
       throw new Error(`Failed to fetch recent readings: ${error.message}`);
