@@ -167,7 +167,7 @@ export function useCustomerTanks() {
 
       // Get tank details with assets
       const { data: locations, error: locationsError } = await supabase
-        .schema('great_southern_fuels').from('ta_agbot_locations')
+        .from('ta_agbot_locations')
         .select(`
           id,
           external_guid,
@@ -397,7 +397,7 @@ export function useCustomerTankHistory(assetId: string | undefined, days: number
       startDate.setDate(startDate.getDate() - days);
 
       const { data, error } = await supabase
-        .schema('great_southern_fuels').from('ta_agbot_readings')
+        .from('ta_agbot_readings')
         .select('level_percent, reading_at, is_online')
         .eq('asset_id', assetId)
         .gte('reading_at', startDate.toISOString())
