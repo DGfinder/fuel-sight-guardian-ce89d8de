@@ -154,6 +154,16 @@ class TenantSupabaseClient {
   // ========================================================================
 
   /**
+   * Specify schema for query
+   * 
+   * Allows explicit schema specification (e.g., for great_southern_fuels)
+   * This is needed for AgBot queries that explicitly use .schema()
+   */
+  schema(schema: string) {
+    return this.client.schema(schema);
+  }
+
+  /**
    * Query builder for tables
    *
    * Automatically resolves to tenant schema via search_path
