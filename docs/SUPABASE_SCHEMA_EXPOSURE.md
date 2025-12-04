@@ -49,21 +49,35 @@ supabase db push
 
 After exposing the schema, verify it works:
 
-1. **Test in Browser Console**
+1. **Save and Wait**
+   - Click **Save** in the Supabase dashboard
+   - Wait 10-30 seconds for changes to propagate
+   - Clear browser cache or do a hard refresh (Ctrl+Shift+R or Cmd+Shift+R)
+
+2. **Test in Browser Console**
    ```javascript
+   // In browser console on your app page
+   const { supabase } = await import('/src/lib/supabase');
    const { data, error } = await supabase
      .schema('great_southern_fuels')
      .from('ta_agbot_locations')
      .select('count', { count: 'exact', head: true });
    
    console.log('Schema access:', error ? 'FAILED' : 'SUCCESS', error);
+   if (error) console.error('Error details:', error);
    ```
 
-2. **Check Network Tab**
+3. **Check Network Tab**
    - Open browser DevTools → Network tab
    - Try loading AgBot data
    - Look for API calls to `/rest/v1/ta_agbot_locations`
+   - Check the request URL - should include `?schema=great_southern_fuels`
    - Should return 200 OK, not 400 Bad Request
+
+4. **Verify Configuration**
+   - Go back to Settings → API
+   - Confirm `great_southern_fuels` is still in the "Exposed schemas" list
+   - If it disappeared, add it again and save
 
 ### Related Migrations
 
