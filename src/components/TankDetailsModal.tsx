@@ -1145,7 +1145,13 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
       {isDipFormOpen && (
         <AddDipModal
           open={isDipFormOpen}
-          onOpenChange={setIsDipFormOpen}
+          onOpenChange={(isOpen) => {
+            setIsDipFormOpen(isOpen);
+            // Refetch dip history when modal closes to ensure latest data is displayed
+            if (!isOpen) {
+              dipHistoryQuery.refetch();
+            }
+          }}
           initialTankId={tank?.id}
           initialGroupId={tank?.group_id}
           onSubmit={async () => {

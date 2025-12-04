@@ -333,7 +333,7 @@ export default function AddDipModal({
           queryClient.invalidateQueries({ queryKey: ['ta-tanks-compat'] }),
           queryClient.invalidateQueries({ queryKey: ['ta-tanks'] }),
           // Related queries
-          queryClient.invalidateQueries({ queryKey: ['tankHistory'] }),
+          queryClient.invalidateQueries({ queryKey: ['tank-history'] }),  // Fixed: use kebab-case to match useTankHistory hook
           queryClient.invalidateQueries({ queryKey: ['tankAlerts'] }),
           queryClient.invalidateQueries({ queryKey: ['dip_readings'] }),
           queryClient.invalidateQueries({ queryKey: ['activeAlerts'] }),
