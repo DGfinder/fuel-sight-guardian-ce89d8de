@@ -16,12 +16,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[Recalculate Consumption] Starting consumption recalculation job');
 
     // Authentication (same pattern as send-agbot-reports cron)
-    const isVercelCron = !!req.headers['x-vercel-signature'];
+    const isVercelCron = !!req.headers['x-vercel-signature'] ||
+                         (req.headers['user-agent'] as string)?.includes('vercel-cron');
     const authHeader = req.headers.authorization;
     const hasValidAuth = isVercelCron || (authHeader && authHeader.startsWith('Bearer '));
 
     console.log('[Recalculate Consumption] Auth check:', {
-      hasVercelSignature: isVercelCron,
+      hasVercelSignature: !!req.headers['x-vercel-signature'],
+      hasVercelUserAgent: (req.headers['user-agent'] as string)?.includes('vercel-cron'),
       hasAuthorization: !!authHeader,
     });
 
@@ -29,17 +31,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('[Recalculate Consumption] Unauthorized - no valid auth method');
       return res.status(401).json({ error: 'Unauthorized' });
     }
+    
+    console.log('[Recalculate Consumption] ✅ Authorized');
 
-    // Get Supabase credentials
+    // Get Supabase credentials - use service role key for schema access
     const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseKey) {
       console.error('[Recalculate Consumption] Missing Supabase environment variables');
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Initialize services
     const readingsRepo = new ReadingsHistoryRepository(supabase);
@@ -58,9 +62,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       duration_ms: duration,
     });
 
-    // Log to agbot_sync_logs table
+    // Log to ta_agbot_sync_log table in great_southern_fuels schema
     try {
-      await supabase.from('agbot_sync_logs').insert({
+      await supabase.schema('great_southern_fuels').from('ta_agbot_sync_log').insert({
         sync_type: 'consumption_recalc',
         sync_status: result.failed === 0 ? 'success' : 'partial',
         assets_processed: result.processed,
@@ -68,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error_message: result.failed > 0 ? `${result.failed} assets failed` : null,
       });
     } catch (logError) {
-      console.error('[Recalculate Consumption] Failed to log to agbot_sync_logs:', logError);
+      console.error('[Recalculate Consumption] Failed to log to ta_agbot_sync_log:', logError);
       // Don't fail the entire job if logging fails
     }
 
