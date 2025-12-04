@@ -97,7 +97,7 @@ export class AgBotLocationRepository {
    */
   async findAll(includeDisabled: boolean = false): Promise<AgBotLocation[]> {
     // TEMPORARY: Using public schema until great_southern_fuels is exposed in Supabase API settings
-    let query = this.db.schema('great_southern_fuels').from('ta_agbot_locations').select('*').order('name', { ascending: true });
+    let query = this.db.from('ta_agbot_locations').select('*').order('name', { ascending: true });
 
     if (!includeDisabled) {
       query = query.eq('is_disabled', false);
@@ -117,7 +117,7 @@ export class AgBotLocationRepository {
    */
   async findById(id: string): Promise<AgBotLocation | null> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*')
       .eq('id', id)
       .single();
@@ -137,7 +137,7 @@ export class AgBotLocationRepository {
    */
   async findByExternalGuid(externalGuid: string): Promise<AgBotLocation | null> {
     const { data, error} = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*')
       .eq('external_guid', externalGuid)
       .single();
@@ -157,7 +157,7 @@ export class AgBotLocationRepository {
    */
   async findByName(name: string): Promise<AgBotLocation | null> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*')
       .eq('name', name)
       .single();
@@ -177,7 +177,7 @@ export class AgBotLocationRepository {
    */
   async findByCustomer(customerName: string, includeDisabled: boolean = false): Promise<AgBotLocation[]> {
     let query = this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*')
       .eq('customer_name', customerName)
       .order('name', { ascending: true });
@@ -200,7 +200,7 @@ export class AgBotLocationRepository {
    */
   async findByCustomerGuid(customerGuid: string, includeDisabled: boolean = false): Promise<AgBotLocation[]> {
     let query = this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*')
       .eq('customer_guid', customerGuid)
       .order('name', { ascending: true });
@@ -223,7 +223,7 @@ export class AgBotLocationRepository {
    */
   async findLowFuel(thresholdPercent: number): Promise<AgBotLocation[]> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*')
       .eq('is_disabled', false)
       .lt('calibrated_fill_level', thresholdPercent)
@@ -241,7 +241,7 @@ export class AgBotLocationRepository {
    */
   async findCriticalFuel(thresholdPercent: number): Promise<AgBotLocation[]> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*')
       .eq('is_disabled', false)
       .lt('calibrated_fill_level', thresholdPercent)
@@ -259,7 +259,7 @@ export class AgBotLocationRepository {
    */
   async findWithOfflineAssets(): Promise<AgBotLocation[]> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*')
       .eq('is_disabled', false)
       .filter('assets_online', 'lt', 'total_assets')
@@ -277,7 +277,7 @@ export class AgBotLocationRepository {
    */
   async create(input: LocationCreateInput): Promise<AgBotLocation> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .insert({
         external_guid: input.external_guid,
         name: input.name,
@@ -314,7 +314,7 @@ export class AgBotLocationRepository {
    */
   async update(id: string, input: LocationUpdateInput): Promise<AgBotLocation> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .update({
         ...input,
         updated_at: new Date().toISOString(),
@@ -335,7 +335,7 @@ export class AgBotLocationRepository {
    */
   async upsert(input: LocationCreateInput): Promise<AgBotLocation> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .upsert(
         {
           external_guid: input.external_guid,
@@ -406,7 +406,7 @@ export class AgBotLocationRepository {
     }));
 
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .upsert(records, {
         onConflict: 'external_guid',
         ignoreDuplicates: false,
@@ -424,7 +424,7 @@ export class AgBotLocationRepository {
    * Deletes a location by ID
    */
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.schema('great_southern_fuels').from('ta_agbot_locations').delete().eq('id', id);
+    const { error } = await this.db.from('ta_agbot_locations').delete().eq('id', id);
 
     if (error) {
       throw new Error(`Failed to delete location: ${error.message}`);
@@ -436,7 +436,7 @@ export class AgBotLocationRepository {
    */
   async countByStatus(): Promise<LocationStats> {
     const { data: all, error: allError } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('is_disabled, total_assets, assets_online', { count: 'exact' });
 
     if (allError) {
@@ -463,7 +463,7 @@ export class AgBotLocationRepository {
    */
   async countByCustomer(customerName: string): Promise<number> {
     const { count, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_locations')
+      .from('ta_agbot_locations')
       .select('*', { count: 'exact', head: true })
       .eq('customer_name', customerName);
 

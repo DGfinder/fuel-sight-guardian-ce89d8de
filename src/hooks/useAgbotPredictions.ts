@@ -49,7 +49,7 @@ export function useAgbotPredictions(options?: { days?: number; enabled?: boolean
     queryFn: async () => {
       // Step 1: Fetch all Agbot locations with their assets
       const { data: locations, error: locationsError } = await supabase
-        .schema('great_southern_fuels').from('ta_agbot_locations')
+        .from('ta_agbot_locations')
         .select(`
           id,
           customer_name,
@@ -87,7 +87,7 @@ export function useAgbotPredictions(options?: { days?: number; enabled?: boolean
       }
 
       const { data: readings, error: readingsError } = await supabase
-        .schema('great_southern_fuels').from('ta_agbot_readings')
+        .from('ta_agbot_readings')
         .select('*')
         .in('asset_id', assetIds)
         .gte('reading_at', fromDate.toISOString())
@@ -190,7 +190,7 @@ export function useDevicePrediction(assetId: string, options?: { days?: number; 
     queryFn: async () => {
       // Fetch asset details
       const { data: asset, error: assetError } = await supabase
-        .schema('great_southern_fuels').from('ta_agbot_assets')
+        .from('ta_agbot_assets')
         .select(`
           id,
           external_guid,
@@ -212,7 +212,7 @@ export function useDevicePrediction(assetId: string, options?: { days?: number; 
       fromDate.setDate(fromDate.getDate() - days);
 
       const { data: readings, error: readingsError } = await supabase
-        .schema('great_southern_fuels').from('ta_agbot_readings')
+        .from('ta_agbot_readings')
         .select('*')
         .eq('asset_id', assetId)
         .gte('reading_at', fromDate.toISOString())
@@ -268,7 +268,7 @@ export function useFleetHealthSummary(options?: { enabled?: boolean }) {
     queryFn: async () => {
       // Single view query replaces 4 separate COUNT queries
       const { data: fleetData, error } = await supabase
-        .schema('great_southern_fuels').from('agbot_fleet_overview')
+        .from('agbot_fleet_overview')
         .select('total_assets, assets_online, avg_fill_percent, low_battery_devices, tanks_need_refill');
 
       if (error) {
@@ -280,10 +280,10 @@ export function useFleetHealthSummary(options?: { enabled?: boolean }) {
           { count: offlineDevices },
           { count: criticalFuel }
         ] = await Promise.all([
-          supabase.schema('great_southern_fuels').from('ta_agbot_assets').select('*', { count: 'exact', head: true }),
-          supabase.schema('great_southern_fuels').from('ta_agbot_assets').select('*', { count: 'exact', head: true }).lt('battery_voltage', 3.3),
-          supabase.schema('great_southern_fuels').from('ta_agbot_assets').select('*', { count: 'exact', head: true }).eq('is_online', false),
-          supabase.schema('great_southern_fuels').from('ta_agbot_locations').select('*', { count: 'exact', head: true }).lt('calibrated_fill_level', 20)
+          supabase.from('ta_agbot_assets').select('*', { count: 'exact', head: true }),
+          supabase.from('ta_agbot_assets').select('*', { count: 'exact', head: true }).lt('battery_voltage', 3.3),
+          supabase.from('ta_agbot_assets').select('*', { count: 'exact', head: true }).eq('is_online', false),
+          supabase.from('ta_agbot_locations').select('*', { count: 'exact', head: true }).lt('calibrated_fill_level', 20)
         ]);
         return {
           totalDevices: totalDevices || 0,
@@ -343,7 +343,7 @@ export function useDeviceHealthSummary(assetIds?: string[], options?: { enabled?
     queryKey: ['device-health-summary', assetIds],
     queryFn: async () => {
       let query = supabase
-        .schema('great_southern_fuels').from('agbot_device_health_summary')
+        .from('agbot_device_health_summary')
         .select(`
           asset_id,
           customer_name,

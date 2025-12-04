@@ -108,7 +108,7 @@ export function useFleetHealth() {
       if (!user) throw new Error('User not found');
 
       const { data: customerAccount } = await supabase
-        .schema('great_southern_fuels').from('customer_accounts')
+        .from('customer_accounts')
         .select('id')
         .eq('user_id', user.id)
         .single();
@@ -117,7 +117,7 @@ export function useFleetHealth() {
 
       // Get tank access
       const { data: tankAccess } = await supabase
-        .schema('great_southern_fuels').from('customer_tank_access')
+        .from('customer_tank_access')
         .select('agbot_location_id')
         .eq('customer_account_id', customerAccount.id);
 
@@ -129,7 +129,7 @@ export function useFleetHealth() {
 
       // Get tank locations with assets
       const { data: tanks, error: tanksError } = await supabase
-        .schema('great_southern_fuels').from('ta_agbot_locations')
+        .from('ta_agbot_locations')
         .select(`
           id,
           name,
@@ -158,7 +158,7 @@ export function useFleetHealth() {
         .filter(Boolean);
 
       const { data: latestReadings } = await supabase
-        .schema('great_southern_fuels').from('ta_agbot_readings')
+        .from('ta_agbot_readings')
         .select('asset_id, reading_at, is_online, battery_voltage, signal_strength')
         .in('asset_id', assetIds)
         .order('reading_at', { ascending: false });
