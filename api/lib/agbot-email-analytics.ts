@@ -121,7 +121,7 @@ export async function fetch7DayConsumption(
 
     // Query for readings during this specific day
     const { data } = await supabase
-      .schema('great_southern_fuels').from('ta_agbot_readings')
+      .from('ta_agbot_readings')
       .select('level_liters, level_percent, reading_at')
       .eq('asset_id', assetId)
       .gte('reading_at', dayStart.toISOString())

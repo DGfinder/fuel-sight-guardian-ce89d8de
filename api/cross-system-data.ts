@@ -451,7 +451,7 @@ async function aggregateFuelLevelData(
   if (systems.includes('agbot')) {
     try {
       let query = supabase
-        .schema('great_southern_fuels').from('ta_agbot_readings')
+        .from('ta_agbot_readings')
         .select('level_percent')
         .gte('reading_at', interval.start)
         .lte('reading_at', interval.end);
@@ -572,7 +572,7 @@ async function checkSystemHealth(system: string) {
     case 'agbot':
       try {
         const { count } = await supabase
-          .schema('great_southern_fuels').from('ta_agbot_locations')
+          .from('ta_agbot_locations')
           .select('*', { count: 'exact', head: true });
         return {
           available: true,

@@ -140,7 +140,7 @@ export class AgBotAssetRepository {
    */
   async findByLocation(locationId: string, includeDisabled: boolean = false): Promise<AgBotAsset[]> {
     let query = this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('location_id', locationId)
       .order('name', { ascending: true });
@@ -163,7 +163,7 @@ export class AgBotAssetRepository {
    */
   async findById(id: string): Promise<AgBotAsset | null> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('id', id)
       .single();
@@ -183,7 +183,7 @@ export class AgBotAssetRepository {
    */
   async findByExternalGuid(externalGuid: string): Promise<AgBotAsset | null> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('external_guid', externalGuid)
       .single();
@@ -203,7 +203,7 @@ export class AgBotAssetRepository {
    */
   async findByDeviceSerial(deviceSerial: string): Promise<AgBotAsset | null> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('device_serial', deviceSerial)
       .single();
@@ -223,7 +223,7 @@ export class AgBotAssetRepository {
    */
   async findOnline(): Promise<AgBotAsset[]> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('is_online', true)
       .eq('is_disabled', false)
@@ -241,7 +241,7 @@ export class AgBotAssetRepository {
    */
   async findOffline(): Promise<AgBotAsset[]> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('is_online', false)
       .eq('is_disabled', false)
@@ -259,7 +259,7 @@ export class AgBotAssetRepository {
    */
   async findNeedingMaintenance(lowBatteryThreshold: number = 11.0): Promise<AgBotAsset[]> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('is_disabled', false)
       .or(`battery_voltage.lt.${lowBatteryThreshold},is_online.eq.false`)
@@ -277,7 +277,7 @@ export class AgBotAssetRepository {
    */
   async findLowFuel(thresholdPercent: number): Promise<AgBotAsset[]> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('is_disabled', false)
       .lt('current_level_percent', thresholdPercent)
@@ -295,7 +295,7 @@ export class AgBotAssetRepository {
    */
   async findByCommodity(commodity: string): Promise<AgBotAsset[]> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*')
       .eq('commodity', commodity)
       .eq('is_disabled', false)
@@ -313,7 +313,7 @@ export class AgBotAssetRepository {
    */
   async create(input: AssetCreateInput): Promise<AgBotAsset> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .insert({
         location_id: input.location_id,
         external_guid: input.external_guid,
@@ -367,7 +367,7 @@ export class AgBotAssetRepository {
    */
   async update(id: string, input: AssetUpdateInput): Promise<AgBotAsset> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .update({
         ...input,
         updated_at: new Date().toISOString(),
@@ -388,7 +388,7 @@ export class AgBotAssetRepository {
    */
   async upsert(input: AssetCreateInput): Promise<AgBotAsset> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .upsert(
         {
           location_id: input.location_id,
@@ -449,7 +449,7 @@ export class AgBotAssetRepository {
    */
   async updateConsumption(id: string, data: ConsumptionData): Promise<void> {
     const { error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .update({
         daily_consumption_liters: data.daily_consumption_liters,
         days_remaining: data.days_remaining,
@@ -496,7 +496,7 @@ export class AgBotAssetRepository {
    */
   async updateDeviceStatus(id: string, isOnline: boolean): Promise<void> {
     const { error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .update({
         is_online: isOnline,
         updated_at: new Date().toISOString(),
@@ -512,7 +512,7 @@ export class AgBotAssetRepository {
    * Deletes an asset by ID
    */
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.schema('great_southern_fuels').from('ta_agbot_assets').delete().eq('id', id);
+    const { error } = await this.db.from('ta_agbot_assets').delete().eq('id', id);
 
     if (error) {
       throw new Error(`Failed to delete asset: ${error.message}`);
@@ -529,7 +529,7 @@ export class AgBotAssetRepository {
     disabled: number;
   }> {
     const { data, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('is_online, is_disabled', { count: 'exact' });
 
     if (error) {
@@ -549,7 +549,7 @@ export class AgBotAssetRepository {
    */
   async countByLocation(locationId: string): Promise<number> {
     const { count, error } = await this.db
-      .schema('great_southern_fuels').from('ta_agbot_assets')
+      .from('ta_agbot_assets')
       .select('*', { count: 'exact', head: true })
       .eq('location_id', locationId);
 

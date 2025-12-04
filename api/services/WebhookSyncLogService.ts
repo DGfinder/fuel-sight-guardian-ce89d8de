@@ -69,7 +69,7 @@ export class WebhookSyncLogService {
       };
 
       const { error } = await this.db
-        .schema('great_southern_fuels').from('ta_agbot_sync_log')
+        .from('ta_agbot_sync_log')
         .insert(entry);
 
       if (error) {
@@ -159,7 +159,7 @@ export class WebhookSyncLogService {
   async getRecentLogs(limit: number = 10): Promise<SyncLogEntry[]> {
     try {
       const { data, error } = await this.db
-        .schema('great_southern_fuels').from('ta_agbot_sync_log')
+        .from('ta_agbot_sync_log')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -192,7 +192,7 @@ export class WebhookSyncLogService {
   }> {
     try {
       const { data, error } = await this.db
-        .schema('great_southern_fuels').from('ta_agbot_sync_log')
+        .from('ta_agbot_sync_log')
         .select('*')
         .gte('started_at', startDate.toISOString())
         .lte('started_at', endDate.toISOString());
@@ -268,7 +268,7 @@ export class WebhookSyncLogService {
       cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
       const { error, count } = await this.db
-        .schema('great_southern_fuels').from('ta_agbot_sync_log')
+        .from('ta_agbot_sync_log')
         .delete()
         .lt('started_at', cutoffDate.toISOString());
 

@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Log to ta_agbot_sync_log table in great_southern_fuels schema
     try {
-      await supabase.schema('great_southern_fuels').from('ta_agbot_sync_log').insert({
+      await supabase.from('ta_agbot_sync_log').insert({
         sync_type: 'consumption_recalc',
         sync_status: result.failed === 0 ? 'success' : 'partial',
         assets_processed: result.processed,

@@ -204,7 +204,7 @@ export class AlertGenerationService {
     try {
       // Check if there's already an active alert of this type for this asset
       const { data: existingAlert, error: queryError } = await this.db
-        .schema('great_southern_fuels').from('ta_agbot_alerts')
+        .from('ta_agbot_alerts')
         .select('id')
         .eq('asset_id', alert.asset_id)
         .eq('alert_type', alert.alert_type)
@@ -223,7 +223,7 @@ export class AlertGenerationService {
 
       // Insert new alert
       const { error: insertError } = await this.db
-        .schema('great_southern_fuels').from('ta_agbot_alerts')
+        .from('ta_agbot_alerts')
         .insert(alert);
 
       if (insertError) {
@@ -245,7 +245,7 @@ export class AlertGenerationService {
   async resolveAlert(assetId: string, alertType: string): Promise<boolean> {
     try {
       const { error } = await this.db
-        .schema('great_southern_fuels').from('ta_agbot_alerts')
+        .from('ta_agbot_alerts')
         .update({ is_active: false, resolved_at: new Date().toISOString() })
         .eq('asset_id', assetId)
         .eq('alert_type', alertType)
@@ -270,7 +270,7 @@ export class AlertGenerationService {
   async getActiveAlerts(assetId: string): Promise<Alert[]> {
     try {
       const { data, error } = await this.db
-        .schema('great_southern_fuels').from('ta_agbot_alerts')
+        .from('ta_agbot_alerts')
         .select('*')
         .eq('asset_id', assetId)
         .eq('is_active', true)
