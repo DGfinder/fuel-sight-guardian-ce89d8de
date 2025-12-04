@@ -75,15 +75,8 @@ export class EmailController {
       });
     }
 
-    // Authentication
-    if (!(await this.isAuthorizedAsync(req))) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Valid authentication required',
-      });
-    }
-
-    console.log('[EmailController] Request authenticated successfully');
+    // Authentication is handled by the cron endpoint (api/cron/send-agbot-reports.ts)
+    // This method now focuses purely on business logic
 
     try {
       // Calculate Perth time

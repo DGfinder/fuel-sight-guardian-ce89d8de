@@ -20,6 +20,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('='.repeat(80));
 
   try {
+    // Authentication (same pattern as recalculate-consumption)
+    const isVercelCron = !!req.headers['x-vercel-signature'] ||
+                         (req.headers['user-agent'] as string)?.includes('vercel-cron');
+    const authHeader = req.headers.authorization;
+    const hasValidAuth = isVercelCron || (authHeader && authHeader.startsWith('Bearer '));
+
+    console.log('[CRON AUTH]', {
+      hasVercelSignature: !!req.headers['x-vercel-signature'],
+      hasVercelUserAgent: (req.headers['user-agent'] as string)?.includes('vercel-cron'),
+      hasAuthorization: !!authHeader,
+    });
+
+    if (!hasValidAuth) {
+      console.error('[CRON AUTH] Unauthorized - no valid auth method');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('[CRON AUTH] ✅ Authorized');
+
     // Initialize controller and delegate
     const controller = new EmailController();
     return await controller.sendScheduledReports(req, res);
