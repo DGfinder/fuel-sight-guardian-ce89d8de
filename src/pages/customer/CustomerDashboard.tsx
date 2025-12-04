@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,12 @@ import {
   useCustomerDeliveryRequests,
   useCustomerPortalSummary,
 } from '@/hooks/useCustomerAuth';
+import {
+  useFleetConsumptionChart,
+  useFleetHealth,
+} from '@/hooks/useCustomerAnalytics';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ForcePasswordChange } from '@/components/customer/ForcePasswordChange';
 import {
   Fuel,
   Truck,
@@ -19,20 +24,48 @@ import {
   TrendingDown,
   CalendarDays,
   ArrowRight,
+  Activity,
+  Battery,
+  Signal,
+  Droplets,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function CustomerDashboard() {
   const { data: customerAccount, isLoading: accountLoading } = useCustomerAccount();
   const { data: tanks, isLoading: tanksLoading } = useCustomerTanks();
   const { data: requests, isLoading: requestsLoading } = useCustomerDeliveryRequests();
   const summary = useCustomerPortalSummary();
+  const { data: fleetConsumption, isLoading: chartLoading } = useFleetConsumptionChart(7);
+  const { data: fleetHealth, isLoading: healthLoading } = useFleetHealth();
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+
+  // Check if password change is required on mount and when account data changes
+  useEffect(() => {
+    if (customerAccount?.force_password_change) {
+      setShowPasswordChange(true);
+    }
+  }, [customerAccount]);
 
   if (accountLoading || tanksLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <LoadingSpinner />
       </div>
+    );
+  }
+
+  // Show force password change dialog if required
+  if (showPasswordChange) {
+    return (
+      <ForcePasswordChange
+        onComplete={() => {
+          setShowPasswordChange(false);
+          // Reload to fetch updated customer account without force flag
+          window.location.reload();
+        }}
+      />
     );
   }
 
@@ -44,16 +77,32 @@ export default function CustomerDashboard() {
   // Get recent requests
   const recentRequests = (requests || []).slice(0, 5);
 
+  // Calculate health summary
+  const healthSummary = {
+    good: fleetHealth?.filter(h => h.health_status === 'good').length || 0,
+    warning: fleetHealth?.filter(h => h.health_status === 'warning').length || 0,
+    critical: fleetHealth?.filter(h => h.health_status === 'critical').length || 0,
+    offline: fleetHealth?.filter(h => h.health_status === 'offline').length || 0,
+  };
+
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Welcome, {customerAccount?.contact_name || customerAccount?.customer_name}
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
-          {customerAccount?.company_name || customerAccount?.customer_name} - Tank Monitoring Portal
-        </p>
+      {/* Welcome Header with Quick Action */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Welcome back, {customerAccount?.contact_name || customerAccount?.customer_name}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            {customerAccount?.company_name || customerAccount?.customer_name}
+          </p>
+        </div>
+        <Link to="/customer/request">
+          <Button className="gap-2">
+            <Truck className="h-4 w-4" />
+            Request Delivery
+          </Button>
+        </Link>
       </div>
 
       {/* Summary Cards */}
@@ -89,25 +138,142 @@ export default function CustomerDashboard() {
 
       {/* Critical Alert Banner */}
       {summary.criticalTanks > 0 && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-lg p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-full">
+              <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
             <div className="flex-1">
-              <p className="font-medium text-red-800 dark:text-red-200">
+              <p className="font-semibold text-red-900 dark:text-red-100 text-lg">
                 {summary.criticalTanks} tank{summary.criticalTanks > 1 ? 's' : ''} critically low on fuel
               </p>
-              <p className="text-sm text-red-600 dark:text-red-400">
-                Consider requesting a delivery soon to avoid running dry.
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                Immediate action required to avoid running dry. Request delivery now.
               </p>
             </div>
             <Link to="/customer/request">
-              <Button variant="destructive" size="sm">
+              <Button variant="destructive" size="lg" className="gap-2">
+                <Truck className="h-4 w-4" />
                 Request Delivery
               </Button>
             </Link>
           </div>
         </div>
       )}
+
+      {/* 7-Day Consumption Chart & AgBot Health */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* 7-Day Fleet Consumption Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingDown className="h-5 w-5" />
+              7-Day Fleet Consumption
+            </CardTitle>
+            <p className="text-sm text-gray-500 mt-1">
+              Average fuel level across all tanks
+            </p>
+          </CardHeader>
+          <CardContent>
+            {chartLoading ? (
+              <div className="flex justify-center py-12">
+                <LoadingSpinner />
+              </div>
+            ) : fleetConsumption && fleetConsumption.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={fleetConsumption}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                  <XAxis
+                    dataKey="date"
+                    className="text-xs"
+                    tick={{ fill: '#6b7280' }}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    className="text-xs"
+                    tick={{ fill: '#6b7280' }}
+                    label={{ value: 'Fuel Level (%)', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                    }}
+                    formatter={(value: any) => [`${value?.toFixed(1)}%`, 'Avg Level']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="avgLevel"
+                    stroke="#3b82f6"
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <TrendingDown className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p>No consumption data available</p>
+                <p className="text-sm mt-1">Data will appear once readings are collected</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* AgBot Health Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Device Health
+            </CardTitle>
+            <p className="text-sm text-gray-500 mt-1">
+              AgBot monitoring status
+            </p>
+          </CardHeader>
+          <CardContent>
+            {healthLoading ? (
+              <div className="flex justify-center py-12">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <HealthStatusRow
+                  label="Excellent"
+                  count={healthSummary.good}
+                  total={summary.totalTanks}
+                  color="green"
+                  icon={CheckCircle}
+                />
+                <HealthStatusRow
+                  label="Warning"
+                  count={healthSummary.warning}
+                  total={summary.totalTanks}
+                  color="yellow"
+                  icon={AlertTriangle}
+                />
+                <HealthStatusRow
+                  label="Critical"
+                  count={healthSummary.critical}
+                  total={summary.totalTanks}
+                  color="red"
+                  icon={AlertTriangle}
+                />
+                <HealthStatusRow
+                  label="Offline"
+                  count={healthSummary.offline}
+                  total={summary.totalTanks}
+                  color="gray"
+                  icon={Activity}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Main Content Grid */}
       <div className="grid md:grid-cols-2 gap-6">
@@ -363,6 +529,68 @@ function QuickActionCard({
       </div>
       <p className="font-medium text-sm">{title}</p>
       <p className="text-xs text-gray-500 mt-1">{description}</p>
+    </div>
+  );
+}
+
+// Health Status Row Component
+function HealthStatusRow({
+  label,
+  count,
+  total,
+  color,
+  icon: Icon,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  color: 'green' | 'yellow' | 'red' | 'gray';
+  icon: React.ElementType;
+}) {
+  const percentage = total > 0 ? (count / total) * 100 : 0;
+
+  const colorClasses = {
+    green: {
+      bg: 'bg-green-100 dark:bg-green-900/30',
+      text: 'text-green-700 dark:text-green-400',
+      bar: 'bg-green-500',
+    },
+    yellow: {
+      bg: 'bg-yellow-100 dark:bg-yellow-900/30',
+      text: 'text-yellow-700 dark:text-yellow-400',
+      bar: 'bg-yellow-500',
+    },
+    red: {
+      bg: 'bg-red-100 dark:bg-red-900/30',
+      text: 'text-red-700 dark:text-red-400',
+      bar: 'bg-red-500',
+    },
+    gray: {
+      bg: 'bg-gray-100 dark:bg-gray-800',
+      text: 'text-gray-600 dark:text-gray-400',
+      bar: 'bg-gray-400',
+    },
+  };
+
+  const colors = colorClasses[color];
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className={cn('p-1 rounded', colors.bg)}>
+            <Icon className={cn('h-4 w-4', colors.text)} />
+          </div>
+          <span className="text-sm font-medium">{label}</span>
+        </div>
+        <span className="text-sm font-bold">{count}</span>
+      </div>
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+        <div
+          className={cn('h-2 rounded-full transition-all', colors.bar)}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
     </div>
   );
 }

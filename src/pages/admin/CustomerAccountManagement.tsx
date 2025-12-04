@@ -46,9 +46,13 @@ import {
   EyeOff,
   Key,
   UserPlus,
+  Copy,
+  Check,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { generateSecurePassword } from '@/utils/passwordGenerator';
 
 interface CustomerAccount {
   id: string;
@@ -394,7 +398,19 @@ function CustomerAccountDialog({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    email: string;
+    password: string;
+    portalUrl: string;
+  } | null>(null);
   const isEditing = !!account;
+
+  const handleGeneratePassword = () => {
+    const newPassword = generateSecurePassword(12);
+    setPassword(newPassword);
+    setShowPassword(true); // Show the generated password
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -474,11 +490,16 @@ function CustomerAccountDialog({
           throw new Error(result.error || 'Failed to create login credentials');
         }
 
-        toast.success('Customer created with login credentials');
+        // Show credentials dialog instead of just toast
+        setCreatedCredentials({
+          email,
+          password,
+          portalUrl: window.location.origin + '/customer',
+        });
+        setShowCredentials(true);
       }
 
       queryClient.invalidateQueries({ queryKey: ['customer-accounts-admin'] });
-      onClose();
     } catch (error) {
       console.error('Error saving customer:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save customer');
@@ -486,6 +507,21 @@ function CustomerAccountDialog({
       setSaving(false);
     }
   };
+
+  // If showing credentials, render that instead
+  if (showCredentials && createdCredentials) {
+    return (
+      <CredentialsDisplayDialog
+        credentials={createdCredentials}
+        customerName={formData.customer_name}
+        onClose={() => {
+          setShowCredentials(false);
+          setCreatedCredentials(null);
+          onClose(); // Close the parent dialog too
+        }}
+      />
+    );
+  }
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -569,21 +605,32 @@ function CustomerAccountDialog({
                 </div>
                 <div>
                   <Label>Password *</Label>
-                  <div className="relative mt-1">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Min 6 characters"
-                      className="pr-10"
-                    />
-                    <button
+                  <div className="flex gap-2 mt-1">
+                    <div className="relative flex-1">
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Min 6 characters"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    <Button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      variant="outline"
+                      onClick={handleGeneratePassword}
+                      className="gap-1"
                     >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
+                      <Key size={14} />
+                      Generate
+                    </Button>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Customer will use this email and password to log in
@@ -634,6 +681,8 @@ function CustomerAccountDialog({
   );
 }
 
+type AccessLevel = 'read' | 'request_delivery' | 'admin';
+
 function TankAssignmentDialog({
   account,
   onClose,
@@ -643,7 +692,9 @@ function TankAssignmentDialog({
 }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
-  const [selectedTanks, setSelectedTanks] = useState<Set<string>>(new Set());
+  const [tankAccess, setTankAccess] = useState<Map<string, AccessLevel>>(new Map());
+  const [copyFromAccount, setCopyFromAccount] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch all AgBot locations
   const { data: allTanks, isLoading: tanksLoading } = useQuery({
@@ -668,6 +719,22 @@ function TankAssignmentDialog({
     },
   });
 
+  // Fetch all customer accounts for "copy from" dropdown
+  const { data: otherAccounts } = useQuery({
+    queryKey: ['other-customer-accounts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('customer_accounts')
+        .select('id, customer_name, contact_name')
+        .eq('account_type', 'customer')
+        .neq('id', account.id)
+        .order('customer_name');
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Fetch current assignments
   const { data: currentAssignments } = useQuery({
     queryKey: ['tank-assignments', account.id],
@@ -682,21 +749,54 @@ function TankAssignmentDialog({
     },
   });
 
-  // Initialize selected tanks from current assignments
+  // Initialize tank access from current assignments
   React.useEffect(() => {
     if (currentAssignments) {
-      setSelectedTanks(new Set(currentAssignments.map((a) => a.agbot_location_id)));
+      const accessMap = new Map<string, AccessLevel>();
+      currentAssignments.forEach((a) => {
+        accessMap.set(a.agbot_location_id, a.access_level as AccessLevel);
+      });
+      setTankAccess(accessMap);
     }
   }, [currentAssignments]);
 
-  const handleToggleTank = (tankId: string) => {
-    const newSet = new Set(selectedTanks);
-    if (newSet.has(tankId)) {
-      newSet.delete(tankId);
-    } else {
-      newSet.add(tankId);
+  // Handle copy from another account
+  React.useEffect(() => {
+    if (copyFromAccount) {
+      const fetchTankAccess = async () => {
+        const { data, error } = await supabase
+          .from('customer_tank_access')
+          .select('agbot_location_id, access_level')
+          .eq('customer_account_id', copyFromAccount);
+
+        if (!error && data) {
+          const accessMap = new Map<string, AccessLevel>();
+          data.forEach((a) => {
+            accessMap.set(a.agbot_location_id, a.access_level as AccessLevel);
+          });
+          setTankAccess(accessMap);
+          toast.success(`Copied ${data.length} tank assignments`);
+        }
+      };
+
+      fetchTankAccess();
     }
-    setSelectedTanks(newSet);
+  }, [copyFromAccount]);
+
+  const handleToggleTank = (tankId: string) => {
+    const newMap = new Map(tankAccess);
+    if (newMap.has(tankId)) {
+      newMap.delete(tankId);
+    } else {
+      newMap.set(tankId, 'request_delivery'); // Default access level
+    }
+    setTankAccess(newMap);
+  };
+
+  const handleChangeAccessLevel = (tankId: string, level: AccessLevel) => {
+    const newMap = new Map(tankAccess);
+    newMap.set(tankId, level);
+    setTankAccess(newMap);
   };
 
   const handleSave = async () => {
@@ -709,11 +809,11 @@ function TankAssignmentDialog({
         .eq('customer_account_id', account.id);
 
       // Insert new assignments
-      if (selectedTanks.size > 0) {
-        const assignments = Array.from(selectedTanks).map((tankId) => ({
+      if (tankAccess.size > 0) {
+        const assignments = Array.from(tankAccess.entries()).map(([tankId, accessLevel]) => ({
           customer_account_id: account.id,
           agbot_location_id: tankId,
-          access_level: 'request_delivery',
+          access_level: accessLevel,
         }));
 
         const { error } = await supabase
@@ -723,7 +823,7 @@ function TankAssignmentDialog({
         if (error) throw error;
       }
 
-      toast.success(`Assigned ${selectedTanks.size} tanks to customer`);
+      toast.success(`Assigned ${tankAccess.size} tanks to customer`);
       queryClient.invalidateQueries({ queryKey: ['customer-accounts-admin'] });
       queryClient.invalidateQueries({ queryKey: ['tank-assignments'] });
       onClose();
@@ -735,10 +835,22 @@ function TankAssignmentDialog({
     }
   };
 
-  // Group tanks by customer
+  // Filter tanks by search query
+  const filteredTanks = useMemo(() => {
+    if (!searchQuery) return allTanks || [];
+    const query = searchQuery.toLowerCase();
+    return (allTanks || []).filter(
+      (tank) =>
+        tank.location_id?.toLowerCase().includes(query) ||
+        tank.address1?.toLowerCase().includes(query) ||
+        tank.customer_name?.toLowerCase().includes(query)
+    );
+  }, [allTanks, searchQuery]);
+
+  // Group filtered tanks by customer
   const tanksByCustomer = useMemo(() => {
     const grouped = new Map<string, typeof allTanks>();
-    for (const tank of allTanks || []) {
+    for (const tank of filteredTanks || []) {
       const customer = tank.customer_name || 'Unknown';
       if (!grouped.has(customer)) {
         grouped.set(customer, []);
@@ -746,7 +858,7 @@ function TankAssignmentDialog({
       grouped.get(customer)!.push(tank);
     }
     return grouped;
-  }, [allTanks]);
+  }, [filteredTanks]);
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -754,9 +866,42 @@ function TankAssignmentDialog({
         <DialogHeader>
           <DialogTitle>Assign Tanks - {account.customer_name}</DialogTitle>
           <DialogDescription>
-            Select which tanks this customer can view and request deliveries for
+            Select which tanks this customer can access and set permission levels
           </DialogDescription>
         </DialogHeader>
+
+        <div className="space-y-3 pb-4">
+          {/* Copy from existing user */}
+          <div>
+            <Label className="text-sm font-medium">Quick Assign</Label>
+            <Select value={copyFromAccount} onValueChange={setCopyFromAccount}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Copy tank access from another user..." />
+              </SelectTrigger>
+              <SelectContent>
+                {otherAccounts?.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id}>
+                    {acc.contact_name || acc.customer_name} ({acc.customer_name})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Search tanks */}
+          <div>
+            <Label className="text-sm font-medium">Search Tanks</Label>
+            <div className="relative mt-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by name, address, or customer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+        </div>
 
         <div className="flex-1 overflow-y-auto">
           {tanksLoading ? (
@@ -772,18 +917,18 @@ function TankAssignmentDialog({
                   </h4>
                   <div className="space-y-1">
                     {tanks.map((tank) => (
-                      <label
+                      <div
                         key={tank.id}
                         className={cn(
-                          'flex items-center gap-3 p-2 rounded cursor-pointer transition-colors',
-                          selectedTanks.has(tank.id)
+                          'flex items-center gap-2 p-2 rounded transition-colors',
+                          tankAccess.has(tank.id)
                             ? 'bg-green-50 dark:bg-green-900/20'
                             : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                         )}
                       >
                         <input
                           type="checkbox"
-                          checked={selectedTanks.has(tank.id)}
+                          checked={tankAccess.has(tank.id)}
                           onChange={() => handleToggleTank(tank.id)}
                           className="rounded"
                         />
@@ -795,10 +940,24 @@ function TankAssignmentDialog({
                             {tank.address1}
                           </p>
                         </div>
-                        <Badge variant="outline">
+                        <Select
+                          value={tankAccess.get(tank.id) || 'read'}
+                          onValueChange={(value) => handleChangeAccessLevel(tank.id, value as AccessLevel)}
+                          disabled={!tankAccess.has(tank.id)}
+                        >
+                          <SelectTrigger className="w-40 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="read">Read Only</SelectItem>
+                            <SelectItem value="request_delivery">Request Delivery</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Badge variant="outline" className="text-xs">
                           {(tank.latest_calibrated_fill_percentage || 0).toFixed(0)}%
                         </Badge>
-                      </label>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -810,7 +969,7 @@ function TankAssignmentDialog({
         <DialogFooter className="border-t pt-4">
           <div className="flex items-center justify-between w-full">
             <span className="text-sm text-gray-500">
-              {selectedTanks.size} tanks selected
+              {tankAccess.size} tanks selected
             </span>
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose}>
@@ -839,6 +998,33 @@ function CreateLoginDialog({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    email: string;
+    password: string;
+    portalUrl: string;
+  } | null>(null);
+
+  const handleGeneratePassword = () => {
+    const newPassword = generateSecurePassword(12);
+    setPassword(newPassword);
+    setShowPassword(true); // Show the generated password
+  };
+
+  // If showing credentials, render that instead
+  if (showCredentials && createdCredentials) {
+    return (
+      <CredentialsDisplayDialog
+        credentials={createdCredentials}
+        customerName={account.customer_name}
+        onClose={() => {
+          setShowCredentials(false);
+          setCreatedCredentials(null);
+          onClose(); // Close the parent dialog too
+        }}
+      />
+    );
+  }
 
   const handleCreate = async () => {
     if (!email || !password) {
@@ -878,9 +1064,15 @@ function CreateLoginDialog({
         throw new Error(result.error || 'Failed to create login credentials');
       }
 
-      toast.success('Login credentials created successfully');
+      // Show credentials dialog instead of just toast
+      setCreatedCredentials({
+        email,
+        password,
+        portalUrl: window.location.origin + '/customer',
+      });
+      setShowCredentials(true);
+
       queryClient.invalidateQueries({ queryKey: ['customer-accounts-admin'] });
-      onClose();
     } catch (error) {
       console.error('Error creating login:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create login');
@@ -916,21 +1108,32 @@ function CreateLoginDialog({
 
           <div>
             <Label>Password *</Label>
-            <div className="relative mt-1">
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 6 characters"
-                className="pr-10"
-              />
-              <button
+            <div className="flex gap-2 mt-1">
+              <div className="relative flex-1">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <Button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                variant="outline"
+                onClick={handleGeneratePassword}
+                className="gap-1"
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+                <Key size={14} />
+                Generate
+              </Button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
               You'll need to share these credentials with the customer
@@ -951,5 +1154,164 @@ function CreateLoginDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ============================================================================
+// Credentials Display Dialog
+// ============================================================================
+function CredentialsDisplayDialog({
+  credentials,
+  customerName,
+  onClose,
+}: {
+  credentials: { email: string; password: string; portalUrl: string };
+  customerName: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const handleCopyAll = () => {
+    const text = `
+Customer Portal Login Credentials
+Customer: ${customerName}
+
+Portal URL: ${credentials.portalUrl}
+Email: ${credentials.email}
+Password: ${credentials.password}
+
+IMPORTANT:
+• Share these credentials securely with the customer
+• Do not send via email (use phone or secure message)
+• Customer will be required to change password on first login
+    `.trim();
+
+    navigator.clipboard.writeText(text);
+    toast.success('All credentials copied to clipboard');
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+            <CheckCircle size={24} />
+            <DialogTitle>Account Created Successfully</DialogTitle>
+          </div>
+          <DialogDescription>
+            Login credentials for {customerName}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Portal URL */}
+          <CredentialField
+            label="Portal URL"
+            value={credentials.portalUrl}
+            onCopy={() => handleCopy(credentials.portalUrl, 'url')}
+            copied={copied === 'url'}
+          />
+
+          {/* Email */}
+          <CredentialField
+            label="Email"
+            value={credentials.email}
+            onCopy={() => handleCopy(credentials.email, 'email')}
+            copied={copied === 'email'}
+          />
+
+          {/* Password */}
+          <CredentialField
+            label="Password"
+            value={credentials.password}
+            onCopy={() => handleCopy(credentials.password, 'password')}
+            copied={copied === 'password'}
+            isPassword
+          />
+
+          {/* Warning message */}
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+            <p className="text-sm text-amber-900 dark:text-amber-100 font-medium flex items-center gap-2">
+              <AlertTriangle size={16} />
+              Important
+            </p>
+            <ul className="text-xs text-amber-800 dark:text-amber-200 mt-2 space-y-1 ml-6 list-disc">
+              <li>Share these credentials securely with the customer</li>
+              <li>Do not send via email (use phone or secure message)</li>
+              <li>Customer will be required to change password on first login</li>
+            </ul>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleCopyAll} className="gap-2">
+            <Copy size={16} />
+            Copy All
+          </Button>
+          <Button onClick={onClose}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CredentialField({
+  label,
+  value,
+  onCopy,
+  copied,
+  isPassword,
+}: {
+  label: string;
+  value: string;
+  onCopy: () => void;
+  copied: boolean;
+  isPassword?: boolean;
+}) {
+  const [showPassword, setShowPassword] = useState(false);
+
+  return (
+    <div>
+      <Label className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium">
+        {label}
+      </Label>
+      <div className="mt-1 flex gap-2">
+        <Input
+          type={isPassword && !showPassword ? 'password' : 'text'}
+          value={value}
+          readOnly
+          className="font-mono text-sm bg-gray-50 dark:bg-gray-900"
+        />
+        {isPassword && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowPassword(!showPassword)}
+            type="button"
+          >
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </Button>
+        )}
+        <Button variant="outline" size="sm" onClick={onCopy} className="gap-1" type="button">
+          {copied ? (
+            <>
+              <Check size={14} className="text-green-600" />
+              <span className="text-green-600">Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy size={14} />
+              Copy
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }

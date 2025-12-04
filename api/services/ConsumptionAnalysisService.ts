@@ -60,17 +60,23 @@ export class ConsumptionAnalysisService {
     refillThreshold: number = 10.0
   ): Promise<ConsumptionResult> {
     try {
+      console.log(`[ConsumptionAnalysis] START: asset=${assetId.substring(0,8)}, level=${currentLevel}%, capacity=${tankCapacity}L, days=${daysToAnalyze}`);
+
       // Fetch historical readings
       const readings = await this.readingsRepo.findRecentReadings(assetId, daysToAnalyze * 24);
+      console.log(`[ConsumptionAnalysis] Fetched ${readings?.length || 0} readings`);
 
       if (!readings || readings.length < 3) {
+        console.log(`[ConsumptionAnalysis] EMPTY RESULT: Insufficient readings (${readings?.length || 0} < 3)`);
         return this.getEmptyResult(readings?.length || 0);
       }
 
       // Filter out refill events with configurable threshold
       const filteredReadings = this.filterRefillEvents(readings, refillThreshold);
+      console.log(`[ConsumptionAnalysis] After refill filter: ${filteredReadings.length} readings (removed ${readings.length - filteredReadings.length})`);
 
       if (filteredReadings.length < 3) {
+        console.log(`[ConsumptionAnalysis] EMPTY RESULT: Insufficient after filtering (${filteredReadings.length} < 3)`);
         return this.getEmptyResult(filteredReadings.length);
       }
 
@@ -88,10 +94,12 @@ export class ConsumptionAnalysisService {
         const regression = this.calculateLinearRegression(filteredReadings, 'percent');
         dailyConsumptionPercentage = Math.abs(regression.slope);
         r2 = regression.r2;
+        console.log(`[ConsumptionAnalysis] Percent regression: slope=${regression.slope.toFixed(4)}%/day, R²=${r2.toFixed(3)}`);
 
         // Calculate consumption in litres if capacity known
         if (tankCapacity && tankCapacity > 0) {
           dailyConsumptionLitres = (dailyConsumptionPercentage / 100) * tankCapacity;
+          console.log(`[ConsumptionAnalysis] Converted to liters: ${dailyConsumptionLitres.toFixed(2)} L/day`);
         }
 
         // Calculate days remaining from percentage
@@ -132,7 +140,7 @@ export class ConsumptionAnalysisService {
       const trend = this.determineTrend(-dailyConsumptionPercentage, filteredReadings);
       const confidence = this.determineConfidence(filteredReadings.length, r2, daysToAnalyze);
 
-      return {
+      const result = {
         daily_consumption_litres: dailyConsumptionLitres
           ? Math.round(dailyConsumptionLitres * 100) / 100
           : null,
@@ -142,6 +150,9 @@ export class ConsumptionAnalysisService {
         confidence,
         data_points: filteredReadings.length,
       };
+
+      console.log(`[ConsumptionAnalysis] RESULT: ${result.daily_consumption_litres}L/day (${result.daily_consumption_percentage}%), ${result.days_remaining} days, confidence=${confidence}`);
+      return result;
     } catch (error) {
       console.error('[ConsumptionAnalysisService] Error calculating consumption:', error);
       return this.getEmptyResult(0);
@@ -178,12 +189,14 @@ export class ConsumptionAnalysisService {
           );
 
           // Save consumption data with timestamp and confidence
-          await this.assetRepo.updateConsumption(asset.id, {
+          const updateData = {
             daily_consumption_liters: consumption.daily_consumption_litres || 0,
             days_remaining: consumption.days_remaining || 0,
             last_consumption_calc_at: new Date().toISOString(),
             consumption_calc_confidence: consumption.confidence,
-          });
+          };
+          console.log(`[RecalculateAll] Updating asset ${asset.id.substring(0,8)}: ${JSON.stringify(updateData)}`);
+          await this.assetRepo.updateConsumption(asset.id, updateData);
 
           result.updated++;
         } catch (error) {

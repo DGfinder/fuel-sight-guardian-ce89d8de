@@ -414,3 +414,184 @@ export function useCustomerTankHistory(assetId: string | undefined, days: number
     staleTime: 5 * 60 * 1000,
   });
 }
+
+/**
+ * Hook to get customer preferences
+ */
+export function useCustomerPreferences() {
+  return useQuery({
+    queryKey: ['customer-preferences'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch('/api/customer/preferences', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch preferences');
+      }
+
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to update customer preferences
+ */
+export function useUpdateCustomerPreferences() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (preferences: {
+      default_critical_threshold_pct?: number;
+      default_warning_threshold_pct?: number;
+      delivery_notification_email?: string;
+      enable_low_fuel_alerts?: boolean;
+      enable_delivery_confirmations?: boolean;
+      default_chart_days?: number;
+    }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch('/api/customer/preferences', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(preferences),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update preferences');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer-preferences'] });
+    },
+  });
+}
+
+/**
+ * Hook to get tank thresholds (includes overrides and defaults)
+ */
+export function useTankThresholds() {
+  const { data: preferences } = useCustomerPreferences();
+
+  return useQuery({
+    queryKey: ['tank-thresholds'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch('/api/customer/tank-thresholds', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch tank thresholds');
+      }
+
+      const tankAccess = await response.json();
+
+      // Enrich with default thresholds from preferences
+      return tankAccess.map((access: any) => ({
+        ...access,
+        effective_critical_threshold: access.customer_tank_thresholds?.critical_threshold_pct
+          ?? preferences?.default_critical_threshold_pct
+          ?? 15,
+        effective_warning_threshold: access.customer_tank_thresholds?.warning_threshold_pct
+          ?? preferences?.default_warning_threshold_pct
+          ?? 25,
+        has_override: !!access.customer_tank_thresholds,
+      }));
+    },
+    enabled: !!preferences,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to update tank threshold override
+ */
+export function useUpdateTankThreshold() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      customer_tank_access_id: string;
+      critical_threshold_pct?: number | null;
+      warning_threshold_pct?: number | null;
+      notes?: string;
+    }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch('/api/customer/tank-thresholds', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update tank threshold');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tank-thresholds'] });
+    },
+  });
+}
+
+/**
+ * Hook to delete tank threshold override (revert to defaults)
+ */
+export function useDeleteTankThreshold() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (customerTankAccessId: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(
+        `/api/customer/tank-thresholds?customer_tank_access_id=${customerTankAccessId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete tank threshold');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tank-thresholds'] });
+    },
+  });
+}

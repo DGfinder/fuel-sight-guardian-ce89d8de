@@ -57,6 +57,8 @@ const CustomerTankDetail = lazy(() => import('@/pages/customer/CustomerTankDetai
 const RequestDelivery = lazy(() => import('@/pages/customer/RequestDelivery'));
 const DeliveryHistory = lazy(() => import('@/pages/customer/DeliveryHistory'));
 const CustomerReports = lazy(() => import('@/pages/customer/CustomerReports'));
+const CustomerSettings = lazy(() => import('@/pages/customer/CustomerSettings'));
+const DeviceHealth = lazy(() => import('@/pages/customer/DeviceHealth'));
 
 // Admin Pages
 const FleetRefillCalendar = lazy(() => import('@/pages/admin/FleetRefillCalendar'));
@@ -612,6 +614,26 @@ function AppContent() {
                       <ProtectedRoute requiredAccountType="customer">
                         <CustomerPortalLayout>
                           <CustomerReports />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/settings"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <CustomerSettings />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/health"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <DeviceHealth />
                         </CustomerPortalLayout>
                       </ProtectedRoute>
                     }

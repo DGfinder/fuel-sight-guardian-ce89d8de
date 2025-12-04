@@ -14,7 +14,10 @@
       "Bash(git push:*)",
       "Bash(git -C \"C:\\Users\\HaydenHamilton\\Downloads\\fuel-sight-guardian-ce89d8de\" log --oneline -20)",
       "Bash(grep:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(npm run)",
+      "Bash(cat:*)",
+      "mcp__supabase__get_logs"
     ],
     "deny": [],
     "ask": []

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useCustomerTank, useCustomerTankHistory } from '@/hooks/useCustomerAuth';
+import { useCustomerTank, useCustomerTankHistory, useCustomerPreferences } from '@/hooks/useCustomerAuth';
+import { useConsumptionChartData, useDeviceHealth } from '@/hooks/useCustomerAnalytics';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   calculateUrgency,
@@ -40,10 +41,11 @@ export default function CustomerTankDetail() {
   const { tankId } = useParams<{ tankId: string }>();
   const navigate = useNavigate();
   const { data: tank, isLoading: tankLoading } = useCustomerTank(tankId);
-  const { data: history, isLoading: historyLoading } = useCustomerTankHistory(
-    tank?.asset_id,
-    30
-  );
+  const { data: preferences } = useCustomerPreferences();
+  const { data: deviceHealth, isLoading: healthLoading } = useDeviceHealth(tankId);
+
+  const [chartPeriod, setChartPeriod] = useState<number>(preferences?.default_chart_days || 7);
+  const { data: chartData, isLoading: chartLoading } = useConsumptionChartData(tankId, chartPeriod);
 
   if (tankLoading) {
     return (
@@ -73,15 +75,9 @@ export default function CustomerTankDetail() {
   const urgencyClasses = getUrgencyClasses(urgency);
   const predictedDate = calculatePredictedRefillDate(tank.asset_days_remaining ?? null);
 
-  // Format history data for chart
-  const chartData = (history || []).map((reading: any) => ({
-    date: new Date(reading.reading_timestamp).toLocaleDateString('en-AU', {
-      day: 'numeric',
-      month: 'short',
-    }),
-    level: reading.calibrated_fill_percentage,
-    timestamp: reading.reading_timestamp,
-  }));
+  // Get effective thresholds (from preferences or defaults)
+  const criticalThreshold = preferences?.default_critical_threshold_pct || 15;
+  const warningThreshold = preferences?.default_warning_threshold_pct || 25;
 
   return (
     <div className="space-y-6">
@@ -272,59 +268,85 @@ export default function CustomerTankDetail() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">30-Day Consumption</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Fuel Consumption History</CardTitle>
+                <div className="flex gap-2">
+                  {[7, 14, 30, 90].map((days) => (
+                    <Button
+                      key={days}
+                      variant={chartPeriod === days ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setChartPeriod(days)}
+                      className="text-xs"
+                    >
+                      {days}d
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              {historyLoading ? (
+              {chartLoading ? (
                 <div className="flex items-center justify-center h-64">
                   <LoadingSpinner />
                 </div>
-              ) : chartData.length === 0 ? (
+              ) : !chartData || chartData.length === 0 ? (
                 <div className="flex items-center justify-center h-64 text-gray-500">
-                  No consumption data available
+                  <div className="text-center">
+                    <TrendingDown className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>No consumption data available</p>
+                    <p className="text-sm mt-1">Data will appear once readings are collected</p>
+                  </div>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                     <XAxis
                       dataKey="date"
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 12, fill: '#6b7280' }}
                       tickLine={false}
                       axisLine={{ stroke: '#e5e7eb' }}
                     />
                     <YAxis
                       domain={[0, 100]}
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 12, fill: '#6b7280' }}
                       tickLine={false}
                       axisLine={{ stroke: '#e5e7eb' }}
                       tickFormatter={(value) => `${value}%`}
+                      label={{ value: 'Fuel Level (%)', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
                     />
                     <Tooltip
-                      formatter={(value: number) => [`${value.toFixed(1)}%`, 'Level']}
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                      }}
+                      formatter={(value: number) => [`${value?.toFixed(1)}%`, 'Fuel Level']}
                       labelFormatter={(label) => `Date: ${label}`}
                     />
                     {/* Warning threshold */}
                     <ReferenceLine
-                      y={25}
+                      y={warningThreshold}
                       stroke="#f59e0b"
                       strokeDasharray="5 5"
-                      label={{ value: 'Low', position: 'right', fontSize: 10 }}
+                      label={{ value: 'Warning', position: 'right', fontSize: 10, fill: '#f59e0b' }}
                     />
                     {/* Critical threshold */}
                     <ReferenceLine
-                      y={15}
+                      y={criticalThreshold}
                       stroke="#ef4444"
                       strokeDasharray="5 5"
-                      label={{ value: 'Critical', position: 'right', fontSize: 10 }}
+                      label={{ value: 'Critical', position: 'right', fontSize: 10, fill: '#ef4444' }}
                     />
                     <Line
                       type="monotone"
                       dataKey="level"
-                      stroke="#22c55e"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      dot={{ fill: '#3b82f6', r: 3 }}
+                      activeDot={{ r: 5 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>

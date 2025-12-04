@@ -105,6 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('customer_accounts')
         .update({
           user_id: userId,
+          force_password_change: true, // Customer must change password on first login
           updated_at: new Date().toISOString(),
         })
         .eq('id', customerAccountId);
