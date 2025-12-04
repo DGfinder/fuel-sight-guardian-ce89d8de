@@ -11,8 +11,6 @@
 
 GRANT USAGE ON SCHEMA great_southern_fuels TO anon;
 
-RAISE NOTICE 'Schema usage granted to anon role';
-
 -- =============================================================================
 -- GRANT READ PERMISSIONS ON AGBOT TABLES
 -- =============================================================================
@@ -25,8 +23,6 @@ GRANT SELECT ON great_southern_fuels.ta_agbot_device_health TO anon;
 GRANT SELECT ON great_southern_fuels.ta_agbot_alerts TO anon;
 GRANT SELECT ON great_southern_fuels.ta_agbot_sync_log TO anon;
 
-RAISE NOTICE 'Read permissions granted to anon role for AgBot tables';
-
 -- =============================================================================
 -- GRANT READ PERMISSIONS ON VIEWS
 -- =============================================================================
@@ -37,8 +33,6 @@ GRANT SELECT ON great_southern_fuels.ta_tank_analytics TO anon;
 GRANT SELECT ON great_southern_fuels.ta_tank_full_status TO anon;
 GRANT SELECT ON great_southern_fuels.ta_unified_map_locations TO anon;
 
-RAISE NOTICE 'Read permissions granted to anon role for views';
-
 -- =============================================================================
 -- SET DEFAULT PRIVILEGES FOR FUTURE TABLES
 -- =============================================================================
@@ -46,8 +40,6 @@ RAISE NOTICE 'Read permissions granted to anon role for views';
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA great_southern_fuels
   GRANT SELECT ON TABLES TO anon;
-
-RAISE NOTICE 'Default privileges configured for future tables (anon read access)';
 
 -- =============================================================================
 -- VERIFICATION
