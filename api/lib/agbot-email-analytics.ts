@@ -5,6 +5,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../src/types/supabase.js';
+import { ConsumptionAnalysisService } from '../services/ConsumptionAnalysisService.js';
+import { ReadingsHistoryRepository } from '../repositories/ReadingsHistoryRepository.js';
+import { AgBotAssetRepository } from '../repositories/AgBotAssetRepository.js';
 
 export interface TankConsumptionData {
   location_id: string;
@@ -56,147 +59,125 @@ export interface FleetSummary {
 }
 
 /**
- * Fetch 24-hour consumption data for a tank
+ * Fetch 24-hour consumption data for a tank using ConsumptionAnalysisService
+ * Now uses linear regression and refill filtering for accurate results
  */
 export async function fetch24HourConsumption(
   supabase: SupabaseClient<Database>,
-  assetId: string
+  assetId: string,
+  currentLevel: number,
+  tankCapacity: number | null,
+  refillThreshold: number = 10.0
 ): Promise<{ litres: number; pct: number }> {
-  const now = new Date();
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const readingsRepo = new ReadingsHistoryRepository(supabase);
+  const assetRepo = new AgBotAssetRepository(supabase);
+  const consumptionService = new ConsumptionAnalysisService(readingsRepo, assetRepo);
 
-  const { data, error } = await supabase
-    .from('ta_agbot_readings')
-    .select('level_percent, level_liters, reading_at')
-    .eq('asset_id', assetId)
-    .gte('reading_at', twentyFourHoursAgo.toISOString())
-    .order('reading_at', { ascending: true });
-
-  if (error || !data || data.length < 2) {
-    return { litres: 0, pct: 0 };
-  }
-
-  const oldest = data[0];
-  const newest = data[data.length - 1];
-
-  const pctConsumed = Math.max(
-    0,
-    (oldest.level_percent || 0) - (newest.level_percent || 0)
+  const result = await consumptionService.calculateConsumption(
+    assetId,
+    currentLevel,
+    tankCapacity,
+    1, // 1 day for 24-hour calculation
+    refillThreshold
   );
 
-  const litresConsumed =
-    oldest.level_liters && newest.level_liters
-      ? Math.max(0, oldest.level_liters - newest.level_liters)
-      : 0;
-
   return {
-    litres: Math.round(litresConsumed),
-    pct: Number(pctConsumed.toFixed(1)),
+    litres: result.daily_consumption_litres || 0,
+    pct: result.daily_consumption_percentage || 0,
   };
 }
 
 /**
- * Fetch 7-day consumption data for a tank
+ * Fetch 7-day consumption data for a tank using ConsumptionAnalysisService
+ * Now uses linear regression and refill filtering for accurate results
  */
 export async function fetch7DayConsumption(
   supabase: SupabaseClient<Database>,
-  assetId: string
+  assetId: string,
+  currentLevel: number,
+  tankCapacity: number | null,
+  refillThreshold: number = 10.0
 ): Promise<{ litres: number; pct: number; daily_values: (number | null)[] }> {
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const readingsRepo = new ReadingsHistoryRepository(supabase);
+  const assetRepo = new AgBotAssetRepository(supabase);
+  const consumptionService = new ConsumptionAnalysisService(readingsRepo, assetRepo);
 
-  const { data, error } = await supabase
-    .from('ta_agbot_readings')
-    .select('level_percent, level_liters, reading_at')
-    .eq('asset_id', assetId)
-    .gte('reading_at', sevenDaysAgo.toISOString())
-    .order('reading_at', { ascending: true });
-
-  if (error || !data || data.length < 2) {
-    return { litres: 0, pct: 0, daily_values: new Array(7).fill(null) };
-  }
-
-  const oldest = data[0];
-  const newest = data[data.length - 1];
-
-  const pctConsumed = Math.max(
-    0,
-    (oldest.level_percent || 0) - (newest.level_percent || 0)
+  const result = await consumptionService.calculateConsumption(
+    assetId,
+    currentLevel,
+    tankCapacity,
+    7, // 7 days for weekly calculation
+    refillThreshold
   );
 
-  const litresConsumed =
-    oldest.level_liters && newest.level_liters
-      ? Math.max(0, oldest.level_liters - newest.level_liters)
-      : 0;
+  const dailyConsumption = result.daily_consumption_litres || 0;
 
-  // Calculate daily values for sparkline (last 7 days)
+  // Calculate sparkline values by querying each day's consumption individually
+  const now = new Date();
   const daily_values: (number | null)[] = [];
+
   for (let i = 6; i >= 0; i--) {
     const dayStart = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
-    const dayReadings = data.filter((r) => {
-      const t = new Date(r.reading_at);
-      return t >= dayStart && t < dayEnd;
-    });
+    // Query for readings during this specific day
+    const { data } = await supabase
+      .from('ta_agbot_readings')
+      .select('level_liters, level_percent, reading_at')
+      .eq('asset_id', assetId)
+      .gte('reading_at', dayStart.toISOString())
+      .lt('reading_at', new Date(dayStart.getTime() + 24 * 60 * 60 * 1000).toISOString())
+      .order('reading_at', { ascending: true });
 
-    if (dayReadings.length >= 2) {
-      const dayOldest = dayReadings[0];
-      const dayNewest = dayReadings[dayReadings.length - 1];
-      const dayConsumption =
-        dayOldest.level_liters && dayNewest.level_liters
-          ? Math.max(0, dayOldest.level_liters - dayNewest.level_liters)
-          : 0;
+    if (data && data.length >= 2) {
+      // Use simple calculation for sparkline (no refill filtering needed for single day)
+      const oldest = data[0];
+      const newest = data[data.length - 1];
+      const dayConsumption = oldest.level_liters && newest.level_liters
+        ? Math.max(0, oldest.level_liters - newest.level_liters)
+        : 0;
       daily_values.push(Math.round(dayConsumption));
     } else {
-      daily_values.push(null); // Use null for missing data to show gaps in chart
+      daily_values.push(null);
     }
   }
 
   return {
-    litres: Math.round(litresConsumed),
-    pct: Number(pctConsumed.toFixed(1)),
+    litres: dailyConsumption * 7, // Total weekly consumption
+    pct: (result.daily_consumption_percentage || 0) * 7,
     daily_values,
   };
 }
 
 /**
- * Fetch 30-day consumption data for a tank
+ * Fetch 30-day consumption data for a tank using ConsumptionAnalysisService
+ * Now uses linear regression and refill filtering for accurate results
  */
 export async function fetch30DayConsumption(
   supabase: SupabaseClient<Database>,
-  assetId: string
+  assetId: string,
+  currentLevel: number,
+  tankCapacity: number | null,
+  refillThreshold: number = 10.0
 ): Promise<{ litres: number; pct: number } | null> {
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const readingsRepo = new ReadingsHistoryRepository(supabase);
+  const assetRepo = new AgBotAssetRepository(supabase);
+  const consumptionService = new ConsumptionAnalysisService(readingsRepo, assetRepo);
 
-  const { data, error } = await supabase
-    .from('ta_agbot_readings')
-    .select('level_percent, level_liters, reading_at')
-    .eq('asset_id', assetId)
-    .gte('reading_at', thirtyDaysAgo.toISOString())
-    .order('reading_at', { ascending: true });
+  const result = await consumptionService.calculateConsumption(
+    assetId,
+    currentLevel,
+    tankCapacity,
+    30, // 30 days for monthly calculation
+    refillThreshold
+  );
 
-  if (error || !data || data.length < 2) {
+  if (!result.daily_consumption_litres) {
     return null;
   }
 
-  const oldest = data[0];
-  const newest = data[data.length - 1];
-
-  const pctConsumed = Math.max(
-    0,
-    (oldest.level_percent || 0) - (newest.level_percent || 0)
-  );
-
-  const litresConsumed =
-    oldest.level_liters && newest.level_liters
-      ? Math.max(0, oldest.level_liters - newest.level_liters)
-      : 0;
-
   return {
-    litres: Math.round(litresConsumed),
-    pct: Number(pctConsumed.toFixed(1)),
+    litres: result.daily_consumption_litres * 30, // Total monthly consumption
+    pct: (result.daily_consumption_percentage || 0) * 30,
   };
 }
 
@@ -245,6 +226,7 @@ export async function getTankConsumptionAnalytics(
     asset_reported_litres: number | null;
     asset_daily_consumption: number | null;
     asset_days_remaining: number | null;
+    asset_refill_detection_threshold?: number | null;
   }
 ): Promise<TankConsumptionData> {
   // If no asset_id provided, return empty analytics
@@ -273,11 +255,32 @@ export async function getTankConsumptionAnalytics(
     };
   }
 
-  // Fetch consumption data in parallel using asset_id
+  // Use asset-specific refill threshold or default to 10%
+  const refillThreshold = location.asset_refill_detection_threshold || 10.0;
+
+  // Fetch consumption data in parallel using asset_id with proper parameters
   const [consumption24h, consumption7d, consumption30d] = await Promise.all([
-    fetch24HourConsumption(supabase, location.asset_id),
-    fetch7DayConsumption(supabase, location.asset_id),
-    fetch30DayConsumption(supabase, location.asset_id),
+    fetch24HourConsumption(
+      supabase,
+      location.asset_id,
+      location.latest_calibrated_fill_percentage,
+      location.asset_profile_water_capacity,
+      refillThreshold
+    ),
+    fetch7DayConsumption(
+      supabase,
+      location.asset_id,
+      location.latest_calibrated_fill_percentage,
+      location.asset_profile_water_capacity,
+      refillThreshold
+    ),
+    fetch30DayConsumption(
+      supabase,
+      location.asset_id,
+      location.latest_calibrated_fill_percentage,
+      location.asset_profile_water_capacity,
+      refillThreshold
+    ),
   ]);
 
   // Calculate trend

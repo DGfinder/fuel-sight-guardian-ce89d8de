@@ -164,6 +164,8 @@ export function useAgbotSummary() {
       fleetUtilization: 0,
       dailyConsumption: 0,
       estimatedDaysRemaining: 0,
+      dataFreshness: 'fresh' as 'fresh' | 'stale',
+      staleCount: 0,
       categories: { agricultural: 0, commercial: 0 },
       isLoading
     };
@@ -195,6 +197,8 @@ export function useAgbotSummary() {
   let currentFuelVolume = 0;
   let totalDailyConsumption = 0;
   let locationsWithConsumption = 0;
+  let freshDataCount = 0;
+  let staleDataCount = 0;
   
   const categories = { agricultural: 0, commercial: 0 };
 
@@ -213,11 +217,32 @@ export function useAgbotSummary() {
     totalCapacity += capacity;
     currentFuelVolume += currentVolume;
 
-    // Daily consumption from asset or location data
+    // Daily consumption from asset or location data with freshness validation
     const dailyConsumption = mainAsset?.asset_daily_consumption || location.location_daily_consumption;
+    const lastCalcAt = mainAsset?.last_consumption_calc_at;
+
     if (dailyConsumption && dailyConsumption > 0) {
-      totalDailyConsumption += dailyConsumption;
-      locationsWithConsumption++;
+      // Check data freshness (24 hours)
+      const FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+      const now = Date.now();
+
+      if (lastCalcAt) {
+        const calcAge = now - new Date(lastCalcAt).getTime();
+        if (calcAge <= FRESHNESS_THRESHOLD_MS) {
+          // Data is fresh, include it
+          totalDailyConsumption += dailyConsumption;
+          locationsWithConsumption++;
+          freshDataCount++;
+        } else {
+          // Data is stale, log warning and skip
+          console.warn(`[useAgbotSummary] Stale consumption data for ${location.address1}: ${(calcAge / 3600000).toFixed(1)}h old`);
+          staleDataCount++;
+        }
+      } else {
+        // No timestamp means data is stale
+        console.warn(`[useAgbotSummary] No last_consumption_calc_at timestamp for ${location.address1}, skipping consumption data`);
+        staleDataCount++;
+      }
     }
 
     // Categorize locations
@@ -247,6 +272,8 @@ export function useAgbotSummary() {
     fleetUtilization: Math.round(fleetUtilization * 10) / 10,
     dailyConsumption: Math.round(totalDailyConsumption * 100) / 100,
     estimatedDaysRemaining,
+    dataFreshness: (freshDataCount > 0 && staleDataCount === 0) ? 'fresh' : 'stale',
+    staleCount: staleDataCount,
     categories,
     isLoading: false
   };

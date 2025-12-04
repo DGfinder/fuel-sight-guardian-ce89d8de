@@ -37,6 +37,10 @@ export interface AgBotAsset {
   ullage_liters: number | null;
   daily_consumption_liters: number | null;
   days_remaining: number | null;
+  refill_detection_threshold: number | null;
+  refill_threshold_notes: string | null;
+  last_consumption_calc_at: string | null;
+  consumption_calc_confidence: string | null;
   device_guid: string | null;
   device_serial: string | null;
   device_model: number | null;
@@ -124,6 +128,8 @@ export interface AssetUpdateInput {
 export interface ConsumptionData {
   daily_consumption_liters: number;
   days_remaining: number;
+  last_consumption_calc_at?: string;
+  consumption_calc_confidence?: 'high' | 'medium' | 'low';
 }
 
 export class AgBotAssetRepository {
@@ -447,6 +453,8 @@ export class AgBotAssetRepository {
       .update({
         daily_consumption_liters: data.daily_consumption_liters,
         days_remaining: data.days_remaining,
+        last_consumption_calc_at: data.last_consumption_calc_at,
+        consumption_calc_confidence: data.consumption_calc_confidence,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);

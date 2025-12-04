@@ -56,7 +56,8 @@ export class ConsumptionAnalysisService {
     assetId: string,
     currentLevel: number,
     tankCapacity: number | null,
-    daysToAnalyze: number = 7
+    daysToAnalyze: number = 7,
+    refillThreshold: number = 10.0
   ): Promise<ConsumptionResult> {
     try {
       // Fetch historical readings
@@ -66,8 +67,8 @@ export class ConsumptionAnalysisService {
         return this.getEmptyResult(readings?.length || 0);
       }
 
-      // Filter out refill events
-      const filteredReadings = this.filterRefillEvents(readings);
+      // Filter out refill events with configurable threshold
+      const filteredReadings = this.filterRefillEvents(readings, refillThreshold);
 
       if (filteredReadings.length < 3) {
         return this.getEmptyResult(filteredReadings.length);
@@ -165,15 +166,23 @@ export class ConsumptionAnalysisService {
         result.processed++;
 
         try {
+          // Use asset-specific refill threshold or default to 10%
+          const refillThreshold = asset.refill_detection_threshold || 10.0;
+
           const consumption = await this.calculateConsumption(
             asset.id,
             asset.current_level_percent || 0,
-            asset.capacity_liters
+            asset.capacity_liters,
+            7, // Default 7-day analysis window
+            refillThreshold
           );
 
+          // Save consumption data with timestamp and confidence
           await this.assetRepo.updateConsumption(asset.id, {
             daily_consumption_liters: consumption.daily_consumption_litres || 0,
             days_remaining: consumption.days_remaining || 0,
+            last_consumption_calc_at: new Date().toISOString(),
+            consumption_calc_confidence: consumption.confidence,
           });
 
           result.updated++;
@@ -211,8 +220,10 @@ export class ConsumptionAnalysisService {
 
   /**
    * Filter out refill events (sudden increases in fuel level)
+   * @param readings - Array of tank readings
+   * @param threshold - Percentage increase threshold to detect refills (default 10%)
    */
-  private filterRefillEvents(readings: AgBotReading[]): AgBotReading[] {
+  private filterRefillEvents(readings: AgBotReading[], threshold: number = 10.0): AgBotReading[] {
     if (readings.length < 2) return readings;
 
     const filtered: AgBotReading[] = [readings[0]];
@@ -222,8 +233,8 @@ export class ConsumptionAnalysisService {
       const current = readings[i];
       const change = (current.level_percent || 0) - (prev.level_percent || 0);
 
-      // Skip if this looks like a refill (increase > 10%)
-      if (change > 10) {
+      // Skip if this looks like a refill (increase > threshold)
+      if (change > threshold) {
         continue;
       }
 

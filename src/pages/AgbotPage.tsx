@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useAgbotLocations,
   useAgbotSummary,
@@ -27,6 +28,50 @@ import CustomerContactsAdmin from '@/components/agbot/CustomerContactsAdmin';
 import { importAgbotFromCSV } from '@/services/agbot-api';
 import { useToast } from '@/hooks/use-toast';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+
+// Helper function to get per-location consumption breakdown for tooltip
+function getLocationConsumptionBreakdown(locations: any[] | undefined) {
+  if (!locations) return [];
+
+  const FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const breakdown = locations
+    .map(location => {
+      const mainAsset = location.assets?.[0];
+      const dailyConsumption = mainAsset?.asset_daily_consumption || location.location_daily_consumption || 0;
+      const lastCalcAt = mainAsset?.last_consumption_calc_at;
+
+      let isStale = false;
+      let ageHours = 0;
+
+      if (lastCalcAt) {
+        const calcAge = now - new Date(lastCalcAt).getTime();
+        ageHours = Math.round(calcAge / 3600000);
+        isStale = calcAge > FRESHNESS_THRESHOLD_MS;
+      } else if (dailyConsumption > 0) {
+        isStale = true;
+        ageHours = 999;
+      }
+
+      return {
+        name: location.address1 || location.customer_name || 'Unknown',
+        consumption: dailyConsumption,
+        isStale,
+        ageHours,
+      };
+    })
+    .filter(item => item.consumption > 0);
+
+  const total = breakdown.reduce((sum, item) => sum + item.consumption, 0);
+
+  return breakdown
+    .map(item => ({
+      ...item,
+      percentage: total > 0 ? (item.consumption / total) * 100 : 0,
+    }))
+    .sort((a, b) => b.consumption - a.consumption); // Highest consumption first
+}
 
 function AgbotPageContent() {
   const [searchFilter, setSearchFilter] = useState('');
@@ -357,38 +402,83 @@ function AgbotPageContent() {
               </div>
             </div>
 
-            {/* Consumption Analytics - Blue Theme */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
-              {/* Decorative background circles */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+            {/* Consumption Analytics - Blue Theme with Tooltip */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-help group relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
+                    {/* Decorative background circles */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
 
-              <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-white/80">Consumption</h3>
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Activity className="h-5 w-5 text-white" />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-3xl font-bold text-white">
-                      {summary.dailyConsumption.toFixed(1)}L
-                    </div>
-                    <div className="text-sm text-white/70">per day</div>
-                  </div>
-                  {summary.estimatedDaysRemaining && (
-                    <div className="pt-2 border-t border-white/10">
-                      <div className="text-xl font-bold text-white">
-                        ~{summary.estimatedDaysRemaining} days
+                    <div className="relative">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-medium text-white/80">Consumption</h3>
+                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                          <Activity className="h-5 w-5 text-white" />
+                        </div>
                       </div>
-                      <div className="text-sm text-white/60">remaining at current rate</div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-3xl font-bold text-white">
+                            {summary.dailyConsumption.toFixed(1)}L
+                          </div>
+                          <div className="text-sm text-white/70">per day</div>
+                          <div className="text-xs text-white/50 italic mt-1">
+                            Hover for breakdown ↗
+                          </div>
+                          {/* Stale data indicator */}
+                          {summary.dataFreshness === 'stale' && (
+                            <div className="flex items-center gap-1 text-xs text-amber-200 bg-amber-500/20 px-2 py-1 rounded mt-2">
+                              <AlertTriangle className="h-3 w-3" />
+                              <span>Data may be outdated ({summary.staleCount} stale)</span>
+                            </div>
+                          )}
+                        </div>
+                        {summary.estimatedDaysRemaining && (
+                          <div className="pt-2 border-t border-white/10">
+                            <div className="text-xl font-bold text-white">
+                              ~{summary.estimatedDaysRemaining} days
+                            </div>
+                            <div className="text-sm text-white/60">remaining at current rate</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            </div>
+                  </div>
+                </TooltipTrigger>
+
+                <TooltipContent side="right" className="max-w-md p-4 bg-slate-900 border-slate-700">
+                  <h4 className="text-sm font-semibold mb-3 text-white">Daily Consumption by Location</h4>
+
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {getLocationConsumptionBreakdown(locations).map((item, idx) => (
+                      <div key={idx} className="flex justify-between gap-4 text-xs border-b border-slate-700/50 pb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white truncate font-medium">{item.name}</div>
+                          {item.isStale && (
+                            <div className="text-amber-400 text-[10px] flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Stale ({item.ageHours}h old)
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-white font-semibold">{item.consumption.toFixed(1)}L</div>
+                          <div className="text-slate-400 text-[10px] w-12 text-right">{item.percentage.toFixed(1)}%</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-700 flex justify-between text-sm">
+                    <span className="text-slate-400">Total ({getLocationConsumptionBreakdown(locations).length} locations)</span>
+                    <span className="text-white font-bold">{summary.dailyConsumption.toFixed(1)}L/day</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* Filters */}

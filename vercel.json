@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/send-agbot-reports",
       "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/recalculate-consumption",
+      "schedule": "0 */6 * * *"
     }
   ],
   "rewrites": [
