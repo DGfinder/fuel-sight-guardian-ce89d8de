@@ -56,7 +56,7 @@ export function useAgbotReadingHistory({
       // First get the location with its assets
       // OPTIMIZED: Only fetch columns that are actually used
       const { data: location, error: locationError } = await supabase
-        .from('ta_agbot_locations')
+        .schema('great_southern_fuels').from('ta_agbot_locations')
         .select(`
           id,
           customer_name,
@@ -89,7 +89,7 @@ export function useAgbotReadingHistory({
       // Build query for readings
       // OPTIMIZED: Only select columns that are mapped to interface
       let query = supabase
-        .from('ta_agbot_readings')
+        .schema('great_southern_fuels').from('ta_agbot_readings')
         .select(`
           id,
           asset_id,

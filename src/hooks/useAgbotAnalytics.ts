@@ -30,7 +30,7 @@ export const useAgbotReadingsHistory = (assetId: string, days: number = 30) => {
       daysAgo.setDate(daysAgo.getDate() - days);
       
       const { data: rawData, error } = await supabase
-        .from('ta_agbot_readings')
+        .schema('great_southern_fuels').from('ta_agbot_readings')
         .select('level_percent, raw_percent, reading_at, is_online, created_at')
         .eq('asset_id', assetId)
         .gte('reading_at', daysAgo.toISOString())
@@ -151,7 +151,7 @@ export const useAgbotLocationsWithAnalytics = () => {
     queryFn: async (): Promise<AgbotLocationWithAnalytics[]> => {
       // Step 1: Get all locations with assets (includes pre-computed fields)
       const { data: locations, error: locationsError } = await supabase
-        .from('ta_agbot_locations')
+        .schema('great_southern_fuels').from('ta_agbot_locations')
         .select(`
           *,
           assets:ta_agbot_assets(
@@ -187,7 +187,7 @@ export const useAgbotLocationsWithAnalytics = () => {
 
       if (assetIds.length > 0) {
         const { data: allReadings } = await supabase
-          .from('ta_agbot_readings')
+          .schema('great_southern_fuels').from('ta_agbot_readings')
           .select('asset_id, level_percent, raw_percent, reading_at, is_online, created_at')
           .in('asset_id', assetIds)
           .gte('reading_at', daysAgo.toISOString())

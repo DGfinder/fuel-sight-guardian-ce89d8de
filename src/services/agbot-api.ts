@@ -481,7 +481,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
   try {
     // Log sync start
     const { data: syncLog } = await supabase
-      .from('agbot_sync_logs')
+      .schema('great_southern_fuels').from('agbot_sync_logs')
       .insert({
         sync_type: 'manual',
         sync_status: 'running',
@@ -526,7 +526,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
         const { data: location, error: locationError } = await supabase
           
           
-    .from('ta_agbot_locations')
+    .schema('great_southern_fuels').from('ta_agbot_locations')
           .upsert(locationData, {
             onConflict: 'name',
             ignoreDuplicates: false
@@ -559,7 +559,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
             const { data: savedAsset, error: assetError } = await supabase
               
               
-    .from('ta_agbot_assets')
+    .schema('great_southern_fuels').from('ta_agbot_assets')
               .upsert(assetData, {
                 onConflict: 'external_guid',
                 ignoreDuplicates: false
@@ -583,7 +583,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
               const { error: readingError } = await supabase
                 
                 
-    .from('ta_agbot_readings')
+    .schema('great_southern_fuels').from('ta_agbot_readings')
                 .insert({
                   asset_id: savedAsset.id,
                   level_liters: (atharaAsset as any).assetReportedLitres,
@@ -649,7 +649,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
     // Update sync log
     if (syncLog) {
       await supabase
-        .from('agbot_sync_logs')
+        .schema('great_southern_fuels').from('agbot_sync_logs')
         .update({
           sync_status: result.success ? 'success' : 'partial',
           locations_processed: result.locationsProcessed,
@@ -734,7 +734,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
 
     // Log sync start
     const { data: syncLog } = await supabase
-      .from('agbot_sync_logs')
+      .schema('great_southern_fuels').from('agbot_sync_logs')
       .insert({
         sync_type: 'manual_api_sync',
         sync_status: 'running',
@@ -759,7 +759,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
         const { data: location, error: locationError } = await supabase
           
           
-    .from('ta_agbot_locations')
+    .schema('great_southern_fuels').from('ta_agbot_locations')
           .upsert(locationData, {
             onConflict: 'name',
             ignoreDuplicates: false
@@ -781,7 +781,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
             const { data: savedAsset, error: assetError } = await supabase
               
               
-    .from('ta_agbot_assets')
+    .schema('great_southern_fuels').from('ta_agbot_assets')
               .upsert(assetData, {
                 onConflict: 'external_guid',
                 ignoreDuplicates: false
@@ -801,7 +801,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
               const { error: readingError } = await supabase
                 
                 
-    .from('ta_agbot_readings')
+    .schema('great_southern_fuels').from('ta_agbot_readings')
                 .insert({
                   asset_id: savedAsset.id,
                   level_liters: (atharaAsset as any).assetReportedLitres,
@@ -834,7 +834,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
     // Update sync log
     if (syncLog) {
       await supabase
-        .from('agbot_sync_logs')
+        .schema('great_southern_fuels').from('agbot_sync_logs')
         .update({
           sync_status: result.success ? 'success' : 'partial',
           locations_processed: result.locationsProcessed,
@@ -864,7 +864,7 @@ export async function getAgbotLocations(): Promise<AgbotLocation[]> {
   // Create a query builder with explicit schema
   const query = supabase
     
-    .from('ta_agbot_locations')
+    .schema('great_southern_fuels').from('ta_agbot_locations')
     .select(`
       *,
       assets:ta_agbot_assets(
@@ -992,7 +992,7 @@ export async function getAgbotLocations(): Promise<AgbotLocation[]> {
 export async function getAgbotLocation(locationId: string): Promise<AgbotLocation | null> {
   const { data, error } = await supabase
     
-    .from('ta_agbot_locations')
+    .schema('great_southern_fuels').from('ta_agbot_locations')
     .select(`
       *,
       assets:ta_agbot_assets(*)
@@ -1035,7 +1035,7 @@ export async function getAgbotLocation(locationId: string): Promise<AgbotLocatio
 export async function getAgbotSyncLogs(limit: number = 10) {
   const { data, error } = await supabase
     
-    .from('ta_agbot_sync_log')
+    .schema('great_southern_fuels').from('ta_agbot_sync_log')
     .select('*')
     .order('started_at', { ascending: false })
     .limit(limit);
@@ -1065,7 +1065,7 @@ export async function getAgbotReadingsHistory(
 
   const { data, error } = await supabase
     
-    .from('ta_agbot_readings')
+    .schema('great_southern_fuels').from('ta_agbot_readings')
     .select('*')
     .eq('asset_id', assetId)
     .gte('reading_at', daysAgo.toISOString())
@@ -1100,7 +1100,7 @@ export async function getBulkAgbotReadingsHistory(
 
   const { data, error } = await supabase
     
-    .from('ta_agbot_readings')
+    .schema('great_southern_fuels').from('ta_agbot_readings')
     .select('*')
     .in('asset_id', assetIds)
     .gte('reading_at', daysAgo.toISOString())
@@ -1137,7 +1137,7 @@ export async function getBulkAgbotReadingsHistory(
 export async function getLatestAgbotReadings(): Promise<AgbotReading[]> {
   const { data, error } = await supabase
     
-    .from('ta_agbot_readings')
+    .schema('great_southern_fuels').from('ta_agbot_readings')
     .select(`
       *,
       asset:ta_agbot_assets(
@@ -1190,7 +1190,7 @@ export async function storeAgbotReading(reading: {
 
   const { data, error } = await supabase
     
-    .from('ta_agbot_readings')
+    .schema('great_southern_fuels').from('ta_agbot_readings')
     .insert(newReading)
     .select()
     .single();
@@ -1216,7 +1216,7 @@ export async function getLocationConsumptionStats(
   // Get all assets for this location
   const { data: assets, error: assetsError } = await supabase
     
-    .from('ta_agbot_assets')
+    .schema('great_southern_fuels').from('ta_agbot_assets')
     .select('id')
     .eq('location_id', locationId);
 
@@ -1318,7 +1318,7 @@ export async function getAgbotSystemSummary(): Promise<{
   // Get all locations with assets from new ta_agbot_* tables
   const { data: locations, error } = await supabase
     
-    .from('ta_agbot_locations')
+    .schema('great_southern_fuels').from('ta_agbot_locations')
     .select(`
       *,
       assets:ta_agbot_assets(*)
@@ -1552,7 +1552,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
   try {
     // Log import start
     const { data: syncLog } = await supabase
-      .from('agbot_sync_logs')
+      .schema('great_southern_fuels').from('agbot_sync_logs')
       .insert({
         sync_type: 'csv_import',
         sync_status: 'running',
@@ -1574,7 +1574,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         const { data: location, error: locationError } = await supabase
           
           
-    .from('ta_agbot_locations')
+    .schema('great_southern_fuels').from('ta_agbot_locations')
           .upsert(locationData, {
             onConflict: 'name',
             ignoreDuplicates: false
@@ -1596,7 +1596,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         const assetData = transformCSVAssetData(csvRow, location.id);
         const { data: asset, error: assetError } = await supabase
           
-    .from('ta_agbot_assets')
+    .schema('great_southern_fuels').from('ta_agbot_assets')
           .upsert(assetData, {
             onConflict: 'external_guid',
             ignoreDuplicates: false
@@ -1626,7 +1626,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
 
         const { error: readingError } = await supabase
           
-    .from('ta_agbot_readings')
+    .schema('great_southern_fuels').from('ta_agbot_readings')
           .insert(readingData);
 
         if (!readingError) {
@@ -1672,7 +1672,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
     // Update sync log
     if (syncLog) {
       await supabase
-        .from('agbot_sync_logs')
+        .schema('great_southern_fuels').from('agbot_sync_logs')
         .update({
           sync_status: result.success ? 'success' : 'partial',
           locations_processed: result.locationsImported,
