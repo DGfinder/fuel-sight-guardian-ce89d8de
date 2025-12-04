@@ -104,6 +104,11 @@ export default {
 				'gsf-green': '#008457',
 				'gsf-gold': '#FEDF19',
 
+				// Customer branding colors (dynamically injected via React context)
+				// Uses RGB format with alpha channel support for Tailwind opacity utilities
+				'customer-primary': 'rgb(var(--customer-primary-rgb) / <alpha-value>)',
+				'customer-secondary': 'rgb(var(--customer-secondary-rgb) / <alpha-value>)',
+
 				// Fuel status colors - CRITICAL for operational safety
 				// Full palettes enable proper theming and dark mode
 				'fuel-critical': {

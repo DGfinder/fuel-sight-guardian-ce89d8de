@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { CustomerSidebar } from './CustomerSidebar';
+import { CustomerLogo } from './CustomerLogo';
+import { CustomerBrandingProvider } from '@/contexts/CustomerBrandingContext';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import logo from '@/assets/logo.png';
 
 interface CustomerPortalLayoutProps {
   children: React.ReactNode;
@@ -25,12 +26,13 @@ export function CustomerPortalLayout({ children }: CustomerPortalLayoutProps) {
   }, []);
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden">
+    <CustomerBrandingProvider>
+      <div className="flex h-screen w-full bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden">
       {/* Mobile Header */}
       {isMobile && (
         <header className="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-gray-900 shadow-md z-50 flex items-center justify-between px-3">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Logo" className="h-8 w-auto" />
+            <CustomerLogo size="md" />
             <div>
               <span className="font-bold text-base text-gray-900 dark:text-white">TankAlert</span>
               <span className="text-xs text-gray-500 ml-1">Customer</span>
@@ -73,7 +75,8 @@ export function CustomerPortalLayout({ children }: CustomerPortalLayoutProps) {
 
       {/* Mobile Bottom Nav */}
       {isMobile && <CustomerMobileNav />}
-    </div>
+      </div>
+    </CustomerBrandingProvider>
   );
 }
 

@@ -41,7 +41,7 @@ export function ProtectedRoute({ children, requiredRole, requiredGroup, required
         setLoading(false);
       }
     };
-    
+
     getSession();
     
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {

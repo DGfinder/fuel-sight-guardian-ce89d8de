@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useCustomerAccount, useCustomerPortalSummary } from '@/hooks/useCustomerAuth';
+import { CustomerLogo } from './CustomerLogo';
 import {
   LayoutDashboard,
   Fuel,
@@ -17,7 +18,6 @@ import {
   Settings,
   Activity,
 } from 'lucide-react';
-import logo from '@/assets/logo.png';
 
 interface CustomerSidebarProps {
   isMobile?: boolean;
@@ -69,7 +69,7 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b dark:border-gray-800">
               <div className="flex items-center gap-2">
-                <img src={logo} alt="Logo" className="h-8 w-auto" />
+                <CustomerLogo size="md" />
                 <span className="font-bold text-lg">Customer Portal</span>
               </div>
               <Button variant="ghost" size="icon" onClick={onClose}>
@@ -89,7 +89,7 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
                     cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                       isActive
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
                         : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                     )
                   }
@@ -145,7 +145,7 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center gap-2 p-4 border-b dark:border-gray-800">
-          <img src={logo} alt="Logo" className="h-8 w-auto" />
+          <CustomerLogo size="md" />
           <div>
             <span className="font-bold text-lg">TankAlert</span>
             <span className="block text-xs text-gray-500">Customer Portal</span>
@@ -163,7 +163,7 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
                 cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                   isActive
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
                     : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                 )
               }

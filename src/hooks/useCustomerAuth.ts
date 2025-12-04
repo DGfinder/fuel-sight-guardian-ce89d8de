@@ -16,6 +16,11 @@ export interface CustomerAccount {
   email_notifications: boolean;
   sms_notifications: boolean;
   logo_url: string | null;
+  logo_url_dark: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  primary_color_dark: string | null;
+  secondary_color_dark: string | null;
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
@@ -162,7 +167,7 @@ export function useCustomerTanks() {
 
       // Get tank details with assets
       const { data: locations, error: locationsError } = await supabase
-        .from('ta_agbot_locations')
+        .schema('great_southern_fuels').from('ta_agbot_locations')
         .select(`
           id,
           external_guid,
@@ -392,7 +397,7 @@ export function useCustomerTankHistory(assetId: string | undefined, days: number
       startDate.setDate(startDate.getDate() - days);
 
       const { data, error } = await supabase
-        .from('ta_agbot_readings')
+        .schema('great_southern_fuels').from('ta_agbot_readings')
         .select('level_percent, reading_at, is_online')
         .eq('asset_id', assetId)
         .gte('reading_at', startDate.toISOString())
