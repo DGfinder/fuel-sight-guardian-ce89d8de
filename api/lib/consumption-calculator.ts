@@ -57,7 +57,7 @@ export async function calculateConsumption(
     startDate.setDate(startDate.getDate() - daysToAnalyze);
 
     const { data: readings, error } = await supabase
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .select('level_percent, reading_at, level_liters')
       .eq('asset_id', assetId)
       .gte('reading_at', startDate.toISOString())
@@ -312,7 +312,7 @@ export async function updateAssetConsumption(
 ): Promise<boolean> {
   try {
     const { error } = await supabase
-      .from('ta_agbot_assets')
+      .schema('great_southern_fuels').from('ta_agbot_assets')
       .update({
         daily_consumption_liters: consumption.daily_consumption_litres,
         days_remaining: consumption.days_remaining,
@@ -344,7 +344,7 @@ export async function recalculateAllAssets(): Promise<{
   try {
     // Fetch all active assets with current levels and capacity
     const { data: assets, error } = await supabase
-      .from('ta_agbot_assets')
+      .schema('great_southern_fuels').from('ta_agbot_assets')
       .select(
         `
         id,

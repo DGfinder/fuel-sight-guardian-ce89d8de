@@ -101,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Fetch tank locations with assets
     const { data: tanks, error: tanksError } = await supabase
-      .from('ta_agbot_locations')
+      .schema('great_southern_fuels').from('ta_agbot_locations')
       .select(`
         id,
         name,
@@ -131,7 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Fetch readings
     const { data: readings, error: readingsError } = await supabase
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .select('asset_id, level_percent, reading_at, is_online')
       .in('asset_id', assetIds)
       .gte('reading_at', queryStartDate.toISOString())

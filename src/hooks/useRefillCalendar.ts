@@ -19,7 +19,7 @@ export function useFleetRefillCalendar() {
     queryFn: async () => {
       // Fetch all active AgBot locations with their assets
       const { data: locations, error } = await supabase
-        .from('ta_agbot_locations')
+        .schema('great_southern_fuels').from('ta_agbot_locations')
         .select(`
           id,
           external_guid,

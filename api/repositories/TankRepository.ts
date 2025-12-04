@@ -55,7 +55,7 @@ export class TankRepository {
     // Step 2: Fetch full tank data with assets
     const tankIds = assignments.map(a => a.agbot_location_id);
     const { data: tanks, error: tanksError } = await this.db
-      .from('ta_agbot_locations')
+      .schema('great_southern_fuels').from('ta_agbot_locations')
       .select(`
         id,
         name,
@@ -93,7 +93,7 @@ export class TankRepository {
    */
   async findByCustomerName(customerName: string): Promise<Tank[]> {
     const { data, error } = await this.db
-      .from('ta_agbot_locations')
+      .schema('great_southern_fuels').from('ta_agbot_locations')
       .select(`
         id,
         name,
@@ -131,7 +131,7 @@ export class TankRepository {
    */
   async findById(tankId: string): Promise<Tank | null> {
     const { data, error } = await this.db
-      .from('ta_agbot_locations')
+      .schema('great_southern_fuels').from('ta_agbot_locations')
       .select(`
         id,
         name,
@@ -171,7 +171,7 @@ export class TankRepository {
    */
   async findLowFuelTanks(thresholdPercent: number = 30): Promise<Tank[]> {
     const { data, error } = await this.db
-      .from('ta_agbot_locations')
+      .schema('great_southern_fuels').from('ta_agbot_locations')
       .select(`
         id,
         name,
@@ -242,7 +242,7 @@ export class TankRepository {
    */
   async countActive(): Promise<number> {
     const { count, error } = await this.db
-      .from('ta_agbot_locations')
+      .schema('great_southern_fuels').from('ta_agbot_locations')
       .select('*', { count: 'exact', head: true })
       .eq('is_disabled', false);
 
@@ -258,7 +258,7 @@ export class TankRepository {
    */
   async countByCustomer(customerName: string): Promise<number> {
     const { count, error } = await this.db
-      .from('ta_agbot_locations')
+      .schema('great_southern_fuels').from('ta_agbot_locations')
       .select('*', { count: 'exact', head: true })
       .eq('customer_name', customerName)
       .eq('is_disabled', false);

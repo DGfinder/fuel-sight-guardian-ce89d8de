@@ -129,7 +129,7 @@ export function useFleetHealth() {
 
       // Get tank locations with assets
       const { data: tanks, error: tanksError } = await supabase
-        .from('ta_agbot_locations')
+        .schema('great_southern_fuels').from('ta_agbot_locations')
         .select(`
           id,
           name,
@@ -158,7 +158,7 @@ export function useFleetHealth() {
         .filter(Boolean);
 
       const { data: latestReadings } = await supabase
-        .from('ta_agbot_readings')
+        .schema('great_southern_fuels').from('ta_agbot_readings')
         .select('asset_id, reading_at, is_online, battery_voltage, signal_strength')
         .in('asset_id', assetIds)
         .order('reading_at', { ascending: false });

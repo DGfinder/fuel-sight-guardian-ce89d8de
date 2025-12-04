@@ -96,7 +96,7 @@ export class AgBotLocationRepository {
    * Finds all locations, optionally including disabled ones
    */
   async findAll(includeDisabled: boolean = false): Promise<AgBotLocation[]> {
-    let query = this.db.from('ta_agbot_locations').select('*').order('name', { ascending: true });
+    let query = this.db.schema('great_southern_fuels').from('ta_agbot_locations').select('*').order('name', { ascending: true });
 
     if (!includeDisabled) {
       query = query.eq('is_disabled', false);
@@ -116,6 +116,7 @@ export class AgBotLocationRepository {
    */
   async findById(id: string): Promise<AgBotLocation | null> {
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*')
       .eq('id', id)
@@ -135,7 +136,8 @@ export class AgBotLocationRepository {
    * Finds a location by external GUID
    */
   async findByExternalGuid(externalGuid: string): Promise<AgBotLocation | null> {
-    const { data, error } = await this.db
+    const { data, error} = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*')
       .eq('external_guid', externalGuid)
@@ -156,6 +158,7 @@ export class AgBotLocationRepository {
    */
   async findByName(name: string): Promise<AgBotLocation | null> {
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*')
       .eq('name', name)
@@ -176,6 +179,7 @@ export class AgBotLocationRepository {
    */
   async findByCustomer(customerName: string, includeDisabled: boolean = false): Promise<AgBotLocation[]> {
     let query = this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*')
       .eq('customer_name', customerName)
@@ -199,6 +203,7 @@ export class AgBotLocationRepository {
    */
   async findByCustomerGuid(customerGuid: string, includeDisabled: boolean = false): Promise<AgBotLocation[]> {
     let query = this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*')
       .eq('customer_guid', customerGuid)
@@ -222,6 +227,7 @@ export class AgBotLocationRepository {
    */
   async findLowFuel(thresholdPercent: number): Promise<AgBotLocation[]> {
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*')
       .eq('is_disabled', false)
@@ -240,6 +246,7 @@ export class AgBotLocationRepository {
    */
   async findCriticalFuel(thresholdPercent: number): Promise<AgBotLocation[]> {
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*')
       .eq('is_disabled', false)
@@ -258,6 +265,7 @@ export class AgBotLocationRepository {
    */
   async findWithOfflineAssets(): Promise<AgBotLocation[]> {
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*')
       .eq('is_disabled', false)
@@ -276,6 +284,7 @@ export class AgBotLocationRepository {
    */
   async create(input: LocationCreateInput): Promise<AgBotLocation> {
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .insert({
         external_guid: input.external_guid,
@@ -313,6 +322,7 @@ export class AgBotLocationRepository {
    */
   async update(id: string, input: LocationUpdateInput): Promise<AgBotLocation> {
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .update({
         ...input,
@@ -334,6 +344,7 @@ export class AgBotLocationRepository {
    */
   async upsert(input: LocationCreateInput): Promise<AgBotLocation> {
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .upsert(
         {
@@ -405,6 +416,7 @@ export class AgBotLocationRepository {
     }));
 
     const { data, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .upsert(records, {
         onConflict: 'external_guid',
@@ -423,7 +435,7 @@ export class AgBotLocationRepository {
    * Deletes a location by ID
    */
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from('ta_agbot_locations').delete().eq('id', id);
+    const { error } = await this.db.schema('great_southern_fuels').from('ta_agbot_locations').delete().eq('id', id);
 
     if (error) {
       throw new Error(`Failed to delete location: ${error.message}`);
@@ -435,6 +447,7 @@ export class AgBotLocationRepository {
    */
   async countByStatus(): Promise<LocationStats> {
     const { data: all, error: allError } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('is_disabled, total_assets, assets_online', { count: 'exact' });
 
@@ -462,6 +475,7 @@ export class AgBotLocationRepository {
    */
   async countByCustomer(customerName: string): Promise<number> {
     const { count, error } = await this.db
+      .schema('great_southern_fuels')
       .from('ta_agbot_locations')
       .select('*', { count: 'exact', head: true })
       .eq('customer_name', customerName);

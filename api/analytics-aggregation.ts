@@ -224,7 +224,7 @@ async function aggregateFuelData(date: string) {
 
   // Get AgBot data
   const { data: agbotLocations } = await supabase
-    .from('ta_agbot_locations')
+    .schema('great_southern_fuels').from('ta_agbot_locations')
     .select(`
       *,
       assets:ta_agbot_assets(*)

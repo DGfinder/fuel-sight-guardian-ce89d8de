@@ -67,7 +67,7 @@ export class ReadingsHistoryRepository {
    */
   async findByAsset(assetId: string, limit?: number): Promise<AgBotReading[]> {
     let query = this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .select('*')
       .eq('asset_id', assetId)
       .order('reading_at', { ascending: false });
@@ -90,7 +90,7 @@ export class ReadingsHistoryRepository {
    */
   async findByDateRange(assetId: string, startDate: Date, endDate: Date): Promise<AgBotReading[]> {
     const { data, error } = await this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .select('*')
       .eq('asset_id', assetId)
       .gte('reading_at', startDate.toISOString())
@@ -111,7 +111,7 @@ export class ReadingsHistoryRepository {
     const cutoffDate = new Date(Date.now() - hours * 60 * 60 * 1000);
 
     const { data, error } = await this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .select('*')
       .eq('asset_id', assetId)
       .gte('reading_at', cutoffDate.toISOString())
@@ -129,7 +129,7 @@ export class ReadingsHistoryRepository {
    */
   async findLatest(assetId: string): Promise<AgBotReading | null> {
     const { data, error } = await this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .select('*')
       .eq('asset_id', assetId)
       .order('reading_at', { ascending: false })
@@ -155,7 +155,7 @@ export class ReadingsHistoryRepository {
     }
 
     let query = this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .select('*')
       .in('asset_id', assetIds)
       .order('reading_at', { ascending: false });
@@ -307,7 +307,7 @@ export class ReadingsHistoryRepository {
    */
   async create(input: ReadingCreateInput): Promise<AgBotReading> {
     const { data, error } = await this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .insert({
         asset_id: input.asset_id,
         level_liters: input.level_liters,
@@ -360,7 +360,7 @@ export class ReadingsHistoryRepository {
     }));
 
     const { data, error } = await this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .insert(records)
       .select('id');
 
@@ -376,7 +376,7 @@ export class ReadingsHistoryRepository {
    */
   async deleteOlderThan(date: Date): Promise<number> {
     const { data, error } = await this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .delete()
       .lt('reading_at', date.toISOString())
       .select('id');
@@ -393,7 +393,7 @@ export class ReadingsHistoryRepository {
    */
   async countByAsset(assetId: string): Promise<number> {
     const { count, error } = await this.db
-      .from('ta_agbot_readings')
+      .schema('great_southern_fuels').from('ta_agbot_readings')
       .select('*', { count: 'exact', head: true })
       .eq('asset_id', assetId);
 

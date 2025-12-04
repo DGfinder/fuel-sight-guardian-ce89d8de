@@ -202,7 +202,7 @@ async function getLocationHistoricalData(
     try {
       const { supabase } = await import('./lib/supabase');
       const { data: readings } = await supabase
-        .from('ta_agbot_readings')
+        .schema('great_southern_fuels').from('ta_agbot_readings')
         .select(`
           *,
           asset:ta_agbot_assets(

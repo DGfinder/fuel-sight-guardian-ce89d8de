@@ -701,7 +701,7 @@ function TankAssignmentDialog({
     queryKey: ['agbot-locations-for-assignment'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('ta_agbot_locations')
+        .schema('great_southern_fuels').from('ta_agbot_locations')
         .select('id, name, address, customer_name, calibrated_fill_level, is_disabled')
         .eq('is_disabled', false)
         .order('customer_name');

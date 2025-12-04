@@ -524,7 +524,9 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
         // Use 'name' for conflict resolution to prevent duplicates from different sync sources
         const locationData = transformLocationData(atharaLocation);
         const { data: location, error: locationError } = await supabase
-          .from('ta_agbot_locations')
+          .schema('great_southern_fuels')
+          .schema('great_southern_fuels')
+    .from('ta_agbot_locations')
           .upsert(locationData, {
             onConflict: 'name',
             ignoreDuplicates: false
@@ -555,7 +557,9 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
 
             // Upsert asset to new ta_agbot_assets table
             const { data: savedAsset, error: assetError } = await supabase
-              .from('ta_agbot_assets')
+              .schema('great_southern_fuels')
+              .schema('great_southern_fuels')
+    .from('ta_agbot_assets')
               .upsert(assetData, {
                 onConflict: 'external_guid',
                 ignoreDuplicates: false
@@ -577,7 +581,9 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
             // Store historical reading to new ta_agbot_readings table
             if (savedAsset?.id) {
               const { error: readingError } = await supabase
-                .from('ta_agbot_readings')
+                .schema('great_southern_fuels')
+                .schema('great_southern_fuels')
+    .from('ta_agbot_readings')
                 .insert({
                   asset_id: savedAsset.id,
                   level_liters: (atharaAsset as any).assetReportedLitres,
@@ -751,7 +757,9 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
         // Use 'name' for conflict resolution to prevent duplicates from different sync sources
         const locationData = transformLocationData(atharaLocation);
         const { data: location, error: locationError } = await supabase
-          .from('ta_agbot_locations')
+          .schema('great_southern_fuels')
+          .schema('great_southern_fuels')
+    .from('ta_agbot_locations')
           .upsert(locationData, {
             onConflict: 'name',
             ignoreDuplicates: false
@@ -771,7 +779,9 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
           try {
             const assetData = transformAssetData(atharaAsset, location.id);
             const { data: savedAsset, error: assetError } = await supabase
-              .from('ta_agbot_assets')
+              .schema('great_southern_fuels')
+              .schema('great_southern_fuels')
+    .from('ta_agbot_assets')
               .upsert(assetData, {
                 onConflict: 'external_guid',
                 ignoreDuplicates: false
@@ -789,7 +799,9 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
             // Store reading to new ta_agbot_readings table
             if (atharaAsset.latestTelemetryEventTimestamp && savedAsset?.id) {
               const { error: readingError } = await supabase
-                .from('ta_agbot_readings')
+                .schema('great_southern_fuels')
+                .schema('great_southern_fuels')
+    .from('ta_agbot_readings')
                 .insert({
                   asset_id: savedAsset.id,
                   level_liters: (atharaAsset as any).assetReportedLitres,
@@ -850,6 +862,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
 // Get all agbot locations with assets from new ta_agbot_* tables
 export async function getAgbotLocations(): Promise<AgbotLocation[]> {
   const { data, error } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_locations')
     .select(`
       *,
@@ -961,6 +974,7 @@ export async function getAgbotLocations(): Promise<AgbotLocation[]> {
 // Get specific location with detailed asset information
 export async function getAgbotLocation(locationId: string): Promise<AgbotLocation | null> {
   const { data, error } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_locations')
     .select(`
       *,
@@ -1003,6 +1017,7 @@ export async function getAgbotLocation(locationId: string): Promise<AgbotLocatio
 // Get recent sync logs
 export async function getAgbotSyncLogs(limit: number = 10) {
   const { data, error } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_sync_log')
     .select('*')
     .order('started_at', { ascending: false })
@@ -1032,6 +1047,7 @@ export async function getAgbotReadingsHistory(
   daysAgo.setDate(daysAgo.getDate() - days);
 
   const { data, error } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_readings')
     .select('*')
     .eq('asset_id', assetId)
@@ -1066,6 +1082,7 @@ export async function getBulkAgbotReadingsHistory(
   daysAgo.setDate(daysAgo.getDate() - days);
 
   const { data, error } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_readings')
     .select('*')
     .in('asset_id', assetIds)
@@ -1102,6 +1119,7 @@ export async function getBulkAgbotReadingsHistory(
 // Get latest readings for all assets (for real-time dashboard)
 export async function getLatestAgbotReadings(): Promise<AgbotReading[]> {
   const { data, error } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_readings')
     .select(`
       *,
@@ -1154,6 +1172,7 @@ export async function storeAgbotReading(reading: {
   };
 
   const { data, error } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_readings')
     .insert(newReading)
     .select()
@@ -1179,6 +1198,7 @@ export async function getLocationConsumptionStats(
 }> {
   // Get all assets for this location
   const { data: assets, error: assetsError } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_assets')
     .select('id')
     .eq('location_id', locationId);
@@ -1280,6 +1300,7 @@ export async function getAgbotSystemSummary(): Promise<{
 }> {
   // Get all locations with assets from new ta_agbot_* tables
   const { data: locations, error } = await supabase
+    .schema('great_southern_fuels')
     .from('ta_agbot_locations')
     .select(`
       *,
@@ -1534,7 +1555,9 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         // Use 'name' for conflict resolution to prevent duplicates from different sync sources
         const locationData = transformCSVLocationData(csvRow);
         const { data: location, error: locationError } = await supabase
-          .from('ta_agbot_locations')
+          .schema('great_southern_fuels')
+          .schema('great_southern_fuels')
+    .from('ta_agbot_locations')
           .upsert(locationData, {
             onConflict: 'name',
             ignoreDuplicates: false
@@ -1555,7 +1578,8 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         // Transform and upsert asset to new ta_agbot_assets table
         const assetData = transformCSVAssetData(csvRow, location.id);
         const { data: asset, error: assetError } = await supabase
-          .from('ta_agbot_assets')
+          .schema('great_southern_fuels')
+    .from('ta_agbot_assets')
           .upsert(assetData, {
             onConflict: 'external_guid',
             ignoreDuplicates: false
@@ -1584,7 +1608,8 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         };
 
         const { error: readingError } = await supabase
-          .from('ta_agbot_readings')
+          .schema('great_southern_fuels')
+    .from('ta_agbot_readings')
           .insert(readingData);
 
         if (!readingError) {
