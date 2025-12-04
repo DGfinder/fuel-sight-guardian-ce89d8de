@@ -18,7 +18,8 @@ import { useTankModal } from '@/contexts/TankModalContext';
 import { formatPerthRelativeTime, formatPerthDisplay, getPerthToday } from '@/utils/timezone';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { logger } from '@/lib/logger';
-import { getFuelStatus, statusBadgeStyles, groupStatusColors, getDaysTextColor, FuelStatus } from '@/lib/fuel-colors';
+import { getFuelStatus, getFuelStatusWithValidation, statusBadgeStyles, groupStatusColors, getDaysTextColor, FuelStatus } from '@/lib/fuel-colors';
+import { shouldIncludeInAlerts, validateTankData } from '@/lib/tank-validation';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
@@ -36,9 +37,15 @@ const StatusBadge: React.FC<{
   status: FuelStatus;
   percent?: number;
   daysToMin?: number | null;
-}> = ({ status, percent, daysToMin }) => {
+  validationReasons?: string[];
+}> = ({ status, percent, daysToMin, validationReasons }) => {
   // Determine the reason for the status
   const getStatusReason = () => {
+    // For unknown status, show validation reasons if provided
+    if (status === 'unknown' && validationReasons && validationReasons.length > 0) {
+      return validationReasons.join(', ');
+    }
+
     if (status === 'normal' || status === 'unknown') return null;
 
     const reasons: string[] = [];
@@ -119,7 +126,15 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
     if (usableCapacity <= 0) return null;
     return Math.max(0, Math.round((currentAboveMin / usableCapacity) * 100));
   }, [tank.current_level, tank.min_level, tank.safe_level]);
-  const status = useMemo(() => getFuelStatus(percent, tank.days_to_min_level), [percent, tank.days_to_min_level]);
+
+  // Validate tank data and get status with validation
+  const validation = useMemo(() => validateTankData(tank), [tank]);
+  const status = useMemo(() =>
+    validation.isValid
+      ? getFuelStatus(percent, tank.days_to_min_level)
+      : 'unknown' as FuelStatus,
+    [validation.isValid, percent, tank.days_to_min_level]
+  );
   const lastDipTs = tank.last_dip?.created_at ? new Date(tank.last_dip.created_at) : null;
   const isDipOld = lastDipTs ? ((Date.now() - lastDipTs.getTime()) > 4 * 24 * 60 * 60 * 1000) : false;
   const ullage = typeof tank.safe_level === 'number' && typeof tank.current_level === 'number' ? tank.safe_level - tank.current_level : null;
@@ -151,7 +166,12 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
           ) : (
             <span className="text-xs text-gray-400">—</span>
           )}
-          <StatusBadge status={status as 'critical' | 'low' | 'normal' | 'unknown'} percent={percent ?? undefined} daysToMin={tank.days_to_min_level} />
+          <StatusBadge
+            status={status as 'critical' | 'low' | 'normal' | 'unknown'}
+            percent={percent ?? undefined}
+            daysToMin={tank.days_to_min_level}
+            validationReasons={validation.reasons}
+          />
         </AccordionTrigger>
         <AccordionContent>
           <div className="grid grid-cols-2 gap-2 text-sm px-3 pb-2">
@@ -256,7 +276,14 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
                   : <span>{Math.round(tank.prev_day_used).toLocaleString()}</span>
                 : '—'}
             </td>
-            <td className="px-3 py-2 text-center"><StatusBadge status={status as 'critical' | 'low' | 'normal'} percent={percent} daysToMin={tank.days_to_min_level} /></td>
+            <td className="px-3 py-2 text-center">
+              <StatusBadge
+                status={status as 'critical' | 'low' | 'normal' | 'unknown'}
+                percent={percent ?? undefined}
+                daysToMin={tank.days_to_min_level}
+                validationReasons={validation.reasons}
+              />
+            </td>
             <td className="px-3 py-2 text-center">
               {tank.last_dip?.created_at
                 ? formatPerthRelativeTime(tank.last_dip.created_at)
@@ -400,26 +427,19 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   };
 
   // Function to get group status based on tank conditions
-  // Uses same percent calculation as TankRow for consistency
+  // Only considers tanks with valid data (fresh readings + proper configuration)
   const getGroupStatus = (groupTanks: Tank[]) => {
-    const criticalTanks = groupTanks.filter(tank => {
-      const percent = calculateTankPercent(tank);
-      const days = tank.days_to_min_level;
+    // Only consider tanks with valid data for group status
+    const validTanks = groupTanks.filter(t => shouldIncludeInAlerts(t));
 
-      const percentCritical = percent !== null && percent <= 10;
-      const daysCritical = typeof days === 'number' && days <= 1.5;
-
-      return percentCritical || daysCritical;
+    const criticalTanks = validTanks.filter(tank => {
+      const status = getFuelStatusWithValidation(tank);
+      return status === 'critical';
     });
 
-    const warningTanks = groupTanks.filter(tank => {
-      const percent = calculateTankPercent(tank);
-      const days = tank.days_to_min_level;
-
-      const percentWarning = percent !== null && percent > 10 && percent <= 20;
-      const daysWarning = typeof days === 'number' && days > 1.5 && days <= 2.5;
-
-      return percentWarning || daysWarning;
+    const warningTanks = validTanks.filter(tank => {
+      const status = getFuelStatusWithValidation(tank);
+      return status === 'low';
     });
 
     if (criticalTanks.length > 0) return 'critical';
@@ -428,26 +448,19 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   };
 
   // Function to get detailed group stats for inline display
-  // Uses same percent calculation as TankRow for consistency
+  // Only considers tanks with valid data (fresh readings + proper configuration)
   const getGroupStats = (groupTanks: Tank[]) => {
-    const criticalCount = groupTanks.filter(tank => {
-      const percent = calculateTankPercent(tank);
-      const days = tank.days_to_min_level;
+    // Only consider tanks with valid data for stats
+    const validTanks = groupTanks.filter(t => shouldIncludeInAlerts(t));
 
-      const percentCritical = percent !== null && percent <= 10;
-      const daysCritical = typeof days === 'number' && days <= 1.5;
-
-      return percentCritical || daysCritical;
+    const criticalCount = validTanks.filter(tank => {
+      const status = getFuelStatusWithValidation(tank);
+      return status === 'critical';
     }).length;
 
-    const warningCount = groupTanks.filter(tank => {
-      const percent = calculateTankPercent(tank);
-      const days = tank.days_to_min_level;
-
-      const percentWarning = percent !== null && percent > 10 && percent <= 20;
-      const daysWarning = typeof days === 'number' && days > 1.5 && days <= 2.5;
-
-      return percentWarning || daysWarning;
+    const warningCount = validTanks.filter(tank => {
+      const status = getFuelStatusWithValidation(tank);
+      return status === 'low';
     }).length;
 
     return { criticalCount, warningCount };

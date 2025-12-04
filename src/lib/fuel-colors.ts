@@ -4,6 +4,9 @@
  * Ensures consistent styling across all fuel visualization components
  */
 
+import type { Tank } from '@/types/fuel';
+import { validateTankData } from './tank-validation';
+
 export type FuelStatus = 'critical' | 'low' | 'normal' | 'unknown';
 
 /**
@@ -32,6 +35,33 @@ export function getFuelStatus(
 
   // Normal: No immediate concern
   return 'normal';
+}
+
+/**
+ * Determine fuel status with data validation
+ *
+ * This function validates tank data freshness and configuration before
+ * determining fuel status. Tanks with stale data or invalid configuration
+ * are marked as 'unknown' regardless of their fuel percentage.
+ *
+ * @param tank The tank to evaluate
+ * @param maxDataAgeDays Maximum age in days for data to be considered fresh (default: 14)
+ * @returns Fuel status: 'critical', 'low', 'normal', or 'unknown'
+ */
+export function getFuelStatusWithValidation(
+  tank: Tank,
+  maxDataAgeDays: number = 14
+): FuelStatus {
+  // Validate data freshness and configuration
+  const validation = validateTankData(tank, maxDataAgeDays);
+
+  // If validation fails, return 'unknown' status
+  if (!validation.isValid) {
+    return 'unknown';
+  }
+
+  // Use existing logic for valid tanks
+  return getFuelStatus(tank.current_level_percent, tank.days_to_min_level);
 }
 
 /**

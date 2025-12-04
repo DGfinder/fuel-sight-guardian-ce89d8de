@@ -12,15 +12,19 @@ import {
   Bell,
   BarChart3,
   Shield,
-  TrendingUp
+  TrendingUp,
+  Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tank } from '@/types/fuel';
 import { useRecentDips } from '@/hooks/useRecentDips';
 import { useFilterTanksBySubgroup } from '@/hooks/useUserPermissions';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
 import { logger } from '@/lib/logger';
+import { shouldIncludeInAlerts } from '@/lib/tank-validation';
+import { getFuelStatusWithValidation } from '@/lib/fuel-colors';
 
 interface FuelInsightsPanelProps {
   tanks: Tank[];
@@ -47,11 +51,20 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
     });
   }
 
-  const needsActionCount = tanks.filter(
-    t => !!t.last_dip?.created_at && ((t.days_to_min_level !== null && t.days_to_min_level <= 2) || t.current_level_percent <= 20)
-  ).length;
+  // Separate tanks by data validity - only count tanks with fresh data (<14 days) and valid configuration
+  const validTanks = tanks.filter(t => shouldIncludeInAlerts(t));
+  const noDataTanks = tanks.filter(t => !shouldIncludeInAlerts(t));
 
-  const fleetHealthPercentage = Math.round((tanks.filter(t => t.current_level_percent && t.current_level_percent > 50).length / tanks.length) * 100);
+  // Only count valid tanks with actual low fuel
+  const needsActionCount = validTanks.filter(t => {
+    const status = getFuelStatusWithValidation(t);
+    return status === 'critical' || status === 'low';
+  }).length;
+
+  // Fleet health only considers valid tanks to avoid skewing the percentage
+  const fleetHealthPercentage = validTanks.length > 0
+    ? Math.round((validTanks.filter(t => t.current_level_percent && t.current_level_percent > 50).length / validTanks.length) * 100)
+    : 0;
 
   return (
     <div className="relative mb-6 backdrop-blur-xl bg-white/80 border border-white/30 rounded-xl shadow-xl overflow-hidden">
@@ -93,7 +106,7 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
 
       {/* Professional KPI Cards */}
       <div className="p-4 md:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           
           {/* Critical Alerts Card */}
           <Card
@@ -229,6 +242,48 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
             </PopoverContent>
           </Popover>
 
+          {/* No Data Card */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="group cursor-pointer transition-all duration-300 border shadow-lg hover:shadow-xl hover:-translate-y-1 backdrop-blur-md bg-gray-50/80 border-gray-200/50 hover:bg-gray-50/90">
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-gray-100/80 rounded-xl shadow-lg shadow-gray-200/50 transition-all duration-300">
+                        <Database className="h-5 w-5 text-gray-600" />
+                      </div>
+                      <div>
+                        <p className="text-3xl font-bold text-gray-900">{noDataTanks.length}</p>
+                        <p className="text-sm font-medium text-gray-600">No Data</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-xs text-gray-500">
+                      {noDataTanks.length > 0
+                        ? "Tanks need fresh readings or configuration"
+                        : "All tanks have valid data"
+                      }
+                    </p>
+                    {noDataTanks.length > 0 && (
+                      <Badge variant="outline" className="mt-2 text-xs border-gray-300 text-gray-700">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Stale Data
+                      </Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              <p className="text-sm">
+                These tanks are excluded from low-fuel alerts because their data is older than 14 days
+                or they're missing configuration (min/safe levels).
+              </p>
+            </TooltipContent>
+          </Tooltip>
+
           {/* Fleet Status Card */}
           <Card className="border border-[#008457]/30 bg-green-50/80 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <CardContent className="p-5">
@@ -246,7 +301,7 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
               
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-xs text-gray-500">
-                  {tanks.filter(t => t.current_level_percent && t.current_level_percent > 50).length} tanks above 50%
+                  {validTanks.filter(t => t.current_level_percent && t.current_level_percent > 50).length} of {validTanks.length} tanks above 50%
                 </p>
                 <Badge variant="outline" className="mt-2 text-xs border-green-200 text-green-700">
                   <BarChart3 className="w-3 h-3 mr-1" />
