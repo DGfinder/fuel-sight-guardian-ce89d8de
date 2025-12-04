@@ -54,6 +54,7 @@ class TenantSupabaseClient {
           'x-application-name': 'fuel-sight-guardian',
         },
       },
+      // Note: Not setting db.schema here allows .schema() calls to work properly
     });
 
     debugTenantRouting('Tenant-aware Supabase client created');
@@ -155,7 +156,7 @@ class TenantSupabaseClient {
 
   /**
    * Specify schema for query
-   * 
+   *
    * Allows explicit schema specification (e.g., for great_southern_fuels)
    * This is needed for AgBot queries that explicitly use .schema()
    */

@@ -16,7 +16,7 @@ import {
 import { toPerthTime, validateTimestamp } from '@/utils/timezone';
 
 // Athara/Gasbot API configuration - with environment variable support
-// 
+//
 // 🔍 IMPORTANT DISCOVERY: Gasbot uses WEBHOOK/PUSH model, not REST API pull model
 // - Gasbot dashboard "API Integration" = webhook where THEY call YOUR endpoint
 // - Not a traditional REST API for us to query
@@ -52,7 +52,7 @@ const ATHARA_REQUEST_CONFIG = {
 // Helper function for making authenticated API requests with retry logic
 async function makeAtharaRequest<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${ATHARA_BASE_URL}${endpoint}`;
-  
+
   const requestOptions: RequestInit = {
     ...options,
     headers: {
@@ -71,29 +71,29 @@ async function makeAtharaRequest<T = unknown>(endpoint: string, options: Request
       if (ENABLE_API_LOGGING) {
         console.log(`[ATHARA API] Attempt ${attempt}/${ATHARA_REQUEST_CONFIG.retries}: ${endpoint}`);
       }
-      
+
       const response = await fetch(url, requestOptions);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Athara API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
-      
+
       const data = await response.json();
       if (ENABLE_API_LOGGING) {
         console.log(`[ATHARA API] Success: ${endpoint} - ${data.length || 1} items`);
       }
       return data;
-      
+
     } catch (error) {
       lastError = error as Error;
       console.warn(`[ATHARA API] Attempt ${attempt} failed:`, error);
-      
+
       // Don't retry on authentication errors (401, 403)
       if (error instanceof Error && error.message.includes('401') || error.message.includes('403')) {
         throw new Error(`Athara API authentication failed: ${error.message}`);
       }
-      
+
       // Wait before retrying (except on last attempt)
       if (attempt < ATHARA_REQUEST_CONFIG.retries) {
         await new Promise(resolve => setTimeout(resolve, ATHARA_REQUEST_CONFIG.retryDelay * attempt));
@@ -284,7 +284,7 @@ function updateAPIHealth(success: boolean, error?: string): void {
       lastError: error || 'Unknown error',
       consecutiveFailures: apiHealthStatus.consecutiveFailures + 1
     };
-    
+
     // Mark as unavailable after multiple consecutive failures
     if (apiHealthStatus.consecutiveFailures >= 3) {
       apiHealthStatus.status = 'unavailable';
@@ -305,7 +305,7 @@ export async function fetchAtharaLocations(bypassCache: boolean = false): Promis
     updateAPIHealth(false, error);
     throw new Error(error);
   }
-  
+
   if (!ATHARA_API_SECRET || ATHARA_API_SECRET === 'your-api-secret-here') {
     const error = 'CRITICAL: Invalid or missing Athara API secret. Check VITE_ATHARA_API_SECRET environment variable.';
     updateAPIHealth(false, error);
@@ -315,7 +315,7 @@ export async function fetchAtharaLocations(bypassCache: boolean = false): Promis
   // Rate limiting check
   const rateLimitResult = await checkRateLimit(
     'athara_api_locations',
-    30, // 30 requests per hour 
+    30, // 30 requests per hour
     CACHE_CONFIG.RATE_LIMITING
   );
 
@@ -341,51 +341,51 @@ export async function fetchAtharaLocations(bypassCache: boolean = false): Promis
 
   // Use request deduplication for concurrent requests
   const requestKey = 'athara_locations_fetch';
-  
+
   return await withRequestDeduplication(requestKey, async () => {
     try {
       if (ENABLE_API_LOGGING) {
         console.log('[ATHARA API] Fetching fresh data from Athara API...');
       }
-      
+
       // Attempt real API call
       const data = await makeAtharaRequest('/locations');
-      
+
       // Validate the response structure
       if (!Array.isArray(data)) {
         const error = 'Invalid Athara API response: expected array of locations';
         updateAPIHealth(false, error);
         throw new Error(error);
       }
-      
+
       // Cache the successful result with smart TTL
       const smartTTL = calculateSmartTTL('AGBOT_API', 'high');
       await cacheSet(cacheKey, data, smartTTL);
-      
+
       // Warm related cache entries
       if (data.length > 0) {
         console.log(`[ATHARA API] Warming related cache entries`);
-        warmCache(`${CACHE_KEYS.AGBOT_HEALTH}system`, 
+        warmCache(`${CACHE_KEYS.AGBOT_HEALTH}system`,
           async () => ({ status: 'available', timestamp: new Date().toISOString() }),
           smartTTL / 2
         ).catch(err => console.warn('[ATHARA API] Cache warming failed:', err));
       }
-      
+
       // Update health status on success
       updateAPIHealth(true);
-      
+
       if (ENABLE_API_LOGGING) {
         console.log(`[ATHARA API] Successfully fetched ${data.length} locations (cached for ${CACHE_CONFIG.AGBOT_API}s)`);
       }
-      
+
       return data;
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       updateAPIHealth(false, errorMessage);
-      
+
       console.error('[ATHARA API] CRITICAL: API call failed - NO MOCK DATA AVAILABLE:', error);
-      
+
       // Re-throw the error instead of using mock data
       // This forces the application to handle the error appropriately
       throw new Error(`Athara API unavailable: ${errorMessage}`);
@@ -473,7 +473,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
     errors: [],
     duration: 0
   };
-  
+
   console.log('\n' + '='.repeat(60));
   console.log('🔄 AGBOT SYNC STARTED');
   console.log('='.repeat(60));
@@ -492,21 +492,21 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
 
     // Fetch data from Athara API - will throw error if API unavailable
     const atharaLocations = await fetchAtharaLocations();
-    
+
     // Comprehensive logging of API response
     console.log('\n📊 API RESPONSE ANALYSIS:');
     console.log('-'.repeat(40));
     console.log(`Total Locations Received: ${atharaLocations.length}`);
-    
+
     let totalAssetsInResponse = 0;
     const customerAssetCounts: Record<string, number> = {};
-    
+
     atharaLocations.forEach((loc) => {
       const assetCount = loc.assets?.length || 0;
       totalAssetsInResponse += assetCount;
       customerAssetCounts[loc.customerName] = (customerAssetCounts[loc.customerName] || 0) + assetCount;
     });
-    
+
     console.log(`Total Assets/Tanks in Response: ${totalAssetsInResponse}`);
     console.log('\nAssets by Customer:');
     Object.entries(customerAssetCounts).forEach(([customer, count]) => {
@@ -612,7 +612,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
         }
 
         console.log(`   📊 Assets Summary: ${assetsSuccessful} successful, ${assetsFailed} failed`);
-        
+
       } catch (locationError) {
         const errorMsg = `Location processing error for ${atharaLocation.customerName}: ${locationError}`;
         console.error(`\n❌ ${errorMsg}`);
@@ -633,7 +633,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
     console.log(`  Locations: ${result.locationsProcessed}/${atharaLocations.length}`);
     console.log(`  Assets: ${result.assetsProcessed}/${totalAssetsInResponse}`);
     console.log(`  Readings: ${result.readingsProcessed}`);
-    
+
     if (result.errors.length > 0) {
       console.log(`\n⚠️  Errors (${result.errors.length}):`);
       result.errors.slice(0, 5).forEach((error, i) => {
@@ -643,7 +643,7 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
         console.log(`  ... and ${result.errors.length - 5} more errors`);
       }
     }
-    
+
     console.log('='.repeat(60) + '\n');
 
     // Update sync log
@@ -680,24 +680,24 @@ export async function testAtharaAPIConnection(): Promise<{
   apiHealth: AtharaAPIHealth;
 }> {
   const startTime = Date.now();
-  
+
   try {
     console.log('[ATHARA API TEST] Testing connection to Athara API...');
-    
+
     const data = await makeAtharaRequest('/locations');
     const responseTime = Date.now() - startTime;
-    
+
     return {
       success: true,
       responseTime,
       dataCount: Array.isArray(data) ? data.length : 1,
       apiHealth: getAtharaAPIHealth()
     };
-    
+
   } catch (error) {
     const responseTime = Date.now() - startTime;
     console.error('[ATHARA API TEST] Connection test failed:', error);
-    
+
     return {
       success: false,
       responseTime,
@@ -723,7 +723,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
     if (ENABLE_API_LOGGING) {
       console.log('[AGBOT SYNC] Initiating manual sync with Athara API');
     }
-    
+
     // Test API connection first
     const connectionTest = await testAtharaAPIConnection();
     if (!connectionTest.success) {
@@ -731,7 +731,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
       result.duration = Date.now() - startTime;
       return result;
     }
-    
+
     // Log sync start
     const { data: syncLog } = await supabase
       .from('agbot_sync_logs')
@@ -745,7 +745,7 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
 
     // Fetch data from Athara API
     const atharaLocations = await fetchAtharaLocations();
-    
+
     if (ENABLE_API_LOGGING) {
       console.log(`[AGBOT SYNC] Fetched ${atharaLocations.length} locations from Athara API`);
     }
@@ -861,7 +861,8 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
 
 // Get all agbot locations with assets from new ta_agbot_* tables
 export async function getAgbotLocations(): Promise<AgbotLocation[]> {
-  const { data, error } = await supabase
+  // Create a query builder with explicit schema
+  const query = supabase
     .schema('great_southern_fuels')
     .from('ta_agbot_locations')
     .select(`
@@ -874,8 +875,24 @@ export async function getAgbotLocations(): Promise<AgbotLocation[]> {
     .eq('is_disabled', false)
     .order('name');
 
+  // Debug: Log the query to verify schema is set
+  if (import.meta.env.DEV) {
+    console.log('[AgBot API] Query with schema:', {
+      schema: 'great_southern_fuels',
+      table: 'ta_agbot_locations',
+    });
+  }
+
+  const { data, error } = await query;
+
   if (error) {
     console.error('Error fetching agbot locations:', error);
+    console.error('Error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
     throw error;
   }
 
@@ -1220,7 +1237,7 @@ export async function getLocationConsumptionStats(
   // Get readings for all assets
   const assetIds = assets.map(a => a.id);
   const readingsData = await getBulkAgbotReadingsHistory(assetIds, days);
-  
+
   // Combine all readings and sort by timestamp
   const allReadings = Object.values(readingsData)
     .flat()
@@ -1243,10 +1260,10 @@ export async function getLocationConsumptionStats(
   for (let i = 1; i < allReadings.length; i++) {
     const older = allReadings[i - 1];
     const newer = allReadings[i];
-    
+
     const percentageChange = older.calibrated_fill_percentage - newer.calibrated_fill_percentage;
     const hoursBetween = (new Date(newer.reading_timestamp).getTime() - new Date(older.reading_timestamp).getTime()) / (1000 * 60 * 60);
-    
+
     if (percentageChange > 0 && hoursBetween > 0) {
       // Consumption
       totalConsumption += percentageChange;
@@ -1258,13 +1275,13 @@ export async function getLocationConsumptionStats(
     }
   }
 
-  const avgDailyConsumption = consumptionRates.length > 0 
+  const avgDailyConsumption = consumptionRates.length > 0
     ? consumptionRates.reduce((sum, rate) => sum + rate, 0) / consumptionRates.length
     : 0;
 
   // Determine trend by comparing first and second half of data
   const midpoint = Math.floor(consumptionRates.length / 2);
-  const firstHalfAvg = midpoint > 0 
+  const firstHalfAvg = midpoint > 0
     ? consumptionRates.slice(0, midpoint).reduce((sum, rate) => sum + rate, 0) / midpoint
     : 0;
   const secondHalfAvg = midpoint > 0 && consumptionRates.length > midpoint
@@ -1496,7 +1513,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
   console.log('[AGBOT CSV] Pre-validating CSV data for data quality issues...');
   let futureDataWarnings = 0;
   const currentTime = new Date();
-  
+
   csvRows.forEach((row, index) => {
     // Check for potentially problematic date fields
     const dateFields = ['deviceLastSeen', 'assetLastSeen', 'deviceActivation'];
@@ -1509,7 +1526,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
           if (datePart) {
             const [day, month, year] = datePart.split('/');
             const checkDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-            
+
             if (checkDate > currentTime) {
               console.warn(`[AGBOT CSV] Row ${index + 1}: Future date detected in ${field}: "${dateStr}"`);
               futureDataWarnings++;
@@ -1521,7 +1538,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
       }
     });
   });
-  
+
   if (futureDataWarnings > 0) {
     console.warn(`[AGBOT CSV] ⚠️ Found ${futureDataWarnings} future date entries that may cause display issues`);
     result.errors.push(`Data quality warning: ${futureDataWarnings} entries contain future dates`);
@@ -1547,10 +1564,10 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
     // Process each CSV row
     for (let i = 0; i < csvRows.length; i++) {
       const csvRow = csvRows[i];
-      
+
       try {
         console.log(`\n📍 Processing Row ${i + 1}: ${csvRow.locationId}`);
-        
+
         // Transform and upsert location to new ta_agbot_locations table
         // Use 'name' for conflict resolution to prevent duplicates from different sync sources
         const locationData = transformCSVLocationData(csvRow);
@@ -1639,7 +1656,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
     console.log(`  Locations: ${result.locationsImported}/${csvRows.length}`);
     console.log(`  Assets: ${result.assetsImported}/${csvRows.length}`);
     console.log(`  Readings: ${result.readingsImported}/${csvRows.length}`);
-    
+
     if (result.errors.length > 0) {
       console.log(`\n⚠️  Errors (${result.errors.length}):`);
       result.errors.slice(0, 5).forEach((error, i) => {
@@ -1649,7 +1666,7 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
         console.log(`  ... and ${result.errors.length - 5} more errors`);
       }
     }
-    
+
     console.log('='.repeat(60) + '\n');
 
     // Update sync log
@@ -1689,11 +1706,11 @@ export async function clearAgBotCache(): Promise<void> {
       `${CACHE_KEYS.AGBOT_ASSETS}*`,
       `${CACHE_KEYS.AGBOT_HEALTH}*`
     ];
-    
+
     const totalCleared = await Promise.all(
       patterns.map(pattern => invalidatePattern(pattern))
     );
-    
+
     const total = totalCleared.reduce((sum, count) => sum + count, 0);
     console.log(`[AGBOT CACHE] Cleared ${total} AgBot cache entries`);
   } catch (error) {
@@ -1715,15 +1732,15 @@ export async function getAgBotSystemHealth(): Promise<{
 }> {
   const apiHealth = getAtharaAPIHealth();
   const cacheHealth = await cacheHealthCheck();
-  
+
   let overall: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-  
+
   if (apiHealth.status === 'unavailable' || !cacheHealth.healthy) {
     overall = 'unhealthy';
   } else if (apiHealth.status === 'error' || cacheHealth.latency > 1000) {
     overall = 'degraded';
   }
-  
+
   return {
     api: apiHealth,
     cache: cacheHealth,
@@ -1737,7 +1754,7 @@ export async function getAgBotSystemHealth(): Promise<{
 export async function refreshAgBotData(): Promise<AtharaLocation[]> {
   // Clear existing cache first
   await clearAgBotCache();
-  
+
   // Fetch fresh data (bypass cache)
   return await fetchAtharaLocations(true);
 }
