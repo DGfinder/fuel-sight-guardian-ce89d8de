@@ -252,8 +252,10 @@ export default function CustomerTankDetail() {
         <div className="lg:col-span-2">
           <TankConsumptionChart
             assetId={tank?.asset_id}
-            defaultPeriod={7}
+            defaultPeriod={(preferences?.default_chart_days as 7 | 14 | 30) || 7}
             capacityLiters={tank?.asset_profile_water_capacity}
+            warningThresholdPct={preferences?.default_warning_threshold_pct || 25}
+            criticalThresholdPct={preferences?.default_critical_threshold_pct || 15}
           />
         </div>
 

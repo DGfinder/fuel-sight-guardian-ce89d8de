@@ -19,12 +19,16 @@ interface TankConsumptionChartProps {
   assetId: string | undefined;
   defaultPeriod?: 7 | 14 | 30;
   capacityLiters?: number;
+  warningThresholdPct?: number;
+  criticalThresholdPct?: number;
 }
 
 export function TankConsumptionChart({
   assetId,
   defaultPeriod = 7,
   capacityLiters,
+  warningThresholdPct = 25,
+  criticalThresholdPct = 15,
 }: TankConsumptionChartProps) {
   const [period, setPeriod] = useState<7 | 14 | 30>(defaultPeriod);
   const [showLitres, setShowLitres] = useState(true);
@@ -65,9 +69,9 @@ export function TankConsumptionChart({
     isRefill: reading.is_refill,
   }));
 
-  // Calculate warning and critical thresholds in litres
-  const warningThreshold = capacityLiters ? capacityLiters * 0.25 : null;
-  const criticalThreshold = capacityLiters ? capacityLiters * 0.15 : null;
+  // Calculate warning and critical thresholds in litres (using user preferences)
+  const warningThreshold = capacityLiters ? capacityLiters * (warningThresholdPct / 100) : null;
+  const criticalThreshold = capacityLiters ? capacityLiters * (criticalThresholdPct / 100) : null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
