@@ -132,7 +132,7 @@ export function useRecentDips(limit: number = 30, permissions?: UserPermissions)
       }
 
       // Get tank info separately (without the problematic nested select)
-      const tankIds = [...new Set(rawData.map(r => r.tank_id))];
+      const tankIdsForEnrichment = [...new Set(rawData.map(r => r.tank_id))];
       const { data: tanksData, error: tanksError } = await supabase
         .from('fuel_tanks')
         .select(`
@@ -141,7 +141,7 @@ export function useRecentDips(limit: number = 30, permissions?: UserPermissions)
           product_type,
           group_id
         `)
-        .in('id', tankIds)
+        .in('id', tankIdsForEnrichment)
         .eq('status', 'active');
 
       if (tanksError) throw tanksError;
