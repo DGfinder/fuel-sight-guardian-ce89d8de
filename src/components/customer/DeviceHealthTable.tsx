@@ -5,14 +5,17 @@ import { useFleetHealth } from '../../hooks/useCustomerAnalytics';
 import { LoadingSpinner } from '../ui/loading-spinner';
 import { Wifi, WifiOff, AlertCircle } from 'lucide-react';
 
+type HealthStatus = 'good' | 'warning' | 'critical' | 'offline';
+
 interface DeviceHealthTableProps {
   compact?: boolean; // Show fewer columns for dashboard
+  filterStatus?: HealthStatus | 'all'; // Filter by health status
 }
 
 type SortField = 'tank_name' | 'health_status' | 'battery_voltage' | 'temperature_c' | 'last_reading_at';
 type SortDirection = 'asc' | 'desc';
 
-export function DeviceHealthTable({ compact = false }: DeviceHealthTableProps) {
+export function DeviceHealthTable({ compact = false, filterStatus = 'all' }: DeviceHealthTableProps) {
   const { data: healthData, isLoading } = useFleetHealth();
   const navigate = useNavigate();
   const [sortField, setSortField] = useState<SortField>('health_status');
@@ -34,8 +37,12 @@ export function DeviceHealthTable({ compact = false }: DeviceHealthTableProps) {
     );
   }
 
-  // Sort data
-  const sortedData = [...healthData].sort((a, b) => {
+  // Filter and sort data
+  const filteredData = filterStatus === 'all'
+    ? healthData
+    : healthData.filter(device => device.health_status === filterStatus);
+
+  const sortedData = [...filteredData].sort((a, b) => {
     let aVal: any = a[sortField];
     let bVal: any = b[sortField];
 

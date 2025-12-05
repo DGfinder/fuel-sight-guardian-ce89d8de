@@ -186,7 +186,7 @@ export default function CustomerTanks() {
 
 // Wrapper component to handle the useLastRefill hook for each tank
 function TankCardWrapper({ tank, navigate }: { tank: any; navigate: any }) {
-  const { data: lastRefill } = useLastRefill(tank.id);
+  const { data: lastRefill } = useLastRefill(tank.asset_id);
 
   return (
     <TankCardComponent

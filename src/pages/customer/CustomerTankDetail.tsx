@@ -251,7 +251,7 @@ export default function CustomerTankDetail() {
         {/* Consumption Chart */}
         <div className="lg:col-span-2">
           <TankConsumptionChart
-            assetId={tank?.id}
+            assetId={tank?.asset_id}
             defaultPeriod={7}
             capacityLiters={tank?.asset_profile_water_capacity}
           />

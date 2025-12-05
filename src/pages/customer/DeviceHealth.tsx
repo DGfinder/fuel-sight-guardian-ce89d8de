@@ -100,7 +100,7 @@ export default function DeviceHealth() {
       </div>
 
       {/* Device Health Table */}
-      <DeviceHealthTable />
+      <DeviceHealthTable filterStatus={filterStatus} />
     </div>
   );
 }
