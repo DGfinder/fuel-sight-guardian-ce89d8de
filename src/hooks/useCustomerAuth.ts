@@ -187,7 +187,8 @@ export function useCustomerTanks() {
             is_online,
             days_remaining,
             daily_consumption_liters,
-            capacity_liters
+            capacity_liters,
+            current_level_percent
           )
         `)
         .in('id', locationIds)
@@ -200,7 +201,19 @@ export function useCustomerTanks() {
 
       // Transform to CustomerTank format (map new column names to interface)
       return (locations || []).map(loc => {
-        const asset = Array.isArray(loc.ta_agbot_assets) && loc.ta_agbot_assets[0];
+        const assets = Array.isArray(loc.ta_agbot_assets) ? loc.ta_agbot_assets : [];
+        const asset = assets[0]; // Primary asset for other fields
+
+        // Calculate fill level from asset data (more accurate than location aggregate)
+        // Average all assets if location has multiple tanks
+        const assetFillLevels = assets
+          .filter(a => a.current_level_percent != null && a.current_level_percent !== undefined)
+          .map(a => a.current_level_percent as number);
+
+        const calculatedFillLevel = assetFillLevels.length > 0
+          ? assetFillLevels.reduce((sum, level) => sum + level, 0) / assetFillLevels.length
+          : loc.calibrated_fill_level; // Fallback to location level if no asset data
+
         return {
           id: loc.id,
           location_guid: loc.external_guid,
@@ -212,7 +225,7 @@ export function useCustomerTanks() {
           postcode: loc.postcode,
           lat: loc.latitude,
           lng: loc.longitude,
-          latest_calibrated_fill_percentage: loc.calibrated_fill_level,
+          latest_calibrated_fill_percentage: calculatedFillLevel,
           latest_telemetry_epoch: loc.last_telemetry_epoch,
           disabled: loc.is_disabled,
           asset_id: asset?.id,
