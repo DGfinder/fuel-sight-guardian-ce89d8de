@@ -184,7 +184,7 @@ function filterRefillEvents(readings: Reading[]): Reading[] {
   const filtered: Reading[] = [readings[0]];
 
   for (let i = 1; i < readings.length; i++) {
-    const prev = readings[i - 1];
+    const prev = filtered[filtered.length - 1]; // Compare to last filtered reading, not previous in original array
     const current = readings[i];
     const change = current.level_percent - prev.level_percent;
 

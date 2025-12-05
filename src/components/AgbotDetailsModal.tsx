@@ -450,16 +450,18 @@ export default function AgbotDetailsModal() {
                       {/* Yesterday's Consumption */}
                       <div className="text-center">
                         <div className="text-3xl font-bold text-purple-600">
-                          {capacity > 0
-                            ? `${Math.round((analytics.prev_day_pct_used / 100) * capacity).toLocaleString()}L`
-                            : `${analytics.prev_day_pct_used.toFixed(2)}%`
+                          {analytics.prev_day_liters_used !== null
+                            ? `${Math.round(analytics.prev_day_liters_used).toLocaleString()}L`
+                            : capacity > 0
+                              ? `${Math.round((analytics.prev_day_pct_used / 100) * capacity).toLocaleString()}L`
+                              : `${analytics.prev_day_pct_used.toFixed(2)}%`
                           }
                         </div>
                         <div className="text-sm font-medium text-muted-foreground mt-1">
                           YESTERDAY'S USAGE
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          {capacity > 0 ? `${analytics.prev_day_pct_used.toFixed(2)}% consumed` : 'percentage consumed'}
+                          {analytics.prev_day_pct_used.toFixed(2)}% consumed
                         </div>
                       </div>
 

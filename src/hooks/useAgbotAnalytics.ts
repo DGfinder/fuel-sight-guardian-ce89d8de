@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { 
-  AgbotAnalytics, 
+import {
+  AgbotAnalytics,
   AgbotReading,
   calculateRollingAverage,
   calculatePreviousDayConsumption,
+  calculatePreviousDayConsumptionLiters,
   calculateDaysToCritical,
   calculateConsumptionVelocity,
   calculateDataReliabilityScore,
@@ -73,6 +74,7 @@ export const useAgbotLocationAnalytics = (location: AgbotLocation | null) => {
         return {
           rolling_avg_pct_per_day: 0,
           prev_day_pct_used: 0,
+          prev_day_liters_used: null,
           days_to_critical_level: null,
           consumption_velocity: 0,
           efficiency_score: 100,
@@ -92,38 +94,43 @@ export const useAgbotLocationAnalytics = (location: AgbotLocation | null) => {
       // Calculate core metrics
       const rolling_avg_pct_per_day = calculateRollingAverage(readings);
       const prev_day_pct_used = calculatePreviousDayConsumption(readings);
+      const prev_day_liters_used = calculatePreviousDayConsumptionLiters(
+        readings,
+        mainAsset?.capacity_liters || null
+      );
       const days_to_critical_level = calculateDaysToCritical(
         location.calibrated_fill_level || 0,
         rolling_avg_pct_per_day,
         20 // Critical threshold at 20%
       );
-      
+
       // Calculate advanced metrics
       const consumption_velocity = calculateConsumptionVelocity(readings);
       const data_reliability_score = calculateDataReliabilityScore(readings);
       const efficiency_score = calculateEfficiencyScore(rolling_avg_pct_per_day, 2.0); // 2% per day baseline
-      
+
       // Analyze refill patterns
       const refillAnalysis = analyzeRefillPattern(readings);
       const predicted_next_refill = refillAnalysis.lastRefillDate && refillAnalysis.refillFrequencyDays
         ? new Date(new Date(refillAnalysis.lastRefillDate).getTime() + (refillAnalysis.refillFrequencyDays * 24 * 60 * 60 * 1000)).toISOString()
         : null;
-      
+
       // Analyze patterns
       const weekly_pattern = analyzeWeeklyPattern(readings);
       const consumption_trend = determineConsumptionTrend(readings);
       const daily_avg_consumption = rolling_avg_pct_per_day;
-      
+
       // Generate alerts
       const partialAnalytics = {
         rolling_avg_pct_per_day,
         data_reliability_score
       };
       const alerts = generateAlerts(partialAnalytics, readings);
-      
+
       return {
         rolling_avg_pct_per_day,
         prev_day_pct_used,
+        prev_day_liters_used,
         days_to_critical_level,
         consumption_velocity,
         efficiency_score,
@@ -212,6 +219,7 @@ export const useAgbotLocationsWithAnalytics = () => {
       const defaultAnalytics: AgbotAnalytics = {
         rolling_avg_pct_per_day: 0,
         prev_day_pct_used: 0,
+        prev_day_liters_used: null,
         days_to_critical_level: null,
         consumption_velocity: 0,
         efficiency_score: 100,
@@ -267,6 +275,7 @@ export const useAgbotLocationsWithAnalytics = () => {
 
         // Calculate remaining metrics from readings
         const prev_day_pct_used = calculatePreviousDayConsumption(readings);
+        const prev_day_liters_used = calculatePreviousDayConsumptionLiters(readings, capacityLiters);
         const consumption_velocity = calculateConsumptionVelocity(readings);
         const data_reliability_score = calculateDataReliabilityScore(readings);
         const efficiency_score = calculateEfficiencyScore(rolling_avg_pct_per_day, 2.0);
@@ -286,6 +295,7 @@ export const useAgbotLocationsWithAnalytics = () => {
           analytics: {
             rolling_avg_pct_per_day,
             prev_day_pct_used,
+            prev_day_liters_used,
             days_to_critical_level,
             consumption_velocity,
             efficiency_score,

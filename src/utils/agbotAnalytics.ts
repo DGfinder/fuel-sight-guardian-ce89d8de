@@ -17,23 +17,24 @@ export interface AgbotAnalytics {
   // Core consumption metrics
   rolling_avg_pct_per_day: number;        // Average percentage points consumed per day
   prev_day_pct_used: number;              // Percentage points consumed yesterday
+  prev_day_liters_used: number | null;    // Liters consumed yesterday (calculated from percentage * capacity)
   days_to_critical_level: number | null;  // Days until reaching critical threshold (20%)
-  
+
   // Advanced metrics
   consumption_velocity: number;            // Rate of change acceleration (+/- percentage change in consumption rate)
   efficiency_score: number;               // Relative efficiency compared to similar locations (0-100)
   data_reliability_score: number;         // Data quality score based on device uptime (0-100)
-  
+
   // Refill analysis
   last_refill_date: string | null;        // Date of last detected refill
   refill_frequency_days: number | null;   // Average days between refills
   predicted_next_refill: string | null;   // Predicted next refill date
-  
+
   // Pattern analysis
   daily_avg_consumption: number;          // Average daily consumption (percentage points)
   weekly_pattern: number[];               // Array of 7 values showing weekly consumption pattern
   consumption_trend: 'increasing' | 'decreasing' | 'stable'; // Overall trend direction
-  
+
   // Alerts and insights
   unusual_consumption_alert: boolean;     // True if consumption rate is >50% above average
   potential_leak_alert: boolean;          // True if consumption is unusually high and consistent
@@ -112,43 +113,91 @@ export const calculateRollingAverage = (readings: AgbotReading[]): number => {
   return totalDays > 0 ? Number((totalConsumption / totalDays).toFixed(2)) : 0;
 };
 
-// Calculate previous day consumption
+// Calculate previous day consumption (returns percentage)
 export const calculatePreviousDayConsumption = (readings: AgbotReading[]): number => {
   if (readings.length < 2) return 0;
-  
+
   const now = new Date();
   const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-  
+
   // Find readings from yesterday
   const yesterdayReadings = readings.filter(reading => {
     const readingDate = new Date(reading.reading_timestamp);
     return readingDate >= yesterday && readingDate < now;
   });
-  
+
   if (yesterdayReadings.length < 2) {
     // Fallback: use latest daily rate
-    const sortedReadings = readings.sort((a, b) => 
+    const sortedReadings = readings.sort((a, b) =>
       new Date(b.reading_timestamp).getTime() - new Date(a.reading_timestamp).getTime()
     );
-    
+
     if (sortedReadings.length >= 2) {
       const consumption = calculatePercentageConsumption(sortedReadings[1], sortedReadings[0]);
       const hours = daysBetween(
         new Date(sortedReadings[1].reading_timestamp),
         new Date(sortedReadings[0].reading_timestamp)
       ) * 24;
-      
+
       return hours > 0 ? Number((consumption * 24 / hours).toFixed(2)) : 0;
     }
-    
+
     return 0;
   }
-  
+
   // Calculate consumption over yesterday
   const oldestYesterday = yesterdayReadings[0];
   const newestYesterday = yesterdayReadings[yesterdayReadings.length - 1];
-  
+
   return calculatePercentageConsumption(oldestYesterday, newestYesterday);
+};
+
+// Calculate previous day consumption in LITERS
+export const calculatePreviousDayConsumptionLiters = (
+  readings: AgbotReading[],
+  capacityLiters: number | null
+): number | null => {
+  if (readings.length < 2 || !capacityLiters || capacityLiters <= 0) return null;
+
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+  // Find readings from yesterday
+  const yesterdayReadings = readings.filter(reading => {
+    const readingDate = new Date(reading.reading_timestamp);
+    return readingDate >= yesterday && readingDate < now;
+  });
+
+  if (yesterdayReadings.length >= 2) {
+    const oldest = yesterdayReadings[0];
+    const newest = yesterdayReadings[yesterdayReadings.length - 1];
+
+    // Calculate using percentage AND capacity
+    const percentageConsumed = oldest.calibrated_fill_percentage - newest.calibrated_fill_percentage;
+    const litresConsumed = (percentageConsumed / 100) * capacityLiters;
+
+    return Math.max(0, litresConsumed);
+  }
+
+  // Fallback: extrapolate from latest 2 readings
+  if (readings.length >= 2) {
+    const sortedDesc = [...readings].sort((a, b) =>
+      new Date(b.reading_timestamp).getTime() - new Date(a.reading_timestamp).getTime()
+    );
+
+    const percentageConsumed = sortedDesc[1].calibrated_fill_percentage - sortedDesc[0].calibrated_fill_percentage;
+    const hours = daysBetween(
+      new Date(sortedDesc[1].reading_timestamp),
+      new Date(sortedDesc[0].reading_timestamp)
+    ) * 24;
+
+    if (hours > 0) {
+      const dailyPercentage = (percentageConsumed * 24) / hours;
+      return (dailyPercentage / 100) * capacityLiters;
+    }
+  }
+
+  return null;
 };
 
 // Calculate days until critical level (default 20%)
@@ -376,12 +425,14 @@ export const calculateAllAgbotAnalytics = (
   readings: AgbotReading[],
   currentPercentage: number,
   criticalThreshold: number = 20,
-  baselineRate: number = 2.0
+  baselineRate: number = 2.0,
+  capacityLiters: number | null = null
 ): AgbotAnalytics => {
   if (readings.length < 2) {
     return {
       rolling_avg_pct_per_day: 0,
       prev_day_pct_used: 0,
+      prev_day_liters_used: null,
       days_to_critical_level: null,
       consumption_velocity: 0,
       efficiency_score: 100,
@@ -405,6 +456,9 @@ export const calculateAllAgbotAnalytics = (
   // Calculate core metrics using pre-sorted data
   const rolling_avg_pct_per_day = calculateRollingAverage(sortedAsc);
   const prev_day_pct_used = calculatePreviousDayConsumptionOptimized(sortedDesc);
+  const prev_day_liters_used = capacityLiters
+    ? (prev_day_pct_used / 100) * capacityLiters
+    : null;
   const days_to_critical_level = calculateDaysToCritical(
     currentPercentage,
     rolling_avg_pct_per_day,
@@ -436,6 +490,7 @@ export const calculateAllAgbotAnalytics = (
   return {
     rolling_avg_pct_per_day,
     prev_day_pct_used,
+    prev_day_liters_used,
     days_to_critical_level,
     consumption_velocity,
     efficiency_score,
