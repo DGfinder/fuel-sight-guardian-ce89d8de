@@ -193,7 +193,7 @@ export default async function handler(req, res) {
         // Transform and upsert location
         const dbLocationData = transformLocationData(locationData);
         const { data: location, error: locationError } = await supabase
-          .schema('great_southern_fuels').from('ta_agbot_locations')
+          .from('ta_agbot_locations')
           .upsert(dbLocationData, {
             onConflict: 'external_guid',
             ignoreDuplicates: false
@@ -214,7 +214,7 @@ export default async function handler(req, res) {
             try {
               const dbAssetData = transformAssetData(assetData, location.id);
               const { data: asset, error: assetError } = await supabase
-                .schema('great_southern_fuels').from('ta_agbot_assets')
+                .from('ta_agbot_assets')
                 .upsert(dbAssetData, {
                   onConflict: 'external_guid',
                   ignoreDuplicates: false
@@ -242,7 +242,7 @@ export default async function handler(req, res) {
                 };
 
                 const { error: readingError } = await supabase
-                  .schema('great_southern_fuels').from('ta_agbot_readings')
+                  .from('ta_agbot_readings')
                   .insert(readingData);
                 
                 if (!readingError) {

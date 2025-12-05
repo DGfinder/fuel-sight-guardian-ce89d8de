@@ -405,7 +405,7 @@ serve(async (req) => {
     startDate.setDate(startDate.getDate() - days_back);
 
     const { data: readings, error } = await supabase
-      .schema('great_southern_fuels').from('ta_agbot_readings')
+      .from('ta_agbot_readings')
       .select('*')
       .eq('asset_id', asset_id)
       .gte('reading_at', startDate.toISOString())
