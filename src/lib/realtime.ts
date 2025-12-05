@@ -108,12 +108,10 @@ class RealtimeService {
           }
 
           if (status === 'SUBSCRIBED') {
-            console.log(`Successfully subscribed to ${channelName}`);
             subscription.channel = channel;
             subscription.isConnecting = false;
             subscription.reconnectAttempts = 0;
           } else if (status === 'CLOSED') {
-            console.log(`Channel ${channelName} CLOSED`);
             this.handleChannelClosed(channelName);
           } else if (status === 'CHANNEL_ERROR') {
             console.error(`Channel ${channelName} error`);

@@ -49,7 +49,6 @@ export function useTenantInit(): TenantInitResult {
     const initTenant = async () => {
       // Guard: Prevent concurrent initialization
       if (initializingRef.current) {
-        console.log('[TENANT INIT] Already initializing, skipping duplicate call');
         return;
       }
 
@@ -67,7 +66,6 @@ export function useTenantInit(): TenantInitResult {
       try {
         // If feature flag is disabled, skip tenant initialization
         if (!FEATURES.USE_TENANT_SCHEMA) {
-          console.log('[TENANT INIT] Feature flag disabled, skipping tenant init');
           if (timeoutRef.current) clearTimeout(timeoutRef.current);
           setState('READY');
           hasCompletedInitialInit.current = true;
@@ -79,15 +77,12 @@ export function useTenantInit(): TenantInitResult {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-          console.log('[TENANT INIT] No authenticated user, skipping tenant init');
           if (timeoutRef.current) clearTimeout(timeoutRef.current);
           setState('READY');
           hasCompletedInitialInit.current = true;
           initializingRef.current = false;
           return;
         }
-
-        console.log('[TENANT INIT] Initializing for user:', user.id);
 
         // Initialize tenant context and set search_path
         await supabase.initialize();
@@ -97,12 +92,6 @@ export function useTenantInit(): TenantInitResult {
 
         if (tenantContext) {
           setTenant(tenantContext);
-          console.log(
-            `[TENANT INIT] Success: ${tenantContext.companyName} (${tenantContext.schemaName})`
-          );
-        } else {
-          console.warn('[TENANT INIT] User authenticated but no tenant assigned - using public schema');
-          // This is OK - user can still use the app with public schema
         }
 
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -126,20 +115,15 @@ export function useTenantInit(): TenantInitResult {
     // CRITICAL: Only allow re-initialization AFTER initial init completes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event) => {
-        console.log('[TENANT INIT] Auth state changed:', event);
-
         // GUARD: Ignore events during initial initialization
         if (!hasCompletedInitialInit.current) {
-          console.log('[TENANT INIT] Ignoring auth event during initial init:', event);
           return;
         }
 
         if (event === 'SIGNED_IN') {
-          console.log('[TENANT INIT] User signed in - reinitializing tenant context');
           setState('IDLE'); // Reset state machine
           await initTenant();
         } else if (event === 'SIGNED_OUT') {
-          console.log('[TENANT INIT] User signed out - clearing tenant context');
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
           }

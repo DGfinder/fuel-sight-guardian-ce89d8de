@@ -79,28 +79,6 @@ export default function Index({ selectedGroup }: IndexProps) {
 
   // Apply subgroup filtering to tanks - only if permissions are loaded
   const permissionFilteredTanks = (!permissionsLoading && permissions) ? filterTanks(tanks || []) : (tanks || []);
-  
-  // Debug component state including subgroup filtering
-  logger.debug('[INDEX] Component State:', {
-    tanksLoading,
-    permissionsLoading,
-    tanksError: tanksError?.message,
-    originalTanksCount: tanks?.length || 0,
-    permissionFilteredCount: permissionFilteredTanks.length,
-    alertsLoading,
-    hasTanks: Array.isArray(tanks) && tanks.length > 0,
-    userRole: permissions?.role,
-    isAdmin: permissions?.isAdmin
-  });
-
-  // Debug subgroup filtering results
-  if (permissions && !permissionsLoading && !permissions.isAdmin && tanks && tanks.length !== permissionFilteredTanks.length) {
-    logger.debug('[INDEX] Subgroup filtering active', {
-      original: tanks.length,
-      filtered: permissionFilteredTanks.length,
-      hidden: tanks.length - permissionFilteredTanks.length
-    });
-  }
 
   // Filter tanks based on selected group (using permission-filtered tanks as base)
   const filteredTanks = permissionFilteredTanks.filter(tank => {

@@ -40,10 +40,7 @@ export function RecentActivity() {
   const { data: recentAlerts, isLoading: alertsLoading, error: alertsError } = useQuery({
     queryKey: ['recent-alerts', permissions?.userId],
     queryFn: async (): Promise<TankAlert[]> => {
-      console.log('🔍 [RECENT ACTIVITY DEBUG] Fetching recent alerts...');
-      
       if (!permissions?.userId) {
-        console.log('🔍 [RECENT ACTIVITY DEBUG] No user permissions, skipping alerts query');
         return [];
       }
 
@@ -66,7 +63,6 @@ export function RecentActivity() {
 
       // Apply RBAC filtering if not admin
       if (!permissions.isAdmin) {
-        console.log('🔍 [RECENT ACTIVITY DEBUG] Applying RBAC filter for alerts');
         const accessibleGroupIds = permissions.accessibleGroups.map(g => g.id);
         query = query.in('fuel_tanks.group_id', accessibleGroupIds);
       }
@@ -74,14 +70,9 @@ export function RecentActivity() {
       const { data, error } = await query;
 
       if (error) {
-        console.error('❌ [RECENT ACTIVITY DEBUG] Error fetching recent alerts:', error);
+        console.error('Error fetching recent alerts:', error);
         throw error;
       }
-
-      console.log('✅ [RECENT ACTIVITY DEBUG] Recent alerts fetched:', {
-        count: data?.length || 0,
-        firstAlert: data?.[0]
-      });
 
       return (data as unknown as TankAlert[]) || [];
     },
