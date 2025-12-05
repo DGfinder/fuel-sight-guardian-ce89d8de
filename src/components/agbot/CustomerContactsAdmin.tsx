@@ -603,6 +603,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
               <TableHead>Frequency</TableHead>
               <TableHead>Send Hour</TableHead>
               <TableHead>Alert %</TableHead>
+              <TableHead>CC Emails</TableHead>
               <TableHead>Last Sent</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -611,7 +612,7 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
           <TableBody>
             {filteredSubscriptions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                   No subscriptions found. Click "New Subscription" to create one.
                 </TableCell>
               </TableRow>
@@ -681,6 +682,17 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                   {/* Alert Threshold */}
                   <TableCell>
                     {subscription.alert_threshold_percent}%
+                  </TableCell>
+
+                  {/* CC Emails */}
+                  <TableCell className="max-w-[200px]">
+                    {subscription.cc_emails ? (
+                      <span className="text-xs text-muted-foreground truncate" title={subscription.cc_emails}>
+                        {subscription.cc_emails}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">None</span>
+                    )}
                   </TableCell>
 
                   {/* Last Sent */}
