@@ -17,7 +17,7 @@ import { LoadingSpinner } from '../ui/loading-spinner';
 
 interface TankConsumptionChartProps {
   assetId: string | undefined;
-  defaultPeriod?: 7 | 14 | 30;
+  defaultPeriod?: 7 | 14 | 30 | 90;
   capacityLiters?: number;
   warningThresholdPct?: number;
   criticalThresholdPct?: number;
@@ -30,7 +30,7 @@ export function TankConsumptionChart({
   warningThresholdPct = 25,
   criticalThresholdPct = 15,
 }: TankConsumptionChartProps) {
-  const [period, setPeriod] = useState<7 | 14 | 30>(defaultPeriod);
+  const [period, setPeriod] = useState<7 | 14 | 30 | 90>(defaultPeriod);
   const [showLitres, setShowLitres] = useState(true);
 
   const { data: readings, isLoading } = useTankReadingsWithConsumption(assetId, period);
@@ -100,7 +100,7 @@ export function TankConsumptionChart({
 
           {/* Period selector */}
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-md p-1">
-            {([7, 14, 30] as const).map((days) => (
+            {([7, 14, 30, 90] as const).map((days) => (
               <button
                 key={days}
                 onClick={() => setPeriod(days)}
@@ -188,7 +188,7 @@ export function TankConsumptionChart({
               y={warningThreshold}
               stroke="#f59e0b"
               strokeDasharray="3 3"
-              label={{ value: 'Warning (25%)', position: 'right', fill: '#f59e0b', fontSize: 11 }}
+              label={{ value: `Warning (${warningThresholdPct}%)`, position: 'right', fill: '#f59e0b', fontSize: 11 }}
             />
           )}
           {showLitres && criticalThreshold && (
@@ -197,7 +197,7 @@ export function TankConsumptionChart({
               y={criticalThreshold}
               stroke="#ef4444"
               strokeDasharray="3 3"
-              label={{ value: 'Critical (15%)', position: 'right', fill: '#ef4444', fontSize: 11 }}
+              label={{ value: `Critical (${criticalThresholdPct}%)`, position: 'right', fill: '#ef4444', fontSize: 11 }}
             />
           )}
 
