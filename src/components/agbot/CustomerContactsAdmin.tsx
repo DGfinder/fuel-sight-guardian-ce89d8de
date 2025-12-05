@@ -117,6 +117,18 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
   // Form submission state
   const [saving, setSaving] = useState(false);
 
+  // Create contact dialog state
+  const [isCreateContactDialogOpen, setIsCreateContactDialogOpen] = useState(false);
+  const [creatingContact, setCreatingContact] = useState(false);
+  const [contactFormData, setContactFormData] = useState({
+    customer_name: '',
+    contact_email: '',
+    contact_name: '',
+    report_frequency: 'daily' as 'daily' | 'weekly' | 'monthly',
+    preferred_send_hour: 7,
+    cc_emails: ''
+  });
+
   // Filter state
   const [filterCustomer, setFilterCustomer] = useState<string>('all');
   const [filterEnabled, setFilterEnabled] = useState<string>('all');
@@ -422,6 +434,74 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     });
   };
 
+  const handleCreateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingContact(true);
+
+    try {
+      // Validate email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(contactFormData.contact_email)) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+
+      // Validate required
+      if (!contactFormData.customer_name.trim()) {
+        toast.error('Customer name is required');
+        return;
+      }
+
+      // Create contact
+      const { error } = await supabase
+        .from('customer_contacts')
+        .insert([{
+          customer_name: contactFormData.customer_name,
+          contact_email: contactFormData.contact_email,
+          contact_name: contactFormData.contact_name || null,
+          report_frequency: contactFormData.report_frequency,
+          preferred_send_hour: contactFormData.preferred_send_hour,
+          cc_emails: contactFormData.cc_emails || null,
+          unsubscribe_token: crypto.randomUUID().replace(/-/g, ''),
+          enabled: true,
+          email_verified: false
+        }]);
+
+      if (error) {
+        if (error.code === '23505') {
+          toast.error('A contact with this email already exists');
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success('Contact created successfully');
+      setIsCreateContactDialogOpen(false);
+      resetContactForm();
+
+      if (isDialogOpen) {
+        fetchAvailableContacts();
+      }
+    } catch (error) {
+      console.error('Error creating contact:', error);
+      toast.error('Failed to create contact');
+    } finally {
+      setCreatingContact(false);
+    }
+  };
+
+  const resetContactForm = () => {
+    setContactFormData({
+      customer_name: '',
+      contact_email: '',
+      contact_name: '',
+      report_frequency: 'daily',
+      preferred_send_hour: 7,
+      cc_emails: ''
+    });
+  };
+
   // Filtered subscriptions
   const filteredSubscriptions = subscriptions.filter(sub => {
     if (filterCustomer !== 'all' && sub.customer_name !== filterCustomer) return false;
@@ -448,10 +528,16 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
             Manage tank monitoring email subscriptions. Each subscription = one contact receiving reports for one tank.
           </p>
         </div>
-        <Button onClick={handleAddNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Subscription
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsCreateContactDialogOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Create Contact
+          </Button>
+          <Button onClick={handleAddNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Subscription
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -866,6 +952,140 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
                   'Update Subscription'
                 ) : (
                   'Create Subscription'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Contact Dialog */}
+      <Dialog open={isCreateContactDialogOpen} onOpenChange={setIsCreateContactDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create New Contact</DialogTitle>
+            <DialogDescription>
+              Create a new customer contact. After creation, you can add subscriptions for specific tanks.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateContact}>
+            <div className="grid gap-4 py-4">
+              {/* Customer Name */}
+              <div className="grid gap-2">
+                <Label htmlFor="create-customer-name">Customer Name *</Label>
+                <Input
+                  id="create-customer-name"
+                  type="text"
+                  required
+                  placeholder="e.g., Indosolutions"
+                  value={contactFormData.customer_name}
+                  onChange={(e) => setContactFormData({ ...contactFormData, customer_name: e.target.value })}
+                />
+              </div>
+
+              {/* Contact Email */}
+              <div className="grid gap-2">
+                <Label htmlFor="create-contact-email">Contact Email *</Label>
+                <Input
+                  id="create-contact-email"
+                  type="email"
+                  required
+                  placeholder="contact@example.com"
+                  value={contactFormData.contact_email}
+                  onChange={(e) => setContactFormData({ ...contactFormData, contact_email: e.target.value })}
+                />
+              </div>
+
+              {/* Contact Name */}
+              <div className="grid gap-2">
+                <Label htmlFor="create-contact-name">Contact Name (optional)</Label>
+                <Input
+                  id="create-contact-name"
+                  type="text"
+                  placeholder="e.g., John Smith"
+                  value={contactFormData.contact_name}
+                  onChange={(e) => setContactFormData({ ...contactFormData, contact_name: e.target.value })}
+                />
+              </div>
+
+              {/* Report Frequency */}
+              <div className="grid gap-2">
+                <Label htmlFor="create-frequency">Default Report Frequency</Label>
+                <Select
+                  value={contactFormData.report_frequency}
+                  onValueChange={(value: 'daily' | 'weekly' | 'monthly') =>
+                    setContactFormData({ ...contactFormData, report_frequency: value })
+                  }
+                >
+                  <SelectTrigger id="create-frequency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly (Mondays)</SelectItem>
+                    <SelectItem value="monthly">Monthly (1st of month)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Preferred Send Hour */}
+              <div className="grid gap-2">
+                <Label htmlFor="create-send-hour">Preferred Send Hour (Perth Time)</Label>
+                <Select
+                  value={contactFormData.preferred_send_hour.toString()}
+                  onValueChange={(value) =>
+                    setContactFormData({ ...contactFormData, preferred_send_hour: parseInt(value) })
+                  }
+                >
+                  <SelectTrigger id="create-send-hour">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <SelectItem key={i} value={i.toString()}>
+                        {i.toString().padStart(2, '0')}:00
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* CC Emails */}
+              <div className="grid gap-2">
+                <Label htmlFor="create-cc-emails">CC Emails (comma-separated)</Label>
+                <Input
+                  id="create-cc-emails"
+                  type="text"
+                  placeholder="email1@example.com, email2@example.com"
+                  value={contactFormData.cc_emails}
+                  onChange={(e) => setContactFormData({ ...contactFormData, cc_emails: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  These emails will be CC'd on all reports for this contact
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsCreateContactDialogOpen(false);
+                  resetContactForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creatingContact}>
+                {creatingContact ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Contact'
                 )}
               </Button>
             </DialogFooter>

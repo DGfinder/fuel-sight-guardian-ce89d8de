@@ -5,7 +5,7 @@
  */
 
 import type { Tank } from '@/types/fuel';
-import { validateTankData } from './tank-validation';
+import { validateTankData, calculatePercentAboveMin } from './tank-validation';
 
 export type FuelStatus = 'critical' | 'low' | 'normal' | 'unknown' | 'stale';
 
@@ -60,8 +60,12 @@ export function getFuelStatusWithValidation(
     return 'stale';
   }
 
+  // CRITICAL FIX: Calculate percent instead of using database field
+  // This ensures consistency with row-level status display
+  const percent = calculatePercentAboveMin(tank);
+
   // Use existing logic for valid tanks
-  return getFuelStatus(tank.current_level_percent, tank.days_to_min_level);
+  return getFuelStatus(percent, tank.days_to_min_level);
 }
 
 /**

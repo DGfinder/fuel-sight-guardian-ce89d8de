@@ -185,6 +185,47 @@ export class ContactRepository {
   }
 
   /**
+   * Create a new contact with auto-generated unsubscribe token
+   */
+  async create(contact: {
+    customer_name: string;
+    contact_email: string;
+    contact_name?: string | null;
+    report_frequency?: 'daily' | 'weekly' | 'monthly';
+    preferred_send_hour?: number;
+    cc_emails?: string | null;
+  }): Promise<Contact> {
+    // Generate unique unsubscribe token (64 hex chars)
+    const crypto = await import('crypto');
+    const unsubscribe_token = crypto.randomBytes(32).toString('hex');
+
+    const { data, error } = await this.db
+      .from('customer_contacts')
+      .insert([{
+        customer_name: contact.customer_name,
+        contact_email: contact.contact_email,
+        contact_name: contact.contact_name || null,
+        report_frequency: contact.report_frequency || 'daily',
+        preferred_send_hour: contact.preferred_send_hour ?? 7,
+        cc_emails: contact.cc_emails || null,
+        unsubscribe_token,
+        enabled: true,
+        email_verified: false
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        throw new Error(`Contact with email ${contact.contact_email} already exists`);
+      }
+      throw new Error(`Failed to create contact: ${error.message}`);
+    }
+
+    return data as Contact;
+  }
+
+  /**
    * Get count of enabled contacts
    */
   async countEnabled(): Promise<number> {

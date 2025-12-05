@@ -68,6 +68,27 @@ export function hasValidConfiguration(tank: Tank): boolean {
 }
 
 /**
+ * Calculate percentage above minimum level
+ * This ensures consistent percent calculation across all components
+ *
+ * @param tank The tank to calculate percentage for
+ * @returns Percentage above min (0-100) or null if invalid
+ */
+export function calculatePercentAboveMin(tank: Tank): number | null {
+  if (typeof tank.current_level !== 'number' ||
+      typeof tank.min_level !== 'number' ||
+      typeof tank.safe_level !== 'number') {
+    return null;
+  }
+
+  const usableCapacity = tank.safe_level - tank.min_level;
+  const currentAboveMin = tank.current_level - tank.min_level;
+
+  if (usableCapacity <= 0) return null;
+  return Math.max(0, Math.round((currentAboveMin / usableCapacity) * 100));
+}
+
+/**
  * Check if tank should be included in alert calculations
  *
  * Combines data freshness and configuration validity checks.

@@ -19,7 +19,7 @@ import { formatPerthRelativeTime, formatPerthDisplay, getPerthToday } from '@/ut
 import { useIsMobile } from '@/hooks/use-mobile';
 import { logger } from '@/lib/logger';
 import { getFuelStatus, getFuelStatusWithValidation, statusBadgeStyles, groupStatusColors, getDaysTextColor, FuelStatus } from '@/lib/fuel-colors';
-import { shouldIncludeInAlerts, validateTankData } from '@/lib/tank-validation';
+import { shouldIncludeInAlerts, validateTankData, calculatePercentAboveMin } from '@/lib/tank-validation';
 
 const numberFormat = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 });
 
@@ -117,16 +117,7 @@ const TankRow: React.FC<TankRowProps & { suppressNextRowClick: React.MutableRefO
   onPrefetch
 }) => {
   // Calculate percentage above minimum level (not total percentage)
-  const percent = useMemo(() => {
-    if (typeof tank.current_level !== 'number' || typeof tank.min_level !== 'number' || typeof tank.safe_level !== 'number') {
-      return null;
-    }
-    const usableCapacity = tank.safe_level - tank.min_level;
-    const currentAboveMin = tank.current_level - tank.min_level;
-
-    if (usableCapacity <= 0) return null;
-    return Math.max(0, Math.round((currentAboveMin / usableCapacity) * 100));
-  }, [tank.current_level, tank.min_level, tank.safe_level]);
+  const percent = useMemo(() => calculatePercentAboveMin(tank), [tank]);
 
   // Validate tank data and get status with validation
   const validation = useMemo(() => validateTankData(tank), [tank]);
