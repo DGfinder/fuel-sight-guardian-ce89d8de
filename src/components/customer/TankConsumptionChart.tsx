@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { useTankReadingsWithConsumption } from '../../hooks/useCustomerAnalytics';
-import { LoadingSpinner } from '../LoadingSpinner';
+import { LoadingSpinner } from '../ui/loading-spinner';
 
 interface TankConsumptionChartProps {
   assetId: string | undefined;

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCustomerTank, useCustomerTankHistory, useCustomerPreferences } from '@/hooks/useCustomerAuth';
-import { useConsumptionChartData, useDeviceHealth } from '@/hooks/useCustomerAnalytics';
+import { useDeviceHealth } from '@/hooks/useCustomerAnalytics';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   calculateUrgency,
@@ -26,16 +26,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from 'recharts';
+import { TankConsumptionChart } from '@/components/customer/TankConsumptionChart';
 
 export default function CustomerTankDetail() {
   const { tankId } = useParams<{ tankId: string }>();
@@ -43,9 +34,6 @@ export default function CustomerTankDetail() {
   const { data: tank, isLoading: tankLoading } = useCustomerTank(tankId);
   const { data: preferences } = useCustomerPreferences();
   const { data: deviceHealth, isLoading: healthLoading } = useDeviceHealth(tankId);
-
-  const [chartPeriod, setChartPeriod] = useState<number>(preferences?.default_chart_days || 7);
-  const { data: chartData, isLoading: chartLoading } = useConsumptionChartData(tankId, chartPeriod);
 
   if (tankLoading) {
     return (
@@ -74,10 +62,6 @@ export default function CustomerTankDetail() {
   const urgency = calculateUrgency(tank.asset_days_remaining ?? null);
   const urgencyClasses = getUrgencyClasses(urgency);
   const predictedDate = calculatePredictedRefillDate(tank.asset_days_remaining ?? null);
-
-  // Get effective thresholds (from preferences or defaults)
-  const criticalThreshold = preferences?.default_critical_threshold_pct || 15;
-  const warningThreshold = preferences?.default_warning_threshold_pct || 25;
 
   return (
     <div className="space-y-6">
@@ -266,93 +250,11 @@ export default function CustomerTankDetail() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Consumption Chart */}
         <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Fuel Consumption History</CardTitle>
-                <div className="flex gap-2">
-                  {[7, 14, 30, 90].map((days) => (
-                    <Button
-                      key={days}
-                      variant={chartPeriod === days ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setChartPeriod(days)}
-                      className="text-xs"
-                    >
-                      {days}d
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {chartLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <LoadingSpinner />
-                </div>
-              ) : !chartData || chartData.length === 0 ? (
-                <div className="flex items-center justify-center h-64 text-gray-500">
-                  <div className="text-center">
-                    <TrendingDown className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>No consumption data available</p>
-                    <p className="text-sm mt-1">Data will appear once readings are collected</p>
-                  </div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
-                      tickLine={false}
-                      axisLine={{ stroke: '#e5e7eb' }}
-                    />
-                    <YAxis
-                      domain={[0, 100]}
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
-                      tickLine={false}
-                      axisLine={{ stroke: '#e5e7eb' }}
-                      tickFormatter={(value) => `${value}%`}
-                      label={{ value: 'Fuel Level (%)', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        padding: '8px 12px',
-                      }}
-                      formatter={(value: number) => [`${value?.toFixed(1)}%`, 'Fuel Level']}
-                      labelFormatter={(label) => `Date: ${label}`}
-                    />
-                    {/* Warning threshold */}
-                    <ReferenceLine
-                      y={warningThreshold}
-                      stroke="#f59e0b"
-                      strokeDasharray="5 5"
-                      label={{ value: 'Warning', position: 'right', fontSize: 10, fill: '#f59e0b' }}
-                    />
-                    {/* Critical threshold */}
-                    <ReferenceLine
-                      y={criticalThreshold}
-                      stroke="#ef4444"
-                      strokeDasharray="5 5"
-                      label={{ value: 'Critical', position: 'right', fontSize: 10, fill: '#ef4444' }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="level"
-                      stroke="#3b82f6"
-                      strokeWidth={3}
-                      dot={{ fill: '#3b82f6', r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+          <TankConsumptionChart
+            assetId={tank?.id}
+            defaultPeriod={7}
+            capacityLiters={tank?.asset_profile_water_capacity}
+          />
         </div>
 
         {/* Tank Details */}

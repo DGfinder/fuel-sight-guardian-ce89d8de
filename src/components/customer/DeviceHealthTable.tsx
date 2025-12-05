@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useFleetHealth } from '../../hooks/useCustomerAnalytics';
-import { LoadingSpinner } from '../LoadingSpinner';
+import { LoadingSpinner } from '../ui/loading-spinner';
 import { Wifi, WifiOff, AlertCircle } from 'lucide-react';
 
 interface DeviceHealthTableProps {
