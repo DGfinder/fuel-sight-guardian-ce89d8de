@@ -56,6 +56,7 @@ export interface CustomerTank {
   asset_days_remaining?: number | null;
   asset_daily_consumption?: number | null;
   asset_profile_water_capacity?: number | null;
+  asset_current_level_liters?: number | null;
   // Access level for this customer
   access_level: 'read' | 'request_delivery' | 'admin';
 }
@@ -188,7 +189,8 @@ export function useCustomerTanks() {
             days_remaining,
             daily_consumption_liters,
             capacity_liters,
-            current_level_percent
+            current_level_percent,
+            current_level_liters
           )
         `)
         .in('id', locationIds)
@@ -214,6 +216,24 @@ export function useCustomerTanks() {
           ? assetFillLevels.reduce((sum, level) => sum + level, 0) / assetFillLevels.length
           : loc.calibrated_fill_level; // Fallback to location level if no asset data
 
+        // Debug logging for Indosolutions
+        if (loc.customer_name?.toLowerCase().includes('indosolution')) {
+          console.log('[useCustomerTanks] Indosolutions location:', {
+            locationId: loc.id,
+            locationName: loc.name,
+            locationFillLevel: loc.calibrated_fill_level,
+            assetCount: assets.length,
+            assetFillLevels,
+            calculatedFillLevel,
+            assets: assets.map(a => ({
+              id: a.id,
+              serial: a.serial_number,
+              level: a.current_level_percent,
+              online: a.is_online
+            }))
+          });
+        }
+
         return {
           id: loc.id,
           location_guid: loc.external_guid,
@@ -234,6 +254,7 @@ export function useCustomerTanks() {
           asset_days_remaining: asset?.days_remaining,
           asset_daily_consumption: asset?.daily_consumption_liters,
           asset_profile_water_capacity: asset?.capacity_liters,
+          asset_current_level_liters: asset?.current_level_liters,
           access_level: accessMap.get(loc.id) || 'read',
         } as CustomerTank;
       });

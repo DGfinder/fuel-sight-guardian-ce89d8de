@@ -159,9 +159,17 @@ export function useFleetHealth() {
 
       const { data: latestReadings } = await supabase
         .from('ta_agbot_readings')
-        .select('asset_id, reading_at, is_online, battery_voltage, signal_strength')
+        .select('asset_id, reading_at, is_online, battery_voltage, signal_strength, temperature_c')
         .in('asset_id', assetIds)
         .order('reading_at', { ascending: false });
+
+      // Get reading frequency (count readings in last 24h)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentReadings } = await supabase
+        .from('ta_agbot_readings')
+        .select('asset_id, reading_at')
+        .in('asset_id', assetIds)
+        .gte('reading_at', oneDayAgo);
 
       // Build health data
       return tanks.map(tank => {
@@ -177,6 +185,10 @@ export function useFleetHealth() {
           ? (Date.now() - lastReadingTime.getTime()) / (1000 * 60 * 60)
           : null;
 
+        // Calculate reading frequency
+        const readingCount = recentReadings?.filter(r => r.asset_id === asset?.id).length || 0;
+        const readingsPerHour = readingCount > 0 ? readingCount / 24 : 0;
+
         return {
           tank_id: tank.id,
           tank_name: tank.name,
@@ -185,9 +197,11 @@ export function useFleetHealth() {
           asset_serial: asset?.serial_number,
           is_online: asset?.is_online || false,
           battery_voltage: latestReading?.battery_voltage || null,
+          temperature_c: latestReading?.temperature_c || null,
           signal_strength: latestReading?.signal_strength || null,
           last_reading_at: lastReadingTime?.toISOString() || null,
           hours_since_reading: hourssinceLastReading,
+          reading_frequency: readingsPerHour,
           health_status: getHealthStatus(
             asset?.is_online || false,
             hourssinceLastReading,
@@ -312,4 +326,159 @@ export function useFleetConsumptionChart(days: number = 7) {
     data: chartData,
     isLoading,
   };
+}
+
+/**
+ * Interface for last refill data
+ */
+export interface LastRefillData {
+  daysSinceRefill: number;
+  lastRefillDate: string;
+  refillVolume: number;
+  daysAgo: number;
+}
+
+/**
+ * Hook to get last refill information for a tank asset
+ * Detects refill by finding significant level increases (> 500L or > 20%)
+ */
+export function useLastRefill(assetId: string | undefined) {
+  return useQuery<LastRefillData | null>({
+    queryKey: ['last-refill', assetId],
+    queryFn: async () => {
+      if (!assetId) return null;
+
+      const { data, error } = await supabase.rpc('get_last_refill', {
+        p_asset_id: assetId
+      });
+
+      if (error) {
+        // If RPC doesn't exist, fall back to client-side calculation
+        console.warn('get_last_refill RPC not found, using fallback');
+
+        // Get readings for last 90 days
+        const { data: readings, error: readingsError } = await supabase
+          .from('ta_agbot_readings')
+          .select('reading_at, level_liters, level_percent')
+          .eq('asset_id', assetId)
+          .gte('reading_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
+          .order('reading_at', { ascending: false });
+
+        if (readingsError || !readings || readings.length < 2) {
+          return null;
+        }
+
+        // Find most recent significant level increase
+        for (let i = 0; i < readings.length - 1; i++) {
+          const current = readings[i];
+          const previous = readings[i + 1];
+
+          if (!current.level_liters || !previous.level_liters) continue;
+
+          const levelIncrease = current.level_liters - previous.level_liters;
+          const percentIncrease = current.level_percent && previous.level_percent
+            ? current.level_percent - previous.level_percent
+            : 0;
+
+          // Detect refill: increase > 500L or > 20%
+          if (levelIncrease > 500 || percentIncrease > 20) {
+            const refillDate = new Date(current.reading_at);
+            const daysAgo = Math.floor((Date.now() - refillDate.getTime()) / (1000 * 60 * 60 * 24));
+
+            return {
+              daysSinceRefill: daysAgo,
+              lastRefillDate: current.reading_at,
+              refillVolume: Math.round(levelIncrease),
+              daysAgo,
+            };
+          }
+        }
+
+        return null;
+      }
+
+      return data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!assetId,
+  });
+}
+
+/**
+ * Interface for readings with consumption data
+ */
+export interface ReadingWithConsumption {
+  reading_at: string;
+  level_liters: number | null;
+  level_percent: number | null;
+  daily_consumption: number | null;
+  is_refill: boolean;
+  is_online: boolean;
+  temperature_c: number | null;
+  battery_voltage: number | null;
+}
+
+/**
+ * Hook to get tank readings enriched with consumption calculations
+ * Automatically detects refills and calculates consumption between readings
+ */
+export function useTankReadingsWithConsumption(
+  assetId: string | undefined,
+  days: number = 7
+) {
+  return useQuery<ReadingWithConsumption[]>({
+    queryKey: ['tank-readings-consumption', assetId, days],
+    queryFn: async () => {
+      if (!assetId) return [];
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const { data: readings, error } = await supabase
+        .from('ta_agbot_readings')
+        .select('reading_at, level_liters, level_percent, is_online, temperature_c, battery_voltage')
+        .eq('asset_id', assetId)
+        .gte('reading_at', startDate.toISOString())
+        .order('reading_at', { ascending: true });
+
+      if (error) throw error;
+      if (!readings || readings.length === 0) return [];
+
+      // Enrich readings with consumption calculations
+      return readings.map((reading, index) => {
+        if (index === 0) {
+          return {
+            ...reading,
+            daily_consumption: null,
+            is_refill: false,
+          };
+        }
+
+        const prevReading = readings[index - 1];
+        const levelChange = reading.level_liters && prevReading.level_liters
+          ? reading.level_liters - prevReading.level_liters
+          : null;
+
+        // Detect refill (significant increase)
+        const isRefill = levelChange !== null && levelChange > 500;
+
+        // Calculate consumption (only if not a refill and level decreased)
+        let dailyConsumption: number | null = null;
+        if (!isRefill && levelChange !== null && levelChange < 0) {
+          const hoursDiff = (new Date(reading.reading_at).getTime() - new Date(prevReading.reading_at).getTime()) / (1000 * 60 * 60);
+          if (hoursDiff > 0) {
+            dailyConsumption = Math.abs(levelChange) * (24 / hoursDiff);
+          }
+        }
+
+        return {
+          ...reading,
+          daily_consumption: dailyConsumption,
+          is_refill: isRefill,
+        };
+      });
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: !!assetId,
+  });
 }
