@@ -32,24 +32,11 @@ interface FuelInsightsPanelProps {
 }
 
 export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPanelProps) {
-  const { data: recentDips, isLoading: recentDipsLoading } = useRecentDips(30);
   const { filterTanks, permissions, isLoading: permissionsLoading } = useFilterTanksBySubgroup();
+  const { data: recentDips, isLoading: recentDipsLoading } = useRecentDips(30, permissions);
 
-  // Filter recent dips to only show readings from authorized tanks
-  const authorizedTankIds = new Set(tanks.map(tank => tank.id));
-  const permissionFilteredRecentDips = recentDips?.filter(dip => 
-    authorizedTankIds.has(dip.tank_id)
-  ) || [];
-  
-  // Debug recent dips filtering
-  if (recentDips && !permissions?.isAdmin && recentDips.length !== permissionFilteredRecentDips.length) {
-    logger.debug('[RECENT DIPS] Filtering applied', {
-      originalDips: recentDips.length,
-      filteredDips: permissionFilteredRecentDips.length,
-      hiddenDips: recentDips.length - permissionFilteredRecentDips.length,
-      userRole: permissions?.role
-    });
-  }
+  // Hook now returns pre-filtered data based on permissions
+  const permissionFilteredRecentDips = recentDips || [];
 
   // Separate tanks by data validity - only count tanks with fresh data (<14 days) and valid configuration
   const validTanks = tanks.filter(t => shouldIncludeInAlerts(t));

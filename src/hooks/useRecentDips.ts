@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import type { UserPermissions } from './useUserPermissions';
 
 export interface RecentDip {
   id: string;
@@ -27,12 +28,54 @@ interface TankGroup {
   name: string;
 }
 
-export function useRecentDips(limit = 30) {
+export function useRecentDips(limit: number = 30, permissions?: UserPermissions) {
   return useQuery<RecentDip[]>({
-    queryKey: ['recent-dips', limit],
+    queryKey: [
+      'recent-dips',
+      limit,
+      permissions?.role,
+      permissions?.accessibleGroups?.map(g => g.id).sort().join(',')
+    ],
     queryFn: async () => {
-      // Fetch recent active dip readings only
-      const { data: rawData, error } = await supabase
+      // Step 1: Determine if user has full access
+      const hasFullAccess = permissions?.role &&
+        ['admin', 'manager', 'scheduler'].includes(permissions.role);
+
+      // Step 2: For RBAC users, fetch accessible tank IDs first
+      let tankIds: string[] | undefined;
+
+      if (!hasFullAccess && permissions?.accessibleGroups && permissions.accessibleGroups.length > 0) {
+        const groupIds = permissions.accessibleGroups.map(g => g.id);
+
+        let tankQuery = supabase
+          .from('fuel_tanks')
+          .select('id')
+          .in('group_id', groupIds);
+
+        // Handle subgroup restrictions
+        const restrictedGroups = permissions.accessibleGroups.filter(g => g.hasSubgroupRestriction);
+        if (restrictedGroups.length > 0) {
+          const subgroupIds = restrictedGroups
+            .flatMap(g => g.subgroupIds)
+            .filter(Boolean);
+
+          if (subgroupIds.length > 0) {
+            tankQuery = tankQuery.in('subgroup_id', subgroupIds);
+          }
+        }
+
+        const { data: accessibleTanks, error: tankError } = await tankQuery;
+        if (tankError) throw tankError;
+
+        if (!accessibleTanks || accessibleTanks.length === 0) {
+          return []; // User has no accessible tanks
+        }
+
+        tankIds = accessibleTanks.map(t => t.id);
+      }
+
+      // Step 3: Query dips with optional tank filter
+      let dipsQuery = supabase
         .from('ta_tank_dips')
         .select(`
           id,
@@ -42,7 +85,14 @@ export function useRecentDips(limit = 30) {
           tank_id,
           measured_by_name
         `)
-        .is('archived_at', null) // Only active readings
+        .is('archived_at', null);
+
+      // Apply tank filter for RBAC users
+      if (tankIds) {
+        dipsQuery = dipsQuery.in('tank_id', tankIds);
+      }
+
+      const { data: rawData, error } = await dipsQuery
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
         .limit(limit);

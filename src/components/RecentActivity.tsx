@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Droplets, TruckIcon, User } from "lucide-react";
 import { supabase } from '@/lib/supabase';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useRecentDips } from '@/hooks/useRecentDips';
 
 interface ActivityItem {
   id: string;
@@ -14,18 +15,6 @@ interface ActivityItem {
   timestamp: string;
   location: string;
   user?: string;
-}
-
-interface DipReading {
-  id: string;
-  level_liters: number;
-  created_at: string;
-  fuel_tanks: {
-    name: string;
-    tank_groups: {
-      name: string;
-    };
-  };
 }
 
 interface TankAlert {
@@ -44,60 +33,8 @@ interface TankAlert {
 export function RecentActivity() {
   const { data: permissions } = useUserPermissions();
 
-  // Fetch recent dip readings
-  const { data: recentDips, isLoading: dipsLoading, error: dipsError } = useQuery({
-    queryKey: ['recent-dips', permissions?.userId],
-    queryFn: async (): Promise<DipReading[]> => {
-      console.log('🔍 [RECENT ACTIVITY DEBUG] Fetching recent dips...');
-      
-      if (!permissions?.userId) {
-        console.log('🔍 [RECENT ACTIVITY DEBUG] No user permissions, skipping dips query');
-        return [];
-      }
-
-      let query = supabase
-        .from('ta_tank_dips')
-        .select(`
-          id,
-          level_liters,
-          created_at,
-          fuel_tanks (
-            name,
-            tank_groups (
-              name
-            )
-          )
-        `)
-        .is('archived_at', null) // Only active readings
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      // Apply RBAC filtering if not admin
-      if (!permissions.isAdmin) {
-        console.log('🔍 [RECENT ACTIVITY DEBUG] Applying RBAC filter for non-admin user');
-        const accessibleGroupIds = permissions.accessibleGroups.map(g => g.id);
-        query = query.in('fuel_tanks.group_id', accessibleGroupIds);
-      } else {
-        console.log('🔍 [RECENT ACTIVITY DEBUG] Admin user - no RBAC filtering applied');
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ [RECENT ACTIVITY DEBUG] Error fetching recent dips:', error);
-        throw error;
-      }
-
-      console.log('✅ [RECENT ACTIVITY DEBUG] Recent dips fetched:', {
-        count: data?.length || 0,
-        firstDip: data?.[0],
-        accessibleGroups: permissions.accessibleGroups.map(g => g.name)
-      });
-
-      return (data as unknown as DipReading[]) || [];
-    },
-    enabled: !!permissions?.userId
-  });
+  // Fetch recent dip readings using the unified useRecentDips hook with RBAC filtering
+  const { data: recentDipsData, isLoading: dipsLoading, error: dipsError } = useRecentDips(10, permissions);
 
   // Fetch recent alerts
   const { data: recentAlerts, isLoading: alertsLoading, error: alertsError } = useQuery({
@@ -153,16 +90,14 @@ export function RecentActivity() {
 
   // Combine and format activities
   const activities: ActivityItem[] = React.useMemo(() => {
-    console.log('🔍 [RECENT ACTIVITY DEBUG] Combining activities...');
-    
-    const dipActivities: ActivityItem[] = (recentDips || []).map(dip => ({
+    const dipActivities: ActivityItem[] = (recentDipsData || []).map(dip => ({
       id: `dip-${dip.id}`,
       type: 'dip' as const,
       title: 'Dip Reading Added',
-      description: `${dip.level_liters}L recorded`,
+      description: `${dip.value}L recorded`,
       timestamp: dip.created_at,
-      location: dip.fuel_tanks?.name || 'Unknown Tank',
-      user: 'System'
+      location: dip.tank_location,
+      user: dip.recorded_by || 'System'
     }));
 
     const alertActivities: ActivityItem[] = (recentAlerts || []).map(alert => ({
@@ -178,29 +113,11 @@ export function RecentActivity() {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 10);
 
-    console.log('✅ [RECENT ACTIVITY DEBUG] Combined activities:', {
-      dipCount: dipActivities.length,
-      alertCount: alertActivities.length,
-      totalActivities: allActivities.length,
-      activities: allActivities.map(a => ({ type: a.type, location: a.location, timestamp: a.timestamp }))
-    });
-
     return allActivities;
-  }, [recentDips, recentAlerts]);
+  }, [recentDipsData, recentAlerts]);
 
   const isLoading = dipsLoading || alertsLoading;
   const hasError = dipsError || alertsError;
-
-  console.log('🔍 [RECENT ACTIVITY DEBUG] Component state:', {
-    isLoading,
-    hasError,
-    activitiesCount: activities.length,
-    permissions: permissions ? {
-      isAdmin: permissions.isAdmin,
-      role: permissions.role,
-      accessibleGroups: permissions.accessibleGroups.map(g => g.name)
-    } : null
-  });
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -248,7 +165,6 @@ export function RecentActivity() {
   }
 
   if (hasError) {
-    console.error('❌ [RECENT ACTIVITY DEBUG] Error in RecentActivity component:', { dipsError, alertsError });
     return (
       <Card className="h-fit">
         <CardHeader className="pb-3">
