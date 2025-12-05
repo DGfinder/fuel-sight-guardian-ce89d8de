@@ -34,3 +34,4 @@ EXECUTE_FIXES_LOCALLY.sh
 # Large CSV files (analysis exports, data dumps)
 eventAnalysis*.csv
 *Analysis*.csv
+nul
