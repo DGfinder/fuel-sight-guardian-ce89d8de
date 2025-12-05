@@ -85,7 +85,13 @@ export class TankRepository {
       throw new Error(`Failed to fetch assigned tanks: ${tanksError.message}`);
     }
 
-    return (tanks || []) as Tank[];
+    // Filter to only include tanks with at least one online asset
+    const tanksWithOnlineAssets = (tanks || []).filter(tank => {
+      const assets = tank.ta_agbot_assets || [];
+      return assets.some(asset => asset.is_online === true);
+    });
+
+    return tanksWithOnlineAssets as Tank[];
   }
 
   /**
@@ -123,7 +129,13 @@ export class TankRepository {
       throw new Error(`Failed to fetch tanks by customer name: ${error.message}`);
     }
 
-    return (data || []) as Tank[];
+    // Filter to only include tanks with at least one online asset
+    const tanksWithOnlineAssets = (data || []).filter(tank => {
+      const assets = tank.ta_agbot_assets || [];
+      return assets.some(asset => asset.is_online === true);
+    });
+
+    return tanksWithOnlineAssets as Tank[];
   }
 
   /**

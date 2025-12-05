@@ -138,20 +138,20 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       setLoadingTanks(true);
       // Fetch ALL tanks from all customers for full flexibility
       const { data, error } = await supabase
-        .from('agbot_locations')
-        .select('id, location_id, address1, customer_name, latest_calibrated_fill_percentage, disabled')
-        .eq('disabled', false)
+        .from('ta_agbot_locations')
+        .select('id, name, address, customer_name, calibrated_fill_level, is_disabled')
+        .eq('is_disabled', false)
         .order('customer_name')
-        .order('location_id');
+        .order('name');
 
       if (error) throw error;
       setAvailableTanks((data || []).map(d => ({
         id: d.id,
-        location_id: d.location_id,
-        address1: d.address1,
+        location_id: d.name,
+        address1: d.address,
         customer_name: d.customer_name,
-        latest_calibrated_fill_percentage: d.latest_calibrated_fill_percentage,
-        disabled: d.disabled
+        latest_calibrated_fill_percentage: d.calibrated_fill_level,
+        disabled: d.is_disabled
       })));
     } catch (error) {
       console.error('Error fetching tanks:', error);
@@ -164,9 +164,9 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
   const fetchAvailableCustomers = async () => {
     try {
       const { data, error } = await supabase
-        .from('agbot_locations')
+        .from('ta_agbot_locations')
         .select('customer_name')
-        .eq('disabled', false)
+        .eq('is_disabled', false)
         .order('customer_name');
 
       if (error) throw error;
