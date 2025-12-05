@@ -37,7 +37,7 @@ export default function FuelManagement() {
       const [groupsResult, tanksResult, dipsResult] = await Promise.all([
         supabase.from('tank_groups').select('*', { count: 'exact', head: true }),
         supabase.from('fuel_tanks').select('*', { count: 'exact', head: true }),
-        supabase.from('dip_readings').select('*', { count: 'exact', head: true }).is('archived_at', null),
+        supabase.from('ta_tank_dips').select('*', { count: 'exact', head: true }).is('archived_at', null),
       ]);
 
       return {

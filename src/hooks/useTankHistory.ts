@@ -88,8 +88,8 @@ export function useGroupTankHistory({
       }
 
       let query = supabase
-        .from('dip_readings')
-        .select('id, tank_id, value, created_at, recorded_by, notes, updated_at, created_by_name', { count: 'exact' })
+        .from('ta_tank_dips')
+        .select('id, tank_id, level_liters, created_at, measured_by, notes, updated_at, measured_by_name', { count: 'exact' })
         .in('tank_id', tankIds)
         .is('archived_at', null); // Only get active (non-archived) readings
 
@@ -135,8 +135,8 @@ export function useGroupTankHistory({
       console.log(`Fetched ${data?.length || 0} dip readings for ${tankIds.length} tanks (total: ${count})`);
       
       // Get unique user IDs for profile lookup
-      const userIds = [...new Set(data?.map(r => r.recorded_by).filter(Boolean))];
-      
+      const userIds = [...new Set(data?.map(r => r.measured_by).filter(Boolean))];
+
       // Fetch user profiles separately
       const userProfiles = new Map<string, string>();
       if (userIds.length > 0) {
@@ -146,7 +146,7 @@ export function useGroupTankHistory({
             .from('profiles')
             .select('id, full_name')
             .in('id', userIds);
-          
+
           if (profileError) {
             console.warn('Profile lookup error:', profileError);
           } else if (profiles) {
@@ -164,18 +164,18 @@ export function useGroupTankHistory({
           console.warn('Could not fetch user profiles:', profileError);
         }
       }
-      
+
       let readings = (data || []).map((reading: any): DipReading => {
-        const userId = reading.recorded_by;
+        const userId = reading.measured_by;
         const fullName = userProfiles.get(userId);
-        
-        // Enhanced fallback logic prioritizing created_by_name if available
-        const createdByName = reading.created_by_name;
+
+        // Enhanced fallback logic prioritizing measured_by_name if available
+        const measuredByName = reading.measured_by_name;
         let displayName = 'Unknown User';
-        
-        // Priority 1: Use created_by_name if it exists and is not empty
-        if (createdByName && createdByName.trim().length > 0) {
-          displayName = createdByName.trim();
+
+        // Priority 1: Use measured_by_name if it exists and is not empty
+        if (measuredByName && measuredByName.trim().length > 0) {
+          displayName = measuredByName.trim();
         }
         // Priority 2: Use profile lookup result
         else if (fullName) {
@@ -189,11 +189,11 @@ export function useGroupTankHistory({
             displayName = userId; // Fallback to original value
           }
         }
-        
+
         return {
           id: reading.id,
           tank_id: reading.tank_id,
-          value: reading.value,
+          value: reading.level_liters,
           created_at: reading.created_at,
           recorded_by: displayName,
           notes: reading.notes,
@@ -250,8 +250,8 @@ export function useTankHistory({
       console.log(`Fetching tank history for tank ${tankId} with filters`);
       
       let query = supabase
-        .from('dip_readings')
-        .select('id, tank_id, value, created_at, recorded_by, notes, updated_at, created_by_name', { count: 'exact' })
+        .from('ta_tank_dips')
+        .select('id, tank_id, level_liters, created_at, measured_by, notes, updated_at, measured_by_name', { count: 'exact' })
         .eq('tank_id', tankId)
         .is('archived_at', null); // Only get active (non-archived) readings
 
@@ -301,8 +301,8 @@ export function useTankHistory({
       console.log(`Fetched ${data?.length || 0} dip readings for tank ${tankId} (total: ${count})`);
       
       // Get unique user IDs for profile lookup
-      const userIds = [...new Set(data?.map(r => r.recorded_by).filter(Boolean))];
-      
+      const userIds = [...new Set(data?.map(r => r.measured_by).filter(Boolean))];
+
       // Fetch user profiles separately
       const userProfiles = new Map<string, string>();
       if (userIds.length > 0) {
@@ -312,7 +312,7 @@ export function useTankHistory({
             .from('profiles')
             .select('id, full_name')
             .in('id', userIds);
-          
+
           if (profileError) {
             console.warn('Profile lookup error:', profileError);
           } else if (profiles) {
@@ -330,18 +330,18 @@ export function useTankHistory({
           console.warn('Could not fetch user profiles:', profileError);
         }
       }
-      
+
       let readings = (data || []).map((reading: any): DipReading => {
-        const userId = reading.recorded_by;
+        const userId = reading.measured_by;
         const fullName = userProfiles.get(userId);
-        
-        // Enhanced fallback logic prioritizing created_by_name if available
-        const createdByName = reading.created_by_name;
+
+        // Enhanced fallback logic prioritizing measured_by_name if available
+        const measuredByName = reading.measured_by_name;
         let displayName = 'Unknown User';
-        
-        // Priority 1: Use created_by_name if it exists and is not empty
-        if (createdByName && createdByName.trim().length > 0) {
-          displayName = createdByName.trim();
+
+        // Priority 1: Use measured_by_name if it exists and is not empty
+        if (measuredByName && measuredByName.trim().length > 0) {
+          displayName = measuredByName.trim();
         }
         // Priority 2: Use profile lookup result
         else if (fullName) {
@@ -355,11 +355,11 @@ export function useTankHistory({
             displayName = userId; // Fallback to original value
           }
         }
-        
+
         return {
           id: reading.id,
           tank_id: reading.tank_id,
-          value: reading.value,
+          value: reading.level_liters,
           created_at: reading.created_at,
           recorded_by: displayName,
           notes: reading.notes,
@@ -388,11 +388,11 @@ export function useTankRecorders(tankId: string) {
     queryFn: async () => {
       // Get unique user IDs from active dip readings only
       const { data, error } = await supabase
-        .from('dip_readings')
-        .select('recorded_by')
+        .from('ta_tank_dips')
+        .select('measured_by')
         .eq('tank_id', tankId)
         .is('archived_at', null) // Only active readings
-        .not('recorded_by', 'is', null);
+        .not('measured_by', 'is', null);
       
       if (error) throw error;
       
@@ -468,11 +468,11 @@ export function useGroupTankRecorders(tankIds: string[]) {
       
       // Get unique user IDs from active dip readings across all tanks
       const { data, error } = await supabase
-        .from('dip_readings')
-        .select('recorded_by')
+        .from('ta_tank_dips')
+        .select('measured_by')
         .in('tank_id', tankIds)
         .is('archived_at', null) // Only active readings
-        .not('recorded_by', 'is', null);
+        .not('measured_by', 'is', null);
       
       if (error) throw error;
       
@@ -545,8 +545,8 @@ export function useTankReadingStats(tankId: string, dateFrom?: Date, dateTo?: Da
     queryKey: ['tank-reading-stats', tankId, dateFrom?.toISOString(), dateTo?.toISOString()],
     queryFn: async () => {
       let query = supabase
-        .from('dip_readings')
-        .select('value, created_at')
+        .from('ta_tank_dips')
+        .select('level_liters, created_at')
         .eq('tank_id', tankId)
         .is('archived_at', null); // Only active readings
 
@@ -571,7 +571,7 @@ export function useTankReadingStats(tankId: string, dateFrom?: Date, dateTo?: Da
         };
       }
 
-      const values = data.map(r => r.value).filter(v => v !== null);
+      const values = data.map(r => r.level_liters).filter(v => v !== null);
       const sortedByDate = data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       
       return {

@@ -69,14 +69,17 @@ export const useTaTanksCompat = () => {
         usable_capacity: Math.max(0, (t.capacity_liters || 0) - (t.min_level_liters || 0)),
         ullage: Math.max(0, (t.capacity_liters || 0) - (t.current_level_liters || 0)),
 
-        // Last dip info
-        last_dip_ts: t.current_level_datetime,
-        last_dip_by: '', // Not in view currently
+        // Last dip info - map to nested object for validation compatibility
         last_dip: t.current_level_datetime ? {
-          value: t.current_level_liters,
+          value: t.current_level_liters || 0,
           created_at: t.current_level_datetime,
-          recorded_by: ''
+          recorded_by: '', // Not currently in ta_tank_full_status view
         } : null,
+
+        // Also keep legacy flat fields for backward compatibility
+        latest_dip_value: t.current_level_liters,
+        latest_dip_date: t.current_level_datetime,
+        latest_dip_by: '', // Not in view
 
         // Status (from old schema, map urgency_status)
         status: 'active' as const,
@@ -104,8 +107,19 @@ export const useTaTanksCompat = () => {
         avg_refill_interval_days: t.avg_refill_interval_days,
         consumption_stddev: t.consumption_stddev || 0,
         predictability: t.predictability || 'unknown',
-        days_since_last_dip: t.days_since_last_dip,
-        data_quality: t.data_quality || 'no_data',
+
+        // Calculate days_since_last_dip from current_level_datetime since view doesn't provide it
+        days_since_last_dip: t.current_level_datetime
+          ? Math.floor((Date.now() - new Date(t.current_level_datetime).getTime()) / (1000 * 60 * 60 * 24))
+          : 999,
+
+        // Calculate data_quality from age since view doesn't provide it
+        data_quality: t.current_level_datetime
+          ? (Math.floor((Date.now() - new Date(t.current_level_datetime).getTime()) / (1000 * 60 * 60 * 24)) <= 14
+              ? 'fresh'
+              : 'stale')
+          : 'no_data' as const,
+
         peak_daily_consumption: t.peak_daily_consumption || 0,
         consumption_7_days: t.consumption_7_days || 0,
         consumption_30_days: t.consumption_30_days || 0,

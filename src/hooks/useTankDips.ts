@@ -13,8 +13,8 @@ export const useTankDips = (tankId: string | undefined) =>
       console.log('🔍 [DIPS DEBUG] Fetching dips for tank:', tankId);
       
       const { data, error } = await supabase
-        .from('dip_readings')
-        .select('value, created_at')
+        .from('ta_tank_dips')
+        .select('level_liters, created_at')
         .eq('tank_id', tankId)
         .is('archived_at', null) // Only active readings
         .order('created_at', { ascending: false })
@@ -31,8 +31,12 @@ export const useTankDips = (tankId: string | undefined) =>
         firstDip: data?.[0],
         lastDip: data?.[data.length - 1]
       });
-      
-      return data ?? [];
+
+      // Transform ta_tank_dips format to expected format
+      return data?.map(dip => ({
+        value: dip.level_liters,
+        created_at: dip.created_at
+      })) ?? [];
     },
     enabled: !!tankId
   }); 

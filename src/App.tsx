@@ -293,7 +293,7 @@ function HashRedirector() {
 
 function AppContent() {
   // Initialize tenant context for multi-tenant routing
-  const { isReady: tenantReady, tenant, error: tenantError } = useTenantInit();
+  const { isReady: tenantReady, tenant, error: tenantError, state: tenantState } = useTenantInit();
 
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const { selectedTank, open, closeModal } = useTankModal();
@@ -326,13 +326,46 @@ function AppContent() {
 
   // Show loading state while tenant initializes
   if (!tenantReady) {
-    return <PageLoader />;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">
+            {tenantState === 'INITIALIZING' ? 'Initializing tenant context...' : 'Loading...'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
-  // Show error if tenant initialization failed
+  // Show error if tenant initialization timed out or failed critically
+  if (tenantState === 'TIMEOUT') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4 max-w-md text-center p-6">
+          <div className="text-6xl">⏱️</div>
+          <h2 className="text-xl font-semibold text-red-600">Initialization Timeout</h2>
+          <p className="text-gray-600">
+            The application failed to initialize within the expected time.
+          </p>
+          <p className="text-sm text-gray-500">
+            This may be due to network issues or server problems. Please try refreshing the page.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-6 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Log error but continue - user may still be able to use app with public schema
   if (tenantError) {
-    console.error('Tenant initialization error:', tenantError);
-    // Continue anyway - will fall back to public schema
+    console.error('[APP] Tenant initialization error:', tenantError);
+    // Don't block - just log. User can proceed with public schema
   }
 
   return (

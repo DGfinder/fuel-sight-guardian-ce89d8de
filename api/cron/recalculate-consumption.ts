@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('[Recalculate Consumption] Unauthorized - no valid auth method');
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    
+
     console.log('[Recalculate Consumption] ✅ Authorized');
 
     // Get Supabase credentials - use service role key for schema access

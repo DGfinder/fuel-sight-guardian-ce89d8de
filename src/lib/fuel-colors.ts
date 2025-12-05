@@ -7,7 +7,7 @@
 import type { Tank } from '@/types/fuel';
 import { validateTankData } from './tank-validation';
 
-export type FuelStatus = 'critical' | 'low' | 'normal' | 'unknown';
+export type FuelStatus = 'critical' | 'low' | 'normal' | 'unknown' | 'stale';
 
 /**
  * Determine fuel status based on percentage and days remaining
@@ -55,9 +55,9 @@ export function getFuelStatusWithValidation(
   // Validate data freshness and configuration
   const validation = validateTankData(tank, maxDataAgeDays);
 
-  // If validation fails, return 'unknown' status
+  // If validation fails, return 'stale' status (data exists but is too old or config invalid)
   if (!validation.isValid) {
-    return 'unknown';
+    return 'stale';
   }
 
   // Use existing logic for valid tanks
@@ -105,6 +105,15 @@ export const fuelStatusStyles = {
     badge: 'bg-fuel-unknown-100 text-fuel-unknown-700 border-fuel-unknown-200',
     bar: 'bg-fuel-unknown',
   },
+  stale: {
+    bg: 'bg-amber-50',
+    bgSubtle: 'bg-amber-50/30',
+    border: 'border-amber-200',
+    text: 'text-amber-700',
+    textDark: 'dark:text-amber-400',
+    badge: 'bg-amber-100 text-amber-700 border-amber-200',
+    bar: 'bg-amber-500',
+  },
 } as const;
 
 /**
@@ -150,6 +159,7 @@ export const statusBadgeStyles = {
   low: 'bg-fuel-low/20 text-fuel-low-700',
   normal: 'bg-fuel-normal/10 text-fuel-normal-700',
   unknown: 'bg-fuel-unknown/10 text-fuel-unknown-600',
+  stale: 'bg-amber-50/20 text-amber-700',
 } as const;
 
 /**
@@ -159,6 +169,7 @@ export const groupStatusColors = {
   critical: 'border-l-fuel-critical bg-fuel-critical-50/50 hover:bg-fuel-critical-50',
   warning: 'border-l-fuel-low bg-fuel-low-50/50 hover:bg-fuel-low-50',
   normal: 'border-l-fuel-normal bg-fuel-normal-50/50 hover:bg-fuel-normal-50',
+  stale: 'border-l-amber-500 bg-amber-50/50 hover:bg-amber-50',
 } as const;
 
 /**

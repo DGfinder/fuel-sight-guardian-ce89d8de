@@ -33,6 +33,20 @@ export const FEATURES = {
    * Useful for debugging tenant isolation issues
    */
   DEBUG_TENANT_ROUTING: import.meta.env.VITE_DEBUG_TENANT_ROUTING === 'true',
+
+  /**
+   * TENANT_INIT_TIMEOUT_MS - Timeout for tenant initialization
+   *
+   * How long to wait for tenant context initialization before showing error.
+   * Default: 10000ms (10 seconds)
+   *
+   * Can be configured via VITE_TENANT_INIT_TIMEOUT_MS environment variable.
+   * Increase for slow networks, decrease for faster debugging.
+   */
+  TENANT_INIT_TIMEOUT_MS: parseInt(
+    import.meta.env.VITE_TENANT_INIT_TIMEOUT_MS || '10000',
+    10
+  ),
 } as const;
 
 /**

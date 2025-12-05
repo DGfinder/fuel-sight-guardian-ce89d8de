@@ -144,16 +144,22 @@ export default function EditDipModal({
       return;
     }
     supabase
-      .from('dip_readings')
-      .select('id, value, created_at')
+      .from('ta_tank_dips')
+      .select('id, level_liters, created_at')
       .eq('tank_id', tankId)
       .is('archived_at', null) // Only active readings
       .order('created_at', { ascending: false })
       .then(({ data }) => {
-        setAvailableDips(data || []);
-        if (data && data.length > 0) {
-          setSelectedDate(data[0].created_at);
-          setDipValue(data[0].value.toString());
+        // Transform to match expected format
+        const transformedData = (data || []).map(d => ({
+          id: d.id,
+          value: d.level_liters,
+          created_at: d.created_at
+        }));
+        setAvailableDips(transformedData);
+        if (transformedData.length > 0) {
+          setSelectedDate(transformedData[0].created_at);
+          setDipValue(transformedData[0].value.toString());
         } else {
           setSelectedDate("");
           setDipValue("");
@@ -230,8 +236,8 @@ export default function EditDipModal({
       if (!dip) throw new Error("Dip reading not found for selected date");
       
       const { error } = await supabase
-        .from('dip_readings')
-        .update({ value: Number(dipValue), recorded_by: userId })
+        .from('ta_tank_dips')
+        .update({ level_liters: Number(dipValue), measured_by: userId })
         .eq('id', dip.id);
         
       if (error) {
@@ -239,6 +245,10 @@ export default function EditDipModal({
       } else {
         setSubmitSuccess('Dip updated successfully!');
         await queryClient.invalidateQueries({ queryKey: ['tanks'] });
+        await queryClient.invalidateQueries({ queryKey: ['tank-history'] });
+        await queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] === 'recent-dips'
+        });
         if (onSubmit) await onSubmit(groupId, tankId, Number(dipValue), selectedDate);
         // Don't auto-close here, let useEffect handle it
       }
@@ -265,7 +275,7 @@ export default function EditDipModal({
     try {
       // Soft delete: set archived_at, deleted_by, and deletion_reason
       const { error } = await supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .update({
           archived_at: new Date().toISOString(),
           deleted_by: userId,
@@ -279,6 +289,9 @@ export default function EditDipModal({
         setSubmitSuccess('Dip reading deleted successfully!');
         await queryClient.invalidateQueries({ queryKey: ['tanks'] });
         await queryClient.invalidateQueries({ queryKey: ['tank-history'] });
+        await queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] === 'recent-dips'
+        });
         setShowDeleteDialog(false);
         setDeleteReason("");
         // Close modal after successful deletion

@@ -337,6 +337,10 @@ export default function AddDipModal({
           queryClient.invalidateQueries({ queryKey: ['tankAlerts'] }),
           queryClient.invalidateQueries({ queryKey: ['dip_readings'] }),
           queryClient.invalidateQueries({ queryKey: ['activeAlerts'] }),
+          // Recent activity feed (invalidate all variations of recent-dips query key)
+          queryClient.invalidateQueries({
+            predicate: (query) => query.queryKey[0] === 'recent-dips'
+          }),
           // Force refetch of active tank queries
           queryClient.refetchQueries({ queryKey: ['tanks'], type: 'active' }),
           queryClient.refetchQueries({ queryKey: ['ta-tanks-compat'], type: 'active' })

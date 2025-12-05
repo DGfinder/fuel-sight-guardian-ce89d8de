@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AlertTriangle, Eye, MoreVertical, ChevronDown, ChevronRight, ChevronUp, ArrowUpDown, EyeOff, Expand, Minimize2, Search } from 'lucide-react';
+import { AlertTriangle, Eye, MoreVertical, ChevronDown, ChevronRight, ChevronUp, ArrowUpDown, EyeOff, Expand, Minimize2, Search, Database } from 'lucide-react';
 import { Tank } from '@/types/fuel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -28,6 +28,7 @@ const getStatusDisplayText = (status: FuelStatus): string => {
     case 'critical': return 'Critical';
     case 'low': return 'Low';
     case 'normal': return 'Normal';
+    case 'stale': return 'Stale Data';
     case 'unknown': return 'No Data';
     default: return 'Unknown';
   }
@@ -428,9 +429,14 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
 
   // Function to get group status based on tank conditions
   // Only considers tanks with valid data (fresh readings + proper configuration)
-  const getGroupStatus = (groupTanks: Tank[]) => {
+  const getGroupStatus = (groupTanks: Tank[]): 'critical' | 'warning' | 'normal' | 'stale' => {
     // Only consider tanks with valid data for group status
     const validTanks = groupTanks.filter(t => shouldIncludeInAlerts(t));
+
+    // If ALL tanks have stale data, mark group as 'stale'
+    if (validTanks.length === 0 && groupTanks.length > 0) {
+      return 'stale';
+    }
 
     const criticalTanks = validTanks.filter(tank => {
       const status = getFuelStatusWithValidation(tank);
@@ -450,8 +456,9 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
   // Function to get detailed group stats for inline display
   // Only considers tanks with valid data (fresh readings + proper configuration)
   const getGroupStats = (groupTanks: Tank[]) => {
-    // Only consider tanks with valid data for stats
+    // Separate valid and stale tanks
     const validTanks = groupTanks.filter(t => shouldIncludeInAlerts(t));
+    const staleTanks = groupTanks.filter(t => !shouldIncludeInAlerts(t));
 
     const criticalCount = validTanks.filter(tank => {
       const status = getFuelStatusWithValidation(tank);
@@ -463,7 +470,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
       return status === 'low';
     }).length;
 
-    return { criticalCount, warningCount };
+    return { criticalCount, warningCount, staleCount: staleTanks.length };
   };
 
   // Track expanded state for all subgroup accordions per group
@@ -487,7 +494,7 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
       {grouped.map(group => {
         const allGroupTanks = [...group.tanks, ...group.subGroups.flatMap(sg => sg.tanks)];
         const groupStatus = getGroupStatus(allGroupTanks);
-        const { criticalCount, warningCount } = getGroupStats(allGroupTanks);
+        const { criticalCount, warningCount, staleCount } = getGroupStats(allGroupTanks);
         const totalTanks = allGroupTanks.length;
 
         const statusColors = groupStatusColors;
@@ -527,6 +534,14 @@ const NestedGroupAccordion: React.FC<NestedGroupAccordionProps> = ({
                   <Badge className="bg-amber-50/80 text-amber-700 border border-amber-200/50 shadow-sm backdrop-blur-sm">
                     <span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5 inline-block"></span>
                     {warningCount} low
+                  </Badge>
+                )}
+
+                {/* Stale data count - only if > 0 */}
+                {staleCount > 0 && (
+                  <Badge className="bg-amber-50/80 text-amber-700 border border-amber-200/50 shadow-sm backdrop-blur-sm">
+                    <Database className="w-3 h-3 mr-1.5 inline-block" />
+                    {staleCount} stale
                   </Badge>
                 )}
 

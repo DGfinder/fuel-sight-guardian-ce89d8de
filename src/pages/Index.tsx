@@ -153,8 +153,12 @@ export default function Index({ selectedGroup }: IndexProps) {
       groupAgg.total++;
       allAgg.total++;
 
-      // Check if critical (days_to_min_level <= 2)
-      if (tank.days_to_min_level !== null && tank.days_to_min_level <= 2) {
+      // Check if critical (≤10% OR ≤1.5 days) - matches getFuelStatus() logic
+      const isCritical =
+        (tank.current_level_percent !== null && tank.current_level_percent <= 10) ||
+        (tank.days_to_min_level !== null && tank.days_to_min_level <= 1.5);
+
+      if (isCritical) {
         groupAgg.critical++;
         allAgg.critical++;
       }

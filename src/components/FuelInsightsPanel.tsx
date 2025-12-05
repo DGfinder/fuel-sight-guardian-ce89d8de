@@ -242,21 +242,39 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
             </PopoverContent>
           </Popover>
 
-          {/* No Data Card */}
+          {/* Data Quality Alerts Card */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Card className="group cursor-pointer transition-all duration-300 border shadow-lg hover:shadow-xl hover:-translate-y-1 backdrop-blur-md bg-gray-50/80 border-gray-200/50 hover:bg-gray-50/90">
+              <Card
+                className={cn(
+                  "group cursor-pointer transition-all duration-300 border shadow-lg hover:shadow-xl hover:-translate-y-1",
+                  "backdrop-blur-md",
+                  noDataTanks.length > 0
+                    ? "bg-amber-50/80 border-amber-200/50 hover:bg-amber-50/90"
+                    : "bg-green-50/80 border-green-200/50 hover:bg-green-50/90"
+                )}
+                onClick={onNeedsActionClick}
+              >
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-gray-100/80 rounded-xl shadow-lg shadow-gray-200/50 transition-all duration-300">
-                        <Database className="h-5 w-5 text-gray-600" />
+                      <div className={cn(
+                        "p-2.5 rounded-xl transition-all duration-300",
+                        noDataTanks.length > 0
+                          ? "bg-amber-100/80 shadow-lg shadow-amber-200/50"
+                          : "bg-green-100/80 shadow-lg shadow-green-200/50"
+                      )}>
+                        <Database className={cn(
+                          "h-5 w-5",
+                          noDataTanks.length > 0 ? "text-amber-600" : "text-green-600"
+                        )} />
                       </div>
                       <div>
                         <p className="text-3xl font-bold text-gray-900">{noDataTanks.length}</p>
-                        <p className="text-sm font-medium text-gray-600">No Data</p>
+                        <p className="text-sm font-medium text-gray-600">Data Quality Alerts</p>
                       </div>
                     </div>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-gray-100">
@@ -267,7 +285,7 @@ export function FuelInsightsPanel({ tanks, onNeedsActionClick }: FuelInsightsPan
                       }
                     </p>
                     {noDataTanks.length > 0 && (
-                      <Badge variant="outline" className="mt-2 text-xs border-gray-300 text-gray-700">
+                      <Badge variant="outline" className="mt-2 text-xs border-amber-300 text-amber-700 bg-amber-50">
                         <Clock className="w-3 h-3 mr-1" />
                         Stale Data
                       </Badge>

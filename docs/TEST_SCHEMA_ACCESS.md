@@ -54,7 +54,7 @@ If you still get "The schema must be one of the following: public, scheduling_to
    - Check that `010_grant_gsf_anon_permissions.sql` was executed
    - Run this query in Supabase SQL Editor:
    ```sql
-   SELECT 
+   SELECT
      nspname as schema_name,
      has_schema_privilege('anon', nspname, 'USAGE') as anon_has_usage
    FROM pg_namespace

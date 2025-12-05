@@ -27,12 +27,12 @@ export function useDipReadingsCrud(filters: Partial<DipFilters> = {}) {
     queryKey: ['admin-dip-readings', appliedFilters],
     queryFn: async (): Promise<DipReading[]> => {
       let query = supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .select(`
           *,
           fuel_tanks(location, tank_groups(name))
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false});
 
       // Apply filters
       if (!appliedFilters.includeArchived) {
@@ -52,11 +52,11 @@ export function useDipReadingsCrud(filters: Partial<DipFilters> = {}) {
       }
 
       if (appliedFilters.valueMin !== null) {
-        query = query.gte('value', appliedFilters.valueMin);
+        query = query.gte('level_liters', appliedFilters.valueMin);
       }
 
       if (appliedFilters.valueMax !== null) {
-        query = query.lte('value', appliedFilters.valueMax);
+        query = query.lte('level_liters', appliedFilters.valueMax);
       }
 
       const { data, error } = await query.limit(500);
@@ -108,9 +108,9 @@ export function useDipReadingsCrud(filters: Partial<DipFilters> = {}) {
   const updateMutation = useMutation({
     mutationFn: async ({ id, input }: { id: string; input: DipReadingFormData }) => {
       const { data, error } = await supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .update({
-          value: input.value,
+          level_liters: input.value,
           notes: input.notes || null,
           updated_at: new Date().toISOString(),
         })
@@ -135,7 +135,7 @@ export function useDipReadingsCrud(filters: Partial<DipFilters> = {}) {
   const archiveMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       const { error } = await supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .update({
           archived_at: new Date().toISOString(),
           deletion_reason: reason,
@@ -159,7 +159,7 @@ export function useDipReadingsCrud(filters: Partial<DipFilters> = {}) {
   const restoreMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .update({
           archived_at: null,
           deletion_reason: null,
@@ -183,7 +183,7 @@ export function useDipReadingsCrud(filters: Partial<DipFilters> = {}) {
   const bulkArchiveMutation = useMutation({
     mutationFn: async ({ ids, reason }: { ids: string[]; reason: string }) => {
       const { error } = await supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .update({
           archived_at: new Date().toISOString(),
           deletion_reason: reason,
@@ -207,7 +207,7 @@ export function useDipReadingsCrud(filters: Partial<DipFilters> = {}) {
   const bulkRestoreMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       const { error } = await supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .update({
           archived_at: null,
           deletion_reason: null,

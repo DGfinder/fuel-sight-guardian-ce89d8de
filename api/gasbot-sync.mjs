@@ -165,10 +165,10 @@ export default async function handler(req, res) {
     
     // Log sync start to database
     const { data: syncLog } = await supabase
-      .from('agbot_sync_logs')
+      .from('ta_agbot_sync_log')
       .insert({
         sync_type: 'api_pull_sync',
-        sync_status: 'running',
+        status: 'running',
         started_at: new Date().toISOString()
       })
       .select()
@@ -273,14 +273,14 @@ export default async function handler(req, res) {
     // Update sync log
     if (syncLog) {
       await supabase
-        .from('agbot_sync_logs')
+        .from('ta_agbot_sync_log')
         .update({
-          sync_status: success ? 'success' : 'partial',
+          status: success ? 'success' : 'partial',
           locations_processed: locationsProcessed,
           assets_processed: assetsProcessed,
           readings_processed: readingsProcessed,
           error_message: errors.length > 0 ? errors.slice(0, 3).join('; ') : null,
-          sync_duration_ms: duration,
+          duration_ms: duration,
           completed_at: new Date().toISOString()
         })
         .eq('id', syncLog.id);
@@ -321,14 +321,14 @@ export default async function handler(req, res) {
     // Log failed sync
     try {
       await supabase
-        .from('agbot_sync_logs')
+        .from('ta_agbot_sync_log')
         .insert({
           sync_type: 'api_pull_sync',
-          sync_status: 'error',
+          status: 'error',
           started_at: new Date(startTime).toISOString(),
           completed_at: new Date().toISOString(),
           error_message: error.message,
-          sync_duration_ms: duration
+          duration_ms: duration
         });
     } catch (logError) {
       console.error('Failed to log sync error:', logError);

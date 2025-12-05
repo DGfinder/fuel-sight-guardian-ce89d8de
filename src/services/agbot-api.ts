@@ -481,10 +481,10 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
   try {
     // Log sync start
     const { data: syncLog } = await supabase
-      .from('agbot_sync_logs')
+      .from('ta_agbot_sync_log')
       .insert({
         sync_type: 'manual',
-        sync_status: 'running',
+        status: 'running',
         started_at: new Date().toISOString()
       })
       .select()
@@ -649,14 +649,14 @@ export async function syncAgbotData(): Promise<AgbotSyncResult> {
     // Update sync log
     if (syncLog) {
       await supabase
-        .from('agbot_sync_logs')
+        .from('ta_agbot_sync_log')
         .update({
-          sync_status: result.success ? 'success' : 'partial',
+          status: result.success ? 'success' : 'partial',
           locations_processed: result.locationsProcessed,
           assets_processed: result.assetsProcessed,
           readings_processed: result.readingsProcessed,
           error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
-          sync_duration_ms: result.duration,
+          duration_ms: result.duration,
           completed_at: new Date().toISOString()
         })
         .eq('id', syncLog.id);
@@ -734,10 +734,10 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
 
     // Log sync start
     const { data: syncLog } = await supabase
-      .from('agbot_sync_logs')
+      .from('ta_agbot_sync_log')
       .insert({
         sync_type: 'manual_api_sync',
-        sync_status: 'running',
+        status: 'running',
         started_at: new Date().toISOString()
       })
       .select()
@@ -834,14 +834,14 @@ export async function syncAgbotDataFromAPI(): Promise<AgbotSyncResult> {
     // Update sync log
     if (syncLog) {
       await supabase
-        .from('agbot_sync_logs')
+        .from('ta_agbot_sync_log')
         .update({
-          sync_status: result.success ? 'success' : 'partial',
+          status: result.success ? 'success' : 'partial',
           locations_processed: result.locationsProcessed,
           assets_processed: result.assetsProcessed,
           readings_processed: result.readingsProcessed,
           error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
-          sync_duration_ms: result.duration,
+          duration_ms: result.duration,
           completed_at: new Date().toISOString()
         })
         .eq('id', syncLog.id);
@@ -1552,10 +1552,10 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
   try {
     // Log import start
     const { data: syncLog } = await supabase
-      .from('agbot_sync_logs')
+      .from('ta_agbot_sync_log')
       .insert({
         sync_type: 'csv_import',
-        sync_status: 'running',
+        status: 'running',
         started_at: new Date().toISOString()
       })
       .select()
@@ -1672,14 +1672,14 @@ export async function importAgbotFromCSV(csvRows: AgbotCSVRow[]): Promise<AgbotC
     // Update sync log
     if (syncLog) {
       await supabase
-        .from('agbot_sync_logs')
+        .from('ta_agbot_sync_log')
         .update({
-          sync_status: result.success ? 'success' : 'partial',
+          status: result.success ? 'success' : 'partial',
           locations_processed: result.locationsImported,
           assets_processed: result.assetsImported,
           readings_processed: result.readingsImported,
           error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
-          sync_duration_ms: result.duration,
+          duration_ms: result.duration,
           completed_at: new Date().toISOString()
         })
         .eq('id', syncLog.id);

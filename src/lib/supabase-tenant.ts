@@ -67,13 +67,20 @@ class TenantSupabaseClient {
    * Typically called in App.tsx or authentication callback
    */
   async initialize(): Promise<void> {
+    const startTime = Date.now();
+
     // Return existing promise if initialization already in progress
     if (this.initPromise) {
+      debugTenantRouting('Initialization already in progress, waiting...');
       return this.initPromise;
     }
 
     // Return immediately if already initialized
     if (this.initialized) {
+      debugTenantRouting('Already initialized', {
+        tenant: this.tenantContext?.companyName,
+        schema: this.tenantContext?.schemaName,
+      });
       return;
     }
 
@@ -84,15 +91,19 @@ class TenantSupabaseClient {
 
         // Get user's tenant context
         const context = await getUserTenantContext(this.client);
+        const elapsed = Date.now() - startTime;
+
+        debugTenantRouting(`RPC get_user_tenant_context completed in ${elapsed}ms`);
 
         if (!context) {
           debugTenantRouting('No tenant context found - user may not be assigned to tenant');
+          console.log('[TENANT] User has no tenant assignment - will use public schema');
           this.initialized = true;
           return;
         }
 
         if (!context.isActive) {
-          console.warn(`Tenant ${context.companyName} is not active`);
+          console.warn(`[TENANT] Tenant ${context.companyName} is not active`);
           this.initialized = true;
           return;
         }
@@ -104,19 +115,22 @@ class TenantSupabaseClient {
         const success = await setTenantSearchPath(this.client, context.schemaName);
 
         if (success) {
-          debugTenantRouting('Tenant routing initialized', {
+          const totalElapsed = Date.now() - startTime;
+          debugTenantRouting(`Tenant routing initialized in ${totalElapsed}ms`, {
             tenant: context.companyName,
             schema: context.schemaName,
             role: context.userRole,
           });
         } else {
-          console.error('Failed to set search_path - queries may hit wrong schema');
+          console.error('[TENANT] Failed to set search_path - queries may hit wrong schema');
         }
 
         this.initialized = true;
       } catch (err) {
-        console.error('Error initializing tenant context:', err);
+        const elapsed = Date.now() - startTime;
+        console.error(`[TENANT] Error initializing tenant context (${elapsed}ms):`, err);
         this.initialized = true; // Mark as initialized even on error to prevent retries
+        throw err; // Re-throw so caller knows initialization failed
       } finally {
         this.initPromise = null;
       }

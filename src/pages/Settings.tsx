@@ -132,12 +132,17 @@ function Settings() {
     queryKey: ['gasbot-sync-logs'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('agbot_sync_logs')
+        .from('ta_agbot_sync_log')
         .select('*')
         .order('started_at', { ascending: false })
         .limit(10);
       if (error) throw error;
-      return data;
+      // Transform field names for backward compatibility with UI
+      return data?.map(log => ({
+        ...log,
+        sync_status: log.status,
+        sync_duration_ms: log.duration_ms
+      }));
     },
     enabled: isAdmin,
   });

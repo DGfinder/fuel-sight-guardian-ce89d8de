@@ -177,11 +177,20 @@ export default function BulkDipModal({ open, onOpenChange, groupId, groupName }:
       errors: [] as string[],
     };
 
+    // Fetch business_id for all tanks in one query
+    const tankIds = validEntries.map(e => e.tankId);
+    const { data: tankBusinessData } = await supabase
+      .from('ta_tanks')
+      .select('id, business_id')
+      .in('id', tankIds);
+
+    const tankBusinessMap = new Map(tankBusinessData?.map(t => [t.id, t.business_id]) || []);
+
     // Process in batches to avoid overwhelming the database
     const batchSize = 10;
     for (let i = 0; i < validEntries.length; i += batchSize) {
       const batch = validEntries.slice(i, i + batchSize);
-      
+
       // Always use Perth time regardless of user's computer timezone
       const now = new Date();
       const perthOffset = 8 * 60; // Perth is UTC+8
@@ -191,15 +200,19 @@ export default function BulkDipModal({ open, onOpenChange, groupId, groupName }:
 
       const batchData = batch.map(entry => ({
         tank_id: entry.tankId,
-        value: Number(entry.dipValue),
-        created_at: createdAtIso,
-        recorded_by: userId,
-        created_by_name: userProfile?.full_name || null,
+        business_id: tankBusinessMap.get(entry.tankId),
+        level_liters: Number(entry.dipValue),
+        measured_at: createdAtIso,
+        measured_by: userId,
+        measured_by_name: userProfile?.full_name || null,
+        method: 'manual',
+        source_channel: 'web',
+        quality_status: 'ok',
         notes: `Bulk entry for ${groupName}`,
       }));
 
       try {
-        const { error } = await supabase.from('dip_readings').insert(batchData);
+        const { error } = await supabase.from('ta_tank_dips').insert(batchData);
         
         if (error) {
           results.failed += batch.length;
@@ -245,7 +258,10 @@ export default function BulkDipModal({ open, onOpenChange, groupId, groupName }:
 
     // Invalidate queries to refresh data
     await queryClient.invalidateQueries({ queryKey: ['tanks'] });
-    await queryClient.invalidateQueries({ queryKey: ['tankHistory'] });
+    await queryClient.invalidateQueries({ queryKey: ['tank-history'] });
+    await queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey[0] === 'recent-dips'
+    });
 
     // Show results
     if (results.failed === 0) {

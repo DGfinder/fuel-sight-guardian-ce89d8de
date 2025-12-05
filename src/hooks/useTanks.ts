@@ -113,16 +113,16 @@ export const useTanks = () => {
 
         // Step 3: Get all dip readings for current levels
         supabase
-          .from('dip_readings')
-          .select('tank_id, value, created_at, recorded_by')
+          .from('ta_tank_dips')
+          .select('tank_id, level_liters, created_at, measured_by')
           .in('tank_id', tankIds)
           .is('archived_at', null)
           .order('created_at', { ascending: false }),
 
         // Step 5: Get 7-day readings for analytics
         supabase
-          .from('dip_readings')
-          .select('tank_id, value, created_at')
+          .from('ta_tank_dips')
+          .select('tank_id, level_liters, created_at')
           .in('tank_id', tankIds)
           .gte('created_at', sevenDaysAgo.toISOString())
           .order('created_at', { ascending: true })

@@ -15,28 +15,63 @@
  *   }
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { FEATURES } from '@/lib/features';
 import type { TenantContext } from '@/lib/tenant-context';
+
+// State machine for tenant initialization
+type TenantInitState =
+  | 'IDLE'           // Not started
+  | 'INITIALIZING'   // In progress
+  | 'READY'          // Successfully initialized (with or without tenant)
+  | 'ERROR'          // Failed with error
+  | 'TIMEOUT';       // Initialization timed out
 
 interface TenantInitResult {
   isReady: boolean;
   tenant: TenantContext | null;
   error: Error | null;
+  state: TenantInitState;
 }
 
 export function useTenantInit(): TenantInitResult {
-  const [isReady, setIsReady] = useState(false);
+  const [state, setState] = useState<TenantInitState>('IDLE');
   const [tenant, setTenant] = useState<TenantContext | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const initializingRef = useRef(false); // Guard against re-initialization
+  const hasCompletedInitialInit = useRef(false); // Track first init completion
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    const INIT_TIMEOUT_MS = FEATURES.TENANT_INIT_TIMEOUT_MS;
+
     const initTenant = async () => {
+      // Guard: Prevent concurrent initialization
+      if (initializingRef.current) {
+        console.log('[TENANT INIT] Already initializing, skipping duplicate call');
+        return;
+      }
+
+      initializingRef.current = true;
+      setState('INITIALIZING');
+
+      // Set timeout protection
+      timeoutRef.current = setTimeout(() => {
+        console.error('[TENANT INIT] Initialization timeout after 10 seconds');
+        setState('TIMEOUT');
+        setError(new Error('Tenant initialization timeout - please refresh the page'));
+        initializingRef.current = false;
+      }, INIT_TIMEOUT_MS);
+
       try {
         // If feature flag is disabled, skip tenant initialization
         if (!FEATURES.USE_TENANT_SCHEMA) {
-          setIsReady(true);
+          console.log('[TENANT INIT] Feature flag disabled, skipping tenant init');
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          setState('READY');
+          hasCompletedInitialInit.current = true;
+          initializingRef.current = false;
           return;
         }
 
@@ -44,13 +79,17 @@ export function useTenantInit(): TenantInitResult {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-          // No user logged in - skip tenant initialization
-          setIsReady(true);
+          console.log('[TENANT INIT] No authenticated user, skipping tenant init');
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          setState('READY');
+          hasCompletedInitialInit.current = true;
+          initializingRef.current = false;
           return;
         }
 
+        console.log('[TENANT INIT] Initializing for user:', user.id);
+
         // Initialize tenant context and set search_path
-        // This must be called before any queries
         await supabase.initialize();
 
         // Get tenant context
@@ -59,43 +98,71 @@ export function useTenantInit(): TenantInitResult {
         if (tenantContext) {
           setTenant(tenantContext);
           console.log(
-            `Tenant initialized: ${tenantContext.companyName} (${tenantContext.schemaName})`
+            `[TENANT INIT] Success: ${tenantContext.companyName} (${tenantContext.schemaName})`
           );
         } else {
-          console.warn('User authenticated but no tenant assigned');
+          console.warn('[TENANT INIT] User authenticated but no tenant assigned - using public schema');
+          // This is OK - user can still use the app with public schema
         }
 
-        setIsReady(true);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        setState('READY');
+        hasCompletedInitialInit.current = true;
       } catch (err) {
-        console.error('Failed to initialize tenant:', err);
+        console.error('[TENANT INIT] Failed:', err);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
         setError(err instanceof Error ? err : new Error('Unknown error'));
-        setIsReady(true); // Mark as ready even on error to prevent infinite loading
+        setState('ERROR');
+        hasCompletedInitialInit.current = true;
+      } finally {
+        initializingRef.current = false;
       }
     };
 
+    // Start initial initialization
     initTenant();
 
-    // Re-initialize on auth state changes
+    // Set up auth state change listener
+    // CRITICAL: Only allow re-initialization AFTER initial init completes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event) => {
+        console.log('[TENANT INIT] Auth state changed:', event);
+
+        // GUARD: Ignore events during initial initialization
+        if (!hasCompletedInitialInit.current) {
+          console.log('[TENANT INIT] Ignoring auth event during initial init:', event);
+          return;
+        }
+
         if (event === 'SIGNED_IN') {
-          console.log('User signed in - reinitializing tenant context');
-          setIsReady(false);
+          console.log('[TENANT INIT] User signed in - reinitializing tenant context');
+          setState('IDLE'); // Reset state machine
           await initTenant();
         } else if (event === 'SIGNED_OUT') {
-          console.log('User signed out - clearing tenant context');
+          console.log('[TENANT INIT] User signed out - clearing tenant context');
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+          }
           setTenant(null);
-          setIsReady(true);
+          setError(null);
+          setState('READY');
+          hasCompletedInitialInit.current = false;
+          initializingRef.current = false;
         }
       }
     );
 
     return () => {
       subscription.unsubscribe();
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, []);
 
-  return { isReady, tenant, error };
+  const isReady = state === 'READY' || state === 'ERROR' || state === 'TIMEOUT';
+
+  return { isReady, tenant, error, state };
 }
 
 /**

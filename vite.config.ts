@@ -81,7 +81,8 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: true
+        enabled: false, // Disable SW in dev to prevent port/caching issues
+        type: 'module'
       }
     }),
   ],

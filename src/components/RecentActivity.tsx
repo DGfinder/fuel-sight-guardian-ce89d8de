@@ -18,7 +18,7 @@ interface ActivityItem {
 
 interface DipReading {
   id: string;
-  value: number;
+  level_liters: number;
   created_at: string;
   fuel_tanks: {
     name: string;
@@ -56,10 +56,10 @@ export function RecentActivity() {
       }
 
       let query = supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .select(`
           id,
-          value,
+          level_liters,
           created_at,
           fuel_tanks (
             name,
@@ -159,7 +159,7 @@ export function RecentActivity() {
       id: `dip-${dip.id}`,
       type: 'dip' as const,
       title: 'Dip Reading Added',
-      description: `${dip.value}L recorded`,
+      description: `${dip.level_liters}L recorded`,
       timestamp: dip.created_at,
       location: dip.fuel_tanks?.name || 'Unknown Tank',
       user: 'System'

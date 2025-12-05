@@ -62,7 +62,7 @@ After exposing the schema, verify it works:
      .schema('great_southern_fuels')
      .from('ta_agbot_locations')
      .select('count', { count: 'exact', head: true });
-   
+
    console.log('Schema access:', error ? 'FAILED' : 'SUCCESS', error);
    if (error) console.error('Error details:', error);
    ```

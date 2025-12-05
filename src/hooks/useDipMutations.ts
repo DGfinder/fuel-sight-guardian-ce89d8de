@@ -27,6 +27,7 @@ export interface CreateDipInput {
   recorded_by?: string;
   created_by_name?: string;
   notes?: string;
+  business_id?: string; // Will be fetched if not provided
 }
 
 export interface UpdateDipInput {
@@ -59,9 +60,38 @@ export function useCreateDipReading(): UseMutationResult<
 
   return useMutation({
     mutationFn: async (input: CreateDipInput): Promise<DipReading> => {
+      // Fetch business_id if not provided
+      let businessId = input.business_id;
+      if (!businessId) {
+        const { data: tankData } = await supabase
+          .from('ta_tanks')
+          .select('business_id')
+          .eq('id', input.tank_id)
+          .single();
+
+        if (!tankData?.business_id) {
+          throw new Error('Could not determine business_id for tank');
+        }
+        businessId = tankData.business_id;
+      }
+
+      // Transform to ta_tank_dips format
+      const dipData = {
+        tank_id: input.tank_id,
+        business_id: businessId,
+        level_liters: input.value,
+        measured_at: input.created_at || new Date().toISOString(),
+        measured_by: input.recorded_by,
+        measured_by_name: input.created_by_name,
+        method: 'manual',
+        source_channel: 'web',
+        quality_status: 'ok',
+        notes: input.notes || null,
+      };
+
       const { data, error } = await supabase
-        .from('dip_readings')
-        .insert(input)
+        .from('ta_tank_dips')
+        .insert(dipData)
         .select()
         .single();
 
@@ -71,7 +101,7 @@ export function useCreateDipReading(): UseMutationResult<
       return {
         id: data.id,
         tank_id: data.tank_id,
-        value: data.value,
+        value: data.level_liters,
         created_at: data.created_at,
         recorded_by: input.created_by_name || 'Unknown User',
         notes: data.notes,
@@ -198,9 +228,18 @@ export function useUpdateDipReading(): UseMutationResult<
     mutationFn: async (input: UpdateDipInput): Promise<DipReading> => {
       const { id, ...updates } = input;
 
+      // Transform updates to ta_tank_dips format
+      const dipUpdates: any = {};
+      if (updates.value !== undefined) {
+        dipUpdates.level_liters = updates.value;
+      }
+      if (updates.notes !== undefined) {
+        dipUpdates.notes = updates.notes;
+      }
+
       const { data, error } = await supabase
-        .from('dip_readings')
-        .update(updates)
+        .from('ta_tank_dips')
+        .update(dipUpdates)
         .eq('id', id)
         .select()
         .single();
@@ -211,11 +250,11 @@ export function useUpdateDipReading(): UseMutationResult<
       return {
         id: data.id,
         tank_id: data.tank_id,
-        value: data.value,
+        value: data.level_liters,
         created_at: data.created_at,
-        recorded_by: data.created_by_name || 'Unknown User',
+        recorded_by: data.measured_by_name || 'Unknown User',
         notes: data.notes,
-        created_by_name: data.created_by_name,
+        created_by_name: data.measured_by_name,
       };
     },
 
@@ -288,7 +327,7 @@ export function useArchiveDipReading(): UseMutationResult<
   return useMutation({
     mutationFn: async (input: ArchiveDipInput): Promise<void> => {
       const { error } = await supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .update({ archived_at: new Date().toISOString() })
         .eq('id', input.id);
 
@@ -378,9 +417,43 @@ export function useBulkCreateDipReadings(): UseMutationResult<
         const batch = readings.slice(i, i + batchSize);
 
         try {
+          // Get unique tank IDs in this batch that need business_id lookup
+          const tankIdsNeedingBusinessId = [...new Set(
+            batch.filter(r => !r.business_id).map(r => r.tank_id)
+          )];
+
+          // Fetch business_ids for tanks that need them
+          let businessIdMap: Record<string, string> = {};
+          if (tankIdsNeedingBusinessId.length > 0) {
+            const { data: tankData } = await supabase
+              .from('ta_tanks')
+              .select('id, business_id')
+              .in('id', tankIdsNeedingBusinessId);
+
+            if (tankData) {
+              businessIdMap = Object.fromEntries(
+                tankData.map(t => [t.id, t.business_id])
+              );
+            }
+          }
+
+          // Transform batch to ta_tank_dips format
+          const taTankDipsBatch = batch.map(reading => ({
+            tank_id: reading.tank_id,
+            business_id: reading.business_id || businessIdMap[reading.tank_id],
+            level_liters: reading.value,
+            measured_at: reading.created_at || new Date().toISOString(),
+            measured_by: reading.recorded_by,
+            measured_by_name: reading.created_by_name,
+            method: 'manual',
+            source_channel: 'web',
+            quality_status: 'ok',
+            notes: reading.notes || null,
+          }));
+
           const { error } = await supabase
-            .from('dip_readings')
-            .insert(batch);
+            .from('ta_tank_dips')
+            .insert(taTankDipsBatch);
 
           if (error) {
             results.failed += batch.length;
