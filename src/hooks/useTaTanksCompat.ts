@@ -82,7 +82,6 @@ export const useTaTanksCompat = () => {
         status: 'active' as const,
 
         // Additional fields (may be null)
-        address: '',
         vehicle: '',
         discharge: '',
         bp_portal: '',
