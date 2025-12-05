@@ -33,14 +33,14 @@ export function useRecentDips(limit = 30) {
     queryFn: async () => {
       // Fetch recent active dip readings only
       const { data: rawData, error } = await supabase
-        .from('dip_readings')
+        .from('ta_tank_dips')
         .select(`
           id,
-          value,
+          level_liters,
           created_at,
-          recorded_by,
+          measured_by,
           tank_id,
-          created_by_name
+          measured_by_name
         `)
         .is('archived_at', null) // Only active readings
         .order('created_at', { ascending: false })
@@ -51,7 +51,7 @@ export function useRecentDips(limit = 30) {
       if (!rawData || rawData.length === 0) return [];
 
       // Get unique user IDs for profile lookup
-      const userIds = [...new Set(rawData.map(r => r.recorded_by).filter(Boolean))];
+      const userIds = [...new Set(rawData.map(r => r.measured_by).filter(Boolean))];
       
       // Fetch user profiles separately
       const userProfiles = new Map<string, string>();
@@ -91,7 +91,8 @@ export function useRecentDips(limit = 30) {
           product_type,
           group_id
         `)
-        .in('id', tankIds);
+        .in('id', tankIds)
+        .eq('status', 'active');
 
       if (tanksError) throw tanksError;
 
@@ -134,10 +135,10 @@ export function useRecentDips(limit = 30) {
         .map(reading => {
           const tank = tankMap.get(reading.tank_id);
           const group = tank?.group_id ? groupMap.get(tank.group_id) : undefined;
-          
-          const userId = reading.recorded_by;
+
+          const userId = reading.measured_by;
           const fullName = userProfiles.get(userId);
-          const createdByName = reading.created_by_name;
+          const createdByName = reading.measured_by_name;
           
           // Enhanced fallback logic prioritizing created_by_name if available
           let displayName = 'Unknown User';
@@ -161,7 +162,7 @@ export function useRecentDips(limit = 30) {
           
           return {
             id: reading.id,
-            value: reading.value,
+            value: reading.level_liters,
             created_at: reading.created_at,
             recorded_by: displayName,
             tank_id: reading.tank_id,

@@ -194,6 +194,7 @@ export function FuelDipForm({
       .select(
         "id,location,group_id,subgroup,safe_level,current_level,min_level"
       )
+      .eq('status', 'active')
       .then(({ data, error }) => {
         setTanksLoading(false);
         if (error) {
@@ -285,8 +286,8 @@ export function FuelDipForm({
     const dateOnly = validateAndFormat.formatDateOnly(date);
     
     const { data, error } = await supabase
-      .from('dip_readings')
-      .select('id, value, created_at, created_by_name')
+      .from('ta_tank_dips')
+      .select('id, level_liters, created_at, measured_by_name')
       .eq('tank_id', tankId)
       .gte('created_at', dateOnly + 'T00:00:00')
       .lt('created_at', dateOnly + 'T23:59:59')
@@ -299,7 +300,17 @@ export function FuelDipForm({
       return null;
     }
 
-    return data && data.length > 0 ? data[0] : null;
+    // Transform to match expected format
+    if (data && data.length > 0) {
+      const dip = data[0];
+      return {
+        id: dip.id,
+        value: dip.level_liters,
+        created_at: dip.created_at,
+        created_by_name: dip.measured_by_name
+      };
+    }
+    return null;
   };
 
   //------------------------------------------------
@@ -348,7 +359,7 @@ export function FuelDipForm({
       // If replacing same-day dip, archive the existing one first
       if (replaceSameDay && existingSameDayDip) {
         const { error: archiveError } = await supabase
-          .from('dip_readings')
+          .from('ta_tank_dips')
           .update({ archived_at: new Date().toISOString() })
           .eq('id', existingSameDayDip.id);
 
@@ -357,6 +368,13 @@ export function FuelDipForm({
         }
       }
 
+      // Fetch business_id for the tank
+      const { data: tankData } = await supabase
+        .from('ta_tanks')
+        .select('business_id')
+        .eq('id', data.tank)
+        .single();
+
       // Insert new dip reading - always use Perth time regardless of user's computer timezone
       const now = new Date();
       const perthOffset = 8 * 60; // Perth is UTC+8
@@ -364,12 +382,16 @@ export function FuelDipForm({
       const perthTime = new Date(utc + (perthOffset * 60000));
       const createdAtIso = perthTime.toISOString();
 
-      const { error } = await supabase.from("dip_readings").insert({
+      const { error } = await supabase.from("ta_tank_dips").insert({
         tank_id: data.tank,
-        value: data.dip,
-        created_at: createdAtIso,
-        recorded_by: user?.id ?? "unknown",
-        created_by_name: userProfile?.full_name || null,
+        business_id: tankData.business_id,
+        level_liters: data.dip,
+        measured_at: createdAtIso,
+        measured_by: user?.id ?? "unknown",
+        measured_by_name: userProfile?.full_name || null,
+        method: 'manual',
+        source_channel: 'web',
+        quality_status: 'ok',
         notes: data.notes ?? null,
       });
 

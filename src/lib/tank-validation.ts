@@ -56,12 +56,13 @@ export function hasFreshData(tank: Tank, maxAgeDays: number = 14): boolean {
  */
 export function hasValidConfiguration(tank: Tank): boolean {
   // Must have numeric values (not null, not undefined)
-  const hasMinLevel = typeof tank.min_level === 'number' && tank.min_level > 0;
+  // min_level can be 0 (tank can run to empty), so use >= 0
+  const hasMinLevel = typeof tank.min_level === 'number' && tank.min_level >= 0;
   const hasSafeLevel = typeof tank.safe_level === 'number' && tank.safe_level > 0;
   const hasCurrentLevel = typeof tank.current_level === 'number';
 
-  // Safe level must be greater than min level for valid range
-  const validRange = hasSafeLevel && hasMinLevel && tank.safe_level > tank.min_level;
+  // Safe level must be greater than or equal to min level for valid range
+  const validRange = hasSafeLevel && hasMinLevel && tank.safe_level >= tank.min_level;
 
   return hasCurrentLevel && hasMinLevel && hasSafeLevel && validRange;
 }
@@ -105,7 +106,7 @@ export function validateTankData(tank: Tank, maxDataAgeDays: number = 14): TankV
 
   // Check configuration
   if (!hasValidConfiguration(tank)) {
-    if (typeof tank.min_level !== 'number' || tank.min_level <= 0) {
+    if (typeof tank.min_level !== 'number' || tank.min_level < 0) {
       reasons.push('Missing or invalid min_level');
     }
     if (typeof tank.safe_level !== 'number' || tank.safe_level <= 0) {
@@ -116,8 +117,8 @@ export function validateTankData(tank: Tank, maxDataAgeDays: number = 14): TankV
     }
     if (typeof tank.safe_level === 'number' &&
         typeof tank.min_level === 'number' &&
-        tank.safe_level <= tank.min_level) {
-      reasons.push('Invalid range (safe_level ≤ min_level)');
+        tank.safe_level < tank.min_level) {
+      reasons.push('Invalid range (safe_level < min_level)');
     }
   }
 
