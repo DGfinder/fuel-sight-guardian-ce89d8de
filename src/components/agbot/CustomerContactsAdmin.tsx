@@ -10,7 +10,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -28,8 +27,8 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
-import { getValidSessionToken, TokenValidationError } from '@/lib/auth/tokenValidator';
-import { Mail, UserPlus, Power, PowerOff, Edit, Trash2, CheckCircle2, XCircle, Send, Loader2 } from 'lucide-react';
+import { getValidSessionToken } from '@/lib/auth/tokenValidator';
+import { Mail, UserPlus, Power, PowerOff, Edit, Trash2, Send, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**
@@ -52,20 +51,39 @@ function formatRelativeTime(timestamp: string): string {
   return new Date(timestamp).toLocaleDateString('en-AU');
 }
 
-interface CustomerContact {
-  id: string;
-  customer_name: string;
-  customer_guid: string | null;
-  contact_email: string;
+interface Subscription {
+  id: string; // subscription ID (customer_contact_tanks.id)
+  contact_id: string;
   contact_name: string | null;
-  contact_phone: string | null;
-  contact_position: string | null;
+  contact_email: string;
+  customer_name: string;
+  tank_id: string;
+  tank_name: string;
+  tank_address: string | null;
+  tank_fill_level: number | null;
   report_frequency: string;
-  report_format: string;
   preferred_send_hour: number;
   enabled: boolean;
+  alert_threshold_percent: number;
+  cc_emails: string | null;
   last_email_sent_at: string | null;
   created_at: string;
+}
+
+interface Contact {
+  id: string;
+  contact_email: string;
+  contact_name: string | null;
+  customer_name: string;
+  unsubscribe_token: string;
+}
+
+interface Tank {
+  id: string;
+  name: string;
+  address: string | null;
+  customer_name: string;
+  calibrated_fill_level: number | null;
 }
 
 interface CustomerContactsAdminProps {
@@ -73,30 +91,25 @@ interface CustomerContactsAdminProps {
 }
 
 export default function CustomerContactsAdmin({ className }: CustomerContactsAdminProps) {
-  const [contacts, setContacts] = useState<CustomerContact[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<CustomerContact | null>(null);
+  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
+
+  // Available contacts and tanks for creating new subscriptions
+  const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
+  const [availableTanks, setAvailableTanks] = useState<Tank[]>([]);
 
   // Form state
   const [formData, setFormData] = useState({
-    customer_name: '',
-    contact_email: '',
-    cc_emails: '',
-    contact_name: '',
-    contact_phone: '',
-    contact_position: '',
+    contact_id: '',
+    tank_id: '',
     report_frequency: 'daily',
-    report_format: 'summary',
     preferred_send_hour: 7,
-    enabled: true
+    enabled: true,
+    alert_threshold_percent: 30,
+    cc_emails: ''
   });
-
-  // Tank assignment state
-  const [availableTanks, setAvailableTanks] = useState<any[]>([]);
-  const [availableCustomers, setAvailableCustomers] = useState<string[]>([]);
-  const [selectedTankIds, setSelectedTankIds] = useState<string[]>([]);
-  const [loadingTanks, setLoadingTanks] = useState(false);
 
   // Test email state
   const [sendingTestEmail, setSendingTestEmail] = useState<string | null>(null);
@@ -104,119 +117,131 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
   // Form submission state
   const [saving, setSaving] = useState(false);
 
+  // Filter state
+  const [filterCustomer, setFilterCustomer] = useState<string>('all');
+  const [filterEnabled, setFilterEnabled] = useState<string>('all');
+  const [uniqueCustomers, setUniqueCustomers] = useState<string[]>([]);
+
   useEffect(() => {
-    fetchContacts();
+    fetchSubscriptions();
   }, []);
 
-  // Fetch all available tanks when dialog opens
   useEffect(() => {
     if (isDialogOpen) {
+      fetchAvailableContacts();
       fetchAvailableTanks();
     }
   }, [isDialogOpen]);
 
-  const fetchContacts = async () => {
+  const fetchSubscriptions = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('customer_contacts')
-        .select('*')
-        .order('customer_name', { ascending: true });
+        .from('customer_contact_tanks')
+        .select(`
+          id,
+          customer_contact_id,
+          agbot_location_id,
+          report_frequency,
+          preferred_send_hour,
+          enabled,
+          alert_threshold_percent,
+          cc_emails,
+          last_email_sent_at,
+          created_at,
+          customer_contacts!inner (
+            id,
+            contact_email,
+            contact_name,
+            customer_name,
+            unsubscribe_token
+          ),
+          ta_agbot_locations!inner (
+            id,
+            name,
+            address,
+            customer_name,
+            calibrated_fill_level
+          )
+        `)
+        .order('customer_contacts(customer_name)', { ascending: true })
+        .order('ta_agbot_locations(name)', { ascending: true });
 
       if (error) throw error;
-      setContacts(data || []);
+
+      // Transform data
+      const transformedData: Subscription[] = (data || []).map((row: any) => {
+        const contact = Array.isArray(row.customer_contacts)
+          ? row.customer_contacts[0]
+          : row.customer_contacts;
+        const tank = Array.isArray(row.ta_agbot_locations)
+          ? row.ta_agbot_locations[0]
+          : row.ta_agbot_locations;
+
+        return {
+          id: row.id,
+          contact_id: contact.id,
+          contact_name: contact.contact_name,
+          contact_email: contact.contact_email,
+          customer_name: contact.customer_name,
+          tank_id: tank.id,
+          tank_name: tank.name,
+          tank_address: tank.address,
+          tank_fill_level: tank.calibrated_fill_level,
+          report_frequency: row.report_frequency || 'daily',
+          preferred_send_hour: row.preferred_send_hour ?? 7,
+          enabled: row.enabled ?? true,
+          alert_threshold_percent: row.alert_threshold_percent ?? 30,
+          cc_emails: row.cc_emails,
+          last_email_sent_at: row.last_email_sent_at,
+          created_at: row.created_at
+        };
+      });
+
+      setSubscriptions(transformedData);
+
+      // Extract unique customers for filter
+      const customers = [...new Set(transformedData.map(s => s.customer_name))];
+      setUniqueCustomers(customers.sort());
     } catch (error) {
-      console.error('Error fetching contacts:', error);
-      toast.error('Failed to load customer contacts');
+      console.error('Error fetching subscriptions:', error);
+      toast.error('Failed to load subscriptions');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchAvailableContacts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('customer_contacts')
+        .select('id, contact_email, contact_name, customer_name, unsubscribe_token')
+        .eq('enabled', true)
+        .order('customer_name')
+        .order('contact_email');
+
+      if (error) throw error;
+      setAvailableContacts(data || []);
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+      toast.error('Failed to load contacts');
+    }
+  };
+
   const fetchAvailableTanks = async () => {
     try {
-      setLoadingTanks(true);
-      // Fetch ALL tanks from all customers for full flexibility
       const { data, error } = await supabase
         .from('ta_agbot_locations')
-        .select('id, name, address, customer_name, calibrated_fill_level, is_disabled')
+        .select('id, name, address, customer_name, calibrated_fill_level')
         .eq('is_disabled', false)
         .order('customer_name')
         .order('name');
 
       if (error) throw error;
-      setAvailableTanks((data || []).map(d => ({
-        id: d.id,
-        location_id: d.name,
-        address1: d.address,
-        customer_name: d.customer_name,
-        latest_calibrated_fill_percentage: d.calibrated_fill_level,
-        disabled: d.is_disabled
-      })));
+      setAvailableTanks(data || []);
     } catch (error) {
       console.error('Error fetching tanks:', error);
       toast.error('Failed to load tanks');
-    } finally {
-      setLoadingTanks(false);
-    }
-  };
-
-  const fetchAvailableCustomers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('ta_agbot_locations')
-        .select('customer_name')
-        .eq('is_disabled', false)
-        .order('customer_name');
-
-      if (error) throw error;
-
-      // Get unique customer names
-      const uniqueCustomers = [...new Set(data?.map((d) => d.customer_name) || [])];
-      setAvailableCustomers(uniqueCustomers);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      toast.error('Failed to load customer list');
-    }
-  };
-
-  const fetchAssignedTanks = async (contactId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('customer_contact_tanks')
-        .select('agbot_location_id')
-        .eq('customer_contact_id', contactId);
-
-      if (error) throw error;
-      setSelectedTankIds(data?.map((t) => t.agbot_location_id) || []);
-    } catch (error) {
-      console.error('Error fetching assigned tanks:', error);
-      setSelectedTankIds([]);
-    }
-  };
-
-  const saveTankAssignments = async (contactId: string) => {
-    try {
-      // Delete existing assignments
-      await supabase
-        .from('customer_contact_tanks')
-        .delete()
-        .eq('customer_contact_id', contactId);
-
-      // Insert new assignments if any tanks selected
-      if (selectedTankIds.length > 0) {
-        const assignments = selectedTankIds.map((tankId) => ({
-          customer_contact_id: contactId,
-          agbot_location_id: tankId
-        }));
-
-        const { error } = await supabase.from('customer_contact_tanks').insert(assignments);
-
-        if (error) throw error;
-      }
-    } catch (error) {
-      console.error('Error saving tank assignments:', error);
-      throw error;
     }
   };
 
@@ -225,102 +250,110 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
     setSaving(true);
 
     try {
-      const contactData = {
-        ...formData,
-        customer_guid: `customer-${formData.customer_name.toLowerCase().replace(/\s+/g, '-')}`
-      };
-
-      let contactId: string;
-
-      if (editingContact) {
-        // Update existing contact
+      if (editingSubscription) {
+        // Update existing subscription
         const { error } = await supabase
-          .from('customer_contacts')
-          .update(contactData)
-          .eq('id', editingContact.id);
+          .from('customer_contact_tanks')
+          .update({
+            report_frequency: formData.report_frequency,
+            preferred_send_hour: formData.preferred_send_hour,
+            enabled: formData.enabled,
+            alert_threshold_percent: formData.alert_threshold_percent,
+            cc_emails: formData.cc_emails || null
+          })
+          .eq('id', editingSubscription.id);
 
         if (error) throw error;
-        contactId = editingContact.id;
-
-        // Save tank assignments
-        await saveTankAssignments(contactId);
-
-        toast.success('Contact updated successfully');
+        toast.success('Subscription updated successfully');
       } else {
-        // Create new contact - must include unsubscribe_token (NOT NULL in database)
-        const unsubscribeToken = crypto.randomUUID();
+        // Create new subscription
+        if (!formData.contact_id || !formData.tank_id) {
+          toast.error('Please select both a contact and a tank');
+          return;
+        }
 
-        const { data, error } = await supabase
-          .from('customer_contacts')
+        // Check if subscription already exists
+        const { data: existing } = await supabase
+          .from('customer_contact_tanks')
+          .select('id')
+          .eq('customer_contact_id', formData.contact_id)
+          .eq('agbot_location_id', formData.tank_id)
+          .maybeSingle();
+
+        if (existing) {
+          toast.error('This subscription already exists');
+          return;
+        }
+
+        const { error } = await supabase
+          .from('customer_contact_tanks')
           .insert([{
-            ...contactData,
-            unsubscribe_token: unsubscribeToken
-          }])
-          .select()
-          .single();
+            customer_contact_id: formData.contact_id,
+            agbot_location_id: formData.tank_id,
+            report_frequency: formData.report_frequency,
+            preferred_send_hour: formData.preferred_send_hour,
+            enabled: formData.enabled,
+            alert_threshold_percent: formData.alert_threshold_percent,
+            cc_emails: formData.cc_emails || null
+          }]);
 
         if (error) throw error;
-        contactId = data.id;
-
-        // Save tank assignments
-        await saveTankAssignments(contactId);
-
-        toast.success('Contact added successfully');
+        toast.success('Subscription created successfully');
       }
 
       setIsDialogOpen(false);
-      setEditingContact(null);
+      setEditingSubscription(null);
       resetForm();
-      fetchContacts();
+      fetchSubscriptions();
     } catch (error) {
-      console.error('Error saving contact:', error);
-      toast.error('Failed to save contact');
+      console.error('Error saving subscription:', error);
+      toast.error('Failed to save subscription');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleToggleEnabled = async (contact: CustomerContact) => {
+  const handleToggleEnabled = async (subscription: Subscription) => {
     try {
       const { error } = await supabase
-        .from('customer_contacts')
-        .update({ enabled: !contact.enabled })
-        .eq('id', contact.id);
+        .from('customer_contact_tanks')
+        .update({ enabled: !subscription.enabled })
+        .eq('id', subscription.id);
 
       if (error) throw error;
-      toast.success(`Contact ${!contact.enabled ? 'enabled' : 'disabled'}`);
-      fetchContacts();
+      toast.success(`Subscription ${!subscription.enabled ? 'enabled' : 'disabled'}`);
+      fetchSubscriptions();
     } catch (error) {
-      console.error('Error toggling contact:', error);
-      toast.error('Failed to update contact status');
+      console.error('Error toggling subscription:', error);
+      toast.error('Failed to update subscription status');
     }
   };
 
-  const handleDelete = async (contact: CustomerContact) => {
-    if (!confirm(`Are you sure you want to delete the contact for ${contact.customer_name}?`)) {
+  const handleDelete = async (subscription: Subscription) => {
+    if (!confirm(`Delete subscription for ${subscription.contact_email} → ${subscription.tank_name}?`)) {
       return;
     }
 
     try {
       const { error } = await supabase
-        .from('customer_contacts')
+        .from('customer_contact_tanks')
         .delete()
-        .eq('id', contact.id);
+        .eq('id', subscription.id);
 
       if (error) throw error;
-      toast.success('Contact deleted');
-      fetchContacts();
+      toast.success('Subscription deleted');
+      fetchSubscriptions();
     } catch (error) {
-      console.error('Error deleting contact:', error);
-      toast.error('Failed to delete contact');
+      console.error('Error deleting subscription:', error);
+      toast.error('Failed to delete subscription');
     }
   };
 
-  const handleTestEmail = async (contact: CustomerContact) => {
+  const handleTestEmail = async (subscription: Subscription) => {
     try {
-      setSendingTestEmail(contact.id);
+      setSendingTestEmail(subscription.id);
 
-      // Get a validated, fresh token (with automatic refresh if needed)
+      // Get a validated, fresh token
       const token = await getValidSessionToken();
 
       const response = await fetch('/api/test-send-email', {
@@ -329,7 +362,10 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ contact_id: contact.id })
+        body: JSON.stringify({
+          contact_id: subscription.contact_id,
+          frequency: subscription.report_frequency
+        })
       });
 
       const data = await response.json();
@@ -340,497 +376,298 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
       }
 
       toast.success(
-        `✅ Test email sent to ${contact.contact_email}!\nTanks included: ${data.tanks_count}\nEmail ID: ${data.email_id?.substring(0, 8)}...`,
+        `✅ Test email sent to ${subscription.contact_email}!\nTanks: ${data.tanks_count}\nID: ${data.email_id?.substring(0, 8)}...`,
         { duration: 6000 }
       );
 
-      // Refresh contacts to update last_email_sent_at
-      fetchContacts();
+      fetchSubscriptions();
     } catch (error) {
-      console.error('Failed to send test email:', (error as Error).message);
-
-      // Handle authentication errors specifically
-      if (error instanceof TokenValidationError) {
-        if (error.code === 'NO_SESSION' || error.code === 'SESSION_ERROR') {
-          toast.error(
-            '🔒 Your session has expired. Please log in again.',
-            { duration: 8000 }
-          );
-        } else if (error.code === 'REFRESH_FAILED') {
-          toast.error(
-            '🔒 Session refresh failed. Please log in again.',
-            { duration: 8000 }
-          );
-        } else {
-          toast.error(
-            `❌ Authentication error: ${error.message}`,
-            { duration: 8000 }
-          );
-        }
-      } else {
-        toast.error(
-          `❌ Failed to send test email\n${(error as Error).message}`,
-          { duration: 8000 }
-        );
-      }
+      console.error('Error sending test email:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to send test email: ${message}`);
     } finally {
       setSendingTestEmail(null);
     }
   };
 
-  const handleEdit = async (contact: CustomerContact) => {
-    setEditingContact(contact);
+  const handleEdit = (subscription: Subscription) => {
+    setEditingSubscription(subscription);
     setFormData({
-      customer_name: contact.customer_name,
-      contact_email: contact.contact_email,
-      cc_emails: (contact as any).cc_emails || '',
-      contact_name: contact.contact_name || '',
-      contact_phone: contact.contact_phone || '',
-      contact_position: contact.contact_position || '',
-      report_frequency: contact.report_frequency,
-      report_format: contact.report_format,
-      preferred_send_hour: contact.preferred_send_hour ?? 7,
-      enabled: contact.enabled
+      contact_id: subscription.contact_id,
+      tank_id: subscription.tank_id,
+      report_frequency: subscription.report_frequency,
+      preferred_send_hour: subscription.preferred_send_hour,
+      enabled: subscription.enabled,
+      alert_threshold_percent: subscription.alert_threshold_percent,
+      cc_emails: subscription.cc_emails || ''
     });
+    setIsDialogOpen(true);
+  };
 
-    // Fetch available customers for autocomplete
-    await fetchAvailableCustomers();
-    // Fetch assigned tanks for this contact (all tanks fetched via useEffect when dialog opens)
-    await fetchAssignedTanks(contact.id);
-
+  const handleAddNew = () => {
+    setEditingSubscription(null);
+    resetForm();
     setIsDialogOpen(true);
   };
 
   const resetForm = () => {
     setFormData({
-      customer_name: '',
-      contact_email: '',
-      cc_emails: '',
-      contact_name: '',
-      contact_phone: '',
-      contact_position: '',
+      contact_id: '',
+      tank_id: '',
       report_frequency: 'daily',
-      report_format: 'summary',
       preferred_send_hour: 7,
-      enabled: true
+      enabled: true,
+      alert_threshold_percent: 30,
+      cc_emails: ''
     });
-    setAvailableTanks([]);
-    setSelectedTankIds([]);
   };
 
-  const handleAddNew = () => {
-    setEditingContact(null);
-    resetForm();
-    fetchAvailableCustomers();
-    setIsDialogOpen(true);
-  };
+  // Filtered subscriptions
+  const filteredSubscriptions = subscriptions.filter(sub => {
+    if (filterCustomer !== 'all' && sub.customer_name !== filterCustomer) return false;
+    if (filterEnabled === 'enabled' && !sub.enabled) return false;
+    if (filterEnabled === 'disabled' && sub.enabled) return false;
+    return true;
+  });
 
   if (loading) {
-    return <div className="p-8 text-center">Loading customer contacts...</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
     <div className={className}>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold">Customer Email Contacts</h2>
+          <h2 className="text-2xl font-bold">Email Subscriptions</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage customer contacts for AgBot daily email reports
+            Manage tank monitoring email subscriptions. Each subscription = one contact receiving reports for one tank.
           </p>
         </div>
         <Button onClick={handleAddNew}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add Contact
+          <Plus className="h-4 w-4 mr-2" />
+          New Subscription
         </Button>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>
-                {editingContact ? 'Edit Contact' : 'Add New Contact'}
-              </DialogTitle>
-              <DialogDescription>
-                Configure email recipient for AgBot daily reports
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-              <div className="overflow-y-auto flex-1 pr-2">
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="customer_name">Customer Name *</Label>
-                    <Input
-                      id="customer_name"
-                      value={formData.customer_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, customer_name: e.target.value })
-                      }
-                      placeholder="Enter or select customer name"
-                      list="customer-suggestions"
-                      required
-                    />
-                    <datalist id="customer-suggestions">
-                      {availableCustomers.map((customer) => (
-                        <option key={customer} value={customer} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_email">Email *</Label>
-                    <Input
-                      id="contact_email"
-                      type="email"
-                      value={formData.contact_email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, contact_email: e.target.value })
-                      }
-                      placeholder="contact@example.com"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cc_emails">CC Emails (optional)</Label>
-                  <Input
-                    id="cc_emails"
-                    value={formData.cc_emails}
-                    onChange={(e) =>
-                      setFormData({ ...formData, cc_emails: e.target.value })
-                    }
-                    placeholder="user1@example.com, user2@example.com"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Additional recipients will receive the same report. Separate multiple emails with commas.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_name">Contact Name</Label>
-                    <Input
-                      id="contact_name"
-                      value={formData.contact_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, contact_name: e.target.value })
-                      }
-                      placeholder="John Smith"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_position">Position</Label>
-                    <Input
-                      id="contact_position"
-                      value={formData.contact_position}
-                      onChange={(e) =>
-                        setFormData({ ...formData, contact_position: e.target.value })
-                      }
-                      placeholder="Operations Manager"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact_phone">Phone</Label>
-                  <Input
-                    id="contact_phone"
-                    value={formData.contact_phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contact_phone: e.target.value })
-                    }
-                    placeholder="+61 4XX XXX XXX"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="report_frequency">Report Frequency</Label>
-                    <Select
-                      value={formData.report_frequency}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, report_frequency: value })
-                      }
-                    >
-                      <SelectTrigger id="report_frequency">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="preferred_send_hour">Send Time (Perth)</Label>
-                    <Select
-                      value={String(formData.preferred_send_hour)}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, preferred_send_hour: parseInt(value) })
-                      }
-                    >
-                      <SelectTrigger id="preferred_send_hour">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">5:15 AM</SelectItem>
-                        <SelectItem value="6">6:15 AM</SelectItem>
-                        <SelectItem value="7">7:15 AM</SelectItem>
-                        <SelectItem value="8">8:15 AM</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="report_format">Report Format</Label>
-                    <Select
-                      value={formData.report_format}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, report_format: value })
-                      }
-                    >
-                      <SelectTrigger id="report_format">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="summary">Summary</SelectItem>
-                        <SelectItem value="detailed">Detailed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Tank Assignment Section */}
-                <div className="space-y-2">
-                  <Label>Assigned Tanks (Optional)</Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Select specific tanks for this contact from any customer. If none selected, emails will include all tanks matching the customer name above.
-                  </p>
-                  {loadingTanks ? (
-                    <div className="p-4 text-center text-sm text-muted-foreground">
-                      Loading available tanks...
-                    </div>
-                  ) : availableTanks.length === 0 ? (
-                    <div className="p-4 text-center text-sm text-muted-foreground border rounded-md">
-                      No tanks available in the system
-                    </div>
-                  ) : (
-                    <div className="border rounded-md p-3 max-h-80 overflow-y-auto bg-muted/20">
-                      {/* Group tanks by customer */}
-                      {Object.entries(
-                        availableTanks.reduce((groups: { [key: string]: typeof availableTanks }, tank) => {
-                          const customer = tank.customer_name || 'Unknown Customer';
-                          if (!groups[customer]) groups[customer] = [];
-                          groups[customer].push(tank);
-                          return groups;
-                        }, {})
-                      ).map(([customerName, tanks]) => (
-                        <div key={customerName} className="mb-4 last:mb-0">
-                          <div className="font-semibold text-sm text-muted-foreground mb-2 pb-1 border-b sticky top-0 bg-muted/20">
-                            {customerName}
-                            <span className="font-normal ml-2">({tanks.length} tank{tanks.length !== 1 ? 's' : ''})</span>
-                          </div>
-                          <div className="space-y-1 pl-2">
-                            {tanks.map((tank) => (
-                              <div
-                                key={tank.id}
-                                className="flex items-start space-x-3 p-2 rounded hover:bg-muted/50 transition-colors"
-                              >
-                                <Checkbox
-                                  id={`tank-${tank.id}`}
-                                  checked={selectedTankIds.includes(tank.id)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setSelectedTankIds([...selectedTankIds, tank.id]);
-                                    } else {
-                                      setSelectedTankIds(selectedTankIds.filter((id) => id !== tank.id));
-                                    }
-                                  }}
-                                />
-                                <label
-                                  htmlFor={`tank-${tank.id}`}
-                                  className="flex-1 cursor-pointer select-none"
-                                >
-                                  <div className="font-medium text-sm">
-                                    {tank.location_id || tank.address1 || 'Unknown Tank'}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {tank.address1 && tank.location_id !== tank.address1
-                                      ? tank.address1
-                                      : ''}
-                                    {tank.latest_calibrated_fill_percentage !== null &&
-                                    tank.latest_calibrated_fill_percentage !== undefined ? (
-                                      <span className="ml-2">
-                                        • {tank.latest_calibrated_fill_percentage.toFixed(0)}% fuel
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="text-xs text-muted-foreground">
-                    {selectedTankIds.length === 0 ? (
-                      <span>✉️ No specific tanks selected - will use customer name matching</span>
-                    ) : (
-                      <span className="text-blue-600 font-medium">
-                        ✅ {selectedTankIds.length} tank{selectedTankIds.length !== 1 ? 's' : ''} selected
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              </div>
-              <DialogFooter className="pt-4 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsDialogOpen(false);
-                    setEditingContact(null);
-                    resetForm();
-                  }}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={saving || !formData.customer_name || !formData.contact_email}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    editingContact ? 'Update Contact' : 'Add Contact'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
 
-      <div className="rounded-md border overflow-x-auto">
-        <Table className="min-w-[800px]">
+      {/* Filters */}
+      <div className="flex gap-4 mb-4">
+        <div className="flex-1">
+          <Label htmlFor="filter-customer" className="sr-only">Filter by Customer</Label>
+          <Select value={filterCustomer} onValueChange={setFilterCustomer}>
+            <SelectTrigger id="filter-customer">
+              <SelectValue placeholder="All Customers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Customers</SelectItem>
+              {uniqueCustomers.map(customer => (
+                <SelectItem key={customer} value={customer}>{customer}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex-1">
+          <Label htmlFor="filter-enabled" className="sr-only">Filter by Status</Label>
+          <Select value={filterEnabled} onValueChange={setFilterEnabled}>
+            <SelectTrigger id="filter-enabled">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="enabled">Enabled Only</SelectItem>
+              <SelectItem value="disabled">Disabled Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-card border rounded-lg p-4">
+          <div className="text-sm text-muted-foreground">Total Subscriptions</div>
+          <div className="text-2xl font-bold">{subscriptions.length}</div>
+        </div>
+        <div className="bg-card border rounded-lg p-4">
+          <div className="text-sm text-muted-foreground">Enabled</div>
+          <div className="text-2xl font-bold text-green-600">
+            {subscriptions.filter(s => s.enabled).length}
+          </div>
+        </div>
+        <div className="bg-card border rounded-lg p-4">
+          <div className="text-sm text-muted-foreground">Disabled</div>
+          <div className="text-2xl font-bold text-gray-400">
+            {subscriptions.filter(s => !s.enabled).length}
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="border rounded-lg">
+        <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Customer</TableHead>
               <TableHead>Contact</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Tank</TableHead>
+              <TableHead>Fill Level</TableHead>
               <TableHead>Frequency</TableHead>
+              <TableHead>Send Hour</TableHead>
+              <TableHead>Alert %</TableHead>
               <TableHead>Last Sent</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {contacts.length === 0 ? (
+            {filteredSubscriptions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No customer contacts configured. Click "Add Contact" to get started.
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                  No subscriptions found. Click "New Subscription" to create one.
                 </TableCell>
               </TableRow>
             ) : (
-              contacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  <TableCell className="font-medium">{contact.customer_name}</TableCell>
+              filteredSubscriptions.map((subscription) => (
+                <TableRow key={subscription.id}>
+                  {/* Customer */}
+                  <TableCell className="font-medium">
+                    {subscription.customer_name}
+                  </TableCell>
+
+                  {/* Contact */}
                   <TableCell>
-                    <div>
-                      <div className="font-medium">{contact.contact_name || 'N/A'}</div>
-                      {contact.contact_position && (
-                        <div className="text-xs text-muted-foreground">
-                          {contact.contact_position}
-                        </div>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{subscription.contact_email}</span>
+                      {subscription.contact_name && (
+                        <span className="text-xs text-muted-foreground">
+                          {subscription.contact_name}
+                        </span>
                       )}
                     </div>
                   </TableCell>
+
+                  {/* Tank */}
                   <TableCell>
-                    <div>
-                      <a
-                        href={`mailto:${contact.contact_email}`}
-                        className="text-blue-600 hover:underline flex items-center gap-1"
+                    <div className="flex flex-col">
+                      <span className="font-medium">{subscription.tank_name}</span>
+                      {subscription.tank_address && (
+                        <span className="text-xs text-muted-foreground">
+                          {subscription.tank_address}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+
+                  {/* Fill Level */}
+                  <TableCell>
+                    {subscription.tank_fill_level !== null ? (
+                      <Badge
+                        variant={
+                          subscription.tank_fill_level <= subscription.alert_threshold_percent
+                            ? 'destructive'
+                            : subscription.tank_fill_level <= 50
+                            ? 'default'
+                            : 'secondary'
+                        }
                       >
-                        <Mail className="h-3 w-3" />
-                        {contact.contact_email}
-                      </a>
-                      {(contact as any).cc_emails && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          CC: {(contact as any).cc_emails}
-                        </div>
-                      )}
-                    </div>
+                        {subscription.tank_fill_level.toFixed(0)}%
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
                   </TableCell>
+
+                  {/* Frequency */}
                   <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {contact.report_frequency}
+                    <Badge variant="outline">
+                      {subscription.report_frequency}
                     </Badge>
                   </TableCell>
+
+                  {/* Send Hour */}
                   <TableCell>
-                    {contact.last_email_sent_at ? (
-                      <div className="text-sm" title={new Date(contact.last_email_sent_at).toLocaleString('en-AU')}>
-                        {formatRelativeTime(contact.last_email_sent_at)}
-                      </div>
+                    {subscription.preferred_send_hour}:00
+                  </TableCell>
+
+                  {/* Alert Threshold */}
+                  <TableCell>
+                    {subscription.alert_threshold_percent}%
+                  </TableCell>
+
+                  {/* Last Sent */}
+                  <TableCell>
+                    {subscription.last_email_sent_at ? (
+                      <span className="text-sm">
+                        {formatRelativeTime(subscription.last_email_sent_at)}
+                      </span>
                     ) : (
                       <span className="text-muted-foreground text-sm">Never</span>
                     )}
                   </TableCell>
+
+                  {/* Status */}
                   <TableCell>
-                    {contact.enabled ? (
-                      <Badge variant="default" className="bg-green-600">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Disabled
-                      </Badge>
-                    )}
+                    <Badge
+                      variant={subscription.enabled ? 'default' : 'secondary'}
+                      className={subscription.enabled ? 'bg-green-100 text-green-800' : ''}
+                    >
+                      {subscription.enabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
                   </TableCell>
+
+                  {/* Actions */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {/* Test Email */}
                       <Button
-                        size="sm"
                         variant="ghost"
-                        onClick={() => handleEdit(contact)}
-                        title="Edit contact"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
                         size="sm"
-                        variant="ghost"
-                        onClick={() => handleTestEmail(contact)}
-                        disabled={sendingTestEmail === contact.id}
-                        title="Send test email now"
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() => handleTestEmail(subscription)}
+                        disabled={sendingTestEmail === subscription.id}
+                        title="Send test email"
                       >
-                        {sendingTestEmail === contact.id ? (
+                        {sendingTestEmail === subscription.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Send className="h-4 w-4" />
                         )}
                       </Button>
+
+                      {/* Toggle Enabled */}
                       <Button
-                        size="sm"
                         variant="ghost"
-                        onClick={() => handleToggleEnabled(contact)}
-                        title={contact.enabled ? 'Disable' : 'Enable'}
+                        size="sm"
+                        onClick={() => handleToggleEnabled(subscription)}
+                        title={subscription.enabled ? 'Disable' : 'Enable'}
                       >
-                        {contact.enabled ? (
-                          <PowerOff className="h-4 w-4 text-orange-600" />
+                        {subscription.enabled ? (
+                          <PowerOff className="h-4 w-4" />
                         ) : (
-                          <Power className="h-4 w-4 text-green-600" />
+                          <Power className="h-4 w-4" />
                         )}
                       </Button>
+
+                      {/* Edit */}
                       <Button
-                        size="sm"
                         variant="ghost"
-                        onClick={() => handleDelete(contact)}
-                        title="Delete contact"
+                        size="sm"
+                        onClick={() => handleEdit(subscription)}
+                        title="Edit subscription"
                       >
-                        <Trash2 className="h-4 w-4 text-red-600" />
+                        <Edit className="h-4 w-4" />
+                      </Button>
+
+                      {/* Delete */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(subscription)}
+                        title="Delete subscription"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </TableCell>
@@ -841,14 +678,200 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
         </Table>
       </div>
 
-      <div className="mt-4 text-sm text-muted-foreground">
-        <p>
-          <strong>Total Contacts:</strong> {contacts.length} |{' '}
-          <strong>Active:</strong> {contacts.filter((c) => c.enabled).length} |{' '}
-          <strong>Daily Reports:</strong>{' '}
-          {contacts.filter((c) => c.enabled && c.report_frequency === 'daily').length}
-        </p>
-      </div>
+      {/* Edit/Create Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingSubscription ? 'Edit Subscription' : 'New Subscription'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingSubscription
+                ? 'Update subscription settings for this contact-tank pair.'
+                : 'Create a new subscription by selecting a contact and a tank, then configure notification settings.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              {/* Contact Selection (only for new subscriptions) */}
+              {!editingSubscription && (
+                <div className="grid gap-2">
+                  <Label htmlFor="contact">Contact *</Label>
+                  <Select
+                    value={formData.contact_id}
+                    onValueChange={(value) => setFormData({ ...formData, contact_id: value })}
+                  >
+                    <SelectTrigger id="contact">
+                      <SelectValue placeholder="Select a contact..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableContacts.map(contact => (
+                        <SelectItem key={contact.id} value={contact.id}>
+                          {contact.customer_name} - {contact.contact_email}
+                          {contact.contact_name && ` (${contact.contact_name})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Tank Selection (only for new subscriptions) */}
+              {!editingSubscription && (
+                <div className="grid gap-2">
+                  <Label htmlFor="tank">Tank *</Label>
+                  <Select
+                    value={formData.tank_id}
+                    onValueChange={(value) => setFormData({ ...formData, tank_id: value })}
+                  >
+                    <SelectTrigger id="tank">
+                      <SelectValue placeholder="Select a tank..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTanks.map(tank => (
+                        <SelectItem key={tank.id} value={tank.id}>
+                          {tank.customer_name} - {tank.name}
+                          {tank.address && ` (${tank.address})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Show current contact and tank for editing */}
+              {editingSubscription && (
+                <div className="bg-muted p-4 rounded-lg">
+                  <div className="grid gap-2 text-sm">
+                    <div>
+                      <span className="font-medium">Contact:</span>{' '}
+                      {editingSubscription.contact_email}
+                    </div>
+                    <div>
+                      <span className="font-medium">Tank:</span>{' '}
+                      {editingSubscription.tank_name}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Report Frequency */}
+              <div className="grid gap-2">
+                <Label htmlFor="frequency">Report Frequency *</Label>
+                <Select
+                  value={formData.report_frequency}
+                  onValueChange={(value) => setFormData({ ...formData, report_frequency: value })}
+                >
+                  <SelectTrigger id="frequency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly (Mondays)</SelectItem>
+                    <SelectItem value="monthly">Monthly (1st of month)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Preferred Send Hour */}
+              <div className="grid gap-2">
+                <Label htmlFor="send-hour">Send Hour (Perth Time) *</Label>
+                <Select
+                  value={formData.preferred_send_hour.toString()}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, preferred_send_hour: parseInt(value) })
+                  }
+                >
+                  <SelectTrigger id="send-hour">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <SelectItem key={i} value={i.toString()}>
+                        {i.toString().padStart(2, '0')}:00
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Alert Threshold */}
+              <div className="grid gap-2">
+                <Label htmlFor="threshold">Alert Threshold (%) *</Label>
+                <Input
+                  id="threshold"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.alert_threshold_percent}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      alert_threshold_percent: parseInt(e.target.value) || 30
+                    })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Email will highlight tanks below this fuel level
+                </p>
+              </div>
+
+              {/* CC Emails */}
+              <div className="grid gap-2">
+                <Label htmlFor="cc-emails">CC Emails (comma-separated)</Label>
+                <Input
+                  id="cc-emails"
+                  type="text"
+                  placeholder="email1@example.com, email2@example.com"
+                  value={formData.cc_emails}
+                  onChange={(e) => setFormData({ ...formData, cc_emails: e.target.value })}
+                />
+              </div>
+
+              {/* Enabled */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="enabled"
+                  checked={formData.enabled}
+                  onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="enabled" className="cursor-pointer">
+                  Enabled (subscription will send emails)
+                </Label>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  setEditingSubscription(null);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : editingSubscription ? (
+                  'Update Subscription'
+                ) : (
+                  'Create Subscription'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

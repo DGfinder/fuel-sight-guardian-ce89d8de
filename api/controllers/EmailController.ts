@@ -12,6 +12,7 @@ import { ReportGeneratorService } from '../services/ReportGeneratorService.js';
 import { ContactRepository } from '../repositories/ContactRepository.js';
 import { TankRepository } from '../repositories/TankRepository.js';
 import { EmailLogRepository } from '../repositories/EmailLogRepository.js';
+import { SubscriptionRepository } from '../repositories/SubscriptionRepository.js';
 import { ResendEmailProvider } from '../infrastructure/email/ResendEmailProvider.js';
 
 export class EmailController {
@@ -35,6 +36,7 @@ export class EmailController {
     this.contactRepo = new ContactRepository(this.supabase);
     this.tankRepo = new TankRepository(this.supabase);
     const emailLogRepo = new EmailLogRepository(this.supabase);
+    const subscriptionRepo = new SubscriptionRepository(this.supabase);
 
     // Initialize services
     const reportGenerator = new ReportGeneratorService(this.supabase);
@@ -46,13 +48,14 @@ export class EmailController {
     }
     const emailProvider = new ResendEmailProvider(resendApiKey, 3, 1000);
 
-    // Initialize email service
+    // Initialize email service with subscription support
     this.emailService = new EmailService(
       emailProvider,
       this.contactRepo,
       this.tankRepo,
       emailLogRepo,
-      reportGenerator
+      reportGenerator,
+      subscriptionRepo  // New parameter
     );
   }
 
@@ -86,8 +89,8 @@ export class EmailController {
 
       console.log(`[EmailController] Current Perth time: ${perthHour}:${perthMinutes.toString().padStart(2, '0')}`);
 
-      // Delegate to service
-      const result = await this.emailService.sendScheduledReports(perthHour);
+      // Delegate to subscription-based service (V2)
+      const result = await this.emailService.sendScheduledReportsV2(perthHour);
 
       const duration = Date.now() - startTime;
 

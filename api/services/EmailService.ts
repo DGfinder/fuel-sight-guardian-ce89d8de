@@ -9,6 +9,7 @@ import type { ContactRepository, Contact } from '../repositories/ContactReposito
 import type { TankRepository, Tank } from '../repositories/TankRepository.js';
 import type { EmailLogRepository } from '../repositories/EmailLogRepository.js';
 import type { ReportGeneratorService } from './ReportGeneratorService.js';
+import type { SubscriptionRepository, Subscription } from '../repositories/SubscriptionRepository.js';
 
 export interface EmailConfig {
   from_email: string;
@@ -42,7 +43,8 @@ export class EmailService {
     private contactRepo: ContactRepository,
     private tankRepo: TankRepository,
     private emailLogRepo: EmailLogRepository,
-    private reportGenerator: ReportGeneratorService
+    private reportGenerator: ReportGeneratorService,
+    private subscriptionRepo?: SubscriptionRepository  // Optional for backward compatibility
   ) {}
 
   /**
@@ -189,6 +191,242 @@ export class EmailService {
 
       return { id: '', success: false, error: errorMessage };
     }
+  }
+
+  /**
+   * Send scheduled reports for a specific hour (SUBSCRIPTION-BASED)
+   * New implementation that uses the subscription model
+   */
+  async sendScheduledReportsV2(perthHour: number): Promise<SendResult> {
+    if (!this.subscriptionRepo) {
+      throw new Error('SubscriptionRepository not initialized');
+    }
+
+    console.log(`[EmailService] [V2] Sending subscription-based reports for Perth hour: ${perthHour}`);
+
+    // Fetch subscriptions for this hour
+    const subscriptions = await this.subscriptionRepo.findByPreferredHour(perthHour);
+    console.log(`[EmailService] [V2] Found ${subscriptions.length} subscriptions scheduled for hour ${perthHour}`);
+
+    if (subscriptions.length === 0) {
+      return { sent: 0, failed: 0, skipped: 0, errors: [] };
+    }
+
+    // Filter by frequency (daily/weekly/monthly logic)
+    const eligibleSubscriptions = this.filterSubscriptionsByFrequency(subscriptions, new Date());
+    console.log(`[EmailService] [V2] ${eligibleSubscriptions.length} subscriptions eligible after frequency filter`);
+
+    // Get email configuration
+    const config = await this.getEmailConfig();
+
+    // Send emails in batches
+    return this.batchSendSubscriptionEmails(eligibleSubscriptions, config);
+  }
+
+  /**
+   * Send email for a single subscription
+   * Each subscription = one contact + one tank + independent settings
+   */
+  async sendSubscriptionEmail(
+    subscription: Subscription,
+    config: EmailConfig,
+    isTest: boolean = false
+  ): Promise<EmailResult> {
+    console.log(`[EmailService] Sending ${subscription.report_frequency} report to ${subscription.contact_email} for tank ${subscription.tank.name}`);
+
+    // Check idempotency (skip if sent recently, unless it's a test)
+    if (!isTest && subscription.last_email_sent_at) {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const lastSent = new Date(subscription.last_email_sent_at);
+
+      if (lastSent > oneHourAgo) {
+        console.log(`[EmailService] Idempotency check: Subscription email already sent at ${subscription.last_email_sent_at}`);
+        return {
+          id: '',
+          success: false,
+          error: 'Email already sent recently (idempotent skip)',
+        };
+      }
+    }
+
+    // Validate tank
+    if (!subscription.tank) {
+      const error = 'No tank found for subscription';
+      console.error(`[EmailService] ${error}`);
+      return { id: '', success: false, error };
+    }
+
+    try {
+      // Use subscription-level alert threshold for this email
+      const subscriptionConfig = {
+        ...config,
+        low_fuel_threshold: subscription.alert_threshold_percent,
+      };
+
+      // Generate report content (single tank)
+      const { html, text, subject, analytics } = await this.reportGenerator.generate({
+        tanks: [subscription.tank],
+        frequency: subscription.report_frequency,
+        customerName: subscription.customer_name,
+        contactName: subscription.contact_name || undefined,
+        contactEmail: subscription.contact_email,
+        unsubscribeToken: subscription.unsubscribe_token,
+        config: subscriptionConfig,
+        isTest,
+      });
+
+      // Prepare email options
+      const emailOptions: EmailOptions = {
+        from: `${config.from_name} <${config.from_email}>`,
+        to: subscription.contact_email,
+        subject,
+        html,
+        text,
+        replyTo: config.reply_to,
+        tags: [
+          { name: 'type', value: `${subscription.report_frequency}_report` },
+          { name: 'customer', value: this.sanitizeTag(subscription.customer_name) },
+          { name: 'test', value: isTest ? 'true' : 'false' },
+          { name: 'subscription_id', value: subscription.subscription_id },
+        ],
+      };
+
+      // Add CC if specified (subscription-level CC)
+      if (subscription.cc_emails) {
+        emailOptions.cc = subscription.cc_emails.split(',').map(e => e.trim()).filter(e => e);
+      }
+
+      // Send with retry logic
+      const result = await this.emailProvider.send(emailOptions);
+
+      // Log the result
+      await this.emailLogRepo.create({
+        customer_contact_id: subscription.contact_id,
+        customer_name: subscription.customer_name,
+        recipient_email: subscription.contact_email,
+        cc_recipients: subscription.cc_emails,
+        email_type: isTest ? 'test_email' : `${subscription.report_frequency}_report`,
+        email_subject: subject,
+        sent_at: new Date(),
+        delivery_status: result.success ? 'sent' : 'failed',
+        external_email_id: result.id || null,
+        error_message: result.error || null,
+        locations_count: 1,  // Always 1 for subscriptions
+        low_fuel_alerts: analytics?.lowFuelCount || null,
+        critical_alerts: analytics?.criticalCount || null,
+      });
+
+      // Update subscription last sent timestamp if successful
+      if (result.success && !isTest && this.subscriptionRepo) {
+        await this.subscriptionRepo.updateLastEmailSent(subscription.subscription_id, new Date());
+      }
+
+      console.log(
+        `[EmailService] Subscription email ${result.success ? 'sent successfully' : 'failed'} - ID: ${result.id}`
+      );
+
+      return result;
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      console.error(`[EmailService] Error sending subscription email:`, errorMessage);
+
+      // Log the failure
+      await this.emailLogRepo.create({
+        customer_contact_id: subscription.contact_id,
+        customer_name: subscription.customer_name,
+        recipient_email: subscription.contact_email,
+        cc_recipients: subscription.cc_emails,
+        email_type: isTest ? 'test_email' : `${subscription.report_frequency}_report`,
+        email_subject: `Failed: ${subscription.report_frequency} report`,
+        sent_at: new Date(),
+        delivery_status: 'failed',
+        error_message: errorMessage,
+        locations_count: 1,
+      });
+
+      return { id: '', success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Send subscription emails in batches with delay between batches
+   */
+  private async batchSendSubscriptionEmails(
+    subscriptions: Subscription[],
+    config: EmailConfig,
+    batchSize: number = 50,
+    delayMs: number = 2000
+  ): Promise<SendResult> {
+    const result: SendResult = {
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+      errors: [],
+    };
+
+    // Process in batches
+    for (let i = 0; i < subscriptions.length; i += batchSize) {
+      const batch = subscriptions.slice(i, i + batchSize);
+      console.log(`[EmailService] [V2] Processing batch ${Math.floor(i / batchSize) + 1} (${batch.length} subscriptions)`);
+
+      // Process batch
+      for (const subscription of batch) {
+        try {
+          // Send email for this subscription
+          const emailResult = await this.sendSubscriptionEmail(subscription, config);
+
+          if (emailResult.success) {
+            result.sent++;
+          } else {
+            if (emailResult.error?.includes('idempotent')) {
+              result.skipped++;
+            } else {
+              result.failed++;
+              result.errors.push(`${subscription.customer_name} - ${subscription.tank.name}: ${emailResult.error}`);
+            }
+          }
+        } catch (error) {
+          const errorMessage = (error as Error).message;
+          console.error(`[EmailService] [V2] Error processing subscription ${subscription.subscription_id}:`, errorMessage);
+          result.failed++;
+          result.errors.push(`${subscription.customer_name} - ${subscription.tank.name}: ${errorMessage}`);
+        }
+      }
+
+      // Delay between batches (except after last batch)
+      if (i + batchSize < subscriptions.length) {
+        console.log(`[EmailService] [V2] Waiting ${delayMs}ms before next batch...`);
+        await this.sleep(delayMs);
+      }
+    }
+
+    console.log(`[EmailService] [V2] Batch send complete: ${result.sent} sent, ${result.failed} failed, ${result.skipped} skipped`);
+    return result;
+  }
+
+  /**
+   * Filter subscriptions by frequency based on current date
+   */
+  private filterSubscriptionsByFrequency(subscriptions: Subscription[], date: Date): Subscription[] {
+    return subscriptions.filter(subscription => {
+      const frequency = subscription.report_frequency;
+
+      if (frequency === 'daily') {
+        return true; // Always send daily
+      }
+
+      if (frequency === 'weekly') {
+        // Send on Monday (day 1)
+        return date.getDay() === 1;
+      }
+
+      if (frequency === 'monthly') {
+        // Send on 1st of month
+        return date.getDate() === 1;
+      }
+
+      return false;
+    });
   }
 
   /**
