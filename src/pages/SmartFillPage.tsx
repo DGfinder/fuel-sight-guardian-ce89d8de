@@ -1,10 +1,23 @@
+/**
+ * SmartFill Monitoring Page (Modernized)
+ * 5-tab structure: Dashboard | Tanks | Analytics | Customers | Sync Logs
+ * Uses new ta_smartfill_* tables with fallback to legacy tables
+ */
+
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -25,1341 +38,626 @@ import {
 import { Progress } from '@/components/ui/progress';
 import {
   AlertTriangle,
-  RefreshCw,
   Activity,
-  Fuel,
-  MapPin,
+  BarChart3,
+  Building2,
+  CheckCircle,
   Clock,
   Database,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Search,
-  Filter,
   Download,
-  ExternalLink,
   Eye,
-  MoreVertical,
-  Users,
-  Building2,
+  Filter,
+  Fuel,
   Gauge,
-  Timer,
-  Droplets,
-  Plus,
-  ArrowUpDown,
-  ChevronDown,
-  ChevronRight
+  LayoutDashboard,
+  MoreVertical,
+  RefreshCw,
+  Search,
+  Users,
+  XCircle,
+  Zap,
 } from 'lucide-react';
 
+// Import new components
+import {
+  SmartFillDashboard,
+  SmartFillCustomerCard,
+  SmartFillAnalyticsTab,
+  SmartFillSyncBadge,
+} from '@/components/smartfill';
+import SmartFillTankDetailModal from '@/components/SmartFillTankDetailModal';
+
+// Import new analytics hooks
+import {
+  useSmartFillFleetOverview,
+  useSmartFillTanks,
+  useSmartFillCustomerSummaries,
+  useSmartFillSyncLogs,
+  useSmartFillManualSync,
+  formatSmartFillRelativeTime,
+  getSmartFillPercentageColor,
+  getSmartFillPercentageBgColor,
+  SmartFillTank,
+} from '@/hooks/useSmartFillAnalytics';
+
+// Import legacy hooks for backward compatibility
 import {
   useSmartFillLocations,
   useSmartFillSummary,
-  useSmartFillSync,
-  useSmartFillSyncLogs,
-  useSmartFillAPITest,
-  useSmartFillSystemHealth,
   useSmartFillAlertsAndActions,
-  useSmartFillPercentageColor,
   formatSmartFillTimestamp,
-  calculateUllage
 } from '@/hooks/useSmartFillData';
-import SmartFillTankDetailModal from '@/components/SmartFillTankDetailModal';
-import { SmartFillTank, SmartFillLocation } from '@/services/smartfill-api';
 
-const SmartFillPage = () => {
-  const [activeTab, setActiveTab] = useState('locations');
-  const [fullSyncLoading, setFullSyncLoading] = useState(false);
-  const [autoSyncTriggered, setAutoSyncTriggered] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [customerFilter, setCustomerFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('customer');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [selectedTank, setSelectedTank] = useState<(SmartFillTank & { location?: SmartFillLocation; customer_name?: string; unit_number?: string }) | null>(null);
-  const [tankModalOpen, setTankModalOpen] = useState(false);
-  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'table' | 'grouped'>('grouped');
-  const [mobileView, setMobileView] = useState<'cards' | 'table'>('cards');
+import { staggerContainerVariants, fadeUpItemVariants } from '@/lib/motion-variants';
+import { cn } from '@/lib/utils';
 
-  // Data hooks
-  const { data: locations, isLoading, error } = useSmartFillLocations();
-  const summary = useSmartFillSummary();
-  const { data: syncLogs } = useSmartFillSyncLogs(10);
-  const systemHealth = useSmartFillSystemHealth();
-  const { actionItems, lowFuelTanks, staleTanks, errorTanks } = useSmartFillAlertsAndActions();
+// ============================================================================
+// Types
+// ============================================================================
 
-  // Mutation hooks
-  const syncMutation = useSmartFillSync();
-  const apiTestMutation = useSmartFillAPITest();
+interface TankWithLocation extends SmartFillTank {
+  customer_name?: string;
+  location_name?: string;
+}
 
-  // Auto-sync on page load if data is stale (>10 minutes old)
-  useEffect(() => {
-    if (!autoSyncTriggered && !isLoading && !error) {
-      const dataAgeMinutes = systemHealth.dataAge;
-      const isStale = dataAgeMinutes > 10;
+// ============================================================================
+// Tank Table Component
+// ============================================================================
 
-      if (isStale || systemHealth.data.length === 0) {
-        console.log('[SMARTFILL] Auto-syncing data (age: ' + dataAgeMinutes + 'm)');
-        setAutoSyncTriggered(true);
-        handleFullSync();
-      }
-    }
-  }, [isLoading, error, systemHealth.dataAge, autoSyncTriggered]);
-
-  // Get all tanks with location info for filtering and sorting
-  const allTanks = useMemo(() => {
-    if (!locations || !Array.isArray(locations)) return [];
-    
-    return locations.flatMap(location => {
-      if (!Array.isArray(location.tanks)) {
-        console.warn('[SMARTFILL PAGE] Location tanks is not an array:', location.tanks);
-        return [];
-      }
-      return location.tanks.map(tank => ({
-        ...tank,
-        customer_name: location.customer_name,
-        unit_number: location.unit_number,
-        location: location
-      }));
-    });
-  }, [locations]);
-
-  // Get unique customers for filter dropdown
-  const uniqueCustomers = useMemo(() => {
-    return [...new Set(allTanks.map(tank => tank.customer_name))].sort();
-  }, [allTanks]);
-
-  // Filter and sort tanks based on current filters
-  const filteredTanks = useMemo(() => {
-    const filtered = allTanks.filter(tank => {
-      const matchesSearch = !searchTerm || 
-        tank.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tank.unit_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tank.tank_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tank.description?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = statusFilter === 'all' || tank.latest_status === statusFilter;
-      const matchesCustomer = customerFilter === 'all' || tank.customer_name === customerFilter;
-      
-      return matchesSearch && matchesStatus && matchesCustomer;
-    });
-
-    // Sort tanks
-    filtered.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-      
-      switch (sortBy) {
-        case 'customer':
-          aValue = a.customer_name || '';
-          bValue = b.customer_name || '';
-          break;
-        case 'volume':
-          aValue = a.latest_volume_percent || 0;
-          bValue = b.latest_volume_percent || 0;
-          break;
-        case 'updated':
-          aValue = new Date(a.latest_update_time || 0);
-          bValue = new Date(b.latest_update_time || 0);
-          break;
-        case 'capacity':
-          aValue = a.capacity || 0;
-          bValue = b.capacity || 0;
-          break;
-        default:
-          return 0;
-      }
-      
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [allTanks, searchTerm, statusFilter, customerFilter, sortBy, sortOrder]);
-
-  // Group tanks by customer for grouped view
-  const groupedTanks = useMemo(() => {
-    const groups = new Map<string, typeof filteredTanks>();
-    
-    filteredTanks.forEach(tank => {
-      const customerName = tank.customer_name || 'Unknown Customer';
-      if (!groups.has(customerName)) {
-        groups.set(customerName, []);
-      }
-      groups.get(customerName)!.push(tank);
-    });
-
-    // Sort each group's tanks by unit number and tank number
-    groups.forEach((tanks) => {
-      tanks.sort((a, b) => {
-        const aUnit = a.unit_number || '';
-        const bUnit = b.unit_number || '';
-        if (aUnit !== bUnit) return aUnit.localeCompare(bUnit);
-        return (a.tank_number || '').localeCompare(b.tank_number || '');
-      });
-    });
-
-    // Convert to array and sort by customer name
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([customerName, tanks]) => ({ customerName, tanks }));
-  }, [filteredTanks]);
-
-  // Auto-expand all customers when data loads (for better UX in grouped view)
-  useEffect(() => {
-    if (groupedTanks && groupedTanks.length > 0 && expandedCustomers.size === 0) {
-      const allCustomers = new Set(groupedTanks.map(group => group.customerName));
-      setExpandedCustomers(allCustomers);
-    }
-  }, [groupedTanks, expandedCustomers.size]);
-
-  const toggleCustomerExpanded = (customerName: string) => {
-    const newExpanded = new Set(expandedCustomers);
-    if (newExpanded.has(customerName)) {
-      newExpanded.delete(customerName);
-    } else {
-      newExpanded.add(customerName);
-    }
-    setExpandedCustomers(newExpanded);
-  };
-
-  const expandAllCustomers = () => {
-    const allCustomers = new Set(groupedTanks.map(group => group.customerName));
-    setExpandedCustomers(allCustomers);
-  };
-
-  const collapseAllCustomers = () => {
-    setExpandedCustomers(new Set());
-  };
-
-  const handleFilterByLowFuel = () => {
-    setActiveTab('locations');
-    setStatusFilter('all');
-    setCustomerFilter('all');
-    // Filter to show only tanks with < 20% fuel
-    const lowFuelPercentage = 20;
-    // We'll use a combination of search and sort to highlight low fuel tanks
-    setSortBy('volume');
-    setSortOrder('asc'); // Show lowest first
-  };
-
-  const handleResetFilters = () => {
-    setSearchTerm('');
-    setStatusFilter('all');
-    setCustomerFilter('all');
-    setSortBy('customer');
-    setSortOrder('asc');
-  };
-
-  const handleSync = () => {
-    syncMutation.mutate();
-  };
-
-  const handleAPITest = () => {
-    apiTestMutation.mutate();
-  };
-
-  const handleFullSync = async () => {
-    setFullSyncLoading(true);
-    try {
-      const response = await fetch('/api/smartfill-sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('Full sync completed:', result);
-        window.location.reload();
-      } else {
-        console.error('Full sync failed:', result);
-        alert(`Full sync failed: ${result.message || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Full sync error:', error);
-      alert(`Full sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setFullSyncLoading(false);
-    }
-  };
-
-  const handleTankClick = (tank: any) => {
-    setSelectedTank(tank);
-    setTankModalOpen(true);
-  };
-
-  const handleRefreshTank = async (tankId: string) => {
-    // Individual tank refresh would require API endpoint
-    console.log('Refreshing tank:', tankId);
-  };
-
-  const handleExportTank = (tank: any) => {
-    const exportData = {
-      customer: tank.customer_name,
-      unit_number: tank.unit_number,
-      tank_number: tank.tank_number,
-      description: tank.description,
-      capacity: tank.capacity,
-      current_volume: tank.latest_volume,
-      volume_percent: tank.latest_volume_percent,
-      status: tank.latest_status,
-      last_updated: tank.latest_update_time,
-      exported_at: new Date().toISOString()
-    };
-
-    const jsonContent = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smartfill-${tank.unit_number}-${tank.tank_number}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleExportData = () => {
-    const exportData = {
-      summary: {
-        total_customers: summary.totalCustomers,
-        total_locations: summary.totalLocations,
-        total_tanks: summary.totalTanks,
-        average_fill_percentage: summary.averageFillPercentage,
-        low_fuel_count: summary.lowFuelCount,
-        total_capacity: summary.totalCapacity,
-        total_volume: summary.totalVolume
-      },
-      tanks: filteredTanks.map(tank => ({
-        customer: tank.customer_name,
-        unit_number: tank.unit_number,
-        tank_number: tank.tank_number,
-        description: tank.description,
-        capacity: tank.capacity,
-        safe_fill_level: tank.safe_fill_level,
-        current_volume: tank.latest_volume,
-        volume_percent: tank.latest_volume_percent,
-        status: tank.latest_status,
-        last_updated: tank.latest_update_time
-      })),
-      exported_at: new Date().toISOString()
-    };
-
-    const jsonContent = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smartfill-export-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  };
-
-  const StatusBadge = ({ status }: { status: string }) => {
-    const getStatusInfo = (status: string) => {
-      const s = status.toLowerCase();
-      if (s.includes('ok') || s.includes('normal')) return { variant: 'default' as const, icon: CheckCircle, color: 'text-green-600' };
-      if (s.includes('offline')) return { variant: 'secondary' as const, icon: Clock, color: 'text-gray-600' };
-      if (s.includes('error') || s.includes('fail')) return { variant: 'destructive' as const, icon: AlertTriangle, color: 'text-red-600' };
-      return { variant: 'secondary' as const, icon: AlertCircle, color: 'text-gray-600' };
-    };
-
-    const statusInfo = getStatusInfo(status);
-    const Icon = statusInfo.icon;
-
-    return (
-      <Badge variant={statusInfo.variant} className="flex items-center gap-1">
-        <Icon className="w-3 h-3" />
-        {status}
-      </Badge>
-    );
-  };
-
-  const TankMobileCard = ({ tank }: { tank: any }) => {
-    const percentageColor = useSmartFillPercentageColor(tank.latest_volume_percent);
-    
-    return (
-      <Card 
-        className="p-4 hover:shadow-md cursor-pointer transition-all duration-200 border-l-4 border-blue-400"
-        onClick={() => handleTankClick(tank)}
-      >
-        <div className="space-y-3">
-          {/* Header */}
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="font-semibold text-lg text-gray-900">
-                Unit {tank.unit_number} - Tank {tank.tank_number}
-              </h3>
-              <p className="text-sm text-gray-600">{tank.customer_name}</p>
-              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{tank.description}</p>
-            </div>
-            <div className="text-right">
-              <StatusBadge status={tank.latest_status || 'Unknown'} />
-            </div>
-          </div>
-
-          {/* Fuel Level */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Fuel Level</span>
-              <span className={`text-sm font-bold ${percentageColor}`}>
-                {(tank.latest_volume_percent || 0).toFixed(1)}%
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <div 
-                className={`h-3 rounded-full transition-all duration-300 ${
-                  tank.latest_volume_percent < 20 ? 'bg-red-500' : 
-                  tank.latest_volume_percent < 40 ? 'bg-yellow-500' : 'bg-green-500'
-                }`}
-                style={{ width: `${Math.max(0, Math.min(100, tank.latest_volume_percent || 0))}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>{(tank.latest_volume || 0).toLocaleString()} L current</span>
-              <span>{(tank.capacity || 0).toLocaleString()} L capacity</span>
-            </div>
-          </div>
-
-          {/* Additional Info */}
-          <div className="grid grid-cols-2 gap-3 pt-2 border-t text-xs">
-            <div>
-              <span className="text-gray-500">Last Update:</span>
-              <div className="font-medium text-gray-700">
-                {formatSmartFillTimestamp(tank.latest_update_time)}
-              </div>
-            </div>
-            <div>
-              <span className="text-gray-500">Actions:</span>
-              <div className="flex gap-1 mt-1">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-6 px-2 text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleTankClick(tank);
-                  }}
-                >
-                  <Eye className="w-3 h-3 mr-1" />
-                  View
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-6 px-2 text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleExportTank(tank);
-                  }}
-                >
-                  <Download className="w-3 h-3 mr-1" />
-                  Export
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  const FuelLevelBar = ({ percentage, volume }: { percentage: number; volume: number }) => {
-    const colorClass = percentage < 20 ? 'bg-red-500' : percentage < 40 ? 'bg-yellow-500' : 'bg-green-500';
-    const textColorClass = percentage < 20 ? 'text-red-600' : percentage < 40 ? 'text-yellow-600' : 'text-green-600';
-    const glowClass = percentage < 20 ? 'shadow-red-500/50' : percentage < 40 ? 'shadow-yellow-500/50' : 'shadow-green-500/50';
-
-    return (
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <div className="w-24 bg-gray-200 rounded-full h-3 shadow-inner">
-            <div
-              className={`h-3 rounded-full transition-all duration-300 ${colorClass} ${percentage < 20 ? 'shadow-lg ' + glowClass : ''}`}
-              style={{ width: `${Math.max(0, Math.min(100, percentage))}%` }}
-            />
-          </div>
-          <span className={`text-base font-bold ${textColorClass}`}>
-            {percentage.toFixed(1)}%
-          </span>
-        </div>
-        <div className="text-xs text-gray-600 font-medium">
-          {volume.toLocaleString()} L
-        </div>
-      </div>
-    );
-  };
-
+function TankTable({
+  tanks,
+  onTankClick,
+  isLoading,
+}: {
+  tanks: TankWithLocation[];
+  onTankClick: (tank: TankWithLocation) => void;
+  isLoading: boolean;
+}) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-lg">Loading SmartFill data...</span>
+        <span className="ml-2 text-lg">Loading tanks...</span>
       </div>
     );
   }
 
-  if (error) {
+  if (tanks.length === 0) {
     return (
-      <Card className="border-red-200">
-        <CardHeader>
-          <CardTitle className="text-red-600 flex items-center gap-2">
-            <XCircle className="w-5 h-5" />
-            SmartFill System Error
-          </CardTitle>
-          <CardDescription>
-            Failed to load SmartFill data: {error.message}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Button onClick={handleSync} disabled={syncMutation.isPending}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-              Retry Sync
-            </Button>
-            <Button variant="outline" onClick={handleAPITest} disabled={apiTestMutation.isPending}>
-              <Activity className="w-4 h-4 mr-2" />
-              Test API
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-12">
+        <Database className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+        <p className="text-gray-500 font-medium">No tanks found</p>
+        <p className="text-sm text-gray-400">Adjust filters or run a sync</p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
-      {/* Enhanced Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            SmartFill Monitoring
-          </h1>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-gray-600">JSON-RPC API fuel level monitoring</p>
-            {syncLogs && syncLogs.length > 0 && syncLogs[0].sync_status === 'partial' && (
-              <Badge variant="outline" className="text-yellow-700 border-yellow-500 bg-yellow-50">
-                {summary.totalCustomers}/33 synced
-              </Badge>
-            )}
-            {autoSyncTriggered && fullSyncLoading && (
-              <Badge className="bg-green-600 text-white">
-                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                Auto-syncing...
-              </Badge>
-            )}
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-gray-50">
+            <TableHead className="w-[180px]">Customer</TableHead>
+            <TableHead>Unit</TableHead>
+            <TableHead>Tank</TableHead>
+            <TableHead>Description</TableHead>
+            <TableHead className="w-[100px]">Capacity</TableHead>
+            <TableHead className="w-[160px]">Fill Level</TableHead>
+            <TableHead className="w-[100px]">Status</TableHead>
+            <TableHead className="w-[120px]">Last Update</TableHead>
+            <TableHead className="w-[60px]">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tanks.map((tank) => {
+            const fillPercent = tank.current_volume_percent || 0;
+            const fillColor = fillPercent < 20 ? 'bg-red-500' : fillPercent < 40 ? 'bg-yellow-500' : 'bg-green-500';
+
+            return (
+              <TableRow
+                key={tank.id}
+                className="hover:bg-blue-50 cursor-pointer transition-colors"
+                onClick={() => onTankClick(tank)}
+              >
+                <TableCell className="font-medium">{tank.customer_name || 'Unknown'}</TableCell>
+                <TableCell className="font-mono text-sm">{tank.unit_number}</TableCell>
+                <TableCell className="font-mono text-sm">{tank.tank_number}</TableCell>
+                <TableCell className="max-w-[200px] truncate" title={tank.description}>
+                  {tank.description || tank.name}
+                </TableCell>
+                <TableCell>
+                  {tank.capacity ? `${tank.capacity.toLocaleString()} L` : 'N/A'}
+                </TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-20 bg-gray-200 rounded-full h-2.5">
+                        <div
+                          className={cn('h-2.5 rounded-full transition-all', fillColor)}
+                          style={{ width: `${Math.min(100, fillPercent)}%` }}
+                        />
+                      </div>
+                      <span className={cn('text-sm font-bold', getSmartFillPercentageColor(fillPercent))}>
+                        {fillPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {(tank.current_volume || 0).toLocaleString()} L
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      tank.health_status === 'healthy' ? 'default' :
+                      tank.health_status === 'warning' ? 'secondary' : 'destructive'
+                    }
+                    className="text-xs"
+                  >
+                    {tank.current_status || tank.health_status || 'Unknown'}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-sm text-gray-600">
+                  {formatSmartFillRelativeTime(tank.last_reading_at)}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTankClick(tank); }}>
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                        <Download className="w-4 h-4 mr-2" />
+                        Export Data
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Page Component
+// ============================================================================
+
+function SmartFillPage() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [customerFilter, setCustomerFilter] = useState('all');
+  const [selectedTank, setSelectedTank] = useState<any>(null);
+  const [tankModalOpen, setTankModalOpen] = useState(false);
+
+  // Data hooks
+  const { data: overview, isLoading: overviewLoading } = useSmartFillFleetOverview();
+  const { data: tanks, isLoading: tanksLoading } = useSmartFillTanks();
+  const { data: customerSummaries } = useSmartFillCustomerSummaries();
+  const { data: syncLogs } = useSmartFillSyncLogs(20);
+  const syncMutation = useSmartFillManualSync();
+
+  // Legacy hooks for backward compatibility
+  const { data: legacyLocations } = useSmartFillLocations();
+  const legacySummary = useSmartFillSummary();
+
+  // Merge tanks with customer names
+  const tanksWithCustomers = useMemo((): TankWithLocation[] => {
+    if (tanks && tanks.length > 0) {
+      return tanks.map((t) => ({
+        ...t,
+        customer_name: (t as any).customer?.name || 'Unknown',
+        location_name: (t as any).location?.name,
+      }));
+    }
+
+    // Fallback to legacy data
+    if (legacyLocations) {
+      const allTanks: TankWithLocation[] = [];
+      legacyLocations.forEach((loc: any) => {
+        (loc.tanks || []).forEach((tank: any) => {
+          allTanks.push({
+            id: tank.id,
+            location_id: loc.id,
+            customer_id: loc.customer_id,
+            external_guid: tank.tank_guid,
+            unit_number: tank.unit_number,
+            tank_number: tank.tank_number,
+            name: tank.description,
+            description: tank.description,
+            capacity: tank.capacity,
+            safe_fill_level: tank.safe_fill_level,
+            current_volume: tank.latest_volume,
+            current_volume_percent: tank.latest_volume_percent,
+            current_status: tank.latest_status,
+            health_status: (tank.latest_volume_percent || 0) < 20 ? 'critical' :
+                          (tank.latest_volume_percent || 0) < 40 ? 'warning' : 'healthy',
+            last_reading_at: tank.latest_update_time,
+            is_active: true,
+            is_monitored: true,
+            created_at: tank.created_at,
+            updated_at: tank.updated_at,
+            customer_name: loc.customer_name,
+            location_name: loc.description,
+          });
+        });
+      });
+      return allTanks;
+    }
+
+    return [];
+  }, [tanks, legacyLocations]);
+
+  // Get unique customers for filter
+  const uniqueCustomers = useMemo(() => {
+    return [...new Set(tanksWithCustomers.map((t) => t.customer_name))].filter(Boolean).sort();
+  }, [tanksWithCustomers]);
+
+  // Filter tanks
+  const filteredTanks = useMemo(() => {
+    return tanksWithCustomers.filter((tank) => {
+      const matchesSearch =
+        !searchTerm ||
+        tank.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tank.unit_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tank.tank_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tank.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === 'all' ||
+        tank.health_status === statusFilter ||
+        tank.current_status?.toLowerCase().includes(statusFilter.toLowerCase());
+
+      const matchesCustomer = customerFilter === 'all' || tank.customer_name === customerFilter;
+
+      return matchesSearch && matchesStatus && matchesCustomer;
+    });
+  }, [tanksWithCustomers, searchTerm, statusFilter, customerFilter]);
+
+  // Handle tank click
+  const handleTankClick = (tank: TankWithLocation) => {
+    // Convert to legacy format for modal compatibility
+    setSelectedTank({
+      ...tank,
+      latest_volume: tank.current_volume,
+      latest_volume_percent: tank.current_volume_percent,
+      latest_status: tank.current_status,
+      latest_update_time: tank.last_reading_at,
+      location: {
+        customer_name: tank.customer_name,
+        description: tank.location_name,
+        timezone: 'Australia/Perth',
+      },
+    });
+    setTankModalOpen(true);
+  };
+
+  // Calculate summary stats (prefer new data, fallback to legacy)
+  const summary = overview || {
+    total_customers: legacySummary.totalCustomers,
+    total_tanks: legacySummary.totalTanks,
+    avg_fill_percent: legacySummary.averageFillPercentage,
+    critical_tanks: legacySummary.lowFuelCount,
+    warning_tanks: 0,
+    healthy_tanks: legacySummary.totalTanks - legacySummary.lowFuelCount,
+  };
+
+  return (
+    <motion.div
+      variants={staggerContainerVariants}
+      initial="hidden"
+      animate="visible"
+      className="min-h-screen bg-gray-50"
+    >
+      {/* Header */}
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Fuel className="w-7 h-7 text-blue-600" />
+                SmartFill Monitoring
+              </h1>
+              <p className="text-sm text-gray-600 flex items-center gap-2 mt-1">
+                Real-time tank level monitoring via JSON-RPC API
+                <SmartFillSyncBadge
+                  isRunning={syncMutation.isPending}
+                  lastSyncStatus={syncLogs?.[0]?.sync_status}
+                />
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+              >
+                <RefreshCw className={cn('w-4 h-4 mr-2', syncMutation.isPending && 'animate-spin')} />
+                {syncMutation.isPending ? 'Syncing...' : 'Sync Now'}
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleAPITest} 
-            variant="outline"
-            size="sm"
-            disabled={apiTestMutation.isPending}
-          >
-            <Activity className={`w-4 h-4 mr-2 ${apiTestMutation.isPending ? 'animate-spin' : ''}`} />
-            Test API
-          </Button>
-          <Button 
-            onClick={handleSync}
-            variant="outline"
-            size="sm"
-            disabled={syncMutation.isPending}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-            Quick Sync
-          </Button>
-          <Button
-            onClick={handleFullSync}
-            className="bg-green-600 hover:bg-green-700 text-white"
-            size="sm"
-            disabled={fullSyncLoading}
-          >
-            <Database className={`w-4 h-4 mr-2 ${fullSyncLoading ? 'animate-spin' : ''}`} />
-            Full API Sync
-          </Button>
         </div>
       </div>
 
-      {/* Great Southern Fuels - Status Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <Card className={`bg-white ${systemHealth.isHealthy ? 'border-green-600' : 'border-red-600'} border-2 hover:shadow-lg transition-all duration-300`}>
-          <CardContent className="p-4">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <LayoutDashboard className="w-4 h-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="tanks" className="flex items-center gap-2">
+              <Fuel className="w-4 h-4" />
+              <span className="hidden sm:inline">Tanks</span>
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {filteredTanks.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Analytics</span>
+            </TabsTrigger>
+            <TabsTrigger value="customers" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Customers</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              <span className="hidden sm:inline">Sync Logs</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6">
+            <SmartFillDashboard
+              onNavigateToTanks={() => setActiveTab('tanks')}
+              onNavigateToCustomers={() => setActiveTab('customers')}
+            />
+          </TabsContent>
+
+          {/* Tanks Tab */}
+          <TabsContent value="tanks" className="space-y-4">
+            {/* Filters */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col lg:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Search tanks..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="healthy">Healthy</SelectItem>
+                        <SelectItem value="warning">Warning</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={customerFilter} onValueChange={setCustomerFilter}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Customers</SelectItem>
+                        {uniqueCustomers.map((customer) => (
+                          <SelectItem key={customer} value={customer!}>
+                            {customer}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline">
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                  </div>
+                </div>
+                {(searchTerm || statusFilter !== 'all' || customerFilter !== 'all') && (
+                  <p className="text-sm text-gray-500 mt-3">
+                    Showing {filteredTanks.length} of {tanksWithCustomers.length} tanks
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Tank Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Fuel className="w-5 h-5" />
+                  All Tanks ({filteredTanks.length})
+                </CardTitle>
+                <CardDescription>Click any row for detailed information</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TankTable
+                  tanks={filteredTanks}
+                  onTankClick={handleTankClick}
+                  isLoading={tanksLoading && !legacyLocations}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics">
+            <SmartFillAnalyticsTab />
+          </TabsContent>
+
+          {/* Customers Tab */}
+          <TabsContent value="customers" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">API Status</p>
-                <p className={`text-xl font-bold ${systemHealth.isHealthy ? 'text-green-600' : 'text-red-600'}`}>
-                  {systemHealth.apiHealth.status.toUpperCase()}
+                <h2 className="text-xl font-semibold text-gray-900">Customer Fleet Summary</h2>
+                <p className="text-sm text-gray-600">
+                  {customerSummaries?.length || uniqueCustomers.length} customers tracked
                 </p>
               </div>
-              {systemHealth.isHealthy ?
-                <CheckCircle className="w-8 h-8 text-green-600" /> :
-                <XCircle className="w-8 h-8 text-red-600" />
-              }
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Customers</p>
-                <p className="text-xl font-bold text-green-700">{summary.totalCustomers}</p>
+            {customerSummaries && customerSummaries.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {customerSummaries.map((customer) => (
+                  <SmartFillCustomerCard
+                    key={customer.customer_id}
+                    customer={customer}
+                    onClick={() => {
+                      setCustomerFilter(customer.customer_name);
+                      setActiveTab('tanks');
+                    }}
+                  />
+                ))}
               </div>
-              <Users className="w-8 h-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {uniqueCustomers.map((customerName) => {
+                  const customerTanks = tanksWithCustomers.filter(
+                    (t) => t.customer_name === customerName
+                  );
+                  const avgFill =
+                    customerTanks.length > 0
+                      ? customerTanks.reduce((sum, t) => sum + (t.current_volume_percent || 0), 0) /
+                        customerTanks.length
+                      : 0;
+                  const critical = customerTanks.filter(
+                    (t) => (t.current_volume_percent || 0) < 20
+                  ).length;
+                  const warning = customerTanks.filter(
+                    (t) => (t.current_volume_percent || 0) >= 20 && (t.current_volume_percent || 0) < 40
+                  ).length;
 
-        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Locations</p>
-                <p className="text-xl font-bold text-yellow-600">{summary.totalLocations}</p>
+                  return (
+                    <SmartFillCustomerCard
+                      key={customerName}
+                      customer={{
+                        customer_id: customerName!,
+                        customer_name: customerName!,
+                        is_active: true,
+                        sync_enabled: true,
+                        consecutive_failures: 0,
+                        location_count: 1,
+                        tank_count: customerTanks.length,
+                        avg_fill_percent: avgFill,
+                        critical_tanks: critical,
+                        warning_tanks: warning,
+                        healthy_tanks: customerTanks.length - critical - warning,
+                        health_score: Math.round(
+                          ((customerTanks.length - critical - warning) / customerTanks.length) * 100
+                        ),
+                      }}
+                      onClick={() => {
+                        setCustomerFilter(customerName!);
+                        setActiveTab('tanks');
+                      }}
+                    />
+                  );
+                })}
               </div>
-              <Building2 className="w-8 h-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
+            )}
+          </TabsContent>
 
-        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Tanks</p>
-                <p className="text-xl font-bold text-gray-900">{summary.totalTanks}</p>
-              </div>
-              <Fuel className="w-8 h-8 text-gray-700" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg Fill Level</p>
-                <p className="text-xl font-bold text-green-600">{summary.averageFillPercentage}%</p>
-              </div>
-              <Gauge className="w-8 h-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`bg-white ${summary.lowFuelCount > 0 ? 'border-red-600 border-2' : 'border-gray-200 border'} hover:shadow-lg transition-all duration-300 cursor-pointer`}
-          onClick={summary.lowFuelCount > 0 ? handleFilterByLowFuel : handleResetFilters}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Low Fuel Tanks</p>
-                <p className={`text-xl font-bold ${summary.lowFuelCount > 0 ? 'text-red-600' : 'text-green-600'}`}>{summary.lowFuelCount}</p>
-                {summary.lowFuelCount > 0 && (
-                  <p className="text-xs text-red-600 mt-1">Click to view</p>
-                )}
-              </div>
-              {summary.lowFuelCount > 0 ?
-                <AlertTriangle className="w-8 h-8 text-red-600" /> :
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              }
-            </div>
-          </CardContent>
-        </Card>
+          {/* Sync Logs Tab */}
+          <TabsContent value="logs" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="w-5 h-5" />
+                  Synchronization History
+                </CardTitle>
+                <CardDescription>Recent API sync operations</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date/Time</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Customers</TableHead>
+                        <TableHead>Tanks</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Details</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!syncLogs || syncLogs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                            No sync logs found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        syncLogs.map((log) => (
+                          <TableRow key={log.id}>
+                            <TableCell className="text-sm">
+                              {formatSmartFillRelativeTime(log.started_at)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{log.sync_type}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  log.sync_status === 'success'
+                                    ? 'default'
+                                    : log.sync_status === 'partial'
+                                      ? 'secondary'
+                                      : 'destructive'
+                                }
+                              >
+                                {log.sync_status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {log.customers_success}/{log.customers_attempted}
+                            </TableCell>
+                            <TableCell>{log.tanks_processed}</TableCell>
+                            <TableCell>
+                              {log.duration_ms ? `${log.duration_ms}ms` : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-600 max-w-[200px] truncate">
+                              {log.error_message && (
+                                <span className="text-red-600">{log.error_message}</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="locations">Tanks ({filteredTanks.length})</TabsTrigger>
-          <TabsTrigger value="alerts">
-            Alerts {actionItems.length > 0 && <Badge variant="destructive" className="ml-1">{actionItems.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="logs">Sync Logs</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="locations" className="space-y-4">
-          {/* Enhanced Search and Filters */}
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search by customer, unit, tank, or description..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-white"
-                  />
-                </div>
-                
-                <div className="flex flex-wrap gap-3 items-center">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="Ok">Operational</SelectItem>
-                      <SelectItem value="Offline">Offline</SelectItem>
-                      <SelectItem value="Error">Error</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={customerFilter} onValueChange={setCustomerFilter}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Customers</SelectItem>
-                      {uniqueCustomers.map(customer => (
-                        <SelectItem key={customer} value={customer}>{customer}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
-                    const [field, order] = value.split('-');
-                    setSortBy(field);
-                    setSortOrder(order as 'asc' | 'desc');
-                  }}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="customer-asc">Customer A-Z</SelectItem>
-                      <SelectItem value="customer-desc">Customer Z-A</SelectItem>
-                      <SelectItem value="volume-desc">Fuel Level High-Low</SelectItem>
-                      <SelectItem value="volume-asc">Fuel Level Low-High</SelectItem>
-                      <SelectItem value="updated-desc">Recently Updated</SelectItem>
-                      <SelectItem value="capacity-desc">Capacity High-Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* Desktop View Toggle */}
-                  <div className="hidden sm:flex items-center gap-1 border rounded-md p-1">
-                    <Button
-                      variant={viewMode === 'table' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('table')}
-                      className="h-7"
-                    >
-                      <ArrowUpDown className="w-4 h-4 mr-1" />
-                      Table
-                    </Button>
-                    <Button
-                      variant={viewMode === 'grouped' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('grouped')}
-                      className="h-7"
-                    >
-                      <Users className="w-4 h-4 mr-1" />
-                      Grouped
-                    </Button>
-                  </div>
-
-                  {/* Mobile View Toggle */}
-                  <div className="sm:hidden flex items-center gap-1 border rounded-md p-1">
-                    <Button
-                      variant={mobileView === 'cards' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setMobileView('cards')}
-                      className="h-7"
-                    >
-                      <Building2 className="w-4 h-4 mr-1" />
-                      Cards
-                    </Button>
-                    <Button
-                      variant={mobileView === 'table' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setMobileView('table')}
-                      className="h-7"
-                    >
-                      <ArrowUpDown className="w-4 h-4 mr-1" />
-                      Table
-                    </Button>
-                  </div>
-
-                  <Button variant="outline" onClick={handleExportData} size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                </div>
-              </div>
-              
-              {(searchTerm || statusFilter !== 'all' || customerFilter !== 'all') && (
-                <div className="mt-4 text-sm text-gray-600">
-                  Showing {filteredTanks.length} of {allTanks.length} tanks
-                  {searchTerm && ` matching "${searchTerm}"`}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Enhanced Tank Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Fuel className="w-5 h-5" />
-                SmartFill Tanks ({filteredTanks.length})
-              </CardTitle>
-              <CardDescription>
-                Live data from SmartFill JSON-RPC API - Click any tank for detailed information
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {viewMode === 'grouped' && groupedTanks.length > 0 && (
-                <div className="mb-4 p-3 bg-white rounded-lg border-2 border-green-600 flex justify-between items-center">
-                  <div className="text-sm text-gray-700 font-medium">
-                    <Building2 className="w-4 h-4 inline mr-2 text-green-600" />
-                    {groupedTanks.length} Customer Groups • {expandedCustomers.size} Expanded
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={expandAllCustomers}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <ChevronDown className="w-4 h-4 mr-1" />
-                      Expand All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={collapseAllCustomers}
-                      className="border-yellow-500 text-yellow-700 hover:bg-yellow-50"
-                    >
-                      <ChevronRight className="w-4 h-4 mr-1" />
-                      Collapse All
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {viewMode === 'table' ? (
-                <>
-                  {/* Mobile Card View */}
-                  <div className="sm:hidden">
-                    {mobileView === 'cards' ? (
-                      <div className="grid gap-4">
-                        {filteredTanks.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            {locations?.length === 0 ? (
-                              <div className="flex flex-col items-center gap-2">
-                                <Database className="w-12 h-12 text-gray-300" />
-                                <p>No SmartFill data found</p>
-                                <p className="text-sm">Run a full sync to fetch tank data from the API</p>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center gap-2">
-                                <Filter className="w-12 h-12 text-gray-300" />
-                                <p>No tanks match your filters</p>
-                                <p className="text-sm">Try adjusting your search or filter criteria</p>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          filteredTanks.map(tank => (
-                            <TankMobileCard 
-                              key={`${tank.unit_number}-${tank.tank_number}`}
-                              tank={tank}
-                            />
-                          ))
-                        )}
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="min-w-[120px]">Customer</TableHead>
-                              <TableHead>Unit</TableHead>
-                              <TableHead>Tank</TableHead>
-                              <TableHead className="min-w-[100px]">Fuel Level</TableHead>
-                              <TableHead>Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredTanks.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                                  {locations?.length === 0 ? (
-                                    <div className="flex flex-col items-center gap-2">
-                                      <Database className="w-12 h-12 text-gray-300" />
-                                      <p>No SmartFill data found</p>
-                                      <p className="text-sm">Run a full sync to fetch tank data from the API</p>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col items-center gap-2">
-                                      <Filter className="w-12 h-12 text-gray-300" />
-                                      <p>No tanks match your filters</p>
-                                      <p className="text-sm">Try adjusting your search or filter criteria</p>
-                                    </div>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              filteredTanks.map(tank => (
-                                <TableRow 
-                                  key={`${tank.unit_number}-${tank.tank_number}`}
-                                  className="hover:bg-gray-50 cursor-pointer transition-colors"
-                                  onClick={() => handleTankClick(tank)}
-                                >
-                                  <TableCell className="font-medium text-sm">
-                                    {tank.customer_name}
-                                  </TableCell>
-                                  <TableCell className="font-mono text-sm">{tank.unit_number}</TableCell>
-                                  <TableCell className="font-mono text-sm">{tank.tank_number}</TableCell>
-                                  <TableCell>
-                                    <FuelLevelBar 
-                                      percentage={tank.latest_volume_percent || 0} 
-                                      volume={tank.latest_volume || 0}
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <StatusBadge status={tank.latest_status || 'Unknown'} />
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Desktop Table View */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[200px]">Customer</TableHead>
-                          <TableHead>Unit #</TableHead>
-                          <TableHead>Tank #</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="w-[120px]">Capacity</TableHead>
-                          <TableHead className="w-[160px]">Fuel Level</TableHead>
-                          <TableHead className="w-[100px]">Status</TableHead>
-                          <TableHead className="w-[120px]">Last Update</TableHead>
-                          <TableHead className="w-[60px]">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                    {filteredTanks.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                          {locations?.length === 0 ? (
-                            <div className="flex flex-col items-center gap-2">
-                              <Database className="w-12 h-12 text-gray-300" />
-                              <p>No SmartFill data found</p>
-                              <p className="text-sm">Run a full sync to fetch tank data from the API</p>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-2">
-                              <Filter className="w-12 h-12 text-gray-300" />
-                              <p>No tanks match your filters</p>
-                              <p className="text-sm">Try adjusting your search or filter criteria</p>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredTanks.map(tank => (
-                        <TableRow 
-                          key={`${tank.unit_number}-${tank.tank_number}`}
-                          className="hover:bg-gray-50 cursor-pointer transition-colors"
-                          onClick={() => handleTankClick(tank)}
-                        >
-                          <TableCell className="font-medium">{tank.customer_name}</TableCell>
-                          <TableCell className="font-mono text-sm">{tank.unit_number}</TableCell>
-                          <TableCell className="font-mono text-sm">{tank.tank_number}</TableCell>
-                          <TableCell className="max-w-[200px] truncate" title={tank.description}>
-                            {tank.description}
-                          </TableCell>
-                          <TableCell>{tank.capacity ? `${tank.capacity.toLocaleString()} L` : 'N/A'}</TableCell>
-                          <TableCell>
-                            <FuelLevelBar 
-                              percentage={tank.latest_volume_percent || 0} 
-                              volume={tank.latest_volume || 0}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={tank.latest_status || 'Unknown'} />
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">
-                            <div className="flex flex-col">
-                              <span>{formatSmartFillTimestamp(tank.latest_update_time)}</span>
-                              <span className="text-xs text-gray-500">{tank.latest_update_time?.split(' ')[0]}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Tank Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTankClick(tank);
-                                }}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRefreshTank(tank.id);
-                                }}>
-                                  <RefreshCw className="w-4 h-4 mr-2" />
-                                  Refresh Data
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleExportTank(tank);
-                                }}>
-                                  <Download className="w-4 h-4 mr-2" />
-                                  Export Tank Data
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                    </Table>
-                  </div>
-                </>
-              ) : (
-                /* Grouped View */
-                <div className="space-y-4">
-                  {groupedTanks.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      {locations?.length === 0 ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <Database className="w-12 h-12 text-gray-300" />
-                          <p>No SmartFill data found</p>
-                          <p className="text-sm">Run a full sync to fetch tank data from the API</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <Filter className="w-12 h-12 text-gray-300" />
-                          <p>No tanks match your filters</p>
-                          <p className="text-sm">Try adjusting your search or filter criteria</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    groupedTanks.map(({ customerName, tanks }) => {
-                      const avgFuelLevel = (tanks.reduce((sum, tank) => sum + (tank.latest_volume_percent || 0), 0)) / tanks.length;
-                      const criticalTanks = tanks.filter(t => (t.latest_volume_percent || 0) < 20).length;
-                      const lowTanks = tanks.filter(t => (t.latest_volume_percent || 0) >= 20 && (t.latest_volume_percent || 0) < 40).length;
-                      const operationalTanks = tanks.filter(t => t.latest_status?.toLowerCase().includes('ok')).length;
-
-                      // GSF Branding: Green (healthy), Gold (warning), Red (critical)
-                      const healthColor = criticalTanks > 0 ? 'border-red-600' : lowTanks > 0 ? 'border-yellow-500' : 'border-green-600';
-
-                      return (
-                        <Card key={customerName} className={`bg-white border-l-4 ${healthColor}`}>
-                          <CardHeader className="pb-3">
-                            <div
-                              className="flex items-center justify-between cursor-pointer group"
-                              onClick={() => toggleCustomerExpanded(customerName)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2">
-                                  {expandedCustomers.has(customerName) ? (
-                                    <ChevronDown className="w-5 h-5 text-blue-600" />
-                                  ) : (
-                                    <ChevronRight className="w-5 h-5 text-blue-600" />
-                                  )}
-                                  <Building2 className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                  <h3 className="font-semibold text-lg group-hover:text-green-600 transition-colors text-gray-900">
-                                    {customerName}
-                                    {criticalTanks > 0 && (
-                                      <Badge className="ml-2 text-xs bg-yellow-500 text-black border-0">
-                                        {criticalTanks} Critical
-                                      </Badge>
-                                    )}
-                                  </h3>
-                                  <p className="text-sm text-gray-600">
-                                    {tanks.length} tank{tanks.length !== 1 ? 's' : ''} •
-                                    Avg: <span className={`font-semibold ${avgFuelLevel < 20 ? 'text-red-600' : avgFuelLevel < 40 ? 'text-yellow-600' : 'text-green-600'}`}>
-                                      {avgFuelLevel.toFixed(1)}%
-                                    </span> fuel level
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <div className="text-right">
-                                  <Badge
-                                    variant="outline"
-                                    className={`${criticalTanks > 0 ? 'bg-white text-red-600 border-red-600' : lowTanks > 0 ? 'bg-white text-yellow-600 border-yellow-500' : 'bg-white text-green-600 border-green-600'}`}
-                                  >
-                                    {criticalTanks > 0 && (
-                                      <AlertTriangle className="w-3 h-3 mr-1" />
-                                    )}
-                                    {tanks.length} tanks
-                                  </Badge>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    {operationalTanks} operational
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </CardHeader>
-                        
-                        {expandedCustomers.has(customerName) && (
-                          <CardContent className="pt-0">
-                            <div className="overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="bg-gray-50">
-                                    <TableHead>Unit #</TableHead>
-                                    <TableHead>Tank #</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="w-[120px]">Capacity</TableHead>
-                                    <TableHead className="w-[160px]">Fuel Level</TableHead>
-                                    <TableHead className="w-[100px]">Status</TableHead>
-                                    <TableHead className="w-[120px]">Last Update</TableHead>
-                                    <TableHead className="w-[60px]">Actions</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {tanks.map(tank => (
-                                    <TableRow 
-                                      key={`${tank.unit_number}-${tank.tank_number}`}
-                                      className="hover:bg-blue-50 cursor-pointer transition-colors"
-                                      onClick={() => handleTankClick(tank)}
-                                    >
-                                      <TableCell className="font-mono text-sm">{tank.unit_number}</TableCell>
-                                      <TableCell className="font-mono text-sm">{tank.tank_number}</TableCell>
-                                      <TableCell className="max-w-[200px] truncate" title={tank.description}>
-                                        {tank.description}
-                                      </TableCell>
-                                      <TableCell>{tank.capacity ? `${tank.capacity.toLocaleString()} L` : 'N/A'}</TableCell>
-                                      <TableCell>
-                                        <FuelLevelBar 
-                                          percentage={tank.latest_volume_percent || 0} 
-                                          volume={tank.latest_volume || 0}
-                                        />
-                                      </TableCell>
-                                      <TableCell>
-                                        <StatusBadge status={tank.latest_status || 'Unknown'} />
-                                      </TableCell>
-                                      <TableCell className="text-sm text-gray-600">
-                                        <div className="flex flex-col">
-                                          <span>{formatSmartFillTimestamp(tank.latest_update_time)}</span>
-                                          <span className="text-xs text-gray-500">{tank.latest_update_time?.split(' ')[0]}</span>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                              <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                          </DropdownMenuTrigger>
-                                          <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Tank Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleTankClick(tank);
-                                            }}>
-                                              <Eye className="w-4 h-4 mr-2" />
-                                              View Details
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleRefreshTank(tank.id);
-                                            }}>
-                                              <RefreshCw className="w-4 h-4 mr-2" />
-                                              Refresh Data
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleExportTank(tank);
-                                            }}>
-                                              <Download className="w-4 h-4 mr-2" />
-                                              Export Tank Data
-                                            </DropdownMenuItem>
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          </CardContent>
-                        )}
-                      </Card>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="alerts" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="border-red-200">
-              <CardContent className="p-4 text-center">
-                <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-red-600">{lowFuelTanks.length}</p>
-                <p className="text-sm text-gray-600">Low Fuel (&lt;20%)</p>
-              </CardContent>
-            </Card>
-            <Card className="border-yellow-200">
-              <CardContent className="p-4 text-center">
-                <Clock className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-yellow-600">{staleTanks.length}</p>
-                <p className="text-sm text-gray-600">Stale Data (&gt;24h)</p>
-              </CardContent>
-            </Card>
-            <Card className="border-orange-200">
-              <CardContent className="p-4 text-center">
-                <AlertCircle className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-orange-600">{errorTanks.length}</p>
-                <p className="text-sm text-gray-600">Error Status</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Action Items</CardTitle>
-              <CardDescription>Tanks and locations requiring attention</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {actionItems.length === 0 ? (
-                <div className="text-center py-8 text-green-600">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-4" />
-                  <p className="font-medium">All systems operational</p>
-                  <p className="text-sm text-gray-600">No action items at this time</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {actionItems.map((item, index) => (
-                    <div 
-                      key={index}
-                      className={`p-3 rounded-lg border-l-4 ${
-                        item.priority === 'high' ? 'border-red-500 bg-red-50' :
-                        item.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                        'border-blue-500 bg-blue-50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        {item.type === 'low_fuel' && <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5" />}
-                        {item.type === 'stale_data' && <Clock className="w-4 h-4 text-yellow-600 mt-0.5" />}
-                        {item.type === 'error' && <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5" />}
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{item.message}</p>
-                          <Badge 
-                            variant={item.priority === 'high' ? 'destructive' : 'secondary'}
-                            className="mt-1 text-xs"
-                          >
-                            {item.priority.toUpperCase()} PRIORITY
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="logs" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sync Logs</CardTitle>
-              <CardDescription>Recent SmartFill API synchronization history</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date/Time</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Locations</TableHead>
-                      <TableHead>Tanks</TableHead>
-                      <TableHead>Duration</TableHead>
-                      <TableHead>Details</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {syncLogs?.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                          No sync logs found
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      syncLogs?.map(log => (
-                        <TableRow key={log.id}>
-                          <TableCell className="text-sm">
-                            {formatSmartFillTimestamp(log.started_at)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{log.sync_type}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={
-                                log.sync_status === 'success' ? 'default' :
-                                log.sync_status === 'partial' ? 'secondary' :
-                                'destructive'
-                              }
-                            >
-                              {log.sync_status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{log.locations_processed || 0}</TableCell>
-                          <TableCell>{log.tanks_processed || 0}</TableCell>
-                          <TableCell className="text-sm">
-                            {log.sync_duration_ms ? `${log.sync_duration_ms}ms` : 'N/A'}
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">
-                            {log.error_message && (
-                              <span className="text-red-600 text-xs">
-                                {log.error_message.substring(0, 50)}...
-                              </span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* SmartFill Tank Detail Modal */}
+      {/* Tank Detail Modal */}
       <SmartFillTankDetailModal
         tank={selectedTank}
         isOpen={tankModalOpen}
@@ -1367,31 +665,31 @@ const SmartFillPage = () => {
           setTankModalOpen(false);
           setSelectedTank(null);
         }}
-        onRefreshTank={handleRefreshTank}
       />
-    </div>
+    </motion.div>
   );
-};
+}
 
-// Wrap with ErrorBoundary for better error handling
+// ============================================================================
+// Error Boundary Wrapper
+// ============================================================================
+
 const SmartFillPageWithErrorBoundary: React.FC = () => (
-  <ErrorBoundary 
+  <ErrorBoundary
     fallback={({ error, resetError }) => (
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-red-800 mb-2">
-            <AlertTriangle className="w-5 h-5" />
-            <h3 className="font-semibold">SmartFill Dashboard Error</h3>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-center gap-2 text-red-800 mb-3">
+            <AlertTriangle className="w-6 h-6" />
+            <h3 className="font-semibold text-lg">SmartFill Dashboard Error</h3>
           </div>
           <p className="text-red-700 mb-4">
-            Failed to load SmartFill tank data. This may be due to API connectivity issues or data processing errors.
+            Failed to load the SmartFill monitoring dashboard. This may be due to API connectivity
+            issues or data processing errors.
           </p>
-          <button 
-            onClick={resetError}
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
-          >
+          <Button onClick={resetError} variant="destructive">
             Retry Loading
-          </button>
+          </Button>
         </div>
       </div>
     )}

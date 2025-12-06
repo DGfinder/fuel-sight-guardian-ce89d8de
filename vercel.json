@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/recalculate-consumption",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/smartfill-sync",
+      "schedule": "30 * * * *"
     }
   ],
   "rewrites": [
