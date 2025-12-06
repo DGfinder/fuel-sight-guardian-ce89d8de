@@ -28,6 +28,8 @@ import {
 import { cn } from '@/lib/utils';
 import { TankConsumptionChart } from '@/components/customer/TankConsumptionChart';
 import { WeatherWidget } from '@/components/customer/WeatherWidget';
+import { RoadRiskAlert } from '@/components/customer/RoadRiskAlert';
+import { useRoadRiskAssessment } from '@/hooks/useRoadRisk';
 
 export default function CustomerTankDetail() {
   const { tankId } = useParams<{ tankId: string }>();
@@ -35,6 +37,16 @@ export default function CustomerTankDetail() {
   const { data: tank, isLoading: tankLoading } = useCustomerTank(tankId);
   const { data: preferences } = useCustomerPreferences();
   const { data: deviceHealth, isLoading: healthLoading } = useDeviceHealth(tankId);
+
+  // Road risk assessment
+  const { data: roadRiskAssessment } = useRoadRiskAssessment(
+    tankId,
+    tank?.lat ?? undefined,
+    tank?.lng ?? undefined,
+    tank?.latest_calibrated_fill_percentage ?? undefined,
+    tank?.asset_daily_consumption ?? undefined,
+    tank?.asset_profile_water_capacity ?? undefined
+  );
 
   if (tankLoading) {
     return (
@@ -183,6 +195,11 @@ export default function CustomerTankDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Road Risk Alert */}
+      {roadRiskAssessment && (
+        <RoadRiskAlert assessment={roadRiskAssessment} tankId={tank.id} />
+      )}
 
       {/* Urgency Alert */}
       {urgency !== 'normal' && urgency !== 'unknown' && (
