@@ -43,9 +43,10 @@ export function useAgriculturalIntelligence(
         ? (tankLevel / 100) * capacityLiters
         : 0;
 
-      // 1. Road risk assessment
+      // 1. Road risk assessment (primarily for MINING operations - Kalgoorlie, Pilbara)
+      // Most farms have sealed/good gravel roads - skip if sealed
       let roadRisk: RoadRiskAssessment | null = null;
-      if (roadProfile && currentLevelLiters && dailyConsumption) {
+      if (roadProfile && roadProfile.accessRoadType !== 'sealed' && currentLevelLiters && dailyConsumption) {
         roadRisk = roadRiskCalculator.assessRisk(
           weather,
           roadProfile,
