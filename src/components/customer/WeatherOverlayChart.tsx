@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 interface WeatherOverlayChartProps {
   consumptionData: Array<{
     date: string;
+    fullDate?: string;
     consumption?: number;
     avgLevel?: number;
   }>;
@@ -35,7 +36,15 @@ export function WeatherOverlayChart({
 }: WeatherOverlayChartProps) {
   // Merge consumption and weather data, converting % to litres
   const mergedData = consumptionData.map((item) => {
-    const weatherItem = weatherData?.find((w) => w.date === item.date);
+    // Match weather by comparing formatted dates or ISO dates
+    const itemDateStr = item.fullDate
+      ? format(new Date(item.fullDate), 'yyyy-MM-dd')
+      : null;
+    const weatherItem = weatherData?.find((w) => {
+      // Weather data comes as ISO date string (yyyy-MM-dd)
+      return w.date === itemDateStr || w.date === item.date;
+    });
+
     // Convert avgLevel (%) to total fleet litres
     const fuelLitres = totalCapacity && item.avgLevel != null
       ? Math.round((item.avgLevel / 100) * totalCapacity)
@@ -47,7 +56,7 @@ export function WeatherOverlayChart({
     };
   });
 
-  const hasData = consumptionData.length > 0 && consumptionData.some((d) => d.avgLevel);
+  const hasData = consumptionData.length > 0 && consumptionData.some((d) => d.avgLevel != null);
   const hasWeatherData = weatherData && weatherData.length > 0;
   const showLitres = totalCapacity && totalCapacity > 0;
 

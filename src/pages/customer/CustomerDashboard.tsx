@@ -19,7 +19,6 @@ import { ForcePasswordChange } from '@/components/customer/ForcePasswordChange';
 import { DashboardWeatherCard } from '@/components/customer/DashboardWeatherCard';
 import { WeatherOverlayChart } from '@/components/customer/WeatherOverlayChart';
 import { FleetKPICards } from '@/components/customer/FleetKPICards';
-import { QuickActionsCard } from '@/components/customer/QuickActionsCard';
 import { DeviceHealthCard } from '@/components/customer/DeviceHealthCard';
 import {
   Fuel,
@@ -160,34 +159,8 @@ export default function CustomerDashboard() {
         </Link>
       </div>
 
-      {/* FUEL-FIRST 3-Column Grid: Fuel KPIs (HERO) + Weather (COMPLEMENTARY) + Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: FUEL KPIs HERO (2 columns on desktop) */}
-        <div className="lg:col-span-2">
-          <FleetKPICards summary={summary} fleetMetrics={fleetMetrics} />
-        </div>
-
-        {/* Right Column: Weather Context + Quick Actions */}
-        <div className="space-y-6">
-          <DashboardWeatherCard
-            lat={weatherLocation.lat}
-            lng={weatherLocation.lng}
-            locationName={weatherLocation.name}
-            isFallbackLocation={weatherLocation.isFallback}
-            tankId={primaryTank?.id}
-            tankLevel={primaryTank?.latest_calibrated_fill_percentage}
-            dailyConsumption={primaryTank?.daily_consumption}
-            capacityLiters={primaryTank?.capacity_liters}
-            roadProfile={primaryTank?.road_risk_profile}
-          />
-
-          <QuickActionsCard
-            criticalTanks={summary.criticalTanks}
-            lowFuelTanks={summary.lowFuelTanks}
-            hasOperationsIntelligence={!!weather}
-          />
-        </div>
-      </div>
+      {/* KPI Cards Row - Full Width */}
+      <FleetKPICards summary={summary} fleetMetrics={fleetMetrics} />
 
       {/* Critical Alert Banner */}
       {summary.criticalTanks > 0 && (
@@ -214,9 +187,9 @@ export default function CustomerDashboard() {
         </div>
       )}
 
-      {/* 7-Day Consumption Chart with Weather Overlay (FUEL PRIMARY, WEATHER COMPLEMENTARY) */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* 7-Day Fleet Consumption Chart */}
+      {/* Chart + Weather + Device Health Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* 7-Day Fleet Consumption Chart - 2 columns */}
         <div className="lg:col-span-2">
           <WeatherOverlayChart
             consumptionData={fleetConsumption || []}
@@ -225,15 +198,28 @@ export default function CustomerDashboard() {
               rainfall: weather.daily.rain_sum[i],
             }))}
             totalCapacity={fleetMetrics?.totalCapacity}
-            height={300}
+            height={280}
           />
         </div>
 
-        {/* AgBot Health - Adaptive rendering based on tank count */}
-        <DeviceHealthCard
-          devices={fleetHealth || []}
-          isLoading={healthLoading}
-        />
+        {/* Weather + Device Health stacked in 1 column */}
+        <div className="space-y-4">
+          <DashboardWeatherCard
+            lat={weatherLocation.lat}
+            lng={weatherLocation.lng}
+            locationName={weatherLocation.name}
+            isFallbackLocation={weatherLocation.isFallback}
+            tankId={primaryTank?.id}
+            tankLevel={primaryTank?.latest_calibrated_fill_percentage}
+            dailyConsumption={primaryTank?.daily_consumption}
+            capacityLiters={primaryTank?.capacity_liters}
+            roadProfile={primaryTank?.road_risk_profile}
+          />
+          <DeviceHealthCard
+            devices={fleetHealth || []}
+            isLoading={healthLoading}
+          />
+        </div>
       </div>
 
       {/* Main Content Grid */}
