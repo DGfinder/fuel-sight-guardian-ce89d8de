@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { MapPin, Eye, Clock, Activity, Building2, AlertTriangle, Fuel } from 'lucide-react';
 import { MapItem } from '@/hooks/useMapData';
 import { formatSmartFillTimestamp } from '@/hooks/useSmartFillData';
+import { PopupWeatherSection } from '@/components/map/PopupWeatherSection';
 
 interface SmartFillMapPopupProps {
   smartfill: MapItem;
@@ -168,6 +169,9 @@ export const SmartFillMapPopup: React.FC<SmartFillMapPopupProps> = ({ smartfill,
           </span>
         </div>
       )}
+
+      {/* Weather Section */}
+      <PopupWeatherSection lat={smartfill.latitude} lng={smartfill.longitude} />
 
       {/* Action Button */}
       <Button 

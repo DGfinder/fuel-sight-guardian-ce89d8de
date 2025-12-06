@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { FuelStatusBadge, FuelLevelBar, getFuelStatus } from '@/components/ui/fuel-status';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Eye, Clock, AlertTriangle, TrendingDown, TrendingUp, Minus, Droplets, Timer } from 'lucide-react';
+import { PopupWeatherSection } from '@/components/map/PopupWeatherSection';
 
 interface Tank {
   id: string;
@@ -16,6 +17,8 @@ interface Tank {
   current_level?: number;
   safe_level?: number;
   urgency_status?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface TankMapPopupProps {
@@ -156,6 +159,9 @@ export const TankMapPopup: React.FC<TankMapPopupProps> = ({ tank, onViewDetails 
         <Clock className="h-3 w-3" />
         <span>Last reading: {formatLastReading(tank.latest_dip_date)}</span>
       </div>
+
+      {/* Weather Section */}
+      <PopupWeatherSection lat={tank.latitude} lng={tank.longitude} />
 
       {/* Action Button */}
       <Button
