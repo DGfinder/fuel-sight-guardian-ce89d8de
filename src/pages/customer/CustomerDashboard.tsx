@@ -93,12 +93,13 @@ export default function CustomerDashboard() {
   const fleetMetrics = useMemo(() => {
     if (!tanks?.length) return null;
 
-    const totalCapacity = tanks.reduce((sum, t) => sum + (t.capacity_liters || 0), 0);
+    // Use correct property names from CustomerTank interface
+    const totalCapacity = tanks.reduce((sum, t) => sum + (t.asset_profile_water_capacity || 0), 0);
     const currentFuel = tanks.reduce(
-      (sum, t) => sum + ((t.latest_calibrated_fill_percentage || 0) / 100 * (t.capacity_liters || 0)),
+      (sum, t) => sum + ((t.latest_calibrated_fill_percentage || 0) / 100 * (t.asset_profile_water_capacity || 0)),
       0
     );
-    const dailyConsumption = tanks.reduce((sum, t) => sum + (t.daily_consumption || 0), 0);
+    const dailyConsumption = tanks.reduce((sum, t) => sum + (t.asset_daily_consumption || 0), 0);
     const daysToRun = dailyConsumption > 0 ? currentFuel / dailyConsumption : 0;
 
     return {
@@ -161,7 +162,7 @@ export default function CustomerDashboard() {
       </div>
 
       {/* KPI Cards Row - Full Width */}
-      <FleetKPICards summary={summary} fleetMetrics={fleetMetrics} />
+      <FleetKPICards summary={summary} fleetMetrics={fleetMetrics} tankCount={tanks?.length || 0} />
 
       {/* Critical Alert Banner */}
       {summary.criticalTanks > 0 && (

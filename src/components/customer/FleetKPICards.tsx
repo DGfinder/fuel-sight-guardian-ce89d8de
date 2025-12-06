@@ -20,12 +20,15 @@ interface FleetMetrics {
 interface FleetKPICardsProps {
   summary: TankSummary;
   fleetMetrics?: FleetMetrics | null;
+  tankCount?: number;
 }
 
-export function FleetKPICards({ summary, fleetMetrics }: FleetKPICardsProps) {
+export function FleetKPICards({ summary, fleetMetrics, tankCount = 0 }: FleetKPICardsProps) {
+  // For single-tank customers, hide redundant fleet-aggregate cards
+  const isSingleTank = tankCount === 1;
   return (
     <motion.div
-      className="grid grid-cols-1 md:grid-cols-3 gap-4"
+      className={`grid grid-cols-1 gap-4 ${isSingleTank ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}
       initial="hidden"
       animate="visible"
       variants={staggerContainerVariants}
@@ -45,31 +48,35 @@ export function FleetKPICards({ summary, fleetMetrics }: FleetKPICardsProps) {
         }
       />
 
-      {/* Low Fuel Warning */}
-      <KPICard
-        title="Low Fuel Tanks"
-        value={summary.lowFuelTanks}
-        subtitle={summary.lowFuelTanks > 0 ? 'needs attention' : 'all good'}
-        icon={TrendingDown}
-        color={summary.lowFuelTanks > 0 ? 'yellow' : 'gray'}
-        alert={summary.lowFuelTanks > 0}
-        trend={summary.lowFuelTanks > 0 ? 'down' : 'neutral'}
-        trendValue={summary.lowFuelTanks > 0 ? 'Monitor closely' : 'Fleet healthy'}
-      />
+      {/* Low Fuel Warning - hide for single tank (redundant with fuel level color) */}
+      {!isSingleTank && (
+        <KPICard
+          title="Low Fuel Tanks"
+          value={summary.lowFuelTanks}
+          subtitle={summary.lowFuelTanks > 0 ? 'needs attention' : 'all good'}
+          icon={TrendingDown}
+          color={summary.lowFuelTanks > 0 ? 'yellow' : 'gray'}
+          alert={summary.lowFuelTanks > 0}
+          trend={summary.lowFuelTanks > 0 ? 'down' : 'neutral'}
+          trendValue={summary.lowFuelTanks > 0 ? 'Monitor closely' : 'Fleet healthy'}
+        />
+      )}
 
-      {/* Critical Alert */}
-      <KPICard
-        title="Critical Alerts"
-        value={summary.criticalTanks}
-        subtitle={summary.criticalTanks > 0 ? 'urgent action' : 'none'}
-        icon={AlertTriangle}
-        color={summary.criticalTanks > 0 ? 'red' : 'gray'}
-        alert={summary.criticalTanks > 0}
-        trend={summary.criticalTanks > 0 ? 'down' : 'neutral'}
-        trendValue={
-          summary.criticalTanks > 0 ? 'Request delivery now' : 'No emergencies'
-        }
-      />
+      {/* Critical Alert - hide for single tank (redundant with fuel level color) */}
+      {!isSingleTank && (
+        <KPICard
+          title="Critical Alerts"
+          value={summary.criticalTanks}
+          subtitle={summary.criticalTanks > 0 ? 'urgent action' : 'none'}
+          icon={AlertTriangle}
+          color={summary.criticalTanks > 0 ? 'red' : 'gray'}
+          alert={summary.criticalTanks > 0}
+          trend={summary.criticalTanks > 0 ? 'down' : 'neutral'}
+          trendValue={
+            summary.criticalTanks > 0 ? 'Request delivery now' : 'No emergencies'
+          }
+        />
+      )}
 
       {/* NEW: Fleet-wide Fuel Metrics - FUEL FIRST! */}
       {fleetMetrics && (
