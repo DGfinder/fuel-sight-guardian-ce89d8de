@@ -175,9 +175,9 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
             customer_name,
             calibrated_fill_level
           )
-        `)
-        .order('customer_contacts(customer_name)', { ascending: true })
-        .order('ta_agbot_locations(name)', { ascending: true });
+        `);
+        // Note: Cannot use .order() on foreign table columns in PostgREST
+        // Sorting is handled in JavaScript after transformation
 
       if (error) throw error;
 
@@ -208,6 +208,13 @@ export default function CustomerContactsAdmin({ className }: CustomerContactsAdm
           last_email_sent_at: row.last_email_sent_at,
           created_at: row.created_at
         };
+      });
+
+      // Sort by customer name, then tank name (PostgREST doesn't support ordering by foreign table columns)
+      transformedData.sort((a, b) => {
+        const customerCompare = a.customer_name.localeCompare(b.customer_name);
+        if (customerCompare !== 0) return customerCompare;
+        return a.tank_name.localeCompare(b.tank_name);
       });
 
       setSubscriptions(transformedData);
