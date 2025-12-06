@@ -66,6 +66,10 @@ import {
   formatSmartFillTimestamp,
   calculateUllage
 } from '@/hooks/useSmartFillData';
+import {
+  useSmartFillFleetOverview,
+  useSmartFillTanks as useSmartFillAnalyticsTanks,
+} from '@/hooks/useSmartFillAnalytics';
 import SmartFillTankDetailModal from '@/components/SmartFillTankDetailModal';
 import { SmartFillTank, SmartFillLocation } from '@/services/smartfill-api';
 
@@ -90,6 +94,21 @@ const SmartFillPage = () => {
   const { data: syncLogs } = useSmartFillSyncLogs(10);
   const systemHealth = useSmartFillSystemHealth();
   const { actionItems, lowFuelTanks, staleTanks, errorTanks } = useSmartFillAlertsAndActions();
+
+  // Analytics hooks (ta_smartfill_* tables for consumption/days data)
+  const { data: fleetOverview } = useSmartFillFleetOverview();
+  const { data: analyticsTanks } = useSmartFillAnalyticsTanks();
+
+  // Create lookup map for analytics data by external_guid
+  const tankAnalyticsMap = useMemo(() => {
+    const map = new Map<string, typeof analyticsTanks extends (infer T)[] ? T : never>();
+    analyticsTanks?.forEach(tank => {
+      if (tank.external_guid) {
+        map.set(tank.external_guid, tank);
+      }
+    });
+    return map;
+  }, [analyticsTanks]);
 
   // Mutation hooks
   const syncMutation = useSmartFillSync();
@@ -430,6 +449,36 @@ const SmartFillPage = () => {
             </div>
           </div>
 
+          {/* Consumption & Days Info */}
+          {(() => {
+            const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+            const hasAnalytics = analytics?.avg_daily_consumption || analytics?.days_remaining;
+            if (!hasAnalytics) return null;
+            return (
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t text-xs">
+                <div className="text-center">
+                  <span className="text-gray-500 block">Daily Usage</span>
+                  {analytics?.avg_daily_consumption ? (
+                    <div>
+                      <span className="font-semibold">{analytics.avg_daily_consumption.toFixed(0)}L</span>
+                      <span className="text-xs text-gray-500 block">per day</span>
+                    </div>
+                  ) : <span className="text-gray-400">--</span>}
+                </div>
+                <div className="text-center">
+                  <span className="text-gray-500 block">Days Rem.</span>
+                  <DaysRemainingBadge days={analytics?.days_remaining} />
+                </div>
+                <div className="text-center">
+                  <span className="text-gray-500 block">Trend</span>
+                  <div className="flex justify-center">
+                    <TrendIndicator trend={analytics?.consumption_trend} />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Additional Info */}
           <div className="grid grid-cols-2 gap-3 pt-2 border-t text-xs">
             <div>
@@ -441,9 +490,9 @@ const SmartFillPage = () => {
             <div>
               <span className="text-gray-500">Actions:</span>
               <div className="flex gap-1 mt-1">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="h-6 px-2 text-xs"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -453,9 +502,9 @@ const SmartFillPage = () => {
                   <Eye className="w-3 h-3 mr-1" />
                   View
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="h-6 px-2 text-xs"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -498,6 +547,46 @@ const SmartFillPage = () => {
     );
   };
 
+  // Days remaining display with urgency coloring (matches AgBot pattern)
+  const DaysRemainingBadge = ({ days }: { days?: number | null }) => {
+    if (days === null || days === undefined) {
+      return <span className="text-gray-400 text-sm">--</span>;
+    }
+    const urgencyClass = days <= 7
+      ? 'text-red-600'
+      : days <= 30
+      ? 'text-amber-600'
+      : 'text-green-600';
+    return (
+      <span className={`font-semibold text-sm ${urgencyClass}`}>
+        {days} days
+      </span>
+    );
+  };
+
+  // Trend indicator with directional icon
+  const TrendIndicator = ({ trend }: { trend?: string | null }) => {
+    if (trend === 'increasing') {
+      return (
+        <div className="flex items-center gap-1 text-red-500" title="Consumption increasing">
+          <TrendingUp className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (trend === 'decreasing') {
+      return (
+        <div className="flex items-center gap-1 text-green-500" title="Consumption decreasing">
+          <TrendingDown className="w-4 h-4" />
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1 text-gray-400" title="Consumption stable">
+        <Minus className="w-4 h-4" />
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -536,61 +625,101 @@ const SmartFillPage = () => {
   }
 
   return (
-    <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
-      {/* Enhanced Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            SmartFill Monitoring
-          </h1>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-gray-600">JSON-RPC API fuel level monitoring</p>
-            {syncLogs && syncLogs.length > 0 && syncLogs[0].sync_status === 'partial' && (
-              <Badge variant="outline" className="text-yellow-700 border-yellow-500 bg-yellow-50">
-                {summary.totalCustomers}/33 synced
-              </Badge>
-            )}
-            {autoSyncTriggered && fullSyncLoading && (
-              <Badge className="bg-green-600 text-white">
-                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                Auto-syncing...
-              </Badge>
-            )}
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20 py-6 space-y-6">
+        {/* Hero Header Section */}
+        <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-2xl p-6 lg:p-8 text-white shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            {/* Left: Icon + Title */}
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-14 h-14 lg:w-16 lg:h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                  <Droplets className="h-7 w-7 lg:h-8 lg:w-8 text-blue-300" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-400 rounded-full animate-pulse" />
+              </div>
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold">SmartFill Monitoring</h1>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-blue-200 text-sm lg:text-base">JSON-RPC API fuel level monitoring</p>
+                  {syncLogs && syncLogs.length > 0 && syncLogs[0].sync_status === 'partial' && (
+                    <Badge className="bg-yellow-500/20 text-yellow-200 border-yellow-400/30">
+                      {summary.totalCustomers}/33 synced
+                    </Badge>
+                  )}
+                  {autoSyncTriggered && fullSyncLoading && (
+                    <Badge className="bg-green-500/20 text-green-200 border-green-400/30">
+                      <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                      Auto-syncing...
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Action buttons - Glass morphism style */}
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                onClick={handleAPITest}
+                disabled={apiTestMutation.isPending}
+                className="bg-white/10 hover:bg-white/20 text-white/90 backdrop-blur-sm border-white/20"
+              >
+                <Activity className={`w-4 h-4 mr-1 ${apiTestMutation.isPending ? 'animate-spin' : ''}`} />
+                Test API
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSync}
+                disabled={syncMutation.isPending}
+                className="bg-white/10 hover:bg-white/20 text-white/90 backdrop-blur-sm border-white/20"
+              >
+                <RefreshCw className={`w-4 h-4 mr-1 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                Quick Sync
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleFullSync}
+                disabled={fullSyncLoading}
+                className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm border-white/20"
+              >
+                <Database className={`w-4 h-4 mr-1 ${fullSyncLoading ? 'animate-spin' : ''}`} />
+                Full API Sync
+              </Button>
+            </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleAPITest} 
-            variant="outline"
-            size="sm"
-            disabled={apiTestMutation.isPending}
-          >
-            <Activity className={`w-4 h-4 mr-2 ${apiTestMutation.isPending ? 'animate-spin' : ''}`} />
-            Test API
-          </Button>
-          <Button 
-            onClick={handleSync}
-            variant="outline"
-            size="sm"
-            disabled={syncMutation.isPending}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-            Quick Sync
-          </Button>
-          <Button
-            onClick={handleFullSync}
-            className="bg-green-600 hover:bg-green-700 text-white"
-            size="sm"
-            disabled={fullSyncLoading}
-          >
-            <Database className={`w-4 h-4 mr-2 ${fullSyncLoading ? 'animate-spin' : ''}`} />
-            Full API Sync
-          </Button>
+
+      {/* Critical Alert Banner */}
+      {summary.lowFuelCount > 0 && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-2 bg-red-100 rounded-full">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-red-900 text-lg">
+                {summary.lowFuelCount} tank{summary.lowFuelCount > 1 ? 's' : ''} critically low on fuel (&lt;20%)
+              </p>
+              {fleetOverview?.avg_days_remaining && (
+                <p className="text-sm text-red-700 mt-1">
+                  Average {fleetOverview.avg_days_remaining} days remaining across fleet
+                </p>
+              )}
+            </div>
+            <Button
+              variant="destructive"
+              onClick={handleFilterByLowFuel}
+              className="shrink-0"
+            >
+              View Critical Tanks
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Great Southern Fuels - Status Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <Card className={`bg-white ${systemHealth.isHealthy ? 'border-green-600' : 'border-red-600'} border-2 hover:shadow-lg transition-all duration-300`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -949,6 +1078,9 @@ const SmartFillPage = () => {
                           <TableHead>Description</TableHead>
                           <TableHead className="w-[120px]">Capacity</TableHead>
                           <TableHead className="w-[160px]">Fuel Level</TableHead>
+                          <TableHead className="w-[100px]">Daily Usage</TableHead>
+                          <TableHead className="w-[100px]">Days Remaining</TableHead>
+                          <TableHead className="w-[60px]">Trend</TableHead>
                           <TableHead className="w-[100px]">Status</TableHead>
                           <TableHead className="w-[120px]">Last Update</TableHead>
                           <TableHead className="w-[60px]">Actions</TableHead>
@@ -957,7 +1089,7 @@ const SmartFillPage = () => {
                       <TableBody>
                     {filteredTanks.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={12} className="text-center py-8 text-gray-500">
                           {locations?.length === 0 ? (
                             <div className="flex flex-col items-center gap-2">
                               <Database className="w-12 h-12 text-gray-300" />
@@ -988,10 +1120,30 @@ const SmartFillPage = () => {
                           </TableCell>
                           <TableCell>{tank.capacity ? `${tank.capacity.toLocaleString()} L` : 'N/A'}</TableCell>
                           <TableCell>
-                            <FuelLevelBar 
-                              percentage={tank.latest_volume_percent || 0} 
+                            <FuelLevelBar
+                              percentage={tank.latest_volume_percent || 0}
                               volume={tank.latest_volume || 0}
                             />
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {(() => {
+                              const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                              return analytics?.avg_daily_consumption
+                                ? <div className="text-sm"><span className="font-semibold">{analytics.avg_daily_consumption.toFixed(0)}L</span><span className="text-xs text-gray-500 block">per day</span></div>
+                                : <span className="text-gray-400">--</span>;
+                            })()}
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                              return <DaysRemainingBadge days={analytics?.days_remaining} />;
+                            })()}
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                              return <TrendIndicator trend={analytics?.consumption_trend} />;
+                            })()}
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={tank.latest_status || 'Unknown'} />
@@ -1069,6 +1221,22 @@ const SmartFillPage = () => {
                       const lowTanks = tanks.filter(t => (t.latest_volume_percent || 0) >= 20 && (t.latest_volume_percent || 0) < 40).length;
                       const operationalTanks = tanks.filter(t => t.latest_status?.toLowerCase().includes('ok')).length;
 
+                      // Calculate consumption aggregates from analytics data
+                      const groupConsumption = tanks.reduce((sum, tank) => {
+                        const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                        return sum + (analytics?.avg_daily_consumption || 0);
+                      }, 0);
+                      const tanksWithDays = tanks.filter(tank => {
+                        const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                        return analytics?.days_remaining != null;
+                      });
+                      const avgDaysRemaining = tanksWithDays.length > 0
+                        ? Math.round(tanksWithDays.reduce((sum, tank) => {
+                            const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                            return sum + (analytics?.days_remaining || 0);
+                          }, 0) / tanksWithDays.length)
+                        : null;
+
                       // GSF Branding: Green (healthy), Gold (warning), Red (critical)
                       const healthColor = criticalTanks > 0 ? 'border-red-600' : lowTanks > 0 ? 'border-yellow-500' : 'border-green-600';
 
@@ -1101,7 +1269,15 @@ const SmartFillPage = () => {
                                     {tanks.length} tank{tanks.length !== 1 ? 's' : ''} •
                                     Avg: <span className={`font-semibold ${avgFuelLevel < 20 ? 'text-red-600' : avgFuelLevel < 40 ? 'text-yellow-600' : 'text-green-600'}`}>
                                       {avgFuelLevel.toFixed(1)}%
-                                    </span> fuel level
+                                    </span> fuel
+                                    {groupConsumption > 0 && (
+                                      <> • <span className="font-medium text-blue-600">{groupConsumption.toFixed(0)} L/day</span></>
+                                    )}
+                                    {avgDaysRemaining !== null && (
+                                      <> • <span className={`font-semibold ${avgDaysRemaining < 7 ? 'text-red-600' : avgDaysRemaining < 14 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                        ~{avgDaysRemaining}d
+                                      </span> avg</>
+                                    )}
                                   </p>
                                 </div>
                               </div>
@@ -1135,6 +1311,9 @@ const SmartFillPage = () => {
                                     <TableHead>Description</TableHead>
                                     <TableHead className="w-[120px]">Capacity</TableHead>
                                     <TableHead className="w-[160px]">Fuel Level</TableHead>
+                                    <TableHead className="w-[90px]">Daily Usage</TableHead>
+                                    <TableHead className="w-[90px]">Days Rem.</TableHead>
+                                    <TableHead className="w-[50px]">Trend</TableHead>
                                     <TableHead className="w-[100px]">Status</TableHead>
                                     <TableHead className="w-[120px]">Last Update</TableHead>
                                     <TableHead className="w-[60px]">Actions</TableHead>
@@ -1154,10 +1333,30 @@ const SmartFillPage = () => {
                                       </TableCell>
                                       <TableCell>{tank.capacity ? `${tank.capacity.toLocaleString()} L` : 'N/A'}</TableCell>
                                       <TableCell>
-                                        <FuelLevelBar 
-                                          percentage={tank.latest_volume_percent || 0} 
+                                        <FuelLevelBar
+                                          percentage={tank.latest_volume_percent || 0}
                                           volume={tank.latest_volume || 0}
                                         />
+                                      </TableCell>
+                                      <TableCell className="text-sm">
+                                        {(() => {
+                                          const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                                          return analytics?.avg_daily_consumption
+                                            ? <div className="text-sm"><span className="font-semibold">{analytics.avg_daily_consumption.toFixed(0)}L</span><span className="text-xs text-gray-500 block">per day</span></div>
+                                            : <span className="text-gray-400">--</span>;
+                                        })()}
+                                      </TableCell>
+                                      <TableCell>
+                                        {(() => {
+                                          const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                                          return <DaysRemainingBadge days={analytics?.days_remaining} />;
+                                        })()}
+                                      </TableCell>
+                                      <TableCell>
+                                        {(() => {
+                                          const analytics = tankAnalyticsMap.get(`${tank.customer_name}-${tank.unit_number}-${tank.tank_number}`);
+                                          return <TrendIndicator trend={analytics?.consumption_trend} />;
+                                        })()}
                                       </TableCell>
                                       <TableCell>
                                         <StatusBadge status={tank.latest_status || 'Unknown'} />
@@ -1369,6 +1568,7 @@ const SmartFillPage = () => {
         }}
         onRefreshTank={handleRefreshTank}
       />
+      </div>
     </div>
   );
 };
