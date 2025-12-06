@@ -61,6 +61,28 @@ export function DeviceHealthCard({ devices, isLoading }: DeviceHealthCardProps) 
 
   const tankCount = devices.length;
 
+  // No devices: show empty state
+  if (tankCount === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Device Health
+          </CardTitle>
+          <p className="text-sm text-gray-500 mt-1">AgBot monitoring status</p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <WifiOff className="h-10 w-10 text-gray-300 mb-2" />
+            <p className="text-sm text-gray-500">No devices configured</p>
+            <p className="text-xs text-gray-400 mt-1">Tank sensors will appear here</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Single tank: show full telemetry view
   if (tankCount === 1) {
     return <SingleDeviceView device={devices[0]} />;

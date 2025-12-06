@@ -54,18 +54,18 @@ export function WeatherOverlayChart({
   if (!hasData) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">
             <TrendingDown className="h-5 w-5" />
             7-Day Fleet Consumption
           </CardTitle>
-          <p className="text-sm text-gray-500 mt-1">Average fuel levels across all tanks</p>
+          <p className="text-sm text-gray-500 mt-1">Total fuel levels across all tanks</p>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-12 text-gray-500">
-            <TrendingDown className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>No consumption data available</p>
-            <p className="text-sm mt-1">Data will appear once readings are collected</p>
+          <div className="text-center py-6 text-gray-500">
+            <TrendingDown className="h-10 w-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No consumption data available</p>
+            <p className="text-xs mt-1">Data will appear once readings are collected</p>
           </div>
         </CardContent>
       </Card>

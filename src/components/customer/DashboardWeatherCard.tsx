@@ -71,8 +71,8 @@ export function DashboardWeatherCard({
 
   if (isLoading) {
     return (
-      <div className="relative overflow-hidden rounded-2xl backdrop-blur-2xl bg-gradient-to-br from-white/40 via-white/30 to-white/20 dark:from-gray-900/40 dark:via-gray-900/30 dark:to-gray-900/20 border border-white/30 dark:border-gray-700/30 shadow-2xl h-[400px]">
-        <div className="flex items-center justify-center h-full">
+      <div className="relative overflow-hidden rounded-2xl backdrop-blur-2xl bg-gradient-to-br from-white/40 via-white/30 to-white/20 dark:from-gray-900/40 dark:via-gray-900/30 dark:to-gray-900/20 border border-white/30 dark:border-gray-700/30 shadow-2xl p-6">
+        <div className="flex items-center justify-center py-8">
           <LoadingSpinner />
         </div>
       </div>
@@ -81,9 +81,14 @@ export function DashboardWeatherCard({
 
   if (!weather) {
     return (
-      <div className="relative overflow-hidden rounded-2xl backdrop-blur-2xl bg-gradient-to-br from-white/40 via-white/30 to-white/20 dark:from-gray-900/40 dark:via-gray-900/30 dark:to-gray-900/20 border border-white/30 dark:border-gray-700/30 shadow-2xl h-[400px]">
-        <div className="flex items-center justify-center h-full">
-          <p className="text-sm text-gray-500">Weather data unavailable</p>
+      <div className="relative overflow-hidden rounded-2xl backdrop-blur-2xl bg-gradient-to-br from-white/40 via-white/30 to-white/20 dark:from-gray-900/40 dark:via-gray-900/30 dark:to-gray-900/20 border border-white/30 dark:border-gray-700/30 shadow-2xl p-6">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+          Weather & Operations
+        </h3>
+        <div className="flex flex-col items-center justify-center py-6 text-center">
+          <Cloud className="h-10 w-10 text-gray-300 mb-2" />
+          <p className="text-sm text-gray-500">Weather data loading...</p>
+          <p className="text-xs text-gray-400 mt-1">Check your connection</p>
         </div>
       </div>
     );
@@ -132,7 +137,7 @@ export function DashboardWeatherCard({
 
   return (
     <motion.div
-      className="relative overflow-hidden rounded-2xl backdrop-blur-2xl bg-gradient-to-br from-white/40 via-white/30 to-white/20 dark:from-gray-900/40 dark:via-gray-900/30 dark:to-gray-900/20 border border-white/30 dark:border-gray-700/30 shadow-2xl h-[400px]"
+      className="relative overflow-hidden rounded-2xl backdrop-blur-2xl bg-gradient-to-br from-white/40 via-white/30 to-white/20 dark:from-gray-900/40 dark:via-gray-900/30 dark:to-gray-900/20 border border-white/30 dark:border-gray-700/30 shadow-2xl"
       initial="hidden"
       animate="visible"
       variants={staggerContainerVariants}
@@ -143,7 +148,7 @@ export function DashboardWeatherCard({
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 via-transparent to-transparent dark:from-gray-700/10 pointer-events-none" />
 
       {/* Content */}
-      <div className="relative z-10 h-full flex flex-col p-6">
+      <div className="relative z-10 flex flex-col p-6">
         {/* Header */}
         <motion.div variants={fadeUpItemVariants} className="flex items-center justify-between mb-6">
           <div>
@@ -213,7 +218,7 @@ export function DashboardWeatherCard({
         </motion.div>
 
         {/* 7-Day Mini Forecast */}
-        <motion.div variants={fadeUpItemVariants} className="mb-auto">
+        <motion.div variants={fadeUpItemVariants} className="mb-4">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
             7-Day Outlook
           </h4>
