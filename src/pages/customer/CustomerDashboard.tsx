@@ -53,28 +53,8 @@ export default function CustomerDashboard() {
     }
   }, [customerAccount]);
 
-  if (accountLoading || tanksLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  // Show force password change dialog if required
-  if (showPasswordChange) {
-    return (
-      <ForcePasswordChange
-        onComplete={() => {
-          setShowPasswordChange(false);
-          // Reload to fetch updated customer account without force flag
-          window.location.reload();
-        }}
-      />
-    );
-  }
-
   // Calculate primary tank for weather data (COMPLEMENTARY - critical tank or first tank)
+  // IMPORTANT: All hooks must be called before any conditional returns (Rules of Hooks)
   const primaryTank = useMemo(() => {
     if (!tanks?.length) return null;
     // Prioritize critical tanks (<20% fuel), fallback to first tank
@@ -107,6 +87,28 @@ export default function CustomerDashboard() {
       currentFuelLiters: Math.round(currentFuel),
     };
   }, [tanks]);
+
+  // Loading state - after all hooks
+  if (accountLoading || tanksLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // Show force password change dialog if required
+  if (showPasswordChange) {
+    return (
+      <ForcePasswordChange
+        onComplete={() => {
+          setShowPasswordChange(false);
+          // Reload to fetch updated customer account without force flag
+          window.location.reload();
+        }}
+      />
+    );
+  }
 
   // Get tanks sorted by fuel level (lowest first)
   const sortedTanks = [...(tanks || [])].sort(

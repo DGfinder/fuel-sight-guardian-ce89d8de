@@ -64,7 +64,7 @@ SELECT
 
   -- Tank identification (prefer tank_id, fall back to agbot location)
   COALESCE(cta.tank_id, ts.ta_tank_id) as tank_id,
-  COALESCE(t.name, al.name, sf.unit_number) as tank_name,
+  COALESCE(t.name, al.name, sf.name, sf.unit_number) as tank_name,
 
   -- Source type
   COALESCE(
@@ -84,20 +84,20 @@ SELECT
   COALESCE(loc.longitude, al.longitude) as longitude,
 
   -- Tank capacity
-  COALESCE(t.capacity_liters, aa.capacity_liters, sf.tank_size_litres) as capacity_liters,
-  COALESCE(t.safe_level_liters, aa.capacity_liters) as safe_level_liters,
+  COALESCE(t.capacity_liters, aa.capacity_liters, sf.capacity) as capacity_liters,
+  COALESCE(t.safe_level_liters, aa.capacity_liters, sf.safe_fill_level) as safe_level_liters,
 
   -- Current level (from best available source)
   COALESCE(
     aa.current_level_liters,
-    sf.current_litres,
+    sf.current_volume,
     t.current_level_liters
   ) as current_level_liters,
 
   -- Current percentage
   COALESCE(
     aa.current_level_percent,
-    CASE WHEN sf.tank_size_litres > 0 THEN (sf.current_litres / sf.tank_size_litres * 100) END,
+    sf.current_volume_percent,
     CASE WHEN t.capacity_liters > 0 THEN (t.current_level_liters / t.capacity_liters * 100) END
   ) as current_level_percent,
 
@@ -121,7 +121,7 @@ SELECT
   COALESCE(p.name, aa.commodity) as product_type,
 
   -- Customer info
-  COALESCE(al.customer_name, sf.customer_name) as customer_name,
+  COALESCE(al.customer_name, sfc.name) as customer_name,
 
   -- Source-specific IDs for detailed queries
   cta.agbot_location_id,
@@ -143,14 +143,16 @@ LEFT JOIN ta_agbot_locations al ON cta.agbot_location_id = al.id
 LEFT JOIN ta_agbot_assets aa ON aa.location_id = al.id
 
 -- Join SmartFill tables if we have smartfill_tank_id
-LEFT JOIN ta_smartfill_tanks sf ON cta.smartfill_tank_id = sf.id;
+LEFT JOIN ta_smartfill_tanks sf ON cta.smartfill_tank_id = sf.id
+LEFT JOIN ta_smartfill_customers sfc ON sf.customer_id = sfc.id;
 
 -- ============================================================================
 -- STEP 4: RLS Policies for the unified view
 -- ============================================================================
 
 -- Customers can only see their own tanks
-CREATE POLICY IF NOT EXISTS "Customers view own unified tanks" ON customer_tank_access
+DROP POLICY IF EXISTS "Customers view own unified tanks" ON customer_tank_access;
+CREATE POLICY "Customers view own unified tanks" ON customer_tank_access
   FOR SELECT TO authenticated USING (
     customer_account_id IN (
       SELECT id FROM customer_accounts WHERE user_id = auth.uid()
