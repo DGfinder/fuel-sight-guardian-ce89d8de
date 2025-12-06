@@ -49,7 +49,7 @@ BEGIN
   )
   RETURNING id INTO v_customer_account_id;
 
-  -- Assign ALL agbot_locations to this test customer for full testing
+  -- Assign ALL ta_agbot_locations to this test customer for full testing
   INSERT INTO customer_tank_access (
     customer_account_id,
     agbot_location_id,
@@ -61,8 +61,8 @@ BEGIN
     id,
     'request_delivery',  -- Full access including delivery requests
     'Test customer - assigned all tanks for testing'
-  FROM agbot_locations
-  WHERE NOT disabled
+  FROM ta_agbot_locations
+  WHERE NOT is_disabled
   ON CONFLICT (customer_account_id, agbot_location_id) DO NOTHING;
 
   GET DIAGNOSTICS v_tank_count = ROW_COUNT;
