@@ -189,47 +189,44 @@ export default function CustomerDashboard() {
         </div>
       )}
 
-      {/* Chart + Weather + Device Health Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* 7-Day Fleet Consumption Chart - 2 columns */}
-        <div className="lg:col-span-2">
-          <WeatherOverlayChart
-            consumptionData={fleetConsumption || []}
-            weatherData={weather?.daily.time.map((date, i) => ({
-              date,
-              rainfall: weather.daily.rain_sum[i],
-            }))}
-            totalCapacity={fleetMetrics?.totalCapacity}
-            height={280}
-          />
-        </div>
+      {/* 7-Day Chart - Full Width */}
+      <WeatherOverlayChart
+        consumptionData={fleetConsumption || []}
+        weatherData={weather?.daily.time.map((date, i) => ({
+          date,
+          rainfall: weather.daily.rain_sum[i],
+          tempMin: weather.daily.temperature_2m_min[i],
+          tempMax: weather.daily.temperature_2m_max[i],
+        }))}
+        totalCapacity={fleetMetrics?.totalCapacity}
+        height={300}
+      />
 
-        {/* Weather + Device Health stacked in 1 column */}
-        <div className="space-y-4">
-          <DashboardWeatherCard
-            lat={weatherLocation.lat}
-            lng={weatherLocation.lng}
-            locationName={weatherLocation.name}
-            isFallbackLocation={weatherLocation.isFallback}
-            tankId={primaryTank?.id}
-            tankLevel={primaryTank?.latest_calibrated_fill_percentage}
-            dailyConsumption={primaryTank?.daily_consumption}
-            capacityLiters={primaryTank?.capacity_liters}
-            roadProfile={primaryTank?.road_risk_profile}
+      {/* Weather + Device Health + Map - 3 Column Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <DashboardWeatherCard
+          lat={weatherLocation.lat}
+          lng={weatherLocation.lng}
+          locationName={weatherLocation.name}
+          isFallbackLocation={weatherLocation.isFallback}
+          tankId={primaryTank?.id}
+          tankLevel={primaryTank?.latest_calibrated_fill_percentage}
+          dailyConsumption={primaryTank?.asset_daily_consumption}
+          capacityLiters={primaryTank?.asset_profile_water_capacity}
+          roadProfile={primaryTank?.road_risk_profile}
+        />
+        <DeviceHealthCard
+          devices={fleetHealth || []}
+          isLoading={healthLoading}
+        />
+        {/* Map Widget - shows tank location with weather */}
+        {tanks && tanks.length > 0 && (
+          <CustomerMapWidget
+            tanks={tanks}
+            height={220}
+            showTitle={true}
           />
-          <DeviceHealthCard
-            devices={fleetHealth || []}
-            isLoading={healthLoading}
-          />
-          {/* Map Widget - shows tank location with weather */}
-          {tanks && tanks.length > 0 && (
-            <CustomerMapWidget
-              tanks={tanks}
-              height={200}
-              showTitle={true}
-            />
-          )}
-        </div>
+        )}
       </div>
 
       {/* Main Content Grid */}

@@ -32,7 +32,11 @@
       "Bash(head:*)",
       "Bash(npx supabase migration list)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(git commit:*)",
+      "Bash(git reset:*)",
+      "WebFetch(domain:api.open-meteo.com)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

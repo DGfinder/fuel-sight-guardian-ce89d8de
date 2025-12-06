@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingDown, CloudRain } from 'lucide-react';
+import { TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface WeatherOverlayChartProps {
@@ -23,6 +23,8 @@ interface WeatherOverlayChartProps {
   weatherData?: Array<{
     date: string;
     rainfall: number;
+    tempMin?: number;
+    tempMax?: number;
   }>;
   totalCapacity?: number;
   height?: number;
@@ -53,8 +55,13 @@ export function WeatherOverlayChart({
       ...item,
       fuelLitres,
       rainfall: weatherItem?.rainfall || 0,
+      tempMin: weatherItem?.tempMin,
+      tempMax: weatherItem?.tempMax,
     };
   });
+
+  // Check if consumption data exists
+  const hasConsumption = consumptionData.some((d) => d.consumption != null && d.consumption > 0);
 
   const hasData = consumptionData.length > 0 && consumptionData.some((d) => d.avgLevel != null);
   const hasWeatherData = weatherData && weatherData.length > 0;
@@ -66,14 +73,14 @@ export function WeatherOverlayChart({
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">
             <TrendingDown className="h-5 w-5" />
-            7-Day Fleet Consumption
+            7-Day Fuel Overview
           </CardTitle>
-          <p className="text-sm text-gray-500 mt-1">Total fuel levels across all tanks</p>
+          <p className="text-sm text-gray-500 mt-1">Fuel levels and daily usage</p>
         </CardHeader>
         <CardContent>
           <div className="text-center py-6 text-gray-500">
             <TrendingDown className="h-10 w-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No consumption data available</p>
+            <p className="text-sm">No fuel data available</p>
             <p className="text-xs mt-1">Data will appear once readings are collected</p>
           </div>
         </CardContent>
@@ -86,12 +93,11 @@ export function WeatherOverlayChart({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingDown className="h-5 w-5" />
-          7-Day Fleet Consumption
-          {hasWeatherData && <CloudRain className="h-4 w-4 ml-auto text-blue-500" />}
+          7-Day Fuel Overview
         </CardTitle>
         <p className="text-sm text-gray-500 mt-1">
-          {hasWeatherData
-            ? 'Fuel levels and rainfall - see how weather impacts consumption'
+          {hasConsumption
+            ? 'Fuel level and daily consumption'
             : 'Average fuel levels across all tanks'}
         </p>
       </CardHeader>
@@ -103,9 +109,9 @@ export function WeatherOverlayChart({
                 <stop offset="5%" stopColor="#008457" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="#008457" stopOpacity={0} />
               </linearGradient>
-              <linearGradient id="rainGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.2} />
+              <linearGradient id="consumptionGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f97316" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#f97316" stopOpacity={0.4} />
               </linearGradient>
             </defs>
 
@@ -139,18 +145,18 @@ export function WeatherOverlayChart({
               }}
             />
 
-            {/* Right Y-Axis: Rainfall (mm) */}
-            {hasWeatherData && (
+            {/* Right Y-Axis: Daily Consumption (L/day) */}
+            {hasConsumption && (
               <YAxis
-                yAxisId="rain"
+                yAxisId="consumption"
                 orientation="right"
                 tick={{ fill: '#6b7280', fontSize: 12 }}
                 tickLine={{ stroke: '#d1d5db' }}
                 label={{
-                  value: 'Rainfall (mm)',
+                  value: 'Usage (L/day)',
                   angle: 90,
                   position: 'insideRight',
-                  style: { fill: '#3b82f6', fontSize: 12, fontWeight: 600 },
+                  style: { fill: '#f97316', fontSize: 12, fontWeight: 600 },
                 }}
               />
             )}
@@ -171,17 +177,50 @@ export function WeatherOverlayChart({
                   return value;
                 }
               }}
-              formatter={(value: any, name: string) => {
-                if (name === 'fuelLitres' || name === 'avgLevel') {
-                  if (showLitres && name === 'fuelLitres') {
-                    return [`${value?.toLocaleString()}L`, 'Fuel Level'];
-                  }
-                  return [`${value?.toFixed(1)}%`, 'Fuel Level'];
-                }
-                if (name === 'rainfall') {
-                  return [`${value?.toFixed(1)}mm`, 'Rainfall'];
-                }
-                return [value, name];
+              content={({ payload, label }) => {
+                if (!payload || payload.length === 0) return null;
+                const data = payload[0]?.payload;
+                return (
+                  <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-3 shadow-lg">
+                    <p className="font-medium text-gray-900 mb-2">
+                      {(() => {
+                        try {
+                          return format(new Date(label), 'EEEE, MMM d');
+                        } catch {
+                          return label;
+                        }
+                      })()}
+                    </p>
+                    <div className="space-y-1 text-sm">
+                      {data?.fuelLitres != null && (
+                        <p className="flex justify-between gap-4">
+                          <span className="text-gray-600">Fuel Level:</span>
+                          <span className="font-medium text-green-700">{data.fuelLitres.toLocaleString()}L</span>
+                        </p>
+                      )}
+                      {data?.avgLevel != null && !showLitres && (
+                        <p className="flex justify-between gap-4">
+                          <span className="text-gray-600">Fuel Level:</span>
+                          <span className="font-medium text-green-700">{data.avgLevel.toFixed(1)}%</span>
+                        </p>
+                      )}
+                      {data?.consumption != null && data.consumption > 0 && (
+                        <p className="flex justify-between gap-4">
+                          <span className="text-gray-600">Daily Usage:</span>
+                          <span className="font-medium text-orange-600">{Math.round(data.consumption)}L</span>
+                        </p>
+                      )}
+                      {(data?.tempMin != null || data?.tempMax != null) && (
+                        <p className="flex justify-between gap-4">
+                          <span className="text-gray-600">Temperature:</span>
+                          <span className="font-medium text-blue-600">
+                            {data.tempMin != null ? Math.round(data.tempMin) : '--'}° - {data.tempMax != null ? Math.round(data.tempMax) : '--'}°C
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
               }}
             />
 
@@ -191,19 +230,19 @@ export function WeatherOverlayChart({
               }}
               formatter={(value) => {
                 if (value === 'avgLevel' || value === 'fuelLitres') return 'Fuel Level';
-                if (value === 'rainfall') return 'Rainfall';
+                if (value === 'consumption') return 'Daily Usage';
                 return value;
               }}
             />
 
-            {/* Rainfall Bars (Background, translucent) */}
-            {hasWeatherData && (
+            {/* Consumption Bars (Background, translucent) */}
+            {hasConsumption && (
               <Bar
-                yAxisId="rain"
-                dataKey="rainfall"
-                fill="url(#rainGradient)"
+                yAxisId="consumption"
+                dataKey="consumption"
+                fill="url(#consumptionGradient)"
                 radius={[4, 4, 0, 0]}
-                opacity={0.4}
+                opacity={0.7}
               />
             )}
 
@@ -226,18 +265,6 @@ export function WeatherOverlayChart({
           </ComposedChart>
         </ResponsiveContainer>
 
-        {/* Weather Correlation Insight */}
-        {hasWeatherData && (
-          <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-            <p className="text-xs text-blue-700 dark:text-blue-400 flex items-center gap-2">
-              <CloudRain className="h-4 w-4" />
-              <span>
-                <strong>Weather Impact:</strong> Rainfall may delay deliveries or increase operations
-                fuel usage (seeding, harvest). Monitor fuel levels during wet periods.
-              </span>
-            </p>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
