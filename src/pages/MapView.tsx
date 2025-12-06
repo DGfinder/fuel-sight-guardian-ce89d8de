@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { TankMapPopup } from '@/components/TankMapPopup';
 import { AgbotMapPopup } from '@/components/AgbotMapPopup';
-import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route, Signal, Info, ChevronUp, Flame } from 'lucide-react';
+import { Search, X, Eye, MapPin, Fuel, AlertTriangle, Layers, Download, RefreshCw, Navigation, Clock, Ruler, Calendar, Filter, Printer, FileText, Route, Signal, Info, ChevronUp, Flame, CloudRain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -124,6 +124,58 @@ const HeatmapLayer = ({ show, data }: { show: boolean; data: [number, number, nu
   return null;
 };
 
+// Weather Radar layer component using RainViewer (free, no API key)
+// Tiles are pre-rendered and served from CDN - very lightweight
+const RadarLayer = ({ show }: { show: boolean }) => {
+  const map = useMap();
+  const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
+
+  // Fetch latest radar timestamp from RainViewer API
+  useEffect(() => {
+    if (!show) return;
+
+    const fetchRadarTime = async () => {
+      try {
+        const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+        const data = await response.json();
+        // Get the most recent radar frame
+        const latestFrame = data.radar?.past?.[data.radar.past.length - 1];
+        if (latestFrame?.path) {
+          setRadarTimestamp(latestFrame.path);
+        }
+      } catch (error) {
+        console.error('Failed to fetch radar data:', error);
+      }
+    };
+
+    fetchRadarTime();
+    // Refresh radar timestamp every 5 minutes
+    const interval = setInterval(fetchRadarTime, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [show]);
+
+  // Add radar tile layer to map
+  useEffect(() => {
+    if (!show || !radarTimestamp) return;
+
+    // RainViewer tile URL format
+    // Color scheme: 1 = original, 2 = universal blue, 3 = TITAN, 4 = TWC, 5 = Meteored, 6 = NEXRAD, 7 = rainbow, 8 = dark sky
+    const radarTileUrl = `https://tilecache.rainviewer.com${radarTimestamp}/256/{z}/{x}/{y}/2/1_1.png`;
+
+    const radarLayer = L.tileLayer(radarTileUrl, {
+      opacity: 0.6,
+      zIndex: 100,
+      attribution: '<a href="https://www.rainviewer.com/" target="_blank">RainViewer</a>',
+    }).addTo(map);
+
+    return () => {
+      map.removeLayer(radarLayer);
+    };
+  }, [map, show, radarTimestamp]);
+
+  return null;
+};
+
 // Optimized markers component with React.memo
 interface MapMarkersProps {
   items: any[];
@@ -202,6 +254,7 @@ function MapView() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showRadar, setShowRadar] = useState(false);
 
   // Heatmap data (consumption-weighted)
   const heatmapData = useMemo((): [number, number, number][] => {
@@ -524,6 +577,16 @@ function MapView() {
                 >
                   <Flame className={cn("h-4 w-4", showHeatmap && "text-orange-400")} />
                 </Button>
+
+                <Button
+                  variant={showRadar ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowRadar(!showRadar)}
+                  className="h-9 w-9 p-0"
+                  title={showRadar ? "Hide weather radar" : "Show live weather radar"}
+                >
+                  <CloudRain className={cn("h-4 w-4", showRadar && "text-blue-400")} />
+                </Button>
               </div>
             </div>
 
@@ -678,6 +741,9 @@ function MapView() {
 
           {/* Heatmap layer (togglable) */}
           <HeatmapLayer show={showHeatmap} data={heatmapData} />
+
+          {/* Weather radar layer (togglable) - uses RainViewer CDN tiles */}
+          <RadarLayer show={showRadar} />
 
           {/* Only render clusters when we have data (fixes 0,0 bug) */}
           {filteredItems.length > 0 && (
