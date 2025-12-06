@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TankConsumptionChart } from '@/components/customer/TankConsumptionChart';
+import { WeatherWidget } from '@/components/customer/WeatherWidget';
 
 export default function CustomerTankDetail() {
   const { tankId } = useParams<{ tankId: string }>();
@@ -325,6 +326,15 @@ export default function CustomerTankDetail() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Weather Forecast */}
+          {tank.lat && tank.lng && (
+            <WeatherWidget
+              lat={tank.lat}
+              lng={tank.lng}
+              locationName={tank.location_id || tank.address1 || 'Tank Location'}
+            />
           )}
         </div>
       </div>
