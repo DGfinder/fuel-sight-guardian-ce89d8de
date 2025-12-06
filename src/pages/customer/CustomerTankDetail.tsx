@@ -28,8 +28,8 @@ import {
 import { cn } from '@/lib/utils';
 import { TankConsumptionChart } from '@/components/customer/TankConsumptionChart';
 import { WeatherWidget } from '@/components/customer/WeatherWidget';
-import { RoadRiskAlert } from '@/components/customer/RoadRiskAlert';
-import { useRoadRiskAssessment } from '@/hooks/useRoadRisk';
+import { AgIntelligenceDashboard } from '@/components/customer/AgIntelligenceDashboard';
+import { useRoadRiskProfile } from '@/hooks/useRoadRisk';
 
 export default function CustomerTankDetail() {
   const { tankId } = useParams<{ tankId: string }>();
@@ -38,15 +38,8 @@ export default function CustomerTankDetail() {
   const { data: preferences } = useCustomerPreferences();
   const { data: deviceHealth, isLoading: healthLoading } = useDeviceHealth(tankId);
 
-  // Road risk assessment
-  const { data: roadRiskAssessment } = useRoadRiskAssessment(
-    tankId,
-    tank?.lat ?? undefined,
-    tank?.lng ?? undefined,
-    tank?.latest_calibrated_fill_percentage ?? undefined,
-    tank?.asset_daily_consumption ?? undefined,
-    tank?.asset_profile_water_capacity ?? undefined
-  );
+  // Road risk profile for agricultural intelligence
+  const { data: roadProfile } = useRoadRiskProfile(tankId);
 
   if (tankLoading) {
     return (
@@ -196,9 +189,17 @@ export default function CustomerTankDetail() {
         </Card>
       </div>
 
-      {/* Road Risk Alert */}
-      {roadRiskAssessment && (
-        <RoadRiskAlert assessment={roadRiskAssessment} tankId={tank.id} />
+      {/* Agricultural Intelligence Dashboard */}
+      {tank.lat && tank.lng && tank.latest_calibrated_fill_percentage && tank.asset_daily_consumption && tank.asset_profile_water_capacity && (
+        <AgIntelligenceDashboard
+          lat={tank.lat}
+          lng={tank.lng}
+          tankId={tank.id}
+          tankLevel={tank.latest_calibrated_fill_percentage}
+          dailyConsumption={tank.asset_daily_consumption}
+          capacityLiters={tank.asset_profile_water_capacity}
+          roadProfile={roadProfile}
+        />
       )}
 
       {/* Urgency Alert */}
