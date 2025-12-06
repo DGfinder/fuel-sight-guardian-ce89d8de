@@ -35,3 +35,7 @@ EXECUTE_FIXES_LOCALLY.sh
 eventAnalysis*.csv
 *Analysis*.csv
 nul
+
+# Test credentials (contains passwords)
+TEST_CREDENTIALS.md
+*_CREDENTIALS.md
