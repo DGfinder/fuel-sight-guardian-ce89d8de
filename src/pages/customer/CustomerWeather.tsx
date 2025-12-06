@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useCustomerTanks } from '@/hooks/useCustomerAuth';
+import { useCustomerTanks, CustomerTank } from '@/hooks/useCustomerAuth';
+import { CustomerMapWidget } from '@/components/customer/CustomerMapWidget';
 import { useWeatherForecast } from '@/hooks/useWeatherForecast';
 import { useRoadRiskProfile } from '@/hooks/useRoadRisk';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -233,8 +234,19 @@ export default function CustomerWeather() {
         </div>
       ) : weather ? (
         <>
-          {/* Weather Summary KPIs */}
-          <WeatherSummaryKPIs weather={weather} industry={activeIndustry} />
+          {/* Weather Summary KPIs + Map */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-3">
+              <WeatherSummaryKPIs weather={weather} industry={activeIndustry} />
+            </div>
+            <div className="lg:col-span-1">
+              <CustomerMapWidget
+                tanks={tanks || []}
+                height={180}
+                showTitle={true}
+              />
+            </div>
+          </div>
 
           {/* 16-Day Forecast */}
           <ForecastGrid weather={weather} industry={activeIndustry} />

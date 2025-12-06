@@ -20,6 +20,7 @@ import { DashboardWeatherCard } from '@/components/customer/DashboardWeatherCard
 import { WeatherOverlayChart } from '@/components/customer/WeatherOverlayChart';
 import { FleetKPICards } from '@/components/customer/FleetKPICards';
 import { DeviceHealthCard } from '@/components/customer/DeviceHealthCard';
+import { CustomerMapWidget } from '@/components/customer/CustomerMapWidget';
 import {
   Fuel,
   Truck,
@@ -219,6 +220,14 @@ export default function CustomerDashboard() {
             devices={fleetHealth || []}
             isLoading={healthLoading}
           />
+          {/* Map Widget - shows tank location with weather */}
+          {tanks && tanks.length > 0 && (
+            <CustomerMapWidget
+              tanks={tanks}
+              height={200}
+              showTitle={true}
+            />
+          )}
         </div>
       </div>
 
