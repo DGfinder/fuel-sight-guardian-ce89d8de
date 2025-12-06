@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Settings,
   Activity,
+  CloudSun,
 } from 'lucide-react';
 
 interface CustomerSidebarProps {
@@ -29,6 +30,7 @@ const navItems = [
   { path: '/customer', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { path: '/customer/tanks', label: 'My Tanks', icon: Fuel },
   { path: '/customer/health', label: 'Device Health', icon: Activity },
+  { path: '/customer/weather', label: 'Weather Intelligence', icon: CloudSun },
   { path: '/customer/calendar', label: 'Refill Calendar', icon: CalendarDays },
   { path: '/customer/request', label: 'Request Delivery', icon: Truck },
   { path: '/customer/history', label: 'Delivery History', icon: History },

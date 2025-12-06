@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useFleetHealth } from '@/hooks/useCustomerAnalytics';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { KPICard } from '@/components/ui/KPICard';
 import { DeviceHealthTable } from '@/components/customer/DeviceHealthTable';
 import {
   Activity,
@@ -9,7 +11,7 @@ import {
   AlertCircle,
   WifiOff,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { staggerContainerVariants, fadeUpItemVariants } from '@/lib/motion-variants';
 
 type HealthStatus = 'good' | 'warning' | 'critical' | 'offline';
 
@@ -56,115 +58,90 @@ export default function DeviceHealth() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <HealthSummaryCard
-          label="All Devices"
-          count={healthCounts.all}
-          active={filterStatus === 'all'}
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-5 gap-4"
+        initial="hidden"
+        animate="visible"
+        variants={staggerContainerVariants}
+      >
+        <motion.div
+          variants={fadeUpItemVariants}
           onClick={() => setFilterStatus('all')}
-          color="gray"
-          icon={Activity}
-        />
-        <HealthSummaryCard
-          label="Excellent"
-          count={healthCounts.good}
-          active={filterStatus === 'good'}
-          onClick={() => setFilterStatus('good')}
-          color="green"
-          icon={CheckCircle}
-        />
-        <HealthSummaryCard
-          label="Warning"
-          count={healthCounts.warning}
-          active={filterStatus === 'warning'}
-          onClick={() => setFilterStatus('warning')}
-          color="yellow"
-          icon={AlertTriangle}
-        />
-        <HealthSummaryCard
-          label="Critical"
-          count={healthCounts.critical}
-          active={filterStatus === 'critical'}
-          onClick={() => setFilterStatus('critical')}
-          color="red"
-          icon={AlertCircle}
-        />
-        <HealthSummaryCard
-          label="Offline"
-          count={healthCounts.offline}
-          active={filterStatus === 'offline'}
-          onClick={() => setFilterStatus('offline')}
-          color="gray"
-          icon={WifiOff}
-        />
-      </div>
+          className="cursor-pointer"
+        >
+          <KPICard
+            title="All Devices"
+            value={healthCounts.all}
+            icon={Activity}
+            color="blue"
+            trend="neutral"
+            alert={filterStatus === 'all'}
+          />
+        </motion.div>
+        <motion.div
+          variants={fadeUpItemVariants}
+          onClick={() => setFilterStatus(filterStatus === 'good' ? 'all' : 'good')}
+          className="cursor-pointer"
+        >
+          <KPICard
+            title="Excellent"
+            value={healthCounts.good}
+            icon={CheckCircle}
+            color="green"
+            trend={healthCounts.good === healthCounts.all ? 'neutral' : 'neutral'}
+            trendValue={healthCounts.good === healthCounts.all ? 'All healthy' : 'Healthy devices'}
+            alert={filterStatus === 'good'}
+          />
+        </motion.div>
+        <motion.div
+          variants={fadeUpItemVariants}
+          onClick={() => setFilterStatus(filterStatus === 'warning' ? 'all' : 'warning')}
+          className="cursor-pointer"
+        >
+          <KPICard
+            title="Warning"
+            value={healthCounts.warning}
+            icon={AlertTriangle}
+            color="yellow"
+            trend={healthCounts.warning > 0 ? 'down' : 'neutral'}
+            trendValue={healthCounts.warning > 0 ? 'Needs attention' : 'No warnings'}
+            alert={filterStatus === 'warning' || healthCounts.warning > 0}
+          />
+        </motion.div>
+        <motion.div
+          variants={fadeUpItemVariants}
+          onClick={() => setFilterStatus(filterStatus === 'critical' ? 'all' : 'critical')}
+          className="cursor-pointer"
+        >
+          <KPICard
+            title="Critical"
+            value={healthCounts.critical}
+            icon={AlertCircle}
+            color="red"
+            trend={healthCounts.critical > 0 ? 'down' : 'neutral'}
+            trendValue={healthCounts.critical > 0 ? 'Urgent action required' : 'No critical issues'}
+            alert={filterStatus === 'critical' || healthCounts.critical > 0}
+          />
+        </motion.div>
+        <motion.div
+          variants={fadeUpItemVariants}
+          onClick={() => setFilterStatus(filterStatus === 'offline' ? 'all' : 'offline')}
+          className="cursor-pointer"
+        >
+          <KPICard
+            title="Offline"
+            value={healthCounts.offline}
+            icon={WifiOff}
+            color="gray"
+            trend={healthCounts.offline > 0 ? 'down' : 'neutral'}
+            trendValue={healthCounts.offline > 0 ? 'Not reporting' : 'All connected'}
+            alert={filterStatus === 'offline' || healthCounts.offline > 0}
+          />
+        </motion.div>
+      </motion.div>
 
       {/* Device Health Table */}
       <DeviceHealthTable filterStatus={filterStatus} />
     </div>
-  );
-}
-
-// Health Summary Card
-function HealthSummaryCard({
-  label,
-  count,
-  active,
-  onClick,
-  color,
-  icon: Icon,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-  color: 'gray' | 'green' | 'yellow' | 'red';
-  icon: React.ElementType;
-}) {
-  const colorClasses = {
-    gray: {
-      bg: 'bg-gray-50 dark:bg-gray-800',
-      text: 'text-gray-600 dark:text-gray-400',
-      border: 'border-gray-300 dark:border-gray-600',
-      activeBg: 'bg-gray-100 dark:bg-gray-700',
-    },
-    green: {
-      bg: 'bg-green-50 dark:bg-green-900/20',
-      text: 'text-green-600 dark:text-green-400',
-      border: 'border-green-300 dark:border-green-600',
-      activeBg: 'bg-green-100 dark:bg-green-900/40',
-    },
-    yellow: {
-      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-      text: 'text-yellow-600 dark:text-yellow-400',
-      border: 'border-yellow-300 dark:border-yellow-600',
-      activeBg: 'bg-yellow-100 dark:bg-yellow-900/40',
-    },
-    red: {
-      bg: 'bg-red-50 dark:bg-red-900/20',
-      text: 'text-red-600 dark:text-red-400',
-      border: 'border-red-300 dark:border-red-600',
-      activeBg: 'bg-red-100 dark:bg-red-900/40',
-    },
-  };
-
-  const colors = colorClasses[color];
-
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'p-4 rounded-lg border-2 transition-all text-left',
-        active ? `${colors.activeBg} ${colors.border} shadow-sm` : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800'
-      )}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className={cn('p-2 rounded-lg', colors.bg)}>
-          <Icon className={cn('h-4 w-4', colors.text)} />
-        </div>
-        <span className="text-2xl font-bold">{count}</span>
-      </div>
-      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{label}</p>
-    </button>
   );
 }

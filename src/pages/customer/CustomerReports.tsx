@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,9 +21,11 @@ import {
 } from '@/components/ui/table';
 import { useCustomerTanks, useCustomerAccount } from '@/hooks/useCustomerAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Download, FileText, Calendar, BarChart3 } from 'lucide-react';
+import { KPICard } from '@/components/ui/KPICard';
+import { Download, FileText, BarChart3, Fuel, Wifi, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { staggerContainerVariants, fadeUpItemVariants } from '@/lib/motion-variants';
 
 export default function CustomerReports() {
   const { data: customerAccount } = useCustomerAccount();
@@ -300,55 +303,59 @@ export default function CustomerReports() {
 
       {/* Summary Stats */}
       {reportTanks.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Summary Statistics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <SummaryItem
-                label="Total Tanks"
-                value={reportTanks.length.toString()}
-              />
-              <SummaryItem
-                label="Average Level"
-                value={`${(
-                  reportTanks.reduce(
-                    (sum, t) => sum + (t.latest_calibrated_fill_percentage || 0),
-                    0
-                  ) / reportTanks.length
-                ).toFixed(1)}%`}
-              />
-              <SummaryItem
-                label="Online Devices"
-                value={`${reportTanks.filter((t) => t.device_online).length}/${reportTanks.length}`}
-              />
-              <SummaryItem
-                label="Avg Days Remaining"
-                value={
-                  reportTanks.some((t) => t.asset_days_remaining)
-                    ? `${Math.round(
-                        reportTanks
-                          .filter((t) => t.asset_days_remaining)
-                          .reduce((sum, t) => sum + (t.asset_days_remaining || 0), 0) /
-                          reportTanks.filter((t) => t.asset_days_remaining).length
-                      )} days`
-                    : 'N/A'
-                }
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <motion.div
+          className="grid grid-cols-2 md:grid-cols-4 gap-4"
+          initial="hidden"
+          animate="visible"
+          variants={staggerContainerVariants}
+        >
+          <motion.div variants={fadeUpItemVariants}>
+            <KPICard
+              title="Total Tanks"
+              value={reportTanks.length}
+              icon={Fuel}
+              color="blue"
+              trend="neutral"
+            />
+          </motion.div>
+          <motion.div variants={fadeUpItemVariants}>
+            <KPICard
+              title="Average Level"
+              value={`${(reportTanks.reduce((sum, t) => sum + (t.latest_calibrated_fill_percentage || 0), 0) / reportTanks.length).toFixed(1)}%`}
+              icon={Fuel}
+              color="green"
+              trend="neutral"
+            />
+          </motion.div>
+          <motion.div variants={fadeUpItemVariants}>
+            <KPICard
+              title="Online Devices"
+              value={reportTanks.filter((t) => t.device_online).length}
+              subtitle={`of ${reportTanks.length}`}
+              icon={Wifi}
+              color={reportTanks.filter((t) => t.device_online).length === reportTanks.length ? 'green' : 'yellow'}
+              trend="neutral"
+            />
+          </motion.div>
+          <motion.div variants={fadeUpItemVariants}>
+            <KPICard
+              title="Avg Days Remaining"
+              value={
+                reportTanks.some((t) => t.asset_days_remaining)
+                  ? Math.round(
+                      reportTanks.filter((t) => t.asset_days_remaining).reduce((sum, t) => sum + (t.asset_days_remaining || 0), 0) /
+                      reportTanks.filter((t) => t.asset_days_remaining).length
+                    )
+                  : 'N/A'
+              }
+              subtitle={reportTanks.some((t) => t.asset_days_remaining) ? 'days' : ''}
+              icon={Clock}
+              color="blue"
+              trend="neutral"
+            />
+          </motion.div>
+        </motion.div>
       )}
-    </div>
-  );
-}
-
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-xl font-bold mt-1">{value}</p>
     </div>
   );
 }

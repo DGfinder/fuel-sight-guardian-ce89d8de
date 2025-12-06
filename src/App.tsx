@@ -59,6 +59,7 @@ const DeliveryHistory = lazy(() => import('@/pages/customer/DeliveryHistory'));
 const CustomerReports = lazy(() => import('@/pages/customer/CustomerReports'));
 const CustomerSettings = lazy(() => import('@/pages/customer/CustomerSettings'));
 const DeviceHealth = lazy(() => import('@/pages/customer/DeviceHealth'));
+const CustomerWeather = lazy(() => import('@/pages/customer/CustomerWeather'));
 
 // Admin Pages
 const FleetRefillCalendar = lazy(() => import('@/pages/admin/FleetRefillCalendar'));
@@ -667,6 +668,16 @@ function AppContent() {
                       <ProtectedRoute requiredAccountType="customer">
                         <CustomerPortalLayout>
                           <DeviceHealth />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/weather"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <CustomerWeather />
                         </CustomerPortalLayout>
                       </ProtectedRoute>
                     }
