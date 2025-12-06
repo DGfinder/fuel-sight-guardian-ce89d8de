@@ -12,6 +12,7 @@ interface DashboardWeatherCardProps {
   lat: number;
   lng: number;
   locationName: string;
+  isFallbackLocation?: boolean;
   tankId?: string;
   tankLevel?: number;
   dailyConsumption?: number;
@@ -51,6 +52,7 @@ export function DashboardWeatherCard({
   lat,
   lng,
   locationName,
+  isFallbackLocation,
   tankId,
   tankLevel,
   dailyConsumption,
@@ -148,7 +150,12 @@ export function DashboardWeatherCard({
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               Weather & Operations
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{locationName}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">
+              {locationName}
+              {isFallbackLocation && (
+                <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">(regional)</span>
+              )}
+            </p>
           </div>
           {getWeatherCondition() === 'Sunny' && (
             <motion.div animate={weatherIconVariants.sun}>

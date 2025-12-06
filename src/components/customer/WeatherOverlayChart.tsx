@@ -23,25 +23,33 @@ interface WeatherOverlayChartProps {
     date: string;
     rainfall: number;
   }>;
+  totalCapacity?: number;
   height?: number;
 }
 
 export function WeatherOverlayChart({
   consumptionData,
   weatherData,
+  totalCapacity,
   height = 300,
 }: WeatherOverlayChartProps) {
-  // Merge consumption and weather data
+  // Merge consumption and weather data, converting % to litres
   const mergedData = consumptionData.map((item) => {
     const weatherItem = weatherData?.find((w) => w.date === item.date);
+    // Convert avgLevel (%) to total fleet litres
+    const fuelLitres = totalCapacity && item.avgLevel != null
+      ? Math.round((item.avgLevel / 100) * totalCapacity)
+      : null;
     return {
       ...item,
+      fuelLitres,
       rainfall: weatherItem?.rainfall || 0,
     };
   });
 
   const hasData = consumptionData.length > 0 && consumptionData.some((d) => d.avgLevel);
   const hasWeatherData = weatherData && weatherData.length > 0;
+  const showLitres = totalCapacity && totalCapacity > 0;
 
   if (!hasData) {
     return (
@@ -107,14 +115,15 @@ export function WeatherOverlayChart({
               tickLine={{ stroke: '#d1d5db' }}
             />
 
-            {/* Left Y-Axis: Fuel Level (%) */}
+            {/* Left Y-Axis: Fuel Level (L or %) */}
             <YAxis
               yAxisId="fuel"
-              domain={[0, 100]}
+              domain={showLitres ? ['auto', 'auto'] : [0, 100]}
               tick={{ fill: '#6b7280', fontSize: 12 }}
               tickLine={{ stroke: '#d1d5db' }}
+              tickFormatter={showLitres ? (value) => `${(value / 1000).toFixed(0)}k` : undefined}
               label={{
-                value: 'Fuel Level (%)',
+                value: showLitres ? 'Fuel Level (L)' : 'Fuel Level (%)',
                 angle: -90,
                 position: 'insideLeft',
                 style: { fill: '#008457', fontSize: 12, fontWeight: 600 },
@@ -154,7 +163,10 @@ export function WeatherOverlayChart({
                 }
               }}
               formatter={(value: any, name: string) => {
-                if (name === 'avgLevel') {
+                if (name === 'fuelLitres' || name === 'avgLevel') {
+                  if (showLitres && name === 'fuelLitres') {
+                    return [`${value?.toLocaleString()}L`, 'Fuel Level'];
+                  }
                   return [`${value?.toFixed(1)}%`, 'Fuel Level'];
                 }
                 if (name === 'rainfall') {
@@ -169,7 +181,7 @@ export function WeatherOverlayChart({
                 paddingTop: '10px',
               }}
               formatter={(value) => {
-                if (value === 'avgLevel') return 'Fuel Level';
+                if (value === 'avgLevel' || value === 'fuelLitres') return 'Fuel Level';
                 if (value === 'rainfall') return 'Rainfall';
                 return value;
               }}
@@ -190,7 +202,7 @@ export function WeatherOverlayChart({
             <Line
               yAxisId="fuel"
               type="monotone"
-              dataKey="avgLevel"
+              dataKey={showLitres ? 'fuelLitres' : 'avgLevel'}
               stroke="#008457"
               strokeWidth={3}
               dot={{ fill: '#008457', r: 4, strokeWidth: 2, stroke: '#fff' }}

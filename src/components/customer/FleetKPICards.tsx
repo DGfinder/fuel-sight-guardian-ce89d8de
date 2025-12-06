@@ -76,8 +76,8 @@ export function FleetKPICards({ summary, fleetMetrics }: FleetKPICardsProps) {
         <>
           <KPICard
             title="Total Fuel Level"
-            value={Math.round(fleetMetrics.totalFuelPercent)}
-            subtitle="%"
+            value={fleetMetrics.currentFuelLiters.toLocaleString()}
+            subtitle="L"
             icon={Fuel}
             color={
               fleetMetrics.totalFuelPercent < 25
@@ -87,7 +87,7 @@ export function FleetKPICards({ summary, fleetMetrics }: FleetKPICardsProps) {
                 : 'green'
             }
             trend="neutral"
-            trendValue={`${fleetMetrics.currentFuelLiters.toLocaleString()}L total`}
+            trendValue={`${Math.round(fleetMetrics.totalFuelPercent)}% of capacity`}
           />
 
           <KPICard

@@ -20,6 +20,7 @@ import { DashboardWeatherCard } from '@/components/customer/DashboardWeatherCard
 import { WeatherOverlayChart } from '@/components/customer/WeatherOverlayChart';
 import { FleetKPICards } from '@/components/customer/FleetKPICards';
 import { QuickActionsCard } from '@/components/customer/QuickActionsCard';
+import { DeviceHealthCard } from '@/components/customer/DeviceHealthCard';
 import {
   Fuel,
   Truck,
@@ -36,6 +37,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+// Default location: Indusolutions business address (used when tank GPS is not set)
+const DEFAULT_LOCATION = {
+  lat: -32.03549368194498,
+  lng: 116.00925491272064,
+  name: 'Regional Weather'
+};
 
 export default function CustomerDashboard() {
   const { data: customerAccount, isLoading: accountLoading } = useCustomerAccount();
@@ -61,10 +69,23 @@ export default function CustomerDashboard() {
     return tanks.find(t => (t.latest_calibrated_fill_percentage || 0) < 20) || tanks[0];
   }, [tanks]);
 
-  // Fetch weather data for primary tank location (COMPLEMENTARY)
+  // Weather location: use tank coordinates or fallback to default
+  const weatherLocation = useMemo(() => {
+    if (primaryTank?.latitude && primaryTank?.longitude) {
+      return {
+        lat: primaryTank.latitude,
+        lng: primaryTank.longitude,
+        name: primaryTank.location_id || primaryTank.address1 || 'Primary Location',
+        isFallback: false
+      };
+    }
+    return { ...DEFAULT_LOCATION, isFallback: true };
+  }, [primaryTank]);
+
+  // Fetch weather data for location (COMPLEMENTARY)
   const { data: weather } = useWeatherForecast(
-    primaryTank?.latitude,
-    primaryTank?.longitude,
+    weatherLocation.lat,
+    weatherLocation.lng,
     7
   );
 
@@ -85,6 +106,7 @@ export default function CustomerDashboard() {
       dailyUse: Math.round(dailyConsumption),
       daysToRun: Math.floor(daysToRun),
       currentFuelLiters: Math.round(currentFuel),
+      totalCapacity,
     };
   }, [tanks]);
 
@@ -118,14 +140,6 @@ export default function CustomerDashboard() {
   // Get recent requests
   const recentRequests = (requests || []).slice(0, 5);
 
-  // Calculate health summary
-  const healthSummary = {
-    good: fleetHealth?.filter(h => h.health_status === 'good').length || 0,
-    warning: fleetHealth?.filter(h => h.health_status === 'warning').length || 0,
-    critical: fleetHealth?.filter(h => h.health_status === 'critical').length || 0,
-    offline: fleetHealth?.filter(h => h.health_status === 'offline').length || 0,
-  };
-
   return (
     <div className="space-y-6">
       {/* Welcome Header with Quick Action */}
@@ -155,18 +169,17 @@ export default function CustomerDashboard() {
 
         {/* Right Column: Weather Context + Quick Actions */}
         <div className="space-y-6">
-          {primaryTank && (
-            <DashboardWeatherCard
-              lat={primaryTank.latitude || 0}
-              lng={primaryTank.longitude || 0}
-              locationName={primaryTank.location_id || primaryTank.address1 || 'Primary Location'}
-              tankId={primaryTank.id}
-              tankLevel={primaryTank.latest_calibrated_fill_percentage}
-              dailyConsumption={primaryTank.daily_consumption}
-              capacityLiters={primaryTank.capacity_liters}
-              roadProfile={primaryTank.road_risk_profile}
-            />
-          )}
+          <DashboardWeatherCard
+            lat={weatherLocation.lat}
+            lng={weatherLocation.lng}
+            locationName={weatherLocation.name}
+            isFallbackLocation={weatherLocation.isFallback}
+            tankId={primaryTank?.id}
+            tankLevel={primaryTank?.latest_calibrated_fill_percentage}
+            dailyConsumption={primaryTank?.daily_consumption}
+            capacityLiters={primaryTank?.capacity_liters}
+            roadProfile={primaryTank?.road_risk_profile}
+          />
 
           <QuickActionsCard
             criticalTanks={summary.criticalTanks}
@@ -211,60 +224,16 @@ export default function CustomerDashboard() {
               date,
               rainfall: weather.daily.rain_sum[i],
             }))}
+            totalCapacity={fleetMetrics?.totalCapacity}
             height={300}
           />
         </div>
 
-        {/* AgBot Health Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Device Health
-            </CardTitle>
-            <p className="text-sm text-gray-500 mt-1">
-              AgBot monitoring status
-            </p>
-          </CardHeader>
-          <CardContent>
-            {healthLoading ? (
-              <div className="flex justify-center py-12">
-                <LoadingSpinner />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <HealthStatusRow
-                  label="Excellent"
-                  count={healthSummary.good}
-                  total={summary.totalTanks}
-                  color="green"
-                  icon={CheckCircle}
-                />
-                <HealthStatusRow
-                  label="Warning"
-                  count={healthSummary.warning}
-                  total={summary.totalTanks}
-                  color="yellow"
-                  icon={AlertTriangle}
-                />
-                <HealthStatusRow
-                  label="Critical"
-                  count={healthSummary.critical}
-                  total={summary.totalTanks}
-                  color="red"
-                  icon={AlertTriangle}
-                />
-                <HealthStatusRow
-                  label="Offline"
-                  count={healthSummary.offline}
-                  total={summary.totalTanks}
-                  color="gray"
-                  icon={Activity}
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* AgBot Health - Adaptive rendering based on tank count */}
+        <DeviceHealthCard
+          devices={fleetHealth || []}
+          isLoading={healthLoading}
+        />
       </div>
 
       {/* Main Content Grid */}
@@ -409,64 +378,3 @@ function RequestStatusRow({ request }: { request: any }) {
 }
 
 
-// Health Status Row Component
-function HealthStatusRow({
-  label,
-  count,
-  total,
-  color,
-  icon: Icon,
-}: {
-  label: string;
-  count: number;
-  total: number;
-  color: 'green' | 'yellow' | 'red' | 'gray';
-  icon: React.ElementType;
-}) {
-  const percentage = total > 0 ? (count / total) * 100 : 0;
-
-  const colorClasses = {
-    green: {
-      bg: 'bg-green-100 dark:bg-green-900/30',
-      text: 'text-green-700 dark:text-green-400',
-      bar: 'bg-green-500',
-    },
-    yellow: {
-      bg: 'bg-yellow-100 dark:bg-yellow-900/30',
-      text: 'text-yellow-700 dark:text-yellow-400',
-      bar: 'bg-yellow-500',
-    },
-    red: {
-      bg: 'bg-red-100 dark:bg-red-900/30',
-      text: 'text-red-700 dark:text-red-400',
-      bar: 'bg-red-500',
-    },
-    gray: {
-      bg: 'bg-gray-100 dark:bg-gray-800',
-      text: 'text-gray-600 dark:text-gray-400',
-      bar: 'bg-gray-400',
-    },
-  };
-
-  const colors = colorClasses[color];
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className={cn('p-1 rounded', colors.bg)}>
-            <Icon className={cn('h-4 w-4', colors.text)} />
-          </div>
-          <span className="text-sm font-medium">{label}</span>
-        </div>
-        <span className="text-sm font-bold">{count}</span>
-      </div>
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-        <div
-          className={cn('h-2 rounded-full transition-all', colors.bar)}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
-  );
-}
