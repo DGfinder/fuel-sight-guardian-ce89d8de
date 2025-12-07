@@ -15,9 +15,11 @@ import { format } from 'date-fns';
 import { useTankReadingsWithConsumption } from '../../hooks/useCustomerAnalytics';
 import { LoadingSpinner } from '../ui/loading-spinner';
 
+type PeriodDays = 7 | 14 | 30 | 90 | 180 | 365;
+
 interface TankConsumptionChartProps {
   assetId: string | undefined;
-  defaultPeriod?: 7 | 14 | 30 | 90;
+  defaultPeriod?: PeriodDays;
   capacityLiters?: number;
   warningThresholdPct?: number;
   criticalThresholdPct?: number;
@@ -30,7 +32,7 @@ export function TankConsumptionChart({
   warningThresholdPct = 25,
   criticalThresholdPct = 15,
 }: TankConsumptionChartProps) {
-  const [period, setPeriod] = useState<7 | 14 | 30 | 90>(defaultPeriod);
+  const [period, setPeriod] = useState<PeriodDays>(defaultPeriod);
   const [showLitres, setShowLitres] = useState(true);
 
   const { data: readings, isLoading } = useTankReadingsWithConsumption(assetId, period);
@@ -100,17 +102,24 @@ export function TankConsumptionChart({
 
           {/* Period selector */}
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-md p-1">
-            {([7, 14, 30, 90] as const).map((days) => (
+            {([
+              { days: 7 as PeriodDays, label: '7d' },
+              { days: 14 as PeriodDays, label: '14d' },
+              { days: 30 as PeriodDays, label: '30d' },
+              { days: 90 as PeriodDays, label: '90d' },
+              { days: 180 as PeriodDays, label: '6m' },
+              { days: 365 as PeriodDays, label: '1y' },
+            ]).map(({ days, label }) => (
               <button
                 key={days}
                 onClick={() => setPeriod(days)}
-                className={`px-3 py-1 text-sm font-medium rounded transition-colors
+                className={`px-2 py-1 text-sm font-medium rounded transition-colors
                   ${period === days
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
               >
-                {days}d
+                {label}
               </button>
             ))}
           </div>

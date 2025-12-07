@@ -1,7 +1,16 @@
 /**
  * Agbot Analytics Helper Functions
  * Percentage-based analytics for cellular tank monitoring
+ *
+ * Uses "Hourly Decrease Summation" approach:
+ * - Sum all decreases between consecutive readings
+ * - Ignore increases (refills)
+ * - Consistent with SmartFill and Customer Portal calculations
  */
+
+// Consumption calculation thresholds (percentage-based for AgBot)
+export const NOISE_THRESHOLD_PCT = 0.5;    // Ignore changes < 0.5% (sensor noise)
+export const REFILL_THRESHOLD_PCT = 10;    // Increases > 10% = refill
 
 // Agbot reading interface for analytics
 export interface AgbotReading {
@@ -75,126 +84,143 @@ export const calculatePercentageConsumption = (
 export const detectRefill = (
   olderReading: AgbotReading,
   newerReading: AgbotReading,
-  threshold: number = 10
+  threshold: number = REFILL_THRESHOLD_PCT
 ): boolean => {
   if (!olderReading || !newerReading) return false;
-  
+
   const percentageIncrease = newerReading.calibrated_fill_percentage - olderReading.calibrated_fill_percentage;
   return percentageIncrease >= threshold;
 };
 
-// Calculate rolling average consumption rate (percentage points per day)
+/**
+ * Calculate rolling average consumption rate (percentage points per day)
+ * Uses hourly decrease summation: sums all decreases > noise threshold
+ */
 export const calculateRollingAverage = (readings: AgbotReading[]): number => {
   if (readings.length < 2) return 0;
-  
-  let totalConsumption = 0;
-  let totalDays = 0;
-  const dailyRates: number[] = [];
-  
-  for (let i = 1; i < readings.length; i++) {
-    const older = readings[i - 1];
-    const newer = readings[i];
-    
-    // Skip if this is a refill event
-    if (detectRefill(older, newer)) continue;
-    
-    const consumption = calculatePercentageConsumption(older, newer);
-    const days = daysBetween(new Date(older.reading_timestamp), new Date(newer.reading_timestamp));
-    
-    if (days > 0 && consumption > 0) {
-      const dailyRate = consumption / days;
-      dailyRates.push(dailyRate);
-      totalConsumption += consumption;
-      totalDays += days;
+
+  // Sort readings chronologically
+  const sorted = [...readings].sort((a, b) =>
+    new Date(a.reading_timestamp).getTime() - new Date(b.reading_timestamp).getTime()
+  );
+
+  // Group readings by date
+  const readingsByDate: Record<string, AgbotReading[]> = {};
+  sorted.forEach(reading => {
+    const dateKey = new Date(reading.reading_timestamp).toISOString().split('T')[0];
+    if (!readingsByDate[dateKey]) {
+      readingsByDate[dateKey] = [];
     }
-  }
-  
+    readingsByDate[dateKey].push(reading);
+  });
+
+  // Calculate daily consumption using hourly decrease summation
+  const sortedDates = Object.keys(readingsByDate).sort();
+  let totalConsumption = 0;
+  let daysWithData = 0;
+
+  sortedDates.forEach((dateKey, dateIndex) => {
+    const dayReadings = readingsByDate[dateKey];
+    let dailyConsumption = 0;
+
+    // Sum all decreases within the day (> noise threshold)
+    for (let i = 1; i < dayReadings.length; i++) {
+      const older = dayReadings[i - 1];
+      const newer = dayReadings[i];
+      const change = older.calibrated_fill_percentage - newer.calibrated_fill_percentage;
+
+      if (change > NOISE_THRESHOLD_PCT) {
+        // Consumption detected (level decreased)
+        dailyConsumption += change;
+      }
+      // Increases (refills) are ignored - not counted as negative consumption
+    }
+
+    // Handle overnight consumption (previous day's last → today's first)
+    if (dateIndex > 0 && dayReadings.length > 0) {
+      const prevDateKey = sortedDates[dateIndex - 1];
+      const prevDayReadings = readingsByDate[prevDateKey];
+      if (prevDayReadings.length > 0) {
+        const prevDayLast = prevDayReadings[prevDayReadings.length - 1];
+        const todayFirst = dayReadings[0];
+        const overnightChange = prevDayLast.calibrated_fill_percentage - todayFirst.calibrated_fill_percentage;
+
+        if (overnightChange > NOISE_THRESHOLD_PCT) {
+          dailyConsumption += overnightChange;
+        }
+      }
+    }
+
+    if (dailyConsumption > 0) {
+      totalConsumption += dailyConsumption;
+      daysWithData++;
+    }
+  });
+
   // Return average daily consumption rate
-  return totalDays > 0 ? Number((totalConsumption / totalDays).toFixed(2)) : 0;
+  return daysWithData > 0 ? Number((totalConsumption / daysWithData).toFixed(2)) : 0;
 };
 
-// Calculate previous day consumption (returns percentage)
+/**
+ * Calculate previous day consumption (returns percentage points)
+ * Uses hourly decrease summation for accurate daily consumption
+ */
 export const calculatePreviousDayConsumption = (readings: AgbotReading[]): number => {
   if (readings.length < 2) return 0;
 
   const now = new Date();
   const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-  // Find readings from yesterday
-  const yesterdayReadings = readings.filter(reading => {
-    const readingDate = new Date(reading.reading_timestamp);
-    return readingDate >= yesterday && readingDate < now;
-  });
-
-  if (yesterdayReadings.length < 2) {
-    // Fallback: use latest daily rate
-    const sortedReadings = readings.sort((a, b) =>
-      new Date(b.reading_timestamp).getTime() - new Date(a.reading_timestamp).getTime()
+  // Find readings from the last 24 hours
+  const recentReadings = readings
+    .filter(reading => {
+      const readingDate = new Date(reading.reading_timestamp);
+      return readingDate >= yesterday && readingDate < now;
+    })
+    .sort((a, b) =>
+      new Date(a.reading_timestamp).getTime() - new Date(b.reading_timestamp).getTime()
     );
 
-    if (sortedReadings.length >= 2) {
-      const consumption = calculatePercentageConsumption(sortedReadings[1], sortedReadings[0]);
-      const hours = daysBetween(
-        new Date(sortedReadings[1].reading_timestamp),
-        new Date(sortedReadings[0].reading_timestamp)
-      ) * 24;
-
-      return hours > 0 ? Number((consumption * 24 / hours).toFixed(2)) : 0;
-    }
-
-    return 0;
+  if (recentReadings.length < 2) {
+    // Fallback: use rolling average as estimate
+    return calculateRollingAverage(readings);
   }
 
-  // Calculate consumption over yesterday
-  const oldestYesterday = yesterdayReadings[0];
-  const newestYesterday = yesterdayReadings[yesterdayReadings.length - 1];
+  // Sum all decreases in the last 24 hours (hourly summation)
+  let dailyConsumption = 0;
 
-  return calculatePercentageConsumption(oldestYesterday, newestYesterday);
+  for (let i = 1; i < recentReadings.length; i++) {
+    const older = recentReadings[i - 1];
+    const newer = recentReadings[i];
+    const change = older.calibrated_fill_percentage - newer.calibrated_fill_percentage;
+
+    if (change > NOISE_THRESHOLD_PCT) {
+      // Consumption detected
+      dailyConsumption += change;
+    }
+    // Increases (refills) are ignored
+  }
+
+  return Number(dailyConsumption.toFixed(2));
 };
 
-// Calculate previous day consumption in LITERS
+/**
+ * Calculate previous day consumption in LITERS
+ * Uses hourly decrease summation for accurate daily consumption
+ */
 export const calculatePreviousDayConsumptionLiters = (
   readings: AgbotReading[],
   capacityLiters: number | null
 ): number | null => {
   if (readings.length < 2 || !capacityLiters || capacityLiters <= 0) return null;
 
-  const now = new Date();
-  const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+  // Get percentage consumption using hourly summation
+  const percentageConsumed = calculatePreviousDayConsumption(readings);
 
-  // Find readings from yesterday
-  const yesterdayReadings = readings.filter(reading => {
-    const readingDate = new Date(reading.reading_timestamp);
-    return readingDate >= yesterday && readingDate < now;
-  });
-
-  if (yesterdayReadings.length >= 2) {
-    const oldest = yesterdayReadings[0];
-    const newest = yesterdayReadings[yesterdayReadings.length - 1];
-
-    // Calculate using percentage AND capacity
-    const percentageConsumed = oldest.calibrated_fill_percentage - newest.calibrated_fill_percentage;
+  if (percentageConsumed > 0) {
+    // Convert percentage to liters
     const litresConsumed = (percentageConsumed / 100) * capacityLiters;
-
-    return Math.max(0, litresConsumed);
-  }
-
-  // Fallback: extrapolate from latest 2 readings
-  if (readings.length >= 2) {
-    const sortedDesc = [...readings].sort((a, b) =>
-      new Date(b.reading_timestamp).getTime() - new Date(a.reading_timestamp).getTime()
-    );
-
-    const percentageConsumed = sortedDesc[1].calibrated_fill_percentage - sortedDesc[0].calibrated_fill_percentage;
-    const hours = daysBetween(
-      new Date(sortedDesc[1].reading_timestamp),
-      new Date(sortedDesc[0].reading_timestamp)
-    ) * 24;
-
-    if (hours > 0) {
-      const dailyPercentage = (percentageConsumed * 24) / hours;
-      return (dailyPercentage / 100) * capacityLiters;
-    }
+    return Math.round(litresConsumed);
   }
 
   return null;
@@ -512,28 +538,33 @@ const calculatePreviousDayConsumptionOptimized = (sortedDesc: AgbotReading[]): n
   const now = new Date();
   const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-  const yesterdayReadings = sortedDesc.filter(reading => {
-    const readingDate = new Date(reading.reading_timestamp);
-    return readingDate >= yesterday && readingDate < now;
-  });
+  // Get readings from last 24 hours, sorted chronologically (asc)
+  const recentReadings = sortedDesc
+    .filter(reading => {
+      const readingDate = new Date(reading.reading_timestamp);
+      return readingDate >= yesterday && readingDate < now;
+    })
+    .reverse(); // Convert to ascending order
 
-  if (yesterdayReadings.length >= 2) {
-    const oldest = yesterdayReadings[yesterdayReadings.length - 1];
-    const newest = yesterdayReadings[0];
-    return calculatePercentageConsumption(oldest, newest);
+  if (recentReadings.length < 2) {
+    // Fallback: use rolling average
+    return calculateRollingAverage(sortedDesc);
   }
 
-  // Fallback: use latest readings
-  if (sortedDesc.length >= 2) {
-    const consumption = calculatePercentageConsumption(sortedDesc[1], sortedDesc[0]);
-    const hours = daysBetween(
-      new Date(sortedDesc[1].reading_timestamp),
-      new Date(sortedDesc[0].reading_timestamp)
-    ) * 24;
-    return hours > 0 ? Number((consumption * 24 / hours).toFixed(2)) : 0;
+  // Sum all decreases in the last 24 hours (hourly summation)
+  let dailyConsumption = 0;
+
+  for (let i = 1; i < recentReadings.length; i++) {
+    const older = recentReadings[i - 1];
+    const newer = recentReadings[i];
+    const change = older.calibrated_fill_percentage - newer.calibrated_fill_percentage;
+
+    if (change > NOISE_THRESHOLD_PCT) {
+      dailyConsumption += change;
+    }
   }
 
-  return 0;
+  return Number(dailyConsumption.toFixed(2));
 };
 
 const calculateConsumptionVelocityOptimized = (sortedAsc: AgbotReading[]): number => {
