@@ -308,31 +308,31 @@ function WeatherSummaryKPIs({ weather, industry }: { weather: any; industry: Ind
       <motion.div variants={fadeUpItemVariants}>
         <KPICard
           title="7-Day Rain"
-          value={`${totalRain.toFixed(0)}mm`}
+          value={`${(totalRain ?? 0).toFixed(0)}mm`}
           icon={CloudRain}
-          color={totalRain > 40 ? 'red' : totalRain > 20 ? 'yellow' : 'green'}
-          trend={totalRain > 40 ? 'down' : 'neutral'}
-          trendValue={totalRain > 40 ? 'Heavy rain forecast' : totalRain > 20 ? 'Moderate rain' : 'Light conditions'}
+          color={(totalRain ?? 0) > 40 ? 'red' : (totalRain ?? 0) > 20 ? 'yellow' : 'green'}
+          trend={(totalRain ?? 0) > 40 ? 'down' : 'neutral'}
+          trendValue={(totalRain ?? 0) > 40 ? 'Heavy rain forecast' : (totalRain ?? 0) > 20 ? 'Moderate rain' : 'Light conditions'}
         />
       </motion.div>
       <motion.div variants={fadeUpItemVariants}>
         <KPICard
           title="Max Wind"
-          value={`${maxWind.toFixed(0)} km/h`}
+          value={`${(maxWind ?? 0).toFixed(0)} km/h`}
           icon={Wind}
-          color={maxWind > 40 ? 'red' : maxWind > 25 ? 'yellow' : 'green'}
-          trend={maxWind > 40 ? 'down' : 'neutral'}
-          trendValue={maxWind > 40 ? 'Strong winds' : maxWind > 25 ? 'Moderate winds' : 'Calm conditions'}
+          color={(maxWind ?? 0) > 40 ? 'red' : (maxWind ?? 0) > 25 ? 'yellow' : 'green'}
+          trend={(maxWind ?? 0) > 40 ? 'down' : 'neutral'}
+          trendValue={(maxWind ?? 0) > 40 ? 'Strong winds' : (maxWind ?? 0) > 25 ? 'Moderate winds' : 'Calm conditions'}
         />
       </motion.div>
       <motion.div variants={fadeUpItemVariants}>
         <KPICard
           title="Avg Temp"
-          value={`${avgTemp.toFixed(0)}°C`}
+          value={`${(avgTemp ?? 0).toFixed(0)}°C`}
           icon={Thermometer}
-          color={avgTemp > 38 ? 'red' : avgTemp > 32 ? 'yellow' : 'blue'}
+          color={(avgTemp ?? 0) > 38 ? 'red' : (avgTemp ?? 0) > 32 ? 'yellow' : 'blue'}
           trend="neutral"
-          trendValue={avgTemp > 38 ? 'Extreme heat' : avgTemp > 32 ? 'Hot conditions' : 'Comfortable'}
+          trendValue={(avgTemp ?? 0) > 38 ? 'Extreme heat' : (avgTemp ?? 0) > 32 ? 'Hot conditions' : 'Comfortable'}
         />
       </motion.div>
       <motion.div variants={fadeUpItemVariants}>
@@ -415,17 +415,17 @@ function ForecastGrid({ weather, industry, days = 16 }: { weather: any; industry
                 </p>
                 <Icon className={cn(
                   'h-5 w-5 mx-auto my-1',
-                  rain > 10 ? 'text-blue-500' : rain > 0 ? 'text-gray-400' : 'text-yellow-500'
+                  (rain ?? 0) > 10 ? 'text-blue-500' : (rain ?? 0) > 0 ? 'text-gray-400' : 'text-yellow-500'
                 )} />
                 <p className="text-xs font-medium">
-                  {tempMax.toFixed(0)}°
+                  {(tempMax ?? 0).toFixed(0)}°
                 </p>
                 <p className="text-xs text-gray-400">
-                  {tempMin.toFixed(0)}°
+                  {(tempMin ?? 0).toFixed(0)}°
                 </p>
-                {rain > 0 && (
+                {(rain ?? 0) > 0 && (
                   <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                    {rain.toFixed(0)}mm
+                    {(rain ?? 0).toFixed(0)}mm
                   </p>
                 )}
               </motion.div>
@@ -572,7 +572,7 @@ function AgricultureIntelligence({ weather }: { weather: any }) {
               <div className="space-y-1">
                 {sprayDays.slice(0, 3).map((day: any, i: number) => (
                   <p key={i} className="text-sm text-gray-700 dark:text-gray-300">
-                    {format(day.date, 'EEEE')} - Wind {day.wind.toFixed(0)}km/h
+                    {format(day.date, 'EEEE')} - Wind {(day.wind ?? 0).toFixed(0)}km/h
                   </p>
                 ))}
               </div>
@@ -605,7 +605,7 @@ function AgricultureIntelligence({ weather }: { weather: any }) {
             seedingBreak ? (
               <>
                 <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-green-600">{seedingBreak.amount.toFixed(0)}mm forecast</Badge>
+                  <Badge className="bg-green-600">{(seedingBreak.amount ?? 0).toFixed(0)}mm forecast</Badge>
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-300">
                   Break expected {format(seedingBreak.date, 'EEEE, MMM d')}
@@ -723,7 +723,7 @@ function MiningIntelligence({ weather, roadProfile }: { weather: any; roadProfil
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">7-day rainfall forecast</span>
-              <span className="font-medium">{roadRisk.cumulative.toFixed(0)}mm</span>
+              <span className="font-medium">{(roadRisk.cumulative ?? 0).toFixed(0)}mm</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Closure threshold</span>
@@ -925,7 +925,7 @@ function ConstructionIntelligence({ weather }: { weather: any }) {
                       ? 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200'
                       : 'bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200'
                   )}
-                  title={`${format(day.date, 'EEE d')}: ${day.rain.toFixed(0)}mm`}
+                  title={`${format(day.date, 'EEE d')}: ${(day.rain ?? 0).toFixed(0)}mm`}
                 >
                   {format(day.date, 'd')}
                 </div>
