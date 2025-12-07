@@ -27,12 +27,18 @@ export interface CustomerFeatures {
   // Road Risk (farming + mining)
   roadRisk: boolean;
 
-  // Full Weather (farming + mining)
+  // Full Weather (all industries now)
   fullWeather: boolean;
 
   // Mining-specific features
   extremeHeatWarnings: boolean;
   cycloneWarnings: boolean;
+
+  // Industry Intelligence (all industries)
+  proactiveDelivery: boolean;
+  extremeWeatherAlerts: boolean;
+  consumptionAnomalies: boolean;
+  costTracking: boolean;
 
   // Convenience flags
   isAgriculturalCustomer: boolean;
@@ -61,12 +67,18 @@ const FEATURE_MAP: Record<IndustryType, CustomerFeatures> = {
     // Road Risk - farming + mining
     roadRisk: true,
 
-    // Full Weather - farming + mining
+    // Full Weather - all industries
     fullWeather: true,
 
     // Mining-specific - off for farming
     extremeHeatWarnings: false,
     cycloneWarnings: false,
+
+    // Industry Intelligence - all industries
+    proactiveDelivery: true,
+    extremeWeatherAlerts: false, // Farming uses agricultural windows instead
+    consumptionAnomalies: true,
+    costTracking: true,
 
     // Convenience flags
     isAgriculturalCustomer: true,
@@ -91,12 +103,18 @@ const FEATURE_MAP: Record<IndustryType, CustomerFeatures> = {
     // Road Risk - farming + mining
     roadRisk: true,
 
-    // Full Weather - farming + mining
+    // Full Weather - all industries
     fullWeather: true,
 
     // Mining-specific - on for mining
     extremeHeatWarnings: true,
     cycloneWarnings: true,
+
+    // Industry Intelligence - all industries
+    proactiveDelivery: true,
+    extremeWeatherAlerts: true, // Heat, cyclones, storms
+    consumptionAnomalies: true,
+    costTracking: true,
 
     // Convenience flags
     isAgriculturalCustomer: false,
@@ -121,12 +139,18 @@ const FEATURE_MAP: Record<IndustryType, CustomerFeatures> = {
     // Road Risk - off for general (urban, sealed roads)
     roadRisk: false,
 
-    // Full Weather - off for general (basic only)
-    fullWeather: false,
+    // Full Weather - now enabled for all industries
+    fullWeather: true,
 
     // Mining-specific - off for general
     extremeHeatWarnings: false,
     cycloneWarnings: false,
+
+    // Industry Intelligence - all industries
+    proactiveDelivery: true,
+    extremeWeatherAlerts: true, // Storms, heavy rain
+    consumptionAnomalies: true,
+    costTracking: true,
 
     // Convenience flags
     isAgriculturalCustomer: false,
@@ -194,17 +218,30 @@ export function getFeaturesForIndustry(industryType: IndustryType): string[] {
       'Spray Windows',
       'Fuel Multipliers',
       'Road Risk Alerts',
-      'Full Weather'
+      'Full Weather',
+      'Proactive Delivery',
+      'Consumption Anomalies',
+      'Cost Tracking'
     );
   } else if (industryType === 'mining') {
     features.push(
       'Road Risk Alerts',
       'Full Weather',
       'Extreme Heat Warnings',
-      'Cyclone Warnings'
+      'Cyclone Warnings',
+      'Proactive Delivery',
+      'Extreme Weather Alerts',
+      'Consumption Anomalies',
+      'Cost Tracking'
     );
   } else {
-    features.push('Basic Weather');
+    features.push(
+      'Full Weather',
+      'Proactive Delivery',
+      'Extreme Weather Alerts',
+      'Consumption Anomalies',
+      'Cost Tracking'
+    );
   }
 
   return features;

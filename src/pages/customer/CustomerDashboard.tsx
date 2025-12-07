@@ -21,6 +21,8 @@ import { WeatherOverlayChart } from '@/components/customer/WeatherOverlayChart';
 import { FleetKPICards } from '@/components/customer/FleetKPICards';
 import { DeviceHealthCard } from '@/components/customer/DeviceHealthCard';
 import { CustomerMapWidget } from '@/components/customer/CustomerMapWidget';
+import { IndustryIntelligenceDashboard, IndustryIntelligenceSummary } from '@/components/customer/IndustryIntelligenceDashboard';
+import { useCustomerFeatures } from '@/hooks/useCustomerFeatures';
 import {
   Fuel,
   Truck,
@@ -52,6 +54,7 @@ export default function CustomerDashboard() {
   const summary = useCustomerPortalSummary();
   const { data: fleetConsumption, isLoading: chartLoading } = useFleetConsumptionChart(7);
   const { data: fleetHealth, isLoading: healthLoading } = useFleetHealth();
+  const { agriculturalIntelligence } = useCustomerFeatures();
   const [showPasswordChange, setShowPasswordChange] = useState(false);
 
   // Check if password change is required on mount and when account data changes
@@ -228,6 +231,14 @@ export default function CustomerDashboard() {
           />
         )}
       </div>
+
+      {/* Industry Intelligence - for mining and general customers */}
+      {!agriculturalIntelligence && primaryTank && (
+        <IndustryIntelligenceDashboard
+          tank={primaryTank}
+          tanks={tanks || []}
+        />
+      )}
 
       {/* Main Content Grid */}
       <div className="grid md:grid-cols-2 gap-6">

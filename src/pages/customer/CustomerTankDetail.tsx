@@ -36,7 +36,9 @@ import { staggerContainerVariants, glowRingVariants, springs } from '@/lib/motio
 import { TankConsumptionChart } from '@/components/customer/TankConsumptionChart';
 import { WeatherWidget } from '@/components/customer/WeatherWidget';
 import { AgIntelligenceDashboard } from '@/components/customer/AgIntelligenceDashboard';
+import { IndustryIntelligenceDashboard } from '@/components/customer/IndustryIntelligenceDashboard';
 import { useRoadRiskProfile } from '@/hooks/useRoadRisk';
+import { useCustomerFeatures } from '@/hooks/useCustomerFeatures';
 
 export default function CustomerTankDetail() {
   const { tankId } = useParams<{ tankId: string }>();
@@ -47,6 +49,9 @@ export default function CustomerTankDetail() {
 
   // Road risk profile for agricultural intelligence
   const { data: roadProfile } = useRoadRiskProfile(tankId);
+
+  // Feature flags
+  const { agriculturalIntelligence } = useCustomerFeatures();
 
   if (tankLoading) {
     return (
@@ -156,7 +161,7 @@ export default function CustomerTankDetail() {
         />
       </motion.div>
 
-      {/* Agricultural Intelligence Dashboard */}
+      {/* Agricultural Intelligence Dashboard - for farming customers */}
       {tank.lat && tank.lng && tank.latest_calibrated_fill_percentage && tank.asset_daily_consumption && tank.asset_profile_water_capacity && (
         <AgIntelligenceDashboard
           lat={tank.lat}
@@ -167,6 +172,14 @@ export default function CustomerTankDetail() {
           capacityLiters={tank.asset_profile_water_capacity}
           roadProfile={roadProfile}
           tank={tank}
+        />
+      )}
+
+      {/* Industry Intelligence Dashboard - for mining and general customers */}
+      {!agriculturalIntelligence && (
+        <IndustryIntelligenceDashboard
+          tank={tank}
+          tanks={[tank]}
         />
       )}
 
