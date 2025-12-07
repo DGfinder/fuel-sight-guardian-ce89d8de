@@ -166,6 +166,7 @@ export default function CustomerTankDetail() {
           dailyConsumption={tank.asset_daily_consumption}
           capacityLiters={tank.asset_profile_water_capacity}
           roadProfile={roadProfile}
+          tank={tank}
         />
       )}
 

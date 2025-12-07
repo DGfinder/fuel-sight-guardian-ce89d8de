@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useWeatherForecast } from '@/hooks/useWeatherForecast';
 import { useAgriculturalIntelligence } from '@/hooks/useAgriculturalIntelligence';
+import { useCustomerFeatures } from '@/hooks/useCustomerFeatures';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { CloudRain, Sun, Wind, Droplets, Cloud, AlertTriangle, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
@@ -59,7 +60,10 @@ export function DashboardWeatherCard({
   capacityLiters,
   roadProfile,
 }: DashboardWeatherCardProps) {
+  const { operationsBadges, roadRisk: showRoadRisk, fullWeather } = useCustomerFeatures();
   const { data: weather, isLoading } = useWeatherForecast(lat, lng, 7);
+
+  // Only fetch agricultural intelligence if we need to show badges
   const { data: intelligence } = useAgriculturalIntelligence(
     lat,
     lng,
@@ -250,10 +254,12 @@ export function DashboardWeatherCard({
           </p>
         </motion.div>
 
-        {/* Operations Intelligence Badges - Only if relevant */}
-        {(roadRisk?.riskLevel !== 'low' || nextOperation) && (
+        {/* Operations Intelligence Badges - Based on customer features */}
+        {/* Road Risk: visible to farming + mining customers */}
+        {/* Operations: visible to farming customers only */}
+        {((showRoadRisk && roadRisk?.riskLevel !== 'low') || (operationsBadges && nextOperation)) && (
           <motion.div variants={fadeUpItemVariants} className="flex flex-wrap gap-1.5 mt-3 pt-2 border-t border-white/10">
-            {roadRisk && roadRisk.riskLevel !== 'low' && (
+            {showRoadRisk && roadRisk && roadRisk.riskLevel !== 'low' && (
               <div
                 className={cn(
                   'flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
@@ -266,7 +272,7 @@ export function DashboardWeatherCard({
                 Road Risk
               </div>
             )}
-            {nextOperation && (
+            {operationsBadges && nextOperation && (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
                 <TrendingUp className="h-3 w-3" />
                 {nextOperation.operation}

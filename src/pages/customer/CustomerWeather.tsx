@@ -7,6 +7,7 @@ import { useCustomerTanks, CustomerTank } from '@/hooks/useCustomerAuth';
 import { CustomerMapWidget } from '@/components/customer/CustomerMapWidget';
 import { useWeatherForecast } from '@/hooks/useWeatherForecast';
 import { useRoadRiskProfile } from '@/hooks/useRoadRisk';
+import { useCustomerFeatures } from '@/hooks/useCustomerFeatures';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { KPICard } from '@/components/ui/KPICard';
 import { staggerContainerVariants, fadeUpItemVariants, springs } from '@/lib/motion-variants';
@@ -120,6 +121,13 @@ function getWeatherIcon(rain: number, wind: number) {
 
 export default function CustomerWeather() {
   const { data: tanks, isLoading: tanksLoading } = useCustomerTanks();
+  const {
+    industryType,
+    agriculturalIntelligence,
+    roadRisk: showRoadRisk,
+    fullWeather,
+    isGeneralCustomer
+  } = useCustomerFeatures();
 
   // Get first tank with coordinates for weather
   const primaryTank = useMemo(() => {
@@ -129,26 +137,20 @@ export default function CustomerWeather() {
   // Get road profile for industry detection
   const { data: roadProfile } = useRoadRiskProfile(primaryTank?.location_id);
 
-  // Detect industry from tank data
-  const detectedIndustry = useMemo(() => {
-    if (!primaryTank) return 'agriculture';
-    return detectIndustry(
-      roadProfile?.access_road_type,
-      primaryTank.address1,
-      primaryTank.lat,
-      primaryTank.lng
-    );
-  }, [primaryTank, roadProfile]);
+  // Map database industry_type to page Industry type
+  // farming -> agriculture, mining -> mining, general -> construction (basic view)
+  const activeIndustry: Industry = useMemo(() => {
+    if (industryType === 'farming') return 'agriculture';
+    if (industryType === 'mining') return 'mining';
+    return 'construction'; // general customers see construction-style basic weather
+  }, [industryType]);
 
-  // Allow manual override
-  const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
-  const activeIndustry = selectedIndustry || detectedIndustry;
-
-  // Fetch 16-day forecast
+  // Fetch weather forecast (16-day for farming/mining, 7-day for general)
+  const forecastDays = fullWeather ? 16 : 7;
   const { data: weather, isLoading: weatherLoading } = useWeatherForecast(
     primaryTank?.lat,
     primaryTank?.lng,
-    16
+    forecastDays
   );
 
   if (tanksLoading) {
@@ -193,39 +195,29 @@ export default function CustomerWeather() {
             Weather Intelligence
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            16-day forecast with {industryConfig.label.toLowerCase()} operations insights
+            {fullWeather
+              ? `16-day forecast with ${industryConfig.label.toLowerCase()} operations insights`
+              : '7-day weather forecast'
+            }
           </p>
         </div>
 
-        {/* Industry Selector */}
-        <div className="flex gap-2">
-          {INDUSTRIES.map((industry) => {
-            const Icon = industry.icon;
-            const isActive = activeIndustry === industry.id;
-            const isDetected = detectedIndustry === industry.id && !selectedIndustry;
-
-            return (
-              <Button
-                key={industry.id}
-                variant={isActive ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedIndustry(industry.id)}
-                className={cn(
-                  'relative',
-                  isActive && industry.color === 'green' && 'bg-green-600 hover:bg-green-700',
-                  isActive && industry.color === 'orange' && 'bg-orange-600 hover:bg-orange-700',
-                  isActive && industry.color === 'blue' && 'bg-blue-600 hover:bg-blue-700'
-                )}
-              >
-                <Icon className="h-4 w-4 mr-1" />
-                {industry.label}
-                {isDetected && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full" />
-                )}
-              </Button>
-            );
-          })}
-        </div>
+        {/* Industry Badge - shows current industry type */}
+        {!isGeneralCustomer && (
+          <div className="flex gap-2">
+            <Badge
+              className={cn(
+                'flex items-center gap-1 px-3 py-1',
+                industryConfig.color === 'green' && 'bg-green-600',
+                industryConfig.color === 'orange' && 'bg-orange-600',
+                industryConfig.color === 'blue' && 'bg-blue-600'
+              )}
+            >
+              <industryConfig.icon className="h-4 w-4" />
+              {industryConfig.label}
+            </Badge>
+          </div>
+        )}
       </div>
 
       {weatherLoading ? (
@@ -248,29 +240,31 @@ export default function CustomerWeather() {
             </div>
           </div>
 
-          {/* 16-Day Forecast */}
-          <ForecastGrid weather={weather} industry={activeIndustry} />
+          {/* Forecast Grid - days depend on customer type */}
+          <ForecastGrid weather={weather} industry={activeIndustry} days={forecastDays} />
 
-          {/* Industry-Specific Intelligence */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeIndustry}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={springs.gentle}
-            >
-              {activeIndustry === 'agriculture' && (
-                <AgricultureIntelligence weather={weather} />
-              )}
-              {activeIndustry === 'mining' && (
-                <MiningIntelligence weather={weather} roadProfile={roadProfile} />
-              )}
-              {activeIndustry === 'construction' && (
-                <ConstructionIntelligence weather={weather} />
-              )}
-            </motion.div>
-          </AnimatePresence>
+          {/* Industry-Specific Intelligence - based on customer features */}
+          {/* Farming customers: agricultural intelligence */}
+          {/* Mining customers: road risk + access windows */}
+          {/* General customers: basic weather only (no industry intelligence) */}
+          {!isGeneralCustomer && (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeIndustry}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={springs.gentle}
+              >
+                {agriculturalIntelligence && activeIndustry === 'agriculture' && (
+                  <AgricultureIntelligence weather={weather} />
+                )}
+                {showRoadRisk && activeIndustry === 'mining' && (
+                  <MiningIntelligence weather={weather} roadProfile={roadProfile} />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          )}
         </>
       ) : null}
     </div>
@@ -360,19 +354,24 @@ function WeatherSummaryKPIs({ weather, industry }: { weather: any; industry: Ind
   );
 }
 
-// 16-Day Forecast Grid
-function ForecastGrid({ weather, industry }: { weather: any; industry: Industry }) {
+// Forecast Grid
+function ForecastGrid({ weather, industry, days = 16 }: { weather: any; industry: Industry; days?: number }) {
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-lg flex items-center gap-2">
           <Calendar className="h-5 w-5" />
-          16-Day Forecast
+          {days}-Day Forecast
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-4 sm:grid-cols-8 lg:grid-cols-16 gap-2">
-          {weather.daily.time.map((date: string, i: number) => {
+        <div className={cn(
+          "grid gap-2",
+          days <= 7
+            ? "grid-cols-4 sm:grid-cols-7"
+            : "grid-cols-4 sm:grid-cols-8 lg:grid-cols-16"
+        )}>
+          {weather.daily.time.slice(0, days).map((date: string, i: number) => {
             const rain = weather.daily.rain_sum[i];
             const wind = weather.daily.windspeed_10m_max[i];
             const tempMax = weather.daily.temperature_2m_max[i];

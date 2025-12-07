@@ -24,6 +24,8 @@ export interface CustomerAccount {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  // Industry type determines feature visibility in customer portal
+  industry_type: 'farming' | 'mining' | 'general' | null;
 }
 
 export interface CustomerTankAccess {
