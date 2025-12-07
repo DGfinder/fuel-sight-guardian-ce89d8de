@@ -4,6 +4,8 @@
  * Automatically routes queries to the correct tenant schema using PostgreSQL search_path.
  * This enables schema-per-tenant without modifying existing queries.
  *
+ * NOTE: Uses lazy instantiation to avoid creating the client if not needed.
+ *
  * Usage:
  *   import { supabase } from '@/lib/supabase-tenant';
  *
@@ -25,12 +27,17 @@ import {
 import { debugTenantRouting } from './features';
 
 class TenantSupabaseClient {
-  private client: SupabaseClient<Database>;
+  private _client: SupabaseClient<Database> | null = null;
   private tenantContext: TenantContext | null = null;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
 
-  constructor() {
+  /**
+   * Get or create the underlying Supabase client (lazy singleton)
+   */
+  private get client(): SupabaseClient<Database> {
+    if (this._client) return this._client;
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -38,7 +45,7 @@ class TenantSupabaseClient {
       throw new Error('Missing Supabase environment variables');
     }
 
-    this.client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    this._client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -58,6 +65,7 @@ class TenantSupabaseClient {
     });
 
     debugTenantRouting('Tenant-aware Supabase client created');
+    return this._client;
   }
 
   /**
@@ -242,12 +250,30 @@ class TenantSupabaseClient {
   }
 }
 
-// Export singleton instance
-export const supabase = new TenantSupabaseClient();
+// Lazy-loaded singleton
+let _supabase: TenantSupabaseClient | null = null;
+
+function getOrCreateTenantClient(): TenantSupabaseClient {
+  if (_supabase) return _supabase;
+  _supabase = new TenantSupabaseClient();
+  return _supabase;
+}
+
+// Export a proxy that lazily creates the client on first access
+export const supabase = new Proxy({} as TenantSupabaseClient, {
+  get(_target, prop) {
+    const client = getOrCreateTenantClient();
+    const value = (client as unknown as Record<string | symbol, unknown>)[prop];
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
+  },
+});
 
 // Export helper functions for tank servicing (maintaining existing API)
 export const markTankServiced = async (tankId: string, userId: string) => {
-  return supabase
+  return getOrCreateTenantClient()
     .from('fuel_tanks')
     .update({
       serviced_on: new Date().toISOString().slice(0, 10),
@@ -257,7 +283,7 @@ export const markTankServiced = async (tankId: string, userId: string) => {
 };
 
 export const unmarkTankServiced = async (tankId: string) => {
-  return supabase
+  return getOrCreateTenantClient()
     .from('fuel_tanks')
     .update({
       serviced_on: null,
@@ -267,4 +293,4 @@ export const unmarkTankServiced = async (tankId: string) => {
 };
 
 // Export helper to get client instance (maintaining existing API)
-export const getSupabaseClient = () => supabase.getClient();
+export const getSupabaseClient = () => getOrCreateTenantClient().getClient();

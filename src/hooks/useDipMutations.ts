@@ -60,19 +60,16 @@ export function useCreateDipReading(): UseMutationResult<
 
   return useMutation({
     mutationFn: async (input: CreateDipInput): Promise<DipReading> => {
-      // Fetch business_id if not provided
+      // Fetch business_id if not provided (using RPC function to bypass RLS)
       let businessId = input.business_id;
       if (!businessId) {
-        const { data: tankData } = await supabase
-          .from('ta_tanks')
-          .select('business_id')
-          .eq('id', input.tank_id)
-          .single();
+        const { data: businessIdResult, error: businessIdError } = await supabase
+          .rpc('get_tank_business_id', { p_tank_id: input.tank_id });
 
-        if (!tankData?.business_id) {
+        if (businessIdError || !businessIdResult) {
           throw new Error('Could not determine business_id for tank');
         }
-        businessId = tankData.business_id;
+        businessId = businessIdResult;
       }
 
       // Transform to ta_tank_dips format
@@ -422,19 +419,19 @@ export function useBulkCreateDipReadings(): UseMutationResult<
             batch.filter(r => !r.business_id).map(r => r.tank_id)
           )];
 
-          // Fetch business_ids for tanks that need them
+          // Fetch business_ids for tanks that need them (using RPC function to bypass RLS)
           let businessIdMap: Record<string, string> = {};
           if (tankIdsNeedingBusinessId.length > 0) {
-            const { data: tankData } = await supabase
-              .from('ta_tanks')
-              .select('id, business_id')
-              .in('id', tankIdsNeedingBusinessId);
+            // Fetch business_id for each tank using the RPC function
+            const businessIdPromises = tankIdsNeedingBusinessId.map(async (tankId) => {
+              const { data } = await supabase.rpc('get_tank_business_id', { p_tank_id: tankId });
+              return { tankId, businessId: data };
+            });
 
-            if (tankData) {
-              businessIdMap = Object.fromEntries(
-                tankData.map(t => [t.id, t.business_id])
-              );
-            }
+            const results = await Promise.all(businessIdPromises);
+            businessIdMap = Object.fromEntries(
+              results.filter(r => r.businessId).map(r => [r.tankId, r.businessId])
+            );
           }
 
           // Transform batch to ta_tank_dips format

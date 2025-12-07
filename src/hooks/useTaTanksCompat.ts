@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
@@ -14,18 +14,36 @@ import type { Tank } from '@/types/fuel';
  * - Drop-in replacement for useTanks()
  *
  * Performance: Single query instead of 4, pre-calculated analytics
+ *
+ * NOTE: Auth check optimized to avoid redundant getUser() calls on every query.
+ * Session is cached and validated once on mount.
  */
 export const useTaTanksCompat = () => {
   const queryClient = useQueryClient();
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
+
+  // Check session once on mount instead of on every query
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setHasSession(!!session);
+    };
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setHasSession(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const tanksQuery = useQuery({
     queryKey: ['ta-tanks-compat'],
+    // Only run query when we know we have a session
+    enabled: hasSession === true,
     queryFn: async () => {
-      // Check authentication
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) {
-        return [];
-      }
+      // Session already validated by enabled check
 
       // Single optimized query to ta_tank_full_status view
       const { data, error } = await supabase
@@ -144,8 +162,14 @@ export const useTaTanksCompat = () => {
     }
   });
 
-  // Realtime subscription - instant updates when tanks change
+  // Realtime subscription - only start when we have a valid session
+  // This prevents subscription timeouts during app initialization
   useEffect(() => {
+    // Don't subscribe until we have confirmed a session
+    if (!hasSession) {
+      return;
+    }
+
     const channel = supabase
       .channel('ta-tanks-realtime')
       .on('postgres_changes',
@@ -163,7 +187,7 @@ export const useTaTanksCompat = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, hasSession]);
 
   const tanks = tanksQuery.data || [];
 

@@ -300,29 +300,12 @@ function AppContent() {
   const { editDipOpen, editDipTank, closeEditDip, alertsOpen, closeAlerts } = useGlobalModals();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
 
-  // Initialize and refresh Supabase session on app load
-  // This prevents intermittent 401 errors due to uninitialized or expired tokens
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        console.log('[APP] Initializing Supabase session on load');
-        // Force session refresh to ensure valid token
-        const { data: { session }, error } = await supabase.auth.refreshSession();
-
-        if (error) {
-          console.error('[APP] Failed to refresh session on load:', error.message);
-        } else if (session) {
-          console.log('[APP] Session refreshed successfully, expires at:', new Date(session.expires_at! * 1000).toISOString());
-        } else {
-          console.log('[APP] No active session found');
-        }
-      } catch (error) {
-        console.error('[APP] Auth initialization error:', error);
-      }
-    };
-
-    initializeAuth();
-  }, []); // Run once on mount
+  // NOTE: Auth initialization is now handled by useTenantInit hook
+  // which calls supabase.auth.getUser() and supabase.initialize()
+  // Removed duplicate refreshSession to avoid:
+  // 1. Multiple auth calls on startup
+  // 2. "Multiple GoTrueClient instances" warning
+  // 3. Slower app initialization
 
   // Show loading state while tenant initializes
   if (!tenantReady) {
@@ -331,7 +314,8 @@ function AppContent() {
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <p className="text-sm text-muted-foreground">
-            {tenantState === 'INITIALIZING' ? 'Initializing tenant context...' : 'Loading...'}
+            {tenantState === 'IDLE' && 'Starting up...'}
+            {tenantState === 'INITIALIZING' && 'Connecting to server...'}
           </p>
         </div>
       </div>

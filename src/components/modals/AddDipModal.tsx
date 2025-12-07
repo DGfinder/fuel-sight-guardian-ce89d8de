@@ -266,16 +266,23 @@ export default function AddDipModal({
 		const perthIso = `${datePart}T${timePart}:00+08:00`;
 		const createdAtIso = new Date(perthIso).toISOString();
 
-      // Get business_id from ta_tanks for the new schema
-      const { data: tankData } = await supabase
-        .from('ta_tanks')
-        .select('business_id')
-        .eq('id', formData.tankId)
-        .single();
+      // Get business_id using database function (bypasses RLS issues)
+      const { data: businessIdResult, error: businessIdError } = await supabase
+        .rpc('get_tank_business_id', { p_tank_id: formData.tankId });
+
+      if (businessIdError) {
+        console.error('❌ [DIP SUBMISSION] Business ID lookup error:', businessIdError);
+        throw new Error(`Could not find tank: ${businessIdError.message}`);
+      }
+
+      if (!businessIdResult) {
+        console.error('❌ [DIP SUBMISSION] No business_id found for tank:', formData.tankId);
+        throw new Error('Could not determine business for this tank. Please contact support.');
+      }
 
       const insertData = {
         tank_id: formData.tankId,
-        business_id: tankData?.business_id,
+        business_id: businessIdResult,
         level_liters: Math.round(dipValueAsNumber),
         measured_at: createdAtIso,
         measured_by: userId,
