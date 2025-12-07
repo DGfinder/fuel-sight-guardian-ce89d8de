@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCustomerTank, useCustomerPreferences } from '@/hooks/useCustomerAuth';
-import { useDeviceHealth } from '@/hooks/useCustomerAnalytics';
+import { useDeviceHealth, useTankReadingsWithConsumption } from '@/hooks/useCustomerAnalytics';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { KPICard } from '@/components/ui/KPICard';
 import { DetailCard } from '@/components/ui/DetailCard';
@@ -21,6 +21,7 @@ import {
   Fuel,
   Clock,
   TrendingDown,
+  TrendingUp,
   Calendar,
   Truck,
   MapPin,
@@ -30,6 +31,8 @@ import {
   Hash,
   MapPinned,
   Gauge,
+  RefreshCw,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { staggerContainerVariants, glowRingVariants, springs } from '@/lib/motion-variants';
@@ -37,6 +40,7 @@ import { TankConsumptionChart } from '@/components/customer/TankConsumptionChart
 import { WeatherWidget } from '@/components/customer/WeatherWidget';
 import { AgIntelligenceDashboard } from '@/components/customer/AgIntelligenceDashboard';
 import { IndustryIntelligenceDashboard } from '@/components/customer/IndustryIntelligenceDashboard';
+import { CustomerMapWidget } from '@/components/customer/CustomerMapWidget';
 import { useRoadRiskProfile } from '@/hooks/useRoadRisk';
 import { useCustomerFeatures } from '@/hooks/useCustomerFeatures';
 
@@ -52,6 +56,60 @@ export default function CustomerTankDetail() {
 
   // Feature flags
   const { agriculturalIntelligence } = useCustomerFeatures();
+
+  // Get consumption readings for delivery stats (90 days for good refill frequency)
+  const { data: consumptionReadings } = useTankReadingsWithConsumption(tank?.asset_id, 90);
+
+  // Calculate delivery stats from consumption readings
+  const deliveryStats = useMemo(() => {
+    if (!consumptionReadings || consumptionReadings.length === 0) {
+      return { lastDelivery: null, avgDaysBetweenFills: null, consumptionTrend: null };
+    }
+
+    // Find refill events (is_refill = true means fuel was added)
+    const refills = consumptionReadings
+      .filter(r => r.is_refill)
+      .sort((a, b) => new Date(b.reading_at).getTime() - new Date(a.reading_at).getTime());
+
+    const lastDelivery = refills.length > 0 ? new Date(refills[0].reading_at) : null;
+
+    // Calculate average days between refills
+    let avgDaysBetweenFills: number | null = null;
+    if (refills.length >= 2) {
+      const intervals: number[] = [];
+      for (let i = 0; i < refills.length - 1; i++) {
+        const daysDiff = (new Date(refills[i].reading_at).getTime() - new Date(refills[i + 1].reading_at).getTime()) / (1000 * 60 * 60 * 24);
+        intervals.push(daysDiff);
+      }
+      avgDaysBetweenFills = Math.round(intervals.reduce((sum, d) => sum + d, 0) / intervals.length);
+    }
+
+    // Calculate consumption trend (compare last 7 days vs previous 7 days)
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    const recentConsumption = consumptionReadings
+      .filter(r => !r.is_refill && r.daily_consumption && new Date(r.reading_at) >= sevenDaysAgo)
+      .map(r => r.daily_consumption || 0);
+    const previousConsumption = consumptionReadings
+      .filter(r => !r.is_refill && r.daily_consumption && new Date(r.reading_at) >= fourteenDaysAgo && new Date(r.reading_at) < sevenDaysAgo)
+      .map(r => r.daily_consumption || 0);
+
+    let consumptionTrend: { direction: 'up' | 'down' | 'stable'; percent: number } | null = null;
+    if (recentConsumption.length > 0 && previousConsumption.length > 0) {
+      const recentAvg = recentConsumption.reduce((sum, c) => sum + c, 0) / recentConsumption.length;
+      const previousAvg = previousConsumption.reduce((sum, c) => sum + c, 0) / previousConsumption.length;
+      const percentChange = previousAvg > 0 ? ((recentAvg - previousAvg) / previousAvg) * 100 : 0;
+
+      consumptionTrend = {
+        direction: Math.abs(percentChange) < 5 ? 'stable' : percentChange > 0 ? 'up' : 'down',
+        percent: Math.abs(Math.round(percentChange)),
+      };
+    }
+
+    return { lastDelivery, avgDaysBetweenFills, consumptionTrend };
+  }, [consumptionReadings]);
 
   if (tankLoading) {
     return (
@@ -80,6 +138,11 @@ export default function CustomerTankDetail() {
   const urgency = calculateUrgency(tank.asset_days_remaining ?? null);
   const urgencyClasses = getUrgencyClasses(urgency);
   const predictedDate = calculatePredictedRefillDate(tank.asset_days_remaining ?? null);
+
+  // Calculate current litres for display
+  const fuelLevel = tank.latest_calibrated_fill_percentage || 0;
+  const currentLitres = tank.asset_current_level_liters ||
+    (fuelLevel / 100) * (tank.asset_profile_water_capacity || 0);
 
   return (
     <div className="space-y-6">
@@ -116,7 +179,8 @@ export default function CustomerTankDetail() {
       >
         <KPICard
           title="Current Level"
-          value={`${(tank.latest_calibrated_fill_percentage || 0).toFixed(0)}%`}
+          value={`${Math.round(fuelLevel)}%`}
+          subtitle={currentLitres > 0 ? `${Math.round(currentLitres).toLocaleString()}L` : undefined}
           icon={Fuel}
           color={urgency === 'critical' ? 'red' : urgency === 'warning' ? 'yellow' : 'green'}
           alert={urgency === 'critical' || urgency === 'warning'}
@@ -161,8 +225,8 @@ export default function CustomerTankDetail() {
         />
       </motion.div>
 
-      {/* Agricultural Intelligence Dashboard - for farming customers */}
-      {tank.lat && tank.lng && tank.latest_calibrated_fill_percentage && tank.asset_daily_consumption && tank.asset_profile_water_capacity && (
+      {/* Agricultural Intelligence Dashboard - for farming customers ONLY */}
+      {agriculturalIntelligence && tank.lat && tank.lng && tank.latest_calibrated_fill_percentage && tank.asset_daily_consumption && tank.asset_profile_water_capacity && (
         <AgIntelligenceDashboard
           lat={tank.lat}
           lng={tank.lng}
@@ -337,6 +401,52 @@ export default function CustomerTankDetail() {
                     ),
                     icon: Activity,
                   },
+                  // Delivery Stats
+                  ...(deliveryStats.lastDelivery
+                    ? [
+                        {
+                          label: 'Last Delivery',
+                          value: deliveryStats.lastDelivery.toLocaleDateString('en-AU', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          }),
+                          icon: Truck,
+                        },
+                      ]
+                    : []),
+                  ...(deliveryStats.avgDaysBetweenFills
+                    ? [
+                        {
+                          label: 'Refill Frequency',
+                          value: `Every ~${deliveryStats.avgDaysBetweenFills} days`,
+                          icon: RefreshCw,
+                        },
+                      ]
+                    : []),
+                  ...(deliveryStats.consumptionTrend
+                    ? [
+                        {
+                          label: 'Usage Trend',
+                          value: (
+                            <span className={cn(
+                              'flex items-center gap-1',
+                              deliveryStats.consumptionTrend.direction === 'up' && 'text-orange-600',
+                              deliveryStats.consumptionTrend.direction === 'down' && 'text-green-600',
+                              deliveryStats.consumptionTrend.direction === 'stable' && 'text-gray-600'
+                            )}>
+                              {deliveryStats.consumptionTrend.direction === 'up' && <TrendingUp size={14} />}
+                              {deliveryStats.consumptionTrend.direction === 'down' && <TrendingDown size={14} />}
+                              {deliveryStats.consumptionTrend.direction === 'stable' && <BarChart3 size={14} />}
+                              {deliveryStats.consumptionTrend.direction === 'stable'
+                                ? 'Stable'
+                                : `${deliveryStats.consumptionTrend.percent}% ${deliveryStats.consumptionTrend.direction}`}
+                            </span>
+                          ),
+                          icon: BarChart3,
+                        },
+                      ]
+                    : []),
                 ],
               },
             ]}
@@ -366,18 +476,13 @@ export default function CustomerTankDetail() {
             </Card>
           )}
 
-          {/* Location Map Placeholder */}
+          {/* Location Map */}
           {tank.lat && tank.lng && (
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2 text-gray-500">
-                  <MapPin size={16} />
-                  <span className="text-sm">
-                    {tank.lat.toFixed(4)}, {tank.lng.toFixed(4)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+            <CustomerMapWidget
+              tanks={[tank]}
+              height={200}
+              showTitle={false}
+            />
           )}
 
           {/* Weather Forecast */}

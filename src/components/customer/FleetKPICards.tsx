@@ -37,8 +37,9 @@ export function FleetKPICards({ summary, fleetMetrics, tankCount = 0, singleTank
   const isSingleTank = tankCount === 1;
 
   // Get single tank details for display
-  const tankName = singleTank?.customer_name || 'Tank';
+  const tankName = singleTank?.location_id || singleTank?.customer_name || 'Tank';
   const tankOnline = singleTank?.device_online ?? true;
+  const fuelPercent = singleTank?.latest_calibrated_fill_percentage ?? 0;
 
   return (
     <motion.div
@@ -47,14 +48,18 @@ export function FleetKPICards({ summary, fleetMetrics, tankCount = 0, singleTank
       animate="visible"
       variants={staggerContainerVariants}
     >
-      {/* For single-tank: Show tank name + status. For fleet: Show fleet status */}
+      {/* For single-tank: Show tank name + fuel % + status. For fleet: Show fleet status */}
       {isSingleTank && singleTank ? (
         <KPICard
           title={tankName}
-          value={tankOnline ? 'Online' : 'Offline'}
-          subtitle="Status"
+          value={`${Math.round(fuelPercent)}%`}
+          subtitle={tankOnline ? 'Online' : 'Offline'}
           icon={tankOnline ? CheckCircle : Activity}
-          color={tankOnline ? 'green' : 'yellow'}
+          color={
+            fuelPercent < 15 ? 'red' :
+            fuelPercent < 25 ? 'yellow' :
+            'green'
+          }
           trend="neutral"
           trendValue={
             singleTank.latest_telemetry_epoch
