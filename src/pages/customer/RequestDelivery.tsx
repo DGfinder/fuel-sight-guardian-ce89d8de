@@ -22,6 +22,7 @@ import {
   useCreateDeliveryRequest,
 } from '@/hooks/useCustomerAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { FuelQuantitySelector } from '@/components/customer/FuelQuantitySelector';
 import { calculateUrgency, getUrgencyClasses } from '@/lib/urgency-calculator';
 import { Truck, Calendar, AlertTriangle, CheckCircle, ArrowLeft, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -72,6 +73,7 @@ export default function RequestDelivery() {
 
   const selectedTankId = watch('tankId');
   const requestType = watch('requestType');
+  const requestedLitres = watch('requestedLitres');
   const selectedTank = tanks?.find((t) => t.id === selectedTankId);
 
   // Filter to only tanks with request_delivery permission
@@ -485,24 +487,38 @@ export default function RequestDelivery() {
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-xs font-bold text-blue-600 dark:text-blue-400">
                   3
                 </div>
-                <CardTitle className="text-lg">Additional Details</CardTitle>
+                <CardTitle className="text-lg">Fuel Quantity</CardTitle>
               </div>
-              <CardDescription>Optional information for the delivery team</CardDescription>
+              <CardDescription>How much fuel do you need?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 relative z-10">
-            <div>
-              <Label htmlFor="requestedLitres">Estimated Litres Needed (optional)</Label>
-              <Input
-                type="number"
-                id="requestedLitres"
-                placeholder="e.g., 5000"
-                {...register('requestedLitres', { valueAsNumber: true })}
-                className="mt-1"
+            {/* Fuel Quantity Selector - Visual tank + options */}
+            {selectedTank && selectedTank.asset_profile_water_capacity ? (
+              <FuelQuantitySelector
+                currentLevelLiters={
+                  selectedTank.asset_current_level_liters ||
+                  ((selectedTank.latest_calibrated_fill_percentage || 0) / 100) * selectedTank.asset_profile_water_capacity
+                }
+                currentLevelPercent={selectedTank.latest_calibrated_fill_percentage || 0}
+                capacityLiters={selectedTank.asset_profile_water_capacity}
+                value={requestedLitres ?? null}
+                onChange={(litres) => setValue('requestedLitres', litres ?? undefined)}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Leave blank for a full tank delivery
-              </p>
-            </div>
+            ) : (
+              <div>
+                <Label htmlFor="requestedLitres">Estimated Litres Needed (optional)</Label>
+                <Input
+                  type="number"
+                  id="requestedLitres"
+                  placeholder="e.g., 5000"
+                  {...register('requestedLitres', { valueAsNumber: true })}
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedTank ? 'Enter the amount of fuel you need' : 'Select a tank above to see capacity details'}
+                </p>
+              </div>
+            )}
             <div>
               <Label htmlFor="notes">Notes / Special Instructions</Label>
               <Textarea

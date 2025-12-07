@@ -165,7 +165,12 @@ export default function CustomerDashboard() {
       </div>
 
       {/* KPI Cards Row - Full Width */}
-      <FleetKPICards summary={summary} fleetMetrics={fleetMetrics} tankCount={tanks?.length || 0} />
+      <FleetKPICards
+        summary={summary}
+        fleetMetrics={fleetMetrics}
+        tankCount={tanks?.length || 0}
+        singleTank={tanks?.length === 1 ? tanks[0] : undefined}
+      />
 
       {/* Critical Alert Banner */}
       {summary.criticalTanks > 0 && (

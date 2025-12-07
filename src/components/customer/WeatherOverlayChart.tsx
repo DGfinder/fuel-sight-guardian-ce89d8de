@@ -177,19 +177,17 @@ export function WeatherOverlayChart({
                   return value;
                 }
               }}
-              content={({ payload, label }) => {
+              content={({ payload }) => {
                 if (!payload || payload.length === 0) return null;
                 const data = payload[0]?.payload;
+                // Use fullDate (ISO timestamp) for proper date formatting, not display date
+                const dateToFormat = data?.fullDate ? new Date(data.fullDate) : null;
                 return (
                   <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-3 shadow-lg">
                     <p className="font-medium text-gray-900 mb-2">
-                      {(() => {
-                        try {
-                          return format(new Date(label), 'EEEE, MMM d');
-                        } catch {
-                          return label;
-                        }
-                      })()}
+                      {dateToFormat
+                        ? format(dateToFormat, 'EEEE, MMM d')
+                        : data?.date || 'Unknown date'}
                     </p>
                     <div className="space-y-1 text-sm">
                       {data?.fuelLitres != null && (

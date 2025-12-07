@@ -2,6 +2,14 @@ import { motion } from 'framer-motion';
 import { Fuel, TrendingDown, AlertTriangle, CheckCircle, Activity } from 'lucide-react';
 import { staggerContainerVariants } from '@/lib/motion-variants';
 import { KPICard } from '@/components/ui/KPICard';
+import type { CustomerTank } from '@/hooks/useCustomerAuth';
+import { formatDistanceToNow } from 'date-fns';
+
+// Format last seen time from epoch timestamp
+function formatLastSeen(epochSeconds: number): string {
+  const date = new Date(epochSeconds * 1000);
+  return formatDistanceToNow(date, { addSuffix: true });
+}
 
 interface TankSummary {
   totalTanks: number;
@@ -21,11 +29,17 @@ interface FleetKPICardsProps {
   summary: TankSummary;
   fleetMetrics?: FleetMetrics | null;
   tankCount?: number;
+  singleTank?: CustomerTank; // For single-tank customers, show tank details instead of fleet status
 }
 
-export function FleetKPICards({ summary, fleetMetrics, tankCount = 0 }: FleetKPICardsProps) {
+export function FleetKPICards({ summary, fleetMetrics, tankCount = 0, singleTank }: FleetKPICardsProps) {
   // For single-tank customers, hide redundant fleet-aggregate cards
   const isSingleTank = tankCount === 1;
+
+  // Get single tank details for display
+  const tankName = singleTank?.customer_name || 'Tank';
+  const tankOnline = singleTank?.device_online ?? true;
+
   return (
     <motion.div
       className={`grid grid-cols-1 gap-4 ${isSingleTank ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}
@@ -33,20 +47,36 @@ export function FleetKPICards({ summary, fleetMetrics, tankCount = 0 }: FleetKPI
       animate="visible"
       variants={staggerContainerVariants}
     >
-      {/* Fleet Status - Total + Online combined */}
-      <KPICard
-        title="Fleet Status"
-        value={summary.onlineTanks}
-        subtitle={`of ${summary.totalTanks} online`}
-        icon={CheckCircle}
-        color={summary.onlineTanks === summary.totalTanks ? 'green' : 'yellow'}
-        trend={summary.onlineTanks === summary.totalTanks ? 'neutral' : 'down'}
-        trendValue={
-          summary.onlineTanks === summary.totalTanks
-            ? 'All systems operational'
-            : `${summary.totalTanks - summary.onlineTanks} offline`
-        }
-      />
+      {/* For single-tank: Show tank name + status. For fleet: Show fleet status */}
+      {isSingleTank && singleTank ? (
+        <KPICard
+          title={tankName}
+          value={tankOnline ? 'Online' : 'Offline'}
+          subtitle="Status"
+          icon={tankOnline ? CheckCircle : Activity}
+          color={tankOnline ? 'green' : 'yellow'}
+          trend="neutral"
+          trendValue={
+            singleTank.latest_telemetry_epoch
+              ? `Last seen ${formatLastSeen(singleTank.latest_telemetry_epoch)}`
+              : 'No data yet'
+          }
+        />
+      ) : (
+        <KPICard
+          title="Fleet Status"
+          value={summary.onlineTanks}
+          subtitle={`of ${summary.totalTanks} online`}
+          icon={CheckCircle}
+          color={summary.onlineTanks === summary.totalTanks ? 'green' : 'yellow'}
+          trend={summary.onlineTanks === summary.totalTanks ? 'neutral' : 'down'}
+          trendValue={
+            summary.onlineTanks === summary.totalTanks
+              ? 'All systems operational'
+              : `${summary.totalTanks - summary.onlineTanks} offline`
+          }
+        />
+      )}
 
       {/* Low Fuel Warning - hide for single tank (redundant with fuel level color) */}
       {!isSingleTank && (
