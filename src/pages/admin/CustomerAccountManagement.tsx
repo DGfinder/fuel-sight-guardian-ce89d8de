@@ -49,10 +49,15 @@ import {
   Copy,
   Check,
   AlertTriangle,
+  Wheat,
+  Mountain,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { generateSecurePassword } from '@/utils/passwordGenerator';
+
+type IndustryType = 'farming' | 'mining' | 'general';
 
 interface CustomerAccount {
   id: string;
@@ -65,10 +70,33 @@ interface CustomerAccount {
   account_type: string;
   is_active: boolean;
   email_notifications: boolean;
+  industry_type: IndustryType | null;
   created_at: string;
   last_login_at: string | null;
   assigned_tank_count?: number;
 }
+
+// Industry type configuration
+const INDUSTRY_CONFIG: Record<IndustryType, { label: string; icon: React.ElementType; color: string; features: string[] }> = {
+  farming: {
+    label: 'Farming',
+    icon: Wheat,
+    color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    features: ['Agricultural Intelligence', 'Road Risk', 'Full Weather', 'Fuel Multipliers'],
+  },
+  mining: {
+    label: 'Mining',
+    icon: Mountain,
+    color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    features: ['Road Risk', 'Full Weather', 'Extreme Heat Alerts', 'Cyclone Warnings'],
+  },
+  general: {
+    label: 'General',
+    icon: Building2,
+    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    features: ['Tank Monitoring', 'Basic Weather'],
+  },
+};
 
 export default function CustomerAccountManagement() {
   const queryClient = useQueryClient();
@@ -298,15 +326,24 @@ function AccountRow({
   onCreateLogin: () => void;
 }) {
   const hasLogin = !!account.user_id;
+  const industryType = account.industry_type || 'farming';
+  const industryConfig = INDUSTRY_CONFIG[industryType];
+  const IndustryIcon = industryConfig.icon;
 
   return (
     <TableRow>
       <TableCell>
-        <div>
-          <p className="font-medium">{account.customer_name}</p>
-          {account.company_name && (
-            <p className="text-sm text-gray-500">{account.company_name}</p>
-          )}
+        <div className="flex items-center gap-2">
+          <div>
+            <p className="font-medium">{account.customer_name}</p>
+            {account.company_name && (
+              <p className="text-sm text-gray-500">{account.company_name}</p>
+            )}
+          </div>
+          <Badge className={cn('gap-1 text-xs', industryConfig.color)}>
+            <IndustryIcon size={12} />
+            {industryConfig.label}
+          </Badge>
         </div>
       </TableCell>
       <TableCell>
@@ -393,6 +430,7 @@ function CustomerAccountDialog({
     company_name: account?.company_name || '',
     is_active: account?.is_active ?? true,
     email_notifications: account?.email_notifications ?? true,
+    industry_type: (account?.industry_type || 'farming') as IndustryType,
   });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -426,6 +464,7 @@ function CustomerAccountDialog({
             company_name: formData.company_name,
             is_active: formData.is_active,
             email_notifications: formData.email_notifications,
+            industry_type: formData.industry_type,
           })
           .eq('id', account.id);
 
@@ -456,6 +495,7 @@ function CustomerAccountDialog({
             is_active: formData.is_active,
             email_notifications: formData.email_notifications,
             account_type: 'customer',
+            industry_type: formData.industry_type,
           })
           .select()
           .single();
@@ -558,6 +598,49 @@ function CustomerAccountDialog({
               placeholder="Enter company name"
               className="mt-1"
             />
+          </div>
+
+          {/* Industry Type Selector */}
+          <div>
+            <Label>Industry Type *</Label>
+            <Select
+              value={formData.industry_type}
+              onValueChange={(value) =>
+                setFormData({ ...formData, industry_type: value as IndustryType })
+              }
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(INDUSTRY_CONFIG) as IndustryType[]).map((type) => {
+                  const config = INDUSTRY_CONFIG[type];
+                  const Icon = config.icon;
+                  return (
+                    <SelectItem key={type} value={type}>
+                      <div className="flex items-center gap-2">
+                        <Icon size={14} />
+                        {config.label}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500 mt-1">
+              Determines which features are visible in customer portal
+            </p>
+            {/* Feature Preview */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 mt-2">
+              <p className="text-xs font-medium text-gray-500 mb-1">Features for {INDUSTRY_CONFIG[formData.industry_type].label}:</p>
+              <div className="flex flex-wrap gap-1">
+                {INDUSTRY_CONFIG[formData.industry_type].features.map((feature) => (
+                  <Badge key={feature} variant="outline" className="text-xs">
+                    {feature}
+                  </Badge>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

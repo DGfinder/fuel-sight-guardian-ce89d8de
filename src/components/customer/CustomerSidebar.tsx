@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Settings,
   Activity,
+  CloudSun,
 } from 'lucide-react';
 
 interface CustomerSidebarProps {
@@ -25,15 +26,30 @@ interface CustomerSidebarProps {
   onClose?: () => void;
 }
 
-const navItems = [
-  { path: '/customer', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { path: '/customer/tanks', label: 'My Tanks', icon: Fuel },
-  { path: '/customer/health', label: 'Device Health', icon: Activity },
-  { path: '/customer/calendar', label: 'Refill Calendar', icon: CalendarDays },
-  { path: '/customer/request', label: 'Request Delivery', icon: Truck },
-  { path: '/customer/history', label: 'Delivery History', icon: History },
-  { path: '/customer/reports', label: 'Reports', icon: FileText },
-  { path: '/customer/settings', label: 'Settings', icon: Settings },
+// Grouped navigation with section headers
+const navGroups = [
+  {
+    items: [
+      { path: '/customer', label: 'Dashboard', icon: LayoutDashboard, end: true },
+      { path: '/customer/tanks', label: 'My Tanks', icon: Fuel },
+      { path: '/customer/health', label: 'Device Health', icon: Activity },
+      { path: '/customer/weather', label: 'Weather Intelligence', icon: CloudSun },
+    ],
+  },
+  {
+    label: 'Fuel Delivery',
+    items: [
+      { path: '/customer/calendar', label: 'Refill Calendar', icon: CalendarDays },
+      { path: '/customer/request', label: 'Request Delivery', icon: Truck },
+      { path: '/customer/history', label: 'Delivery History', icon: History },
+    ],
+  },
+  {
+    items: [
+      { path: '/customer/reports', label: 'Reports', icon: FileText },
+      { path: '/customer/settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ];
 
 export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProps) {
@@ -79,24 +95,33 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
 
             {/* Navigation */}
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.end}
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                      isActive
-                        ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
-                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                    )
-                  }
-                >
-                  <item.icon size={20} />
-                  <span className="font-medium">{item.label}</span>
-                </NavLink>
+              {navGroups.map((group, groupIndex) => (
+                <div key={groupIndex} className={group.label ? 'mt-4 first:mt-0' : ''}>
+                  {group.label && (
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      {group.label}
+                    </div>
+                  )}
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      end={item.end}
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                          isActive
+                            ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
+                            : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                        )
+                      }
+                    >
+                      <item.icon size={20} />
+                      <span className="font-medium">{item.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
               ))}
             </nav>
 
@@ -154,23 +179,32 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.end}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                  isActive
-                    ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
-                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                )
-              }
-            >
-              <item.icon size={20} />
-              <span className="font-medium">{item.label}</span>
-            </NavLink>
+          {navGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className={group.label ? 'mt-4 first:mt-0' : ''}>
+              {group.label && (
+                <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  {group.label}
+                </div>
+              )}
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                      isActive
+                        ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
+                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                    )
+                  }
+                >
+                  <item.icon size={20} />
+                  <span className="font-medium">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 

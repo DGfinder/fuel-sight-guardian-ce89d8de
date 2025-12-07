@@ -95,8 +95,9 @@ export class SubscriptionRepository {
       .eq('enabled', true)
       .eq('customer_contacts.enabled', true)
       .eq('preferred_send_hour', hour)
-      .in('report_frequency', ['daily', 'weekly', 'monthly'])
-      .order('customer_contacts.customer_name', { ascending: true });
+      .in('report_frequency', ['daily', 'weekly', 'monthly']);
+      // Note: Cannot use .order() on foreign table columns in PostgREST
+      // Sorting is handled in transformSubscriptions() instead
 
     if (error) {
       throw new Error(`Failed to fetch subscriptions by preferred hour: ${error.message}`);
@@ -418,6 +419,8 @@ export class SubscriptionRepository {
           updated_at: row.updated_at,
         } as Subscription;
       })
-      .filter((sub): sub is Subscription => sub !== null);
+      .filter((sub): sub is Subscription => sub !== null)
+      // Sort by customer name (PostgREST doesn't support ordering by foreign table columns)
+      .sort((a, b) => a.customer_name.localeCompare(b.customer_name));
   }
 }

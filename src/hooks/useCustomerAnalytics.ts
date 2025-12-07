@@ -95,6 +95,7 @@ export function useConsumptionStats(tankId: string, days: number = 30) {
 
 /**
  * Hook to get device health for all customer tanks
+ * Uses customer_tanks_unified view for RLS-safe access to all tank sources
  */
 export function useFleetHealth() {
   return useQuery({
@@ -115,99 +116,51 @@ export function useFleetHealth() {
 
       if (!customerAccount) throw new Error('Customer account not found');
 
-      // Get tank access
-      const { data: tankAccess } = await supabase
-        .from('customer_tank_access')
-        .select('agbot_location_id')
+      // Use unified view for RLS-safe access to all tank types
+      const { data: unifiedTanks, error: unifiedError } = await supabase
+        .from('customer_tanks_unified')
+        .select('*')
         .eq('customer_account_id', customerAccount.id);
 
-      if (!tankAccess || tankAccess.length === 0) {
+      if (unifiedError) {
+        console.error('Error fetching unified tanks:', unifiedError);
+        // Fall back to empty array if view doesn't exist
         return [];
       }
 
-      const tankIds = tankAccess.map(access => access.agbot_location_id);
+      if (!unifiedTanks || unifiedTanks.length === 0) {
+        return [];
+      }
 
-      // Get tank locations with assets
-      const { data: tanks, error: tanksError } = await supabase
-        .from('ta_agbot_locations')
-        .select(`
-          id,
-          name,
-          address,
-          calibrated_fill_level,
-          last_telemetry_epoch,
-          ta_agbot_assets (
-            id,
-            serial_number,
-            is_online,
-            battery_voltage,
-            signal_strength,
-            last_reading_at
-          )
-        `)
-        .in('id', tankIds);
-
-      if (tanksError) throw tanksError;
-
-      // Get latest readings for each asset
-      const assetIds = tanks
-        .map(tank => {
-          const assets = Array.isArray(tank.ta_agbot_assets) ? tank.ta_agbot_assets : [];
-          return assets[0]?.id;
-        })
-        .filter(Boolean);
-
-      const { data: latestReadings } = await supabase
-        .from('ta_agbot_readings')
-        .select('asset_id, reading_at, is_online, battery_voltage, signal_strength, temperature_c')
-        .in('asset_id', assetIds)
-        .order('reading_at', { ascending: false });
-
-      // Get reading frequency (count readings in last 24h)
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: recentReadings } = await supabase
-        .from('ta_agbot_readings')
-        .select('asset_id, reading_at')
-        .in('asset_id', assetIds)
-        .gte('reading_at', oneDayAgo);
-
-      // Build health data
-      return tanks.map(tank => {
-        const assets = Array.isArray(tank.ta_agbot_assets) ? tank.ta_agbot_assets : [];
-        const asset = assets[0];
-        const latestReading = latestReadings?.find(r => r.asset_id === asset?.id);
-
-        const lastReadingTime = latestReading?.reading_at || tank.last_telemetry_epoch
-          ? new Date(latestReading?.reading_at || tank.last_telemetry_epoch! * 1000)
+      // Build health data from unified view
+      return unifiedTanks.map(tank => {
+        const lastReadingTime = tank.last_reading_at
+          ? new Date(tank.last_reading_at)
           : null;
 
-        const hourssinceLastReading = lastReadingTime
+        const hoursSinceReading = lastReadingTime
           ? (Date.now() - lastReadingTime.getTime()) / (1000 * 60 * 60)
           : null;
 
-        // Calculate reading frequency
-        const readingCount = recentReadings?.filter(r => r.asset_id === asset?.id).length || 0;
-        const readingsPerHour = readingCount > 0 ? readingCount / 24 : 0;
-
         return {
-          tank_id: tank.id,
-          tank_name: tank.name,
+          tank_id: tank.tank_id || tank.agbot_location_id || tank.smartfill_tank_id,
+          tank_name: tank.tank_name || tank.location_name,
           tank_address: tank.address,
-          asset_id: asset?.id,
-          asset_serial: asset?.serial_number,
-          is_online: asset?.is_online || false,
-          battery_voltage: latestReading?.battery_voltage || null,
-          temperature_c: latestReading?.temperature_c || null,
-          signal_strength: latestReading?.signal_strength || null,
+          asset_id: tank.agbot_asset_id,
+          asset_serial: null, // Not in unified view
+          is_online: tank.device_online || false,
+          battery_voltage: tank.battery_voltage || null,
+          temperature_c: tank.temperature_c || null,
+          signal_strength: null, // Not in unified view - could add
           last_reading_at: lastReadingTime?.toISOString() || null,
-          hours_since_reading: hourssinceLastReading,
-          reading_frequency: readingsPerHour,
+          hours_since_reading: hoursSinceReading,
+          reading_frequency: 0, // Would need separate query
           health_status: getHealthStatus(
-            asset?.is_online || false,
-            hourssinceLastReading,
-            latestReading?.battery_voltage
+            tank.device_online || false,
+            hoursSinceReading,
+            tank.battery_voltage
           ),
-          current_level: tank.calibrated_fill_level,
+          current_level: tank.current_level_percent,
         };
       });
     },
@@ -281,6 +234,7 @@ export function useConsumptionChartData(tankId?: string, days: number = 7) {
 
 /**
  * Hook to get aggregate fleet consumption (average level across all tanks)
+ * Returns both fuel level and daily consumption for the fleet
  */
 export function useFleetConsumptionChart(days: number = 7) {
   const { data, isLoading } = useFleetConsumption(days);
@@ -289,38 +243,76 @@ export function useFleetConsumptionChart(days: number = 7) {
     return { data: [], isLoading };
   }
 
-  // Group readings by date and calculate average level
+  // Group readings by date (using ISO date for proper sorting)
   const readingsByDate = data.readings.reduce((acc, reading) => {
-    const date = new Date(reading.reading_at).toLocaleDateString('en-AU', {
+    const dateKey = new Date(reading.reading_at).toISOString().split('T')[0];
+    const displayDate = new Date(reading.reading_at).toLocaleDateString('en-AU', {
       day: 'numeric',
       month: 'short',
     });
 
-    if (!acc[date]) {
-      acc[date] = {
-        date,
+    if (!acc[dateKey]) {
+      acc[dateKey] = {
+        dateKey,
+        displayDate,
         fullDate: reading.reading_at,
         levels: [],
+        tankReadings: [] as { tankId: string; level: number }[],
       };
     }
 
     if (reading.level_percent !== null) {
-      acc[date].levels.push(reading.level_percent);
+      acc[dateKey].levels.push(reading.level_percent);
+      acc[dateKey].tankReadings.push({
+        tankId: reading.tank_id,
+        level: reading.level_percent,
+      });
     }
 
     return acc;
-  }, {} as Record<string, { date: string; fullDate: string; levels: number[] }>);
+  }, {} as Record<string, {
+    dateKey: string;
+    displayDate: string;
+    fullDate: string;
+    levels: number[];
+    tankReadings: { tankId: string; level: number }[];
+  }>);
 
-  const chartData = Object.values(readingsByDate)
-    .map(entry => ({
-      date: entry.date,
+  // Sort dates and calculate consumption
+  const sortedDates = Object.keys(readingsByDate).sort();
+
+  const chartData = sortedDates.map((dateKey, index) => {
+    const entry = readingsByDate[dateKey];
+    const avgLevel = entry.levels.length > 0
+      ? entry.levels.reduce((sum, level) => sum + level, 0) / entry.levels.length
+      : null;
+
+    // Calculate consumption by comparing to previous day
+    let consumption: number | null = null;
+    if (index > 0 && avgLevel !== null) {
+      const prevDateKey = sortedDates[index - 1];
+      const prevEntry = readingsByDate[prevDateKey];
+      const prevAvgLevel = prevEntry.levels.length > 0
+        ? prevEntry.levels.reduce((sum, level) => sum + level, 0) / prevEntry.levels.length
+        : null;
+
+      if (prevAvgLevel !== null) {
+        const levelDiff = prevAvgLevel - avgLevel;
+        // Only show consumption if level decreased (not a refill)
+        if (levelDiff > 0) {
+          consumption = levelDiff; // This is percentage points drop
+        }
+      }
+    }
+
+    return {
+      date: entry.displayDate,
       fullDate: entry.fullDate,
-      avgLevel: entry.levels.length > 0
-        ? entry.levels.reduce((sum, level) => sum + level, 0) / entry.levels.length
-        : null,
+      avgLevel,
+      consumption,
       tankCount: entry.levels.length,
-    }))
-    .sort((a, b) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
+    };
+  });
 
   return {
     data: chartData,
@@ -418,9 +410,14 @@ export interface ReadingWithConsumption {
   battery_voltage: number | null;
 }
 
+// Thresholds for consumption calculation (consistent with AgBot & SmartFill)
+const NOISE_THRESHOLD = 5; // Ignore changes < 5L (sensor noise)
+const REFILL_THRESHOLD = 250; // Increases > 250L = refill (bulk fuel deliveries)
+
 /**
  * Hook to get tank readings enriched with consumption calculations
- * Automatically detects refills and calculates consumption between readings
+ * Uses hourly decrease summation: tracks all decreases throughout the day,
+ * ignores increases (refills), and sums to get true daily consumption
  */
 export function useTankReadingsWithConsumption(
   assetId: string | undefined,
@@ -444,39 +441,77 @@ export function useTankReadingsWithConsumption(
       if (error) throw error;
       if (!readings || readings.length === 0) return [];
 
-      // Enrich readings with consumption calculations
-      return readings.map((reading, index) => {
-        if (index === 0) {
-          return {
-            ...reading,
-            daily_consumption: null,
-            is_refill: false,
-          };
+      // Group readings by date (YYYY-MM-DD) to aggregate per day
+      const readingsByDate: Record<string, typeof readings> = {};
+      readings.forEach(reading => {
+        const dateKey = new Date(reading.reading_at).toISOString().split('T')[0];
+        if (!readingsByDate[dateKey]) {
+          readingsByDate[dateKey] = [];
         }
+        readingsByDate[dateKey].push(reading);
+      });
 
-        const prevReading = readings[index - 1];
-        const levelChange = reading.level_liters && prevReading.level_liters
-          ? reading.level_liters - prevReading.level_liters
-          : null;
+      // Calculate daily aggregates using hourly decrease summation
+      const sortedDates = Object.keys(readingsByDate).sort();
+      const dailyData: ReadingWithConsumption[] = [];
 
-        // Detect refill (significant increase)
-        const isRefill = levelChange !== null && levelChange > 500;
+      sortedDates.forEach((dateKey, dateIndex) => {
+        const dayReadings = readingsByDate[dateKey];
+        const lastReading = dayReadings[dayReadings.length - 1];
 
-        // Calculate consumption (only if not a refill and level decreased)
-        let dailyConsumption: number | null = null;
-        if (!isRefill && levelChange !== null && levelChange < 0) {
-          const hoursDiff = (new Date(reading.reading_at).getTime() - new Date(prevReading.reading_at).getTime()) / (1000 * 60 * 60);
-          if (hoursDiff > 0) {
-            dailyConsumption = Math.abs(levelChange) * (24 / hoursDiff);
+        // Sum all decreases throughout the day (hourly decrease summation)
+        let dailyConsumption = 0;
+        let hadRefill = false;
+
+        // Process readings within the day
+        for (let i = 1; i < dayReadings.length; i++) {
+          const prev = dayReadings[i - 1];
+          const curr = dayReadings[i];
+
+          if (prev.level_liters != null && curr.level_liters != null) {
+            const change = curr.level_liters - prev.level_liters;
+
+            if (change < -NOISE_THRESHOLD) {
+              // Fuel decreased by more than noise threshold = consumption
+              dailyConsumption += Math.abs(change);
+            } else if (change > REFILL_THRESHOLD) {
+              // Significant increase = refill detected
+              hadRefill = true;
+            }
+            // Small increases or changes within noise threshold = ignore
           }
         }
 
-        return {
-          ...reading,
-          daily_consumption: dailyConsumption,
-          is_refill: isRefill,
-        };
+        // Handle overnight consumption (previous day's last → today's first)
+        if (dateIndex > 0) {
+          const prevDateKey = sortedDates[dateIndex - 1];
+          const prevDayReadings = readingsByDate[prevDateKey];
+          const prevDayLast = prevDayReadings[prevDayReadings.length - 1];
+          const todayFirst = dayReadings[0];
+
+          if (prevDayLast.level_liters != null && todayFirst.level_liters != null) {
+            const overnightChange = todayFirst.level_liters - prevDayLast.level_liters;
+            if (overnightChange < -NOISE_THRESHOLD) {
+              dailyConsumption += Math.abs(overnightChange);
+            } else if (overnightChange > REFILL_THRESHOLD) {
+              hadRefill = true;
+            }
+          }
+        }
+
+        dailyData.push({
+          reading_at: lastReading.reading_at,
+          level_liters: lastReading.level_liters,
+          level_percent: lastReading.level_percent,
+          is_online: lastReading.is_online,
+          temperature_c: lastReading.temperature_c,
+          battery_voltage: lastReading.battery_voltage,
+          daily_consumption: dailyConsumption > 0 ? Math.round(dailyConsumption) : null,
+          is_refill: hadRefill,
+        });
       });
+
+      return dailyData;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     enabled: !!assetId,

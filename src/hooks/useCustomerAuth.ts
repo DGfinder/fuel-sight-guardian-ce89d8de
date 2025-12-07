@@ -24,16 +24,24 @@ export interface CustomerAccount {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  // Industry type determines feature visibility in customer portal
+  industry_type: 'farming' | 'mining' | 'general' | null;
 }
 
 export interface CustomerTankAccess {
   id: string;
   customer_account_id: string;
-  agbot_location_id: string;
+  agbot_location_id: string | null;
+  tank_id: string | null;
+  smartfill_tank_id: string | null;
+  tank_type: 'agbot' | 'smartfill' | 'dip' | 'manual' | null;
   access_level: 'read' | 'request_delivery' | 'admin';
   assigned_at: string;
   notes: string | null;
 }
+
+// Tank source type for UI display
+export type TankSourceType = 'agbot' | 'smartfill' | 'dip' | 'manual' | 'unknown';
 
 export interface CustomerTank {
   id: string;
@@ -59,6 +67,12 @@ export interface CustomerTank {
   asset_current_level_liters?: number | null;
   // Access level for this customer
   access_level: 'read' | 'request_delivery' | 'admin';
+  // Source type for multi-source support
+  source_type: TankSourceType;
+  // Source-specific IDs
+  agbot_location_id?: string | null;
+  smartfill_tank_id?: string | null;
+  tank_id?: string | null;
 }
 
 /**
@@ -138,7 +152,7 @@ export function useIsGSFStaff() {
 
 /**
  * Hook to get tanks assigned to the current customer
- * Includes asset data for each tank
+ * Supports multiple tank sources: AgBot, SmartFill, and manual dips
  */
 export function useCustomerTanks() {
   const { data: customerAccount } = useCustomerAccount();
@@ -147,6 +161,46 @@ export function useCustomerTanks() {
     queryKey: ['customer-tanks', customerAccount?.id],
     queryFn: async () => {
       if (!customerAccount) return [];
+
+      // Try unified view first (supports all tank types)
+      const { data: unifiedData, error: unifiedError } = await supabase
+        .from('customer_tanks_unified')
+        .select('*')
+        .eq('customer_account_id', customerAccount.id);
+
+      // If unified view exists and has data, use it
+      if (!unifiedError && unifiedData && unifiedData.length > 0) {
+        return unifiedData.map(tank => ({
+          id: tank.tank_id || tank.agbot_location_id || tank.smartfill_tank_id,
+          location_guid: tank.agbot_location_id || tank.tank_id,
+          customer_name: tank.customer_name,
+          location_id: tank.tank_name || tank.location_name,
+          address1: tank.address,
+          address2: null,
+          state: null,
+          postcode: null,
+          lat: tank.latitude,
+          lng: tank.longitude,
+          latest_calibrated_fill_percentage: tank.current_level_percent,
+          latest_telemetry_epoch: tank.last_reading_at ? new Date(tank.last_reading_at).getTime() / 1000 : null,
+          disabled: false,
+          asset_id: tank.agbot_asset_id,
+          asset_serial_number: null,
+          device_online: tank.device_online,
+          asset_days_remaining: tank.days_remaining,
+          asset_daily_consumption: tank.daily_consumption_liters,
+          asset_profile_water_capacity: tank.capacity_liters,
+          asset_current_level_liters: tank.current_level_liters,
+          access_level: tank.access_level || 'read',
+          source_type: (tank.source_type as TankSourceType) || 'unknown',
+          agbot_location_id: tank.agbot_location_id,
+          smartfill_tank_id: tank.smartfill_tank_id,
+          tank_id: tank.tank_id,
+        } as CustomerTank));
+      }
+
+      // Fallback to legacy AgBot-only query
+      console.log('[useCustomerTanks] Falling back to legacy AgBot query');
 
       // Get tank access assignments
       const { data: accessData, error: accessError } = await supabase
@@ -163,8 +217,12 @@ export function useCustomerTanks() {
         return [];
       }
 
-      const locationIds = accessData.map(a => a.agbot_location_id);
+      const locationIds = accessData.filter(a => a.agbot_location_id).map(a => a.agbot_location_id);
       const accessMap = new Map(accessData.map(a => [a.agbot_location_id, a.access_level]));
+
+      if (locationIds.length === 0) {
+        return [];
+      }
 
       // Get tank details with assets
       const { data: locations, error: locationsError } = await supabase
@@ -201,38 +259,18 @@ export function useCustomerTanks() {
         return [];
       }
 
-      // Transform to CustomerTank format (map new column names to interface)
+      // Transform to CustomerTank format
       return (locations || []).map(loc => {
         const assets = Array.isArray(loc.ta_agbot_assets) ? loc.ta_agbot_assets : [];
-        const asset = assets[0]; // Primary asset for other fields
+        const asset = assets[0];
 
-        // Calculate fill level from asset data (more accurate than location aggregate)
-        // Average all assets if location has multiple tanks
         const assetFillLevels = assets
           .filter(a => a.current_level_percent != null && a.current_level_percent !== undefined)
           .map(a => a.current_level_percent as number);
 
         const calculatedFillLevel = assetFillLevels.length > 0
           ? assetFillLevels.reduce((sum, level) => sum + level, 0) / assetFillLevels.length
-          : loc.calibrated_fill_level; // Fallback to location level if no asset data
-
-        // Debug logging for Indosolutions
-        if (loc.customer_name?.toLowerCase().includes('indosolution')) {
-          console.log('[useCustomerTanks] Indosolutions location:', {
-            locationId: loc.id,
-            locationName: loc.name,
-            locationFillLevel: loc.calibrated_fill_level,
-            assetCount: assets.length,
-            assetFillLevels,
-            calculatedFillLevel,
-            assets: assets.map(a => ({
-              id: a.id,
-              serial: a.serial_number,
-              level: a.current_level_percent,
-              online: a.is_online
-            }))
-          });
-        }
+          : loc.calibrated_fill_level;
 
         return {
           id: loc.id,
@@ -256,6 +294,10 @@ export function useCustomerTanks() {
           asset_profile_water_capacity: asset?.capacity_liters,
           asset_current_level_liters: asset?.current_level_liters,
           access_level: accessMap.get(loc.id) || 'read',
+          source_type: 'agbot' as TankSourceType,
+          agbot_location_id: loc.id,
+          smartfill_tank_id: null,
+          tank_id: null,
         } as CustomerTank;
       });
     },

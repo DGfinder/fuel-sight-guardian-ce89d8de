@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion } from 'framer-motion';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useCustomerTank, useCustomerTankHistory, useCustomerPreferences } from '@/hooks/useCustomerAuth';
-import { useConsumptionChartData, useDeviceHealth } from '@/hooks/useCustomerAnalytics';
+import { useCustomerTank, useCustomerPreferences } from '@/hooks/useCustomerAuth';
+import { useDeviceHealth, useTankReadingsWithConsumption } from '@/hooks/useCustomerAnalytics';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { KPICard } from '@/components/ui/KPICard';
+import { DetailCard } from '@/components/ui/DetailCard';
 import {
   calculateUrgency,
   getUrgencyClasses,
@@ -18,24 +21,28 @@ import {
   Fuel,
   Clock,
   TrendingDown,
+  TrendingUp,
   Calendar,
   Truck,
   MapPin,
   Activity,
   Wifi,
   WifiOff,
+  Hash,
+  MapPinned,
+  Gauge,
+  RefreshCw,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from 'recharts';
+import { staggerContainerVariants, glowRingVariants, springs } from '@/lib/motion-variants';
+import { TankConsumptionChart } from '@/components/customer/TankConsumptionChart';
+import { WeatherWidget } from '@/components/customer/WeatherWidget';
+import { AgIntelligenceDashboard } from '@/components/customer/AgIntelligenceDashboard';
+import { IndustryIntelligenceDashboard } from '@/components/customer/IndustryIntelligenceDashboard';
+import { CustomerMapWidget } from '@/components/customer/CustomerMapWidget';
+import { useRoadRiskProfile } from '@/hooks/useRoadRisk';
+import { useCustomerFeatures } from '@/hooks/useCustomerFeatures';
 
 export default function CustomerTankDetail() {
   const { tankId } = useParams<{ tankId: string }>();
@@ -44,8 +51,65 @@ export default function CustomerTankDetail() {
   const { data: preferences } = useCustomerPreferences();
   const { data: deviceHealth, isLoading: healthLoading } = useDeviceHealth(tankId);
 
-  const [chartPeriod, setChartPeriod] = useState<number>(preferences?.default_chart_days || 7);
-  const { data: chartData, isLoading: chartLoading } = useConsumptionChartData(tankId, chartPeriod);
+  // Road risk profile for agricultural intelligence
+  const { data: roadProfile } = useRoadRiskProfile(tankId);
+
+  // Feature flags
+  const { agriculturalIntelligence } = useCustomerFeatures();
+
+  // Get consumption readings for delivery stats (90 days for good refill frequency)
+  const { data: consumptionReadings } = useTankReadingsWithConsumption(tank?.asset_id, 90);
+
+  // Calculate delivery stats from consumption readings
+  const deliveryStats = useMemo(() => {
+    if (!consumptionReadings || consumptionReadings.length === 0) {
+      return { lastDelivery: null, avgDaysBetweenFills: null, consumptionTrend: null };
+    }
+
+    // Find refill events (is_refill = true means fuel was added)
+    const refills = consumptionReadings
+      .filter(r => r.is_refill)
+      .sort((a, b) => new Date(b.reading_at).getTime() - new Date(a.reading_at).getTime());
+
+    const lastDelivery = refills.length > 0 ? new Date(refills[0].reading_at) : null;
+
+    // Calculate average days between refills
+    let avgDaysBetweenFills: number | null = null;
+    if (refills.length >= 2) {
+      const intervals: number[] = [];
+      for (let i = 0; i < refills.length - 1; i++) {
+        const daysDiff = (new Date(refills[i].reading_at).getTime() - new Date(refills[i + 1].reading_at).getTime()) / (1000 * 60 * 60 * 24);
+        intervals.push(daysDiff);
+      }
+      avgDaysBetweenFills = Math.round(intervals.reduce((sum, d) => sum + d, 0) / intervals.length);
+    }
+
+    // Calculate consumption trend (compare last 7 days vs previous 7 days)
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    const recentConsumption = consumptionReadings
+      .filter(r => !r.is_refill && r.daily_consumption && new Date(r.reading_at) >= sevenDaysAgo)
+      .map(r => r.daily_consumption || 0);
+    const previousConsumption = consumptionReadings
+      .filter(r => !r.is_refill && r.daily_consumption && new Date(r.reading_at) >= fourteenDaysAgo && new Date(r.reading_at) < sevenDaysAgo)
+      .map(r => r.daily_consumption || 0);
+
+    let consumptionTrend: { direction: 'up' | 'down' | 'stable'; percent: number } | null = null;
+    if (recentConsumption.length > 0 && previousConsumption.length > 0) {
+      const recentAvg = recentConsumption.reduce((sum, c) => sum + c, 0) / recentConsumption.length;
+      const previousAvg = previousConsumption.reduce((sum, c) => sum + c, 0) / previousConsumption.length;
+      const percentChange = previousAvg > 0 ? ((recentAvg - previousAvg) / previousAvg) * 100 : 0;
+
+      consumptionTrend = {
+        direction: Math.abs(percentChange) < 5 ? 'stable' : percentChange > 0 ? 'up' : 'down',
+        percent: Math.abs(Math.round(percentChange)),
+      };
+    }
+
+    return { lastDelivery, avgDaysBetweenFills, consumptionTrend };
+  }, [consumptionReadings]);
 
   if (tankLoading) {
     return (
@@ -75,9 +139,10 @@ export default function CustomerTankDetail() {
   const urgencyClasses = getUrgencyClasses(urgency);
   const predictedDate = calculatePredictedRefillDate(tank.asset_days_remaining ?? null);
 
-  // Get effective thresholds (from preferences or defaults)
-  const criticalThreshold = preferences?.default_critical_threshold_pct || 15;
-  const warningThreshold = preferences?.default_warning_threshold_pct || 25;
+  // Calculate current litres for display
+  const fuelLevel = tank.latest_calibrated_fill_percentage || 0;
+  const currentLitres = tank.asset_current_level_liters ||
+    (fuelLevel / 100) * (tank.asset_profile_water_capacity || 0);
 
   return (
     <div className="space-y-6">
@@ -105,285 +170,287 @@ export default function CustomerTankDetail() {
         )}
       </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Current Level */}
-        <Card className={cn(urgencyClasses.bg, urgencyClasses.border, 'border')}>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Current Level</p>
-                <p className={cn('text-3xl font-bold mt-1', urgencyClasses.text)}>
-                  {(tank.latest_calibrated_fill_percentage || 0).toFixed(0)}%
-                </p>
-              </div>
-              <div className={cn('p-3 rounded-lg', urgencyClasses.bg)}>
-                <Fuel size={24} className={urgencyClasses.text} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Days Remaining */}
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Days Remaining</p>
-                <p className="text-2xl font-bold mt-1">
-                  {formatDaysRemaining(tank.asset_days_remaining ?? null)}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                <Clock size={24} className="text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Daily Consumption */}
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Daily Usage</p>
-                <p className="text-2xl font-bold mt-1">
-                  {tank.asset_daily_consumption
-                    ? `${tank.asset_daily_consumption.toFixed(0)}L`
-                    : 'N/A'}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
-                <TrendingDown size={24} className="text-purple-600 dark:text-purple-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Device Status */}
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Device Status</p>
-                <p className="text-xl font-bold mt-1 flex items-center gap-2">
-                  {tank.device_online ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-green-500" />
-                      Online
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-gray-400" />
-                      Offline
-                    </>
-                  )}
-                </p>
-              </div>
-              <div
-                className={cn(
-                  'p-3 rounded-lg',
-                  tank.device_online
-                    ? 'bg-green-50 dark:bg-green-900/20'
-                    : 'bg-gray-50 dark:bg-gray-800'
-                )}
-              >
-                {tank.device_online ? (
-                  <Wifi size={24} className="text-green-600 dark:text-green-400" />
-                ) : (
-                  <WifiOff size={24} className="text-gray-400" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Urgency Alert */}
-      {urgency !== 'normal' && urgency !== 'unknown' && (
-        <Card
-          className={cn(
-            'border',
+      {/* Status Cards - Now using KPICard with animations */}
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        initial="hidden"
+        animate="visible"
+        variants={staggerContainerVariants}
+      >
+        <KPICard
+          title="Current Level"
+          value={`${Math.round(fuelLevel)}%`}
+          subtitle={currentLitres > 0 ? `${Math.round(currentLitres).toLocaleString()}L` : undefined}
+          icon={Fuel}
+          color={urgency === 'critical' ? 'red' : urgency === 'warning' ? 'yellow' : 'green'}
+          alert={urgency === 'critical' || urgency === 'warning'}
+          trend={urgency === 'critical' ? 'down' : urgency === 'warning' ? 'down' : 'neutral'}
+          trendValue={
             urgency === 'critical'
-              ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
-              : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
-          )}
+              ? 'Critically low'
+              : urgency === 'warning'
+              ? 'Low fuel'
+              : 'Good level'
+          }
+        />
+        <KPICard
+          title="Days Remaining"
+          value={formatDaysRemaining(tank.asset_days_remaining ?? null)}
+          icon={Clock}
+          color="blue"
+          trend="neutral"
+          trendValue={
+            tank.asset_days_remaining && tank.asset_days_remaining < 7
+              ? 'Order soon'
+              : 'Adequate supply'
+          }
+        />
+        <KPICard
+          title="Daily Usage"
+          value={tank.asset_daily_consumption ? tank.asset_daily_consumption.toFixed(0) : 'N/A'}
+          subtitle={tank.asset_daily_consumption ? 'L/day' : ''}
+          icon={TrendingDown}
+          color="blue"
+          trend="neutral"
+          trendValue="Average consumption"
+        />
+        <KPICard
+          title="Device Status"
+          value={tank.device_online ? 'Online' : 'Offline'}
+          icon={tank.device_online ? Wifi : WifiOff}
+          color={tank.device_online ? 'green' : 'gray'}
+          alert={!tank.device_online}
+          trend={tank.device_online ? 'neutral' : 'down'}
+          trendValue={tank.device_online ? 'Connected' : 'Not reporting'}
+        />
+      </motion.div>
+
+      {/* Agricultural Intelligence Dashboard - for farming customers ONLY */}
+      {agriculturalIntelligence && tank.lat && tank.lng && tank.latest_calibrated_fill_percentage && tank.asset_daily_consumption && tank.asset_profile_water_capacity && (
+        <AgIntelligenceDashboard
+          lat={tank.lat}
+          lng={tank.lng}
+          tankId={tank.id}
+          tankLevel={tank.latest_calibrated_fill_percentage}
+          dailyConsumption={tank.asset_daily_consumption}
+          capacityLiters={tank.asset_profile_water_capacity}
+          roadProfile={roadProfile}
+          tank={tank}
+        />
+      )}
+
+      {/* Industry Intelligence Dashboard - for mining and general customers */}
+      {!agriculturalIntelligence && (
+        <IndustryIntelligenceDashboard
+          tank={tank}
+          tanks={[tank]}
+        />
+      )}
+
+      {/* Urgency Alert - Now with pulse animation */}
+      {urgency !== 'normal' && urgency !== 'unknown' && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springs.gentle}
         >
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <Activity
-                className={cn(
-                  'h-5 w-5',
-                  urgency === 'critical'
-                    ? 'text-red-600 dark:text-red-400'
-                    : 'text-yellow-600 dark:text-yellow-400'
-                )}
+          <Card
+            className={cn(
+              'relative overflow-hidden border-2',
+              urgency === 'critical'
+                ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800 ring-2 ring-red-500/20 shadow-lg'
+                : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800 ring-2 ring-yellow-500/20 shadow-lg'
+            )}
+          >
+            {/* Pulse effect */}
+            {urgency === 'critical' && (
+              <motion.div
+                className="absolute inset-0 rounded-lg"
+                animate={glowRingVariants.critical}
               />
-              <div className="flex-1">
-                <p
-                  className={cn(
-                    'font-medium',
-                    urgency === 'critical'
-                      ? 'text-red-800 dark:text-red-200'
-                      : 'text-yellow-800 dark:text-yellow-200'
-                  )}
+            )}
+            {urgency === 'warning' && (
+              <motion.div
+                className="absolute inset-0 rounded-lg"
+                animate={glowRingVariants.low}
+              />
+            )}
+            <CardContent className="pt-4 relative z-10">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  {urgency === 'critical' ? 'Critical Fuel Level' : 'Low Fuel Warning'}
-                </p>
-                <p
-                  className={cn(
-                    'text-sm',
-                    urgency === 'critical'
-                      ? 'text-red-700 dark:text-red-300'
-                      : 'text-yellow-700 dark:text-yellow-300'
-                  )}
-                >
-                  {predictedDate
-                    ? `Estimated to need refill by ${predictedDate.toLocaleDateString('en-AU', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                      })}`
-                    : 'Consider requesting a delivery soon'}
-                </p>
-              </div>
-              {tank.access_level !== 'read' && (
-                <Link to={`/customer/request?tank=${tank.id}`}>
-                  <Button
-                    variant={urgency === 'critical' ? 'destructive' : 'default'}
-                    size="sm"
+                  <Activity
+                    className={cn(
+                      'h-5 w-5',
+                      urgency === 'critical'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-yellow-600 dark:text-yellow-400'
+                    )}
+                  />
+                </motion.div>
+                <div className="flex-1">
+                  <p
+                    className={cn(
+                      'font-semibold',
+                      urgency === 'critical'
+                        ? 'text-red-800 dark:text-red-200'
+                        : 'text-yellow-800 dark:text-yellow-200'
+                    )}
                   >
-                    Request Delivery
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                    {urgency === 'critical' ? 'Critical Fuel Level' : 'Low Fuel Warning'}
+                  </p>
+                  <p
+                    className={cn(
+                      'text-sm mt-0.5',
+                      urgency === 'critical'
+                        ? 'text-red-700 dark:text-red-300'
+                        : 'text-yellow-700 dark:text-yellow-300'
+                    )}
+                  >
+                    {predictedDate
+                      ? `Estimated to need refill by ${predictedDate.toLocaleDateString('en-AU', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                        })}`
+                      : 'Consider requesting a delivery soon'}
+                  </p>
+                </div>
+                {tank.access_level !== 'read' && (
+                  <Link to={`/customer/request?tank=${tank.id}`}>
+                    <Button
+                      variant={urgency === 'critical' ? 'destructive' : 'default'}
+                      size="sm"
+                    >
+                      Request Delivery
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
 
       {/* Main Content Grid */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Consumption Chart */}
         <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Fuel Consumption History</CardTitle>
-                <div className="flex gap-2">
-                  {[7, 14, 30, 90].map((days) => (
-                    <Button
-                      key={days}
-                      variant={chartPeriod === days ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setChartPeriod(days)}
-                      className="text-xs"
-                    >
-                      {days}d
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {chartLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <LoadingSpinner />
-                </div>
-              ) : !chartData || chartData.length === 0 ? (
-                <div className="flex items-center justify-center h-64 text-gray-500">
-                  <div className="text-center">
-                    <TrendingDown className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>No consumption data available</p>
-                    <p className="text-sm mt-1">Data will appear once readings are collected</p>
-                  </div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
-                      tickLine={false}
-                      axisLine={{ stroke: '#e5e7eb' }}
-                    />
-                    <YAxis
-                      domain={[0, 100]}
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
-                      tickLine={false}
-                      axisLine={{ stroke: '#e5e7eb' }}
-                      tickFormatter={(value) => `${value}%`}
-                      label={{ value: 'Fuel Level (%)', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        padding: '8px 12px',
-                      }}
-                      formatter={(value: number) => [`${value?.toFixed(1)}%`, 'Fuel Level']}
-                      labelFormatter={(label) => `Date: ${label}`}
-                    />
-                    {/* Warning threshold */}
-                    <ReferenceLine
-                      y={warningThreshold}
-                      stroke="#f59e0b"
-                      strokeDasharray="5 5"
-                      label={{ value: 'Warning', position: 'right', fontSize: 10, fill: '#f59e0b' }}
-                    />
-                    {/* Critical threshold */}
-                    <ReferenceLine
-                      y={criticalThreshold}
-                      stroke="#ef4444"
-                      strokeDasharray="5 5"
-                      label={{ value: 'Critical', position: 'right', fontSize: 10, fill: '#ef4444' }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="level"
-                      stroke="#3b82f6"
-                      strokeWidth={3}
-                      dot={{ fill: '#3b82f6', r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+          <TankConsumptionChart
+            assetId={tank?.asset_id}
+            defaultPeriod={(preferences?.default_chart_days as 7 | 14 | 30 | 90) || 7}
+            capacityLiters={tank?.asset_profile_water_capacity}
+            warningThresholdPct={preferences?.default_warning_threshold_pct || 25}
+            criticalThresholdPct={preferences?.default_critical_threshold_pct || 15}
+          />
         </div>
 
-        {/* Tank Details */}
+        {/* Tank Details - Now using DetailCard */}
         <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Tank Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <DetailRow label="Location ID" value={tank.location_id || 'N/A'} />
-              <DetailRow label="Address" value={tank.address1 || 'N/A'} />
-              {tank.state && <DetailRow label="State" value={tank.state} />}
-              {tank.asset_profile_water_capacity && (
-                <DetailRow
-                  label="Capacity"
-                  value={`${tank.asset_profile_water_capacity.toLocaleString()}L`}
-                />
-              )}
-              {tank.asset_serial_number && (
-                <DetailRow label="Device Serial" value={tank.asset_serial_number} />
-              )}
-              <DetailRow
-                label="Status"
-                value={
-                  <Badge className={cn(urgencyClasses.bg, urgencyClasses.text, 'border-0')}>
-                    {getUrgencyLabel(urgency)}
-                  </Badge>
-                }
-              />
-            </CardContent>
-          </Card>
+          <DetailCard
+            title="Tank Information"
+            variant="glass"
+            sections={[
+              {
+                items: [
+                  {
+                    label: 'Location ID',
+                    value: tank.location_id || 'N/A',
+                    icon: MapPinned,
+                  },
+                  {
+                    label: 'Address',
+                    value: tank.address1 || 'N/A',
+                    icon: MapPin,
+                  },
+                  ...(tank.state
+                    ? [
+                        {
+                          label: 'State',
+                          value: tank.state,
+                        },
+                      ]
+                    : []),
+                  ...(tank.asset_profile_water_capacity
+                    ? [
+                        {
+                          label: 'Capacity',
+                          value: `${tank.asset_profile_water_capacity.toLocaleString()}L`,
+                          icon: Gauge,
+                        },
+                      ]
+                    : []),
+                  ...(tank.asset_serial_number
+                    ? [
+                        {
+                          label: 'Device Serial',
+                          value: tank.asset_serial_number,
+                          icon: Hash,
+                          copyable: true,
+                        },
+                      ]
+                    : []),
+                  {
+                    label: 'Status',
+                    value: (
+                      <Badge className={cn(urgencyClasses.bg, urgencyClasses.text, 'border-0')}>
+                        {getUrgencyLabel(urgency)}
+                      </Badge>
+                    ),
+                    icon: Activity,
+                  },
+                  // Delivery Stats
+                  ...(deliveryStats.lastDelivery
+                    ? [
+                        {
+                          label: 'Last Delivery',
+                          value: deliveryStats.lastDelivery.toLocaleDateString('en-AU', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          }),
+                          icon: Truck,
+                        },
+                      ]
+                    : []),
+                  ...(deliveryStats.avgDaysBetweenFills
+                    ? [
+                        {
+                          label: 'Refill Frequency',
+                          value: `Every ~${deliveryStats.avgDaysBetweenFills} days`,
+                          icon: RefreshCw,
+                        },
+                      ]
+                    : []),
+                  ...(deliveryStats.consumptionTrend
+                    ? [
+                        {
+                          label: 'Usage Trend',
+                          value: (
+                            <span className={cn(
+                              'flex items-center gap-1',
+                              deliveryStats.consumptionTrend.direction === 'up' && 'text-orange-600',
+                              deliveryStats.consumptionTrend.direction === 'down' && 'text-green-600',
+                              deliveryStats.consumptionTrend.direction === 'stable' && 'text-gray-600'
+                            )}>
+                              {deliveryStats.consumptionTrend.direction === 'up' && <TrendingUp size={14} />}
+                              {deliveryStats.consumptionTrend.direction === 'down' && <TrendingDown size={14} />}
+                              {deliveryStats.consumptionTrend.direction === 'stable' && <BarChart3 size={14} />}
+                              {deliveryStats.consumptionTrend.direction === 'stable'
+                                ? 'Stable'
+                                : `${deliveryStats.consumptionTrend.percent}% ${deliveryStats.consumptionTrend.direction}`}
+                            </span>
+                          ),
+                          icon: BarChart3,
+                        },
+                      ]
+                    : []),
+                ],
+              },
+            ]}
+          />
 
           {/* Predicted Refill */}
           {predictedDate && (
@@ -409,36 +476,25 @@ export default function CustomerTankDetail() {
             </Card>
           )}
 
-          {/* Location Map Placeholder */}
+          {/* Location Map */}
           {tank.lat && tank.lng && (
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2 text-gray-500">
-                  <MapPin size={16} />
-                  <span className="text-sm">
-                    {tank.lat.toFixed(4)}, {tank.lng.toFixed(4)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+            <CustomerMapWidget
+              tanks={[tank]}
+              height={200}
+              showTitle={false}
+            />
+          )}
+
+          {/* Weather Forecast */}
+          {tank.lat && tank.lng && (
+            <WeatherWidget
+              lat={tank.lat}
+              lng={tank.lng}
+              locationName={tank.location_id || tank.address1 || 'Tank Location'}
+            />
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex justify-between items-center">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="font-medium text-sm">{value}</span>
     </div>
   );
 }

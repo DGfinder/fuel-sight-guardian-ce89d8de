@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/recalculate-consumption",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/smartfill-sync",
+      "schedule": "30 * * * *"
     }
   ],
   "rewrites": [
@@ -73,7 +77,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.sentry-cdn.com https://browser.sentry-cdn.com https://va.vercel-scripts.com https://vitals.vercel-insights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://o4507869648691200.ingest.us.sentry.io https://api.athara.com https://lytx-api.prod7.lv.lytx.com https://va.vercel-scripts.com https://vitals.vercel-insights.com https://www.fmtdata.com; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.sentry-cdn.com https://browser.sentry-cdn.com https://va.vercel-scripts.com https://vitals.vercel-insights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://o4507869648691200.ingest.us.sentry.io https://api.athara.com https://lytx-api.prod7.lv.lytx.com https://va.vercel-scripts.com https://vitals.vercel-insights.com https://www.fmtdata.com https://api.open-meteo.com https://api.rainviewer.com https://tilecache.rainviewer.com; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
         }
       ]
     }

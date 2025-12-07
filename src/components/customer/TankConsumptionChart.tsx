@@ -13,20 +13,26 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { useTankReadingsWithConsumption } from '../../hooks/useCustomerAnalytics';
-import { LoadingSpinner } from '../LoadingSpinner';
+import { LoadingSpinner } from '../ui/loading-spinner';
+
+type PeriodDays = 7 | 14 | 30 | 90 | 180 | 365;
 
 interface TankConsumptionChartProps {
   assetId: string | undefined;
-  defaultPeriod?: 7 | 14 | 30;
+  defaultPeriod?: PeriodDays;
   capacityLiters?: number;
+  warningThresholdPct?: number;
+  criticalThresholdPct?: number;
 }
 
 export function TankConsumptionChart({
   assetId,
   defaultPeriod = 7,
   capacityLiters,
+  warningThresholdPct = 25,
+  criticalThresholdPct = 15,
 }: TankConsumptionChartProps) {
-  const [period, setPeriod] = useState<7 | 14 | 30>(defaultPeriod);
+  const [period, setPeriod] = useState<PeriodDays>(defaultPeriod);
   const [showLitres, setShowLitres] = useState(true);
 
   const { data: readings, isLoading } = useTankReadingsWithConsumption(assetId, period);
@@ -65,9 +71,9 @@ export function TankConsumptionChart({
     isRefill: reading.is_refill,
   }));
 
-  // Calculate warning and critical thresholds in litres
-  const warningThreshold = capacityLiters ? capacityLiters * 0.25 : null;
-  const criticalThreshold = capacityLiters ? capacityLiters * 0.15 : null;
+  // Calculate warning and critical thresholds in litres (using user preferences)
+  const warningThreshold = capacityLiters ? capacityLiters * (warningThresholdPct / 100) : null;
+  const criticalThreshold = capacityLiters ? capacityLiters * (criticalThresholdPct / 100) : null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
@@ -96,17 +102,24 @@ export function TankConsumptionChart({
 
           {/* Period selector */}
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-md p-1">
-            {([7, 14, 30] as const).map((days) => (
+            {([
+              { days: 7 as PeriodDays, label: '7d' },
+              { days: 14 as PeriodDays, label: '14d' },
+              { days: 30 as PeriodDays, label: '30d' },
+              { days: 90 as PeriodDays, label: '90d' },
+              { days: 180 as PeriodDays, label: '6m' },
+              { days: 365 as PeriodDays, label: '1y' },
+            ]).map(({ days, label }) => (
               <button
                 key={days}
                 onClick={() => setPeriod(days)}
-                className={`px-3 py-1 text-sm font-medium rounded transition-colors
+                className={`px-2 py-1 text-sm font-medium rounded transition-colors
                   ${period === days
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
               >
-                {days}d
+                {label}
               </button>
             ))}
           </div>
@@ -184,7 +197,7 @@ export function TankConsumptionChart({
               y={warningThreshold}
               stroke="#f59e0b"
               strokeDasharray="3 3"
-              label={{ value: 'Warning (25%)', position: 'right', fill: '#f59e0b', fontSize: 11 }}
+              label={{ value: `Warning (${warningThresholdPct}%)`, position: 'right', fill: '#f59e0b', fontSize: 11 }}
             />
           )}
           {showLitres && criticalThreshold && (
@@ -193,7 +206,7 @@ export function TankConsumptionChart({
               y={criticalThreshold}
               stroke="#ef4444"
               strokeDasharray="3 3"
-              label={{ value: 'Critical (15%)', position: 'right', fill: '#ef4444', fontSize: 11 }}
+              label={{ value: `Critical (${criticalThresholdPct}%)`, position: 'right', fill: '#ef4444', fontSize: 11 }}
             />
           )}
 

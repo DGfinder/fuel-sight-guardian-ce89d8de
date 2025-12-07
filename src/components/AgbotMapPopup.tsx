@@ -6,6 +6,7 @@ import { MapPin, Eye, Clock, Signal, Wifi, WifiOff, Gauge, AlertTriangle, Timer,
 import { MapItem } from '@/hooks/useMapData';
 import { getAgbotFuelStatus, getAgbotStatusText } from '@/components/map/MapIcons';
 import { formatTimestamp } from '@/hooks/useAgbotData';
+import { PopupWeatherSection } from '@/components/map/PopupWeatherSection';
 
 interface AgbotMapPopupProps {
   agbot: MapItem;
@@ -174,6 +175,9 @@ export const AgbotMapPopup: React.FC<AgbotMapPopupProps> = ({ agbot, onViewDetai
           </span>
         </div>
       )}
+
+      {/* Weather Section */}
+      <PopupWeatherSection lat={agbot.latitude} lng={agbot.longitude} />
 
       {/* Action Button */}
       <Button

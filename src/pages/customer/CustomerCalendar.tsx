@@ -1,17 +1,23 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RefillCalendar } from '@/components/calendar/RefillCalendar';
 import { useCustomerRefillCalendar } from '@/hooks/useRefillCalendar';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { KPICard } from '@/components/ui/KPICard';
 import { calculateUrgencySummary, sortByUrgency, RefillPrediction } from '@/lib/urgency-calculator';
 import { AlertTriangle, Clock, CheckCircle, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { staggerContainerVariants, fadeUpItemVariants } from '@/lib/motion-variants';
+import { CalendarWeatherOverlay } from '@/components/ui/CalendarWeatherOverlay';
+import { useCustomerTanks } from '@/hooks/useCustomerAuth';
 
 export default function CustomerCalendar() {
   const navigate = useNavigate();
   const { data: predictions, isLoading } = useCustomerRefillCalendar();
+  const { data: tanks } = useCustomerTanks();
 
   if (isLoading) {
     return (
@@ -41,36 +47,59 @@ export default function CustomerCalendar() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard
-          title="Critical"
-          count={summary.critical}
-          description="< 3 days"
-          icon={AlertTriangle}
-          color="red"
-        />
-        <SummaryCard
-          title="Warning"
-          count={summary.warning}
-          description="3-7 days"
-          icon={Clock}
-          color="yellow"
-        />
-        <SummaryCard
-          title="Normal"
-          count={summary.normal}
-          description="7+ days"
-          icon={CheckCircle}
-          color="green"
-        />
-        <SummaryCard
-          title="Unknown"
-          count={summary.unknown}
-          description="No data"
-          icon={HelpCircle}
-          color="gray"
-        />
-      </div>
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        initial="hidden"
+        animate="visible"
+        variants={staggerContainerVariants}
+      >
+        <motion.div variants={fadeUpItemVariants}>
+          <KPICard
+            title="Critical"
+            value={summary.critical}
+            subtitle="< 3 days"
+            icon={AlertTriangle}
+            color="red"
+            trend={summary.critical > 0 ? 'down' : 'neutral'}
+            trendValue={summary.critical > 0 ? 'Needs immediate refill' : 'None critical'}
+            alert={summary.critical > 0}
+          />
+        </motion.div>
+        <motion.div variants={fadeUpItemVariants}>
+          <KPICard
+            title="Warning"
+            value={summary.warning}
+            subtitle="3-7 days"
+            icon={Clock}
+            color="yellow"
+            trend={summary.warning > 0 ? 'down' : 'neutral'}
+            trendValue={summary.warning > 0 ? 'Order soon' : 'No warnings'}
+            alert={summary.warning > 0}
+          />
+        </motion.div>
+        <motion.div variants={fadeUpItemVariants}>
+          <KPICard
+            title="Normal"
+            value={summary.normal}
+            subtitle="7+ days"
+            icon={CheckCircle}
+            color="green"
+            trend="neutral"
+            trendValue="Adequate supply"
+          />
+        </motion.div>
+        <motion.div variants={fadeUpItemVariants}>
+          <KPICard
+            title="Unknown"
+            value={summary.unknown}
+            subtitle="No data"
+            icon={HelpCircle}
+            color="gray"
+            trend="neutral"
+            trendValue="Insufficient data"
+          />
+        </motion.div>
+      </motion.div>
 
       {/* Main Content */}
       <div className="grid lg:grid-cols-3 gap-6">
@@ -108,6 +137,31 @@ export default function CustomerCalendar() {
             </CardContent>
           </Card>
 
+          {/* Weather Overlay for upcoming refills */}
+          {(() => {
+            // Get first tank with coordinates for weather
+            const tankWithCoords = tanks?.find(t => t.lat && t.lng);
+            if (!tankWithCoords || sortedPredictions.length === 0) return null;
+
+            const refillDates = sortedPredictions
+              .filter(p => p.predictedRefillDate)
+              .map(p => ({
+                date: p.predictedRefillDate!,
+                tankName: p.tankName,
+                tankId: p.tankId,
+              }));
+
+            if (refillDates.length === 0) return null;
+
+            return (
+              <CalendarWeatherOverlay
+                lat={tankWithCoords.lat!}
+                lng={tankWithCoords.lng!}
+                refillDates={refillDates}
+              />
+            );
+          })()}
+
           {/* Info Card */}
           <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
             <CardContent className="pt-4">
@@ -123,44 +177,6 @@ export default function CustomerCalendar() {
         </div>
       </div>
     </div>
-  );
-}
-
-function SummaryCard({
-  title,
-  count,
-  description,
-  icon: Icon,
-  color,
-}: {
-  title: string;
-  count: number;
-  description: string;
-  icon: React.ElementType;
-  color: 'red' | 'yellow' | 'green' | 'gray';
-}) {
-  const colorClasses = {
-    red: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400',
-    yellow: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400',
-    green: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400',
-    gray: 'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-  };
-
-  return (
-    <Card>
-      <CardContent className="pt-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
-            <p className="text-2xl font-bold mt-1">{count}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{description}</p>
-          </div>
-          <div className={cn('p-2 rounded-lg', colorClasses[color])}>
-            <Icon size={20} />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

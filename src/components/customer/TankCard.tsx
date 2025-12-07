@@ -1,6 +1,6 @@
-import { Calendar, Droplet, TrendingDown, WifiOff, Wifi } from 'lucide-react';
+import { Calendar, Droplet, TrendingDown, WifiOff, Wifi, Radio, Gauge, ClipboardEdit } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { CustomerTank } from '../../hooks/useCustomerAuth';
+import { CustomerTank, TankSourceType } from '../../hooks/useCustomerAuth';
 import { LastRefillData } from '../../hooks/useCustomerAnalytics';
 
 interface TankCardProps {
@@ -22,6 +22,35 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
     if (fillPercentage < 25) return 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400';
     return 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400';
   };
+
+  // Get source badge config
+  const getSourceBadge = () => {
+    const sourceType = tank.source_type || 'agbot';
+    switch (sourceType) {
+      case 'smartfill':
+        return {
+          icon: Gauge,
+          label: 'SmartFill',
+          className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+        };
+      case 'dip':
+      case 'manual':
+        return {
+          icon: ClipboardEdit,
+          label: 'Manual',
+          className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+        };
+      case 'agbot':
+      default:
+        return {
+          icon: Radio,
+          label: 'AgBot',
+          className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+        };
+    }
+  };
+
+  const sourceBadge = getSourceBadge();
 
   // Format last reading time
   const getLastReadingTime = () => {
@@ -50,27 +79,40 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
           )}
         </div>
 
-        {/* Device Status Badge */}
-        <div
-          className={`
-            flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
-            ${tank.device_online
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-              : 'bg-gray-100 text-gray-500 dark:bg-gray-900/30 dark:text-gray-400'
-            }
-          `}
-        >
-          {tank.device_online ? (
-            <>
-              <Wifi className="w-3 h-3" />
-              Online
-            </>
-          ) : (
-            <>
-              <WifiOff className="w-3 h-3" />
-              Offline
-            </>
-          )}
+        <div className="flex items-center gap-2">
+          {/* Source Type Badge */}
+          <div
+            className={`
+              flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+              ${sourceBadge.className}
+            `}
+          >
+            <sourceBadge.icon className="w-3 h-3" />
+            {sourceBadge.label}
+          </div>
+
+          {/* Device Status Badge */}
+          <div
+            className={`
+              flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+              ${tank.device_online
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                : 'bg-gray-100 text-gray-500 dark:bg-gray-900/30 dark:text-gray-400'
+              }
+            `}
+          >
+            {tank.device_online ? (
+              <>
+                <Wifi className="w-3 h-3" />
+                Online
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3 h-3" />
+                Offline
+              </>
+            )}
+          </div>
         </div>
       </div>
 

@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, ArrowUp, ArrowDown, Wifi, WifiOff, Signal, MapPin } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Wifi, WifiOff, Signal, MapPin, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgbotLocation } from '@/services/agbot-api';
 import {
@@ -211,20 +211,23 @@ const AgbotTable = React.memo(function AgbotTable({ locations, className }: Agbo
               </Button>
             </TableHead>
             <TableHead>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => handleSort('daysRemaining')}
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
-                Days Left
+                Days Remaining
                 <SortIcon field="daysRemaining" />
               </Button>
             </TableHead>
             <TableHead>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <span className="font-semibold">Trend</span>
+            </TableHead>
+            <TableHead>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => handleSort('status')}
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
@@ -333,7 +336,7 @@ const AgbotTable = React.memo(function AgbotTable({ locations, className }: Agbo
                   {daysRemaining ? (
                     <div className="text-sm">
                       <div className={`font-semibold ${
-                        daysRemaining <= 7 ? 'text-red-600' : 
+                        daysRemaining <= 7 ? 'text-red-600' :
                         daysRemaining <= 30 ? 'text-yellow-600' : 'text-green-600'
                       }`}>
                         {daysRemaining} days
@@ -343,7 +346,14 @@ const AgbotTable = React.memo(function AgbotTable({ locations, className }: Agbo
                     <span className="text-muted-foreground text-sm">–</span>
                   )}
                 </TableCell>
-                
+
+                {/* Trend - shows stable indicator, calculated trends available in details modal */}
+                <TableCell>
+                  <div className="flex items-center justify-center">
+                    <Minus className="w-4 h-4 text-gray-400" />
+                  </div>
+                </TableCell>
+
                 {/* Status */}
                 <TableCell>
                   <div className="space-y-1">

@@ -1,5 +1,6 @@
 // Consumption Calculator for AgBot Tank Monitoring
-// Analyzes historical readings to calculate daily consumption rates and days remaining
+// Uses "Hourly Decrease Summation" approach for accurate daily consumption
+// Consistent with customer portal and SmartFill calculations
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,6 +8,12 @@ const supabaseUrl = process.env.SUPABASE_URL;
 // Use service role key to access great_southern_fuels schema
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
+
+// Consumption calculation thresholds (consistent across all systems)
+const NOISE_THRESHOLD_PCT = 0.5;    // Ignore changes < 0.5% (sensor noise)
+const NOISE_THRESHOLD_LITERS = 5;   // Ignore changes < 5L (sensor noise)
+const REFILL_THRESHOLD_PCT = 10;    // Increases > 10% = refill
+const REFILL_THRESHOLD_LITERS = 250; // Increases > 250L = refill (bulk fuel)
 
 interface Reading {
   level_percent: number;
@@ -44,7 +51,11 @@ interface ConsumptionResult {
 
 /**
  * Calculate daily consumption rate from historical readings
- * Uses linear regression for more accurate trend analysis
+ * Uses "Hourly Decrease Summation" for accurate consumption tracking:
+ * - Groups readings by date
+ * - Sums all decreases > noise threshold
+ * - Ignores increases (refills)
+ * - Calculates average daily consumption
  */
 export async function calculateConsumption(
   assetId: string,
@@ -70,7 +81,6 @@ export async function calculateConsumption(
     }
 
     if (!readings || readings.length < 3) {
-      // Need at least 3 data points for meaningful calculation
       return {
         ...getEmptyResult(),
         data_points: readings?.length || 0,
@@ -80,99 +90,176 @@ export async function calculateConsumption(
 
     const typedReadings = readings as Reading[];
 
-    // Filter out any refill events (sudden increases > 10%)
-    const filteredReadings = filterRefillEvents(typedReadings);
+    // Determine which data source to use
+    const usePercentData = isPercentDataReliable(typedReadings);
+    const useLitersData = isLitersDataReliable(typedReadings);
 
-    if (filteredReadings.length < 3) {
+    // Calculate consumption using hourly decrease summation
+    const consumptionResult = calculateHourlySummation(
+      typedReadings,
+      usePercentData,
+      useLitersData,
+      tankCapacity
+    );
+
+    if (consumptionResult.daysWithData === 0) {
       return {
         ...getEmptyResult(),
-        data_points: filteredReadings.length,
+        data_points: typedReadings.length,
         confidence: 'low'
       };
     }
 
-    // Determine which data source to use for regression
-    const usePercentData = isPercentDataReliable(filteredReadings);
-    const useLitersData = isLitersDataReliable(filteredReadings);
+    const dailyConsumptionPercentage = consumptionResult.avgDailyConsumptionPct;
+    const dailyConsumptionLitres = consumptionResult.avgDailyConsumptionLiters;
 
-    let dailyConsumptionPercentage: number = 0;
-    let dailyConsumptionLitres: number | null = null;
+    // Calculate days remaining
     let daysRemaining: number | null = null;
-    let r2: number = 0;
-
-    if (usePercentData) {
-      // Use percentage-based regression (original method)
-      const regression = calculateLinearRegression(filteredReadings, 'percent');
-      dailyConsumptionPercentage = Math.abs(regression.slope);
-      r2 = regression.r2;
-
-      // Calculate daily consumption in litres (if capacity known)
-      if (tankCapacity && tankCapacity > 0) {
-        dailyConsumptionLitres = (dailyConsumptionPercentage / 100) * tankCapacity;
-      }
-
-      // Calculate days remaining from percentage
-      if (dailyConsumptionPercentage > 0.1) {
-        daysRemaining = currentLevel / dailyConsumptionPercentage;
-      }
-    } else if (useLitersData && tankCapacity && tankCapacity > 0) {
-      // Use liters-based regression (fallback when percent data is bad)
-      console.log(`   📊 Using liters-based consumption calculation (percent data unreliable)`);
-      const regression = calculateLinearRegression(filteredReadings, 'liters');
-      dailyConsumptionLitres = Math.abs(regression.slope);
-      r2 = regression.r2;
-
-      // Calculate percentage consumption from liters
-      dailyConsumptionPercentage = (dailyConsumptionLitres / tankCapacity) * 100;
-
-      // Calculate days remaining from current liters
-      // Get current level in liters from most recent reading
-      const currentLevelLiters = filteredReadings[filteredReadings.length - 1]?.level_liters;
-      if (dailyConsumptionLitres > 0 && currentLevelLiters && currentLevelLiters > 0) {
-        daysRemaining = currentLevelLiters / dailyConsumptionLitres;
-      }
-    } else {
-      // No reliable data available
-      console.log(`   ⚠️  No reliable consumption data available`);
-      return {
-        ...getEmptyResult(),
-        data_points: filteredReadings.length,
-        confidence: 'low'
-      };
+    if (dailyConsumptionPercentage > 0.1) {
+      daysRemaining = currentLevel / dailyConsumptionPercentage;
+    } else if (dailyConsumptionLitres && dailyConsumptionLitres > 0 && tankCapacity) {
+      const currentLiters = (currentLevel / 100) * tankCapacity;
+      daysRemaining = currentLiters / dailyConsumptionLitres;
     }
 
     // Cap days remaining at reasonable maximum
     if (daysRemaining !== null && daysRemaining > 365) {
       daysRemaining = 365;
     }
-
-    // Ensure days remaining is at least 0
     if (daysRemaining !== null && daysRemaining < 0) {
       daysRemaining = 0;
     }
 
-    // Determine trend based on consumption percentage
-    const trend = determineTrend(-dailyConsumptionPercentage, filteredReadings);
-
-    // Determine confidence based on data quality
+    // Determine trend and confidence
+    const trend = determineTrend(-dailyConsumptionPercentage, typedReadings);
     const confidence = determineConfidence(
-      filteredReadings.length,
-      r2,
+      consumptionResult.daysWithData,
+      consumptionResult.dataQuality,
       daysToAnalyze
     );
 
     return {
-      daily_consumption_litres: dailyConsumptionLitres ? Math.round(dailyConsumptionLitres * 100) / 100 : null,
+      daily_consumption_litres: dailyConsumptionLitres ? Math.round(dailyConsumptionLitres) : null,
       daily_consumption_percentage: Math.round(dailyConsumptionPercentage * 100) / 100,
       days_remaining: daysRemaining !== null ? Math.round(daysRemaining) : null,
       trend,
       confidence,
-      data_points: filteredReadings.length
+      data_points: typedReadings.length
     };
   } catch (error) {
     console.error('Error calculating consumption:', error);
     return getEmptyResult();
   }
+}
+
+/**
+ * Calculate consumption using hourly decrease summation
+ * Groups readings by date and sums all decreases > noise threshold
+ */
+function calculateHourlySummation(
+  readings: Reading[],
+  usePercent: boolean,
+  useLiters: boolean,
+  tankCapacity: number | null
+): {
+  avgDailyConsumptionPct: number;
+  avgDailyConsumptionLiters: number | null;
+  daysWithData: number;
+  dataQuality: number;
+} {
+  // Group readings by date
+  const readingsByDate: Record<string, Reading[]> = {};
+  readings.forEach(reading => {
+    const dateKey = new Date(reading.reading_at).toISOString().split('T')[0];
+    if (!readingsByDate[dateKey]) {
+      readingsByDate[dateKey] = [];
+    }
+    readingsByDate[dateKey].push(reading);
+  });
+
+  const sortedDates = Object.keys(readingsByDate).sort();
+  let totalConsumptionPct = 0;
+  let totalConsumptionLiters = 0;
+  let daysWithData = 0;
+
+  sortedDates.forEach((dateKey, dateIndex) => {
+    const dayReadings = readingsByDate[dateKey];
+    let dailyConsumptionPct = 0;
+    let dailyConsumptionLiters = 0;
+
+    // Sum all decreases within the day
+    for (let i = 1; i < dayReadings.length; i++) {
+      const older = dayReadings[i - 1];
+      const newer = dayReadings[i];
+
+      // Check percentage consumption
+      if (usePercent) {
+        const changePct = older.level_percent - newer.level_percent;
+        if (changePct > NOISE_THRESHOLD_PCT) {
+          dailyConsumptionPct += changePct;
+        }
+      }
+
+      // Check liters consumption
+      if (useLiters && older.level_liters !== null && newer.level_liters !== null) {
+        const changeLiters = older.level_liters - newer.level_liters;
+        if (changeLiters > NOISE_THRESHOLD_LITERS) {
+          dailyConsumptionLiters += changeLiters;
+        }
+      }
+    }
+
+    // Handle overnight consumption (previous day's last → today's first)
+    if (dateIndex > 0 && dayReadings.length > 0) {
+      const prevDateKey = sortedDates[dateIndex - 1];
+      const prevDayReadings = readingsByDate[prevDateKey];
+      if (prevDayReadings.length > 0) {
+        const prevDayLast = prevDayReadings[prevDayReadings.length - 1];
+        const todayFirst = dayReadings[0];
+
+        if (usePercent) {
+          const overnightChangePct = prevDayLast.level_percent - todayFirst.level_percent;
+          if (overnightChangePct > NOISE_THRESHOLD_PCT) {
+            dailyConsumptionPct += overnightChangePct;
+          }
+        }
+
+        if (useLiters && prevDayLast.level_liters !== null && todayFirst.level_liters !== null) {
+          const overnightChangeLiters = prevDayLast.level_liters - todayFirst.level_liters;
+          if (overnightChangeLiters > NOISE_THRESHOLD_LITERS) {
+            dailyConsumptionLiters += overnightChangeLiters;
+          }
+        }
+      }
+    }
+
+    if (dailyConsumptionPct > 0 || dailyConsumptionLiters > 0) {
+      totalConsumptionPct += dailyConsumptionPct;
+      totalConsumptionLiters += dailyConsumptionLiters;
+      daysWithData++;
+    }
+  });
+
+  // Calculate averages
+  const avgDailyConsumptionPct = daysWithData > 0 ? totalConsumptionPct / daysWithData : 0;
+  let avgDailyConsumptionLiters: number | null = null;
+
+  if (useLiters && daysWithData > 0) {
+    avgDailyConsumptionLiters = totalConsumptionLiters / daysWithData;
+  } else if (tankCapacity && tankCapacity > 0 && avgDailyConsumptionPct > 0) {
+    // Calculate liters from percentage
+    avgDailyConsumptionLiters = (avgDailyConsumptionPct / 100) * tankCapacity;
+  }
+
+  // Data quality: ratio of days with data to total days
+  const dataQuality = sortedDates.length > 0 ? daysWithData / sortedDates.length : 0;
+
+  return {
+    avgDailyConsumptionPct,
+    avgDailyConsumptionLiters,
+    daysWithData,
+    dataQuality
+  };
 }
 
 /**
