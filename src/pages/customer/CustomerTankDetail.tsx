@@ -219,8 +219,10 @@ export default function CustomerTankDetail() {
           }
         />
         <KPICard
-          title="Days to Min"
-          value={formatDaysRemaining(tank.asset_days_remaining ?? null)}
+          title={isManualDipTank ? "Days to Min" : "Days Remaining"}
+          value={isManualDipTank
+            ? formatDaysRemaining(tank.asset_days_remaining ?? null)
+            : (tank.asset_days_remaining ? `${tank.asset_days_remaining} days` : '—')}
           icon={Clock}
           color="blue"
           trend="neutral"

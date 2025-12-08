@@ -157,14 +157,16 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
           </div>
         </div>
 
-        {/* Days to Min Level */}
+        {/* Days Remaining */}
         <div className="flex flex-col justify-center">
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
             <Calendar className="w-4 h-4" />
-            <span className="font-medium">Days to Min</span>
+            <span className="font-medium">{isManualTank ? 'Days to Min' : 'Remaining'}</span>
           </div>
           <div className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">
-            {formatDaysRemaining(daysRemaining ?? null)}
+            {isManualTank
+              ? formatDaysRemaining(daysRemaining ?? null)
+              : (daysRemaining ? `${daysRemaining} days` : '—')}
           </div>
         </div>
 
