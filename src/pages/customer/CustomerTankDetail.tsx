@@ -449,6 +449,7 @@ export default function CustomerTankDetail() {
             currentLevelLiters={currentLitres}
             daysRemaining={tank.asset_days_remaining ?? null}
             productType={tank.product_type}
+            assetId={tank.asset_id}
           />
         )}
 
@@ -456,7 +457,7 @@ export default function CustomerTankDetail() {
         {tank.lat && tank.lng && (
           <CustomerMapWidget
             tanks={[tank]}
-            height={200}
+            height={220}
             showTitle={true}
           />
         )}
