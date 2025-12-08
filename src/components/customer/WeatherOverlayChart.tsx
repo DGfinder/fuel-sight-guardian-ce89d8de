@@ -51,17 +51,25 @@ export function WeatherOverlayChart({
     const fuelLitres = totalCapacity && item.avgLevel != null
       ? Math.round((item.avgLevel / 100) * totalCapacity)
       : null;
+
+    // Convert consumption from percentage points to litres
+    // item.consumption is percentage points drop (e.g., 0.5 = 0.5% drop)
+    const consumptionLitres = totalCapacity && item.consumption != null
+      ? Math.round((item.consumption / 100) * totalCapacity)
+      : null;
+
     return {
       ...item,
       fuelLitres,
+      consumptionLitres,
       rainfall: weatherItem?.rainfall || 0,
       tempMin: weatherItem?.tempMin,
       tempMax: weatherItem?.tempMax,
     };
   });
 
-  // Check if consumption data exists
-  const hasConsumption = consumptionData.some((d) => d.consumption != null && d.consumption > 0);
+  // Check if consumption data exists (check converted litres, not raw percentage points)
+  const hasConsumption = mergedData.some((d) => d.consumptionLitres != null && d.consumptionLitres > 0);
 
   const hasData = consumptionData.length > 0 && consumptionData.some((d) => d.avgLevel != null);
   const hasWeatherData = weatherData && weatherData.length > 0;
@@ -202,10 +210,10 @@ export function WeatherOverlayChart({
                           <span className="font-medium text-green-700">{data.avgLevel.toFixed(1)}%</span>
                         </p>
                       )}
-                      {data?.consumption != null && data.consumption > 0 && (
+                      {data?.consumptionLitres != null && data.consumptionLitres > 0 && (
                         <p className="flex justify-between gap-4">
                           <span className="text-gray-600">Daily Usage:</span>
-                          <span className="font-medium text-orange-600">{Math.round(data.consumption)}L</span>
+                          <span className="font-medium text-orange-600">{data.consumptionLitres.toLocaleString()}L</span>
                         </p>
                       )}
                       {(data?.tempMin != null || data?.tempMax != null) && (
@@ -228,7 +236,7 @@ export function WeatherOverlayChart({
               }}
               formatter={(value) => {
                 if (value === 'avgLevel' || value === 'fuelLitres') return 'Fuel Level';
-                if (value === 'consumption') return 'Daily Usage';
+                if (value === 'consumption' || value === 'consumptionLitres') return 'Daily Usage';
                 return value;
               }}
             />
@@ -237,7 +245,7 @@ export function WeatherOverlayChart({
             {hasConsumption && (
               <Bar
                 yAxisId="consumption"
-                dataKey="consumption"
+                dataKey="consumptionLitres"
                 fill="url(#consumptionGradient)"
                 radius={[4, 4, 0, 0]}
                 opacity={0.7}
