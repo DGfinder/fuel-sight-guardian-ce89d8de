@@ -190,8 +190,9 @@ export function useCustomerTanks() {
           asset_id: tank.agbot_asset_id,
           asset_serial_number: null,
           device_online: tank.device_online,
-          asset_days_remaining: tank.days_remaining,
-          asset_daily_consumption: tank.daily_consumption_liters,
+          // Use AgBot data first, fall back to dip data for manual tanks
+          asset_days_remaining: tank.days_remaining ?? tank.dip_days_remaining,
+          asset_daily_consumption: tank.daily_consumption_liters ?? tank.dip_daily_consumption_liters,
           asset_profile_water_capacity: tank.capacity_liters,
           asset_current_level_liters: tank.current_level_liters,
           access_level: tank.access_level || 'read',

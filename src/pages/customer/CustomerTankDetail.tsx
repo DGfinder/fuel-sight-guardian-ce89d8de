@@ -11,6 +11,7 @@ import { KPICard } from '@/components/ui/KPICard';
 import { DetailCard } from '@/components/ui/DetailCard';
 import {
   calculateUrgency,
+  calculateUrgencyWithFallback,
   getUrgencyClasses,
   getUrgencyLabel,
   formatDaysRemaining,
@@ -33,6 +34,7 @@ import {
   Gauge,
   RefreshCw,
   BarChart3,
+  ClipboardEdit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { staggerContainerVariants, glowRingVariants, springs } from '@/lib/motion-variants';
@@ -139,9 +141,17 @@ export default function CustomerTankDetail() {
     );
   }
 
-  const urgency = calculateUrgency(tank.asset_days_remaining ?? null);
+  // Use fallback urgency calculation for manual dip tanks (no days remaining data)
+  const urgency = calculateUrgencyWithFallback(
+    tank.asset_days_remaining,
+    tank.latest_calibrated_fill_percentage
+  );
   const urgencyClasses = getUrgencyClasses(urgency);
   const predictedDate = calculatePredictedRefillDate(tank.asset_days_remaining ?? null);
+
+  // Check if this is a manual dip tank (no telemetry device)
+  const isManualDipTank = tank.source_type === 'dip' || tank.source_type === 'manual';
+  const hasTelemetry = tank.source_type === 'agbot' || tank.source_type === 'smartfill';
 
   // Calculate current litres for display
   const fuelLevel = tank.latest_calibrated_fill_percentage || 0;
@@ -164,14 +174,25 @@ export default function CustomerTankDetail() {
             {tank.state && `, ${tank.state}`}
           </p>
         </div>
-        {tank.access_level !== 'read' && (
-          <Link to={`/customer/request?tank=${tank.id}`}>
-            <Button className="gap-2">
-              <Truck size={16} />
-              Request Delivery
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Record Dip button for manual dip tanks */}
+          {isManualDipTank && tank.access_level !== 'read' && (
+            <Link to={`/customer/tanks/${tank.id}/record-dip`}>
+              <Button variant="outline" className="gap-2">
+                <ClipboardEdit size={16} />
+                Record Dip
+              </Button>
+            </Link>
+          )}
+          {tank.access_level !== 'read' && (
+            <Link to={`/customer/request?tank=${tank.id}`}>
+              <Button className="gap-2">
+                <Truck size={16} />
+                Request Delivery
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Status Cards - Now using KPICard with animations */}
@@ -219,13 +240,13 @@ export default function CustomerTankDetail() {
           trendValue="Average consumption"
         />
         <KPICard
-          title="Device Status"
-          value={tank.device_online ? 'Online' : 'Offline'}
-          icon={tank.device_online ? Wifi : WifiOff}
-          color={tank.device_online ? 'green' : 'gray'}
-          alert={!tank.device_online}
-          trend={tank.device_online ? 'neutral' : 'down'}
-          trendValue={tank.device_online ? 'Connected' : 'Not reporting'}
+          title={isManualDipTank ? 'Data Source' : 'Device Status'}
+          value={isManualDipTank ? 'Manual Entry' : (tank.device_online ? 'Online' : 'Offline')}
+          icon={isManualDipTank ? ClipboardEdit : (tank.device_online ? Wifi : WifiOff)}
+          color={isManualDipTank ? 'blue' : (tank.device_online ? 'green' : 'gray')}
+          alert={!isManualDipTank && !tank.device_online}
+          trend="neutral"
+          trendValue={isManualDipTank ? 'Dip readings' : (tank.device_online ? 'Connected' : 'Not reporting')}
         />
       </motion.div>
 
@@ -336,6 +357,32 @@ export default function CustomerTankDetail() {
             </CardContent>
           </Card>
         </motion.div>
+      )}
+
+      {/* Manual Dip Info Card - Show when consumption data is missing */}
+      {isManualDipTank && !tank.asset_daily_consumption && (
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <ClipboardEdit className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <div>
+                <p className="font-medium text-blue-800 dark:text-blue-200">
+                  Manual Dip Tank
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  Consumption data and days remaining will become available after recording several dip readings over time.
+                  This allows us to calculate your usage patterns.
+                </p>
+                <Link to={`/customer/tanks/${tank.id}/record-dip`} className="inline-block mt-2">
+                  <Button variant="outline" size="sm" className="gap-2 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800">
+                    <ClipboardEdit size={14} />
+                    Record a Dip Reading
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Main Content Grid - Chart + Tank Info */}

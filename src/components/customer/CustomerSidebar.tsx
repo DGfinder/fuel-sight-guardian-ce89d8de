@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
-import { useCustomerAccount, useCustomerPortalSummary } from '@/hooks/useCustomerAuth';
+import { useCustomerAccount, useCustomerPortalSummary, useCustomerTanks } from '@/hooks/useCustomerAuth';
 import { CustomerLogo } from './CustomerLogo';
 import {
   LayoutDashboard,
@@ -55,7 +55,29 @@ const navGroups = [
 export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProps) {
   const location = useLocation();
   const { data: customerAccount } = useCustomerAccount();
+  const { data: tanks } = useCustomerTanks();
   const summary = useCustomerPortalSummary();
+
+  // Check if account has any telemetry devices (AgBot or SmartFill)
+  // If all tanks are manual dip, hide Device Health from nav
+  const hasTelemetry = useMemo(() => {
+    if (!tanks?.length) return true; // Default to showing until we know
+    return tanks.some(t => t.source_type === 'agbot' || t.source_type === 'smartfill');
+  }, [tanks]);
+
+  // Filter nav groups based on account capabilities
+  const filteredNavGroups = useMemo(() => {
+    return navGroups.map(group => ({
+      ...group,
+      items: group.items.filter(item => {
+        // Hide Device Health for accounts without telemetry devices
+        if (item.path === '/customer/health' && !hasTelemetry) {
+          return false;
+        }
+        return true;
+      })
+    })).filter(group => group.items.length > 0); // Remove empty groups
+  }, [hasTelemetry]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -95,7 +117,7 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
 
             {/* Navigation */}
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-              {navGroups.map((group, groupIndex) => (
+              {filteredNavGroups.map((group, groupIndex) => (
                 <div key={groupIndex} className={group.label ? 'mt-4 first:mt-0' : ''}>
                   {group.label && (
                     <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -179,7 +201,7 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navGroups.map((group, groupIndex) => (
+          {filteredNavGroups.map((group, groupIndex) => (
             <div key={groupIndex} className={group.label ? 'mt-4 first:mt-0' : ''}>
               {group.label && (
                 <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">

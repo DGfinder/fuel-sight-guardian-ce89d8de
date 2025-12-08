@@ -60,6 +60,7 @@ const CustomerReports = lazy(() => import('@/pages/customer/CustomerReports'));
 const CustomerSettings = lazy(() => import('@/pages/customer/CustomerSettings'));
 const DeviceHealth = lazy(() => import('@/pages/customer/DeviceHealth'));
 const CustomerWeather = lazy(() => import('@/pages/customer/CustomerWeather'));
+const CustomerRecordDip = lazy(() => import('@/pages/customer/CustomerRecordDip'));
 
 // Admin Pages
 const FleetRefillCalendar = lazy(() => import('@/pages/admin/FleetRefillCalendar'));
@@ -592,6 +593,16 @@ function AppContent() {
                       <ProtectedRoute requiredAccountType="customer">
                         <CustomerPortalLayout>
                           <CustomerTankDetail />
+                        </CustomerPortalLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer/tanks/:tankId/record-dip"
+                    element={
+                      <ProtectedRoute requiredAccountType="customer">
+                        <CustomerPortalLayout>
+                          <CustomerRecordDip />
                         </CustomerPortalLayout>
                       </ProtectedRoute>
                     }

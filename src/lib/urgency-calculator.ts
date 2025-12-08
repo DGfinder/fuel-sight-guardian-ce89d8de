@@ -40,6 +40,31 @@ export function calculateUrgency(daysRemaining: number | null): UrgencyLevel {
 }
 
 /**
+ * Calculate urgency with fill percentage fallback for manual dip tanks
+ * Uses days remaining if available, otherwise falls back to fill percentage thresholds
+ */
+export function calculateUrgencyWithFallback(
+  daysRemaining: number | null | undefined,
+  fillPercentage: number | null | undefined
+): UrgencyLevel {
+  // Prefer days remaining if available
+  if (daysRemaining != null && daysRemaining !== undefined) {
+    if (daysRemaining < 3) return 'critical';
+    if (daysRemaining < 7) return 'warning';
+    return 'normal';
+  }
+
+  // Fallback to fill percentage for manual dip tanks
+  if (fillPercentage != null && fillPercentage !== undefined) {
+    if (fillPercentage < 20) return 'critical';
+    if (fillPercentage < 35) return 'warning';
+    return 'normal';
+  }
+
+  return 'unknown';
+}
+
+/**
  * Get color for urgency level
  */
 export function getUrgencyColor(urgency: UrgencyLevel): string {

@@ -10,6 +10,7 @@ import { KPICard } from '@/components/ui/KPICard';
 import { FilterCard } from '@/components/ui/FilterCard';
 import {
   calculateUrgency,
+  calculateUrgencyWithFallback,
   sortByUrgency,
   UrgencyLevel,
 } from '@/lib/urgency-calculator';
@@ -43,31 +44,35 @@ export default function CustomerTanks() {
       );
     }
 
-    // Urgency filter
+    // Urgency filter - use fallback to fill % for manual dip tanks
     if (urgencyFilter !== 'all') {
       result = result.filter(
-        (t) => calculateUrgency(t.asset_days_remaining ?? null) === urgencyFilter
+        (t) => calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage) === urgencyFilter
       );
     }
 
-    // Sort by urgency
+    // Sort by urgency - use fallback to fill % for manual dip tanks
     return sortByUrgency(
       result.map((t) => ({
         ...t,
-        urgency: calculateUrgency(t.asset_days_remaining ?? null),
+        urgency: calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage),
         daysRemaining: t.asset_days_remaining,
       }))
     );
   }, [tanks, searchQuery, urgencyFilter]);
 
-  // Stats
+  // Stats - use fallback to fill % for manual dip tanks
   const stats = useMemo(() => {
     const all = tanks || [];
+    // For manual dip tanks, device_online is null/false but that's expected
+    const hasTelemetry = all.some(t => t.source_type === 'agbot' || t.source_type === 'smartfill');
     return {
       total: all.length,
-      online: all.filter((t) => t.device_online).length,
-      critical: all.filter((t) => calculateUrgency(t.asset_days_remaining ?? null) === 'critical').length,
-      warning: all.filter((t) => calculateUrgency(t.asset_days_remaining ?? null) === 'warning').length,
+      // Only count online for tanks that have telemetry devices
+      online: hasTelemetry ? all.filter((t) => t.device_online).length : all.length,
+      critical: all.filter((t) => calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage) === 'critical').length,
+      warning: all.filter((t) => calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage) === 'warning').length,
+      hasTelemetry,
     };
   }, [tanks]);
 

@@ -74,16 +74,18 @@ export default function CustomerDashboard() {
 
   // Weather location: use tank coordinates or fallback to default
   const weatherLocation = useMemo(() => {
-    if (primaryTank?.latitude && primaryTank?.longitude) {
+    // Find first tank with coordinates (for manual dip tanks, coords come from ta_locations)
+    const tankWithCoords = tanks?.find(t => t.lat && t.lng) || primaryTank;
+    if (tankWithCoords?.lat && tankWithCoords?.lng) {
       return {
-        lat: primaryTank.latitude,
-        lng: primaryTank.longitude,
-        name: primaryTank.location_id || primaryTank.address1 || 'Primary Location',
+        lat: tankWithCoords.lat,
+        lng: tankWithCoords.lng,
+        name: tankWithCoords.location_id || tankWithCoords.address1 || 'Primary Location',
         isFallback: false
       };
     }
     return { ...DEFAULT_LOCATION, isFallback: true };
-  }, [primaryTank]);
+  }, [primaryTank, tanks]);
 
   // Fetch weather data for location (COMPLEMENTARY)
   const { data: weather } = useWeatherForecast(
@@ -102,15 +104,21 @@ export default function CustomerDashboard() {
       (sum, t) => sum + ((t.latest_calibrated_fill_percentage || 0) / 100 * (t.asset_profile_water_capacity || 0)),
       0
     );
-    const dailyConsumption = tanks.reduce((sum, t) => sum + (t.asset_daily_consumption || 0), 0);
-    const daysToRun = dailyConsumption > 0 ? currentFuel / dailyConsumption : 0;
+    // For manual dip tanks, consumption may be null - only count tanks with consumption data
+    const tanksWithConsumption = tanks.filter(t => t.asset_daily_consumption != null && t.asset_daily_consumption > 0);
+    const dailyConsumption = tanksWithConsumption.reduce((sum, t) => sum + (t.asset_daily_consumption || 0), 0);
+    // Only calculate days to run if we have consumption data
+    const daysToRun = dailyConsumption > 0 ? currentFuel / dailyConsumption : null;
+    // Check if this is a manual dip account (no consumption data available)
+    const hasConsumptionData = tanksWithConsumption.length > 0;
 
     return {
       totalFuelPercent: totalCapacity > 0 ? (currentFuel / totalCapacity) * 100 : 0,
       dailyUse: Math.round(dailyConsumption),
-      daysToRun: Math.floor(daysToRun),
+      daysToRun: daysToRun != null ? Math.floor(daysToRun) : null,
       currentFuelLiters: Math.round(currentFuel),
       totalCapacity,
+      hasConsumptionData,
     };
   }, [tanks]);
 

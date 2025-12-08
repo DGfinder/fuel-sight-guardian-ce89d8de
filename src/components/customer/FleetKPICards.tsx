@@ -21,8 +21,9 @@ interface TankSummary {
 interface FleetMetrics {
   totalFuelPercent: number;
   dailyUse: number;
-  daysToRun: number;
+  daysToRun: number | null; // null for manual dip tanks without consumption data
   currentFuelLiters: number;
+  hasConsumptionData?: boolean;
 }
 
 interface FleetKPICardsProps {
@@ -144,19 +145,23 @@ export function FleetKPICards({ summary, fleetMetrics, tankCount = 0, singleTank
 
           <KPICard
             title="Days to Run"
-            value={fleetMetrics.daysToRun}
-            subtitle="days"
+            value={fleetMetrics.daysToRun != null ? fleetMetrics.daysToRun : '—'}
+            subtitle={fleetMetrics.daysToRun != null ? 'days' : 'awaiting data'}
             icon={Activity}
             color={
-              fleetMetrics.daysToRun < 7
+              fleetMetrics.daysToRun == null
+                ? 'gray'
+                : fleetMetrics.daysToRun < 7
                 ? 'red'
                 : fleetMetrics.daysToRun < 14
                 ? 'yellow'
                 : 'green'
             }
-            trend={fleetMetrics.daysToRun < 7 ? 'down' : 'neutral'}
+            trend={fleetMetrics.daysToRun != null && fleetMetrics.daysToRun < 7 ? 'down' : 'neutral'}
             trendValue={
-              fleetMetrics.daysToRun < 7
+              fleetMetrics.daysToRun == null
+                ? 'Manual dip data building'
+                : fleetMetrics.daysToRun < 7
                 ? 'Request delivery soon'
                 : 'Adequate supply'
             }
