@@ -2,6 +2,7 @@ import { Calendar, Droplet, TrendingDown, WifiOff, Wifi, Radio, Gauge, Clipboard
 import { format, formatDistanceToNow } from 'date-fns';
 import { CustomerTank, TankSourceType } from '../../hooks/useCustomerAuth';
 import { LastRefillData } from '../../hooks/useCustomerAnalytics';
+import { calculateUrgencyWithFallback, getUrgencyClasses } from '../../lib/urgency-calculator';
 
 interface TankCardProps {
   tank: CustomerTank;
@@ -15,6 +16,14 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
   const capacityLiters = tank.asset_profile_water_capacity || 0;
   const dailyConsumption = tank.asset_daily_consumption || 0;
   const daysRemaining = tank.asset_days_remaining;
+
+  // Calculate urgency for border coloring
+  const urgency = calculateUrgencyWithFallback(daysRemaining, fillPercentage);
+  const urgencyClasses = getUrgencyClasses(urgency);
+
+  // Manual dip tanks don't have telemetry devices - hide online/offline status
+  const isManualTank = tank.source_type === 'dip' || tank.source_type === 'manual';
+  const showDeviceStatus = !isManualTank;
 
   // Determine color based on fill level
   const getFillColor = () => {
@@ -59,11 +68,18 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
     return formatDistanceToNow(lastReading, { addSuffix: true });
   };
 
+  // Get urgency-based border class
+  const getUrgencyBorderClass = () => {
+    if (urgency === 'critical') return 'border-red-400 dark:border-red-600 border-2';
+    if (urgency === 'warning') return 'border-yellow-400 dark:border-yellow-600 border-2';
+    return 'border-gray-200 dark:border-gray-700';
+  };
+
   return (
     <div
       onClick={onClick}
       className={`
-        bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700
+        bg-white dark:bg-gray-800 rounded-lg shadow-sm ${getUrgencyBorderClass()}
         p-6 transition-all duration-200
         ${onClick ? 'cursor-pointer hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600' : ''}
       `}
@@ -91,28 +107,30 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
             {sourceBadge.label}
           </div>
 
-          {/* Device Status Badge */}
-          <div
-            className={`
-              flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-              ${tank.device_online
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                : 'bg-gray-100 text-gray-500 dark:bg-gray-900/30 dark:text-gray-400'
-              }
-            `}
-          >
-            {tank.device_online ? (
-              <>
-                <Wifi className="w-3 h-3" />
-                Online
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-3 h-3" />
-                Offline
-              </>
-            )}
-          </div>
+          {/* Device Status Badge - Only show for telemetry tanks (AgBot, SmartFill) */}
+          {showDeviceStatus && (
+            <div
+              className={`
+                flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                ${tank.device_online
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : 'bg-gray-100 text-gray-500 dark:bg-gray-900/30 dark:text-gray-400'
+                }
+              `}
+            >
+              {tank.device_online ? (
+                <>
+                  <Wifi className="w-3 h-3" />
+                  Online
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3" />
+                  Offline
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

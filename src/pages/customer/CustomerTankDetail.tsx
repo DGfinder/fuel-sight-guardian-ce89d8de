@@ -391,6 +391,8 @@ export default function CustomerTankDetail() {
         <div className="lg:col-span-2">
           <TankConsumptionChart
             assetId={tank?.asset_id}
+            tankId={tank?.id}
+            sourceType={tank?.source_type}
             defaultPeriod={(preferences?.default_chart_days as 7 | 14 | 30 | 90) || 7}
             capacityLiters={tank?.asset_profile_water_capacity}
             warningThresholdPct={preferences?.default_warning_threshold_pct || 25}

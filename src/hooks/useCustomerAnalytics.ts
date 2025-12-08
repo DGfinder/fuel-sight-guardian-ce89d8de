@@ -418,28 +418,66 @@ const REFILL_THRESHOLD = 250; // Increases > 250L = refill (bulk fuel deliveries
  * Hook to get tank readings enriched with consumption calculations
  * Uses hourly decrease summation: tracks all decreases throughout the day,
  * ignores increases (refills), and sums to get true daily consumption
+ *
+ * Supports both:
+ * - AgBot tanks: uses assetId to query ta_agbot_readings
+ * - Manual dip tanks: uses tankId to query ta_tank_dips
  */
 export function useTankReadingsWithConsumption(
   assetId: string | undefined,
-  days: number = 7
+  days: number = 7,
+  tankId?: string | undefined,
+  sourceType?: string | undefined
 ) {
+  // For dip tanks, use tankId; for AgBot tanks, use assetId
+  const isDipTank = sourceType === 'dip' || sourceType === 'manual';
+  const queryId = isDipTank ? tankId : assetId;
+
   return useQuery<ReadingWithConsumption[]>({
-    queryKey: ['tank-readings-consumption', assetId, days],
+    queryKey: ['tank-readings-consumption', queryId, days, sourceType],
     queryFn: async () => {
-      if (!assetId) return [];
+      if (!queryId) return [];
 
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const { data: readings, error } = await supabase
-        .from('ta_agbot_readings')
-        .select('reading_at, level_liters, level_percent, is_online, temperature_c, battery_voltage')
-        .eq('asset_id', assetId)
-        .gte('reading_at', startDate.toISOString())
-        .order('reading_at', { ascending: true });
+      let readings: any[] = [];
 
-      if (error) throw error;
-      if (!readings || readings.length === 0) return [];
+      if (isDipTank && tankId) {
+        // Query ta_tank_dips for manual dip tanks
+        const { data: dipReadings, error: dipError } = await supabase
+          .from('ta_tank_dips')
+          .select('measured_at, level_liters, level_percent, temperature_c')
+          .eq('tank_id', tankId)
+          .is('archived_at', null) // Only non-archived readings
+          .gte('measured_at', startDate.toISOString())
+          .order('measured_at', { ascending: true });
+
+        if (dipError) throw dipError;
+
+        // Transform dip readings to match agbot format
+        readings = (dipReadings || []).map(r => ({
+          reading_at: r.measured_at,
+          level_liters: r.level_liters,
+          level_percent: r.level_percent ? Number(r.level_percent) : null,
+          is_online: true, // Dip tanks don't have online status
+          temperature_c: r.temperature_c ? Number(r.temperature_c) : null,
+          battery_voltage: null,
+        }));
+      } else if (assetId) {
+        // Query ta_agbot_readings for AgBot tanks
+        const { data: agbotReadings, error: agbotError } = await supabase
+          .from('ta_agbot_readings')
+          .select('reading_at, level_liters, level_percent, is_online, temperature_c, battery_voltage')
+          .eq('asset_id', assetId)
+          .gte('reading_at', startDate.toISOString())
+          .order('reading_at', { ascending: true });
+
+        if (agbotError) throw agbotError;
+        readings = agbotReadings || [];
+      }
+
+      if (readings.length === 0) return [];
 
       // Group readings by date (YYYY-MM-DD) to aggregate per day
       const readingsByDate: Record<string, typeof readings> = {};
@@ -514,6 +552,6 @@ export function useTankReadingsWithConsumption(
       return dailyData;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
-    enabled: !!assetId,
+    enabled: !!queryId, // Use queryId to enable for both AgBot (assetId) and dip (tankId) tanks
   });
 }

@@ -23,11 +23,14 @@ import {
 import { staggerContainerVariants, fadeUpItemVariants } from '@/lib/motion-variants';
 import { WeatherStrip } from '@/components/ui/WeatherStrip';
 
+type SortOption = 'urgency' | 'name-asc' | 'name-desc' | 'fuel-asc' | 'fuel-desc' | 'capacity-asc' | 'days-asc' | 'last-reading-desc';
+
 export default function CustomerTanks() {
   const navigate = useNavigate();
   const { data: tanks, isLoading } = useCustomerTanks();
   const [searchQuery, setSearchQuery] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyLevel | 'all'>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('urgency');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Apply filters and sorting
@@ -51,15 +54,50 @@ export default function CustomerTanks() {
       );
     }
 
-    // Sort by urgency - use fallback to fill % for manual dip tanks
-    return sortByUrgency(
-      result.map((t) => ({
-        ...t,
-        urgency: calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage),
-        daysRemaining: t.asset_days_remaining,
-      }))
-    );
-  }, [tanks, searchQuery, urgencyFilter]);
+    // Add urgency to each tank for consistency
+    const withUrgency = result.map((t) => ({
+      ...t,
+      urgency: calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage),
+      daysRemaining: t.asset_days_remaining,
+    }));
+
+    // Apply selected sort option
+    switch (sortBy) {
+      case 'name-asc':
+        return [...withUrgency].sort((a, b) =>
+          (a.location_id || '').localeCompare(b.location_id || '')
+        );
+      case 'name-desc':
+        return [...withUrgency].sort((a, b) =>
+          (b.location_id || '').localeCompare(a.location_id || '')
+        );
+      case 'fuel-asc':
+        return [...withUrgency].sort((a, b) =>
+          (a.latest_calibrated_fill_percentage || 0) - (b.latest_calibrated_fill_percentage || 0)
+        );
+      case 'fuel-desc':
+        return [...withUrgency].sort((a, b) =>
+          (b.latest_calibrated_fill_percentage || 0) - (a.latest_calibrated_fill_percentage || 0)
+        );
+      case 'capacity-asc':
+        return [...withUrgency].sort((a, b) =>
+          (a.asset_profile_water_capacity || 0) - (b.asset_profile_water_capacity || 0)
+        );
+      case 'days-asc':
+        return [...withUrgency].sort((a, b) => {
+          const aDays = a.asset_days_remaining ?? Infinity;
+          const bDays = b.asset_days_remaining ?? Infinity;
+          return aDays - bDays;
+        });
+      case 'last-reading-desc':
+        return [...withUrgency].sort((a, b) =>
+          (b.latest_telemetry_epoch || 0) - (a.latest_telemetry_epoch || 0)
+        );
+      case 'urgency':
+      default:
+        return sortByUrgency(withUrgency);
+    }
+  }, [tanks, searchQuery, urgencyFilter, sortBy]);
 
   // Stats - use fallback to fill % for manual dip tanks
   const stats = useMemo(() => {
@@ -121,15 +159,18 @@ export default function CustomerTanks() {
           color="blue"
           trend="neutral"
         />
-        <KPICard
-          title="Online"
-          value={stats.online}
-          subtitle={`of ${stats.total}`}
-          icon={Wifi}
-          color={stats.online === stats.total ? 'green' : 'yellow'}
-          trend={stats.online === stats.total ? 'neutral' : 'down'}
-          trendValue={stats.online === stats.total ? 'All connected' : `${stats.total - stats.online} offline`}
-        />
+        {/* Only show Online card for accounts with telemetry devices */}
+        {stats.hasTelemetry && (
+          <KPICard
+            title="Online"
+            value={stats.online}
+            subtitle={`of ${stats.total}`}
+            icon={Wifi}
+            color={stats.online === stats.total ? 'green' : 'yellow'}
+            trend={stats.online === stats.total ? 'neutral' : 'down'}
+            trendValue={stats.online === stats.total ? 'All connected' : `${stats.total - stats.online} offline`}
+          />
+        )}
         <motion.div
           variants={fadeUpItemVariants}
           onClick={() => setUrgencyFilter(urgencyFilter === 'critical' ? 'all' : 'critical')}
@@ -182,12 +223,29 @@ export default function CustomerTanks() {
               { value: 'normal', label: 'Normal' },
             ],
           },
+          {
+            id: 'sortBy',
+            label: 'Sort by',
+            value: sortBy,
+            onChange: (v) => setSortBy(v as SortOption),
+            options: [
+              { value: 'urgency', label: 'Urgency (Most Urgent)' },
+              { value: 'name-asc', label: 'Name (A → Z)' },
+              { value: 'name-desc', label: 'Name (Z → A)' },
+              { value: 'fuel-asc', label: 'Fuel Level (Low → High)' },
+              { value: 'fuel-desc', label: 'Fuel Level (High → Low)' },
+              { value: 'capacity-asc', label: 'Capacity (Smallest)' },
+              { value: 'days-asc', label: 'Days Remaining (Urgent)' },
+              { value: 'last-reading-desc', label: 'Last Reading (Recent)' },
+            ],
+          },
         ]}
         onClearAll={() => {
           setSearchQuery('');
           setUrgencyFilter('all');
+          setSortBy('urgency');
         }}
-        activeFilterCount={urgencyFilter !== 'all' ? 1 : 0}
+        activeFilterCount={(urgencyFilter !== 'all' ? 1 : 0) + (sortBy !== 'urgency' ? 1 : 0)}
         defaultExpanded={true}
       />
 

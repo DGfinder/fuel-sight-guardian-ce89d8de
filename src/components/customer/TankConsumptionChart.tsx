@@ -19,6 +19,8 @@ type PeriodDays = 7 | 14 | 30 | 90 | 180 | 365;
 
 interface TankConsumptionChartProps {
   assetId: string | undefined;
+  tankId?: string | undefined;
+  sourceType?: string | undefined;
   defaultPeriod?: PeriodDays;
   capacityLiters?: number;
   warningThresholdPct?: number;
@@ -27,6 +29,8 @@ interface TankConsumptionChartProps {
 
 export function TankConsumptionChart({
   assetId,
+  tankId,
+  sourceType,
   defaultPeriod = 7,
   capacityLiters,
   warningThresholdPct = 25,
@@ -35,9 +39,13 @@ export function TankConsumptionChart({
   const [period, setPeriod] = useState<PeriodDays>(defaultPeriod);
   const [showLitres, setShowLitres] = useState(true);
 
-  const { data: readings, isLoading } = useTankReadingsWithConsumption(assetId, period);
+  // For dip tanks, use tankId; for AgBot tanks, use assetId
+  const isDipTank = sourceType === 'dip' || sourceType === 'manual';
+  const hasValidId = isDipTank ? !!tankId : !!assetId;
 
-  if (!assetId) {
+  const { data: readings, isLoading } = useTankReadingsWithConsumption(assetId, period, tankId, sourceType);
+
+  if (!hasValidId) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <p className="text-center text-gray-500 dark:text-gray-400">No tank selected</p>
