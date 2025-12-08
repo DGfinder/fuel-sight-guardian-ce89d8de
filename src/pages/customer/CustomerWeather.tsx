@@ -202,9 +202,22 @@ export default function CustomerWeather() {
           </p>
         </div>
 
-        {/* Industry Badge - shows current industry type */}
-        {!isGeneralCustomer && (
-          <div className="flex gap-2">
+        {/* Badges */}
+        <div className="flex flex-wrap gap-2">
+          {/* BOM Source Badge */}
+          <Badge
+            variant="outline"
+            className="flex items-center gap-1.5 px-3 py-1 bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-950/30 dark:border-sky-800 dark:text-sky-400"
+            title={fullWeather ? "Days 1-7: BOM | Days 8-16: Open-Meteo" : "Bureau of Meteorology data"}
+          >
+            <Cloud className="h-3.5 w-3.5" />
+            <span className="text-xs">
+              {fullWeather ? "BOM + Extended" : "Bureau of Meteorology"}
+            </span>
+          </Badge>
+
+          {/* Industry Badge - shows current industry type */}
+          {!isGeneralCustomer && (
             <Badge
               className={cn(
                 'flex items-center gap-1 px-3 py-1',
@@ -216,8 +229,8 @@ export default function CustomerWeather() {
               <industryConfig.icon className="h-4 w-4" />
               {industryConfig.label}
             </Badge>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {weatherLoading ? (

@@ -216,41 +216,45 @@ export function DashboardWeatherCard({
           </div>
         </motion.div>
 
-        {/* 7-Day Mini Forecast - Compact */}
+        {/* 7-Day Forecast - Readable daily breakdown */}
         <motion.div variants={fadeUpItemVariants}>
-          <div className="flex items-end gap-0.5 h-12">
-            {next7Days.map((day, i) => {
-              const maxTemp = Math.max(...next7Days.map((d) => d.tempMax));
-              const minTemp = Math.min(...next7Days.map((d) => d.tempMin));
-              const range = maxTemp - minTemp || 1;
-              const height = ((day.tempMax - minTemp) / range) * 100;
-
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center">
-                  {day.rain > 0 && <Droplets className="h-2 w-2 text-blue-500" />}
-                  <div className="flex-1 flex items-end w-full">
-                    <motion.div
-                      className={cn(
-                        'w-full rounded-t',
-                        day.rain > 0
-                          ? 'bg-blue-400/60'
-                          : 'bg-gradient-to-t from-yellow-400/60 to-orange-400/60'
-                      )}
-                      style={{ height: `${height}%` }}
-                      initial={{ height: 0 }}
-                      animate={{ height: `${height}%` }}
-                      transition={{ delay: i * 0.03, ...springs.gentle }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-0.5">
-                    {i === 0 ? 'T' : format(day.date, 'EEEEE')}
-                  </p>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {/* Day names row */}
+            {next7Days.map((day, i) => (
+              <div key={`day-${i}`} className="text-[10px] text-gray-500 font-medium">
+                {i === 0 ? 'Today' : format(day.date, 'EEE')}
+              </div>
+            ))}
+            {/* Max temp row */}
+            {next7Days.map((day, i) => (
+              <div
+                key={`temp-${i}`}
+                className={cn(
+                  'text-sm font-semibold tabular-nums',
+                  day.rain > 5 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'
+                )}
+              >
+                {day.tempMax.toFixed(0)}°
+              </div>
+            ))}
+            {/* Rain row - only show amount if >0 */}
+            {next7Days.map((day, i) => (
+              <div key={`rain-${i}`} className="text-[10px] tabular-nums h-4">
+                {day.rain > 0 ? (
+                  <span className="text-blue-600 dark:text-blue-400 flex items-center justify-center gap-0.5">
+                    <Droplets className="h-2.5 w-2.5" />
+                    {day.rain.toFixed(0)}
+                  </span>
+                ) : (
+                  <span className="text-gray-300 dark:text-gray-600">-</span>
+                )}
+              </div>
+            ))}
           </div>
-          <p className="text-[10px] text-gray-500 text-center mt-1">
-            7-day: {totalRain7Days.toFixed(0)}mm rain • Max {Math.max(...next7Days.map((d) => d.tempMax)).toFixed(0)}°C
+          {/* Summary line */}
+          <p className="text-[10px] text-gray-500 text-center mt-2 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
+            Week total: {totalRain7Days.toFixed(0)}mm rain
+            {totalRain7Days > 0 && ` • ${next7Days.filter(d => d.rain > 0).length} rainy days`}
           </p>
         </motion.div>
 
