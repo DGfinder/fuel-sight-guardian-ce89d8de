@@ -338,7 +338,7 @@ export default function CustomerTankDetail() {
         </motion.div>
       )}
 
-      {/* Main Content Grid */}
+      {/* Main Content Grid - Chart + Tank Info */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Consumption Chart */}
         <div className="lg:col-span-2">
@@ -351,7 +351,7 @@ export default function CustomerTankDetail() {
           />
         </div>
 
-        {/* Tank Details - Now using DetailCard */}
+        {/* Tank Details Sidebar - Compact */}
         <div className="space-y-4">
           <DetailCard
             title="Tank Information"
@@ -369,30 +369,12 @@ export default function CustomerTankDetail() {
                     value: tank.address1 || 'N/A',
                     icon: MapPin,
                   },
-                  ...(tank.state
-                    ? [
-                        {
-                          label: 'State',
-                          value: tank.state,
-                        },
-                      ]
-                    : []),
                   ...(tank.asset_profile_water_capacity
                     ? [
                         {
                           label: 'Capacity',
                           value: `${tank.asset_profile_water_capacity.toLocaleString()}L`,
                           icon: Gauge,
-                        },
-                      ]
-                    : []),
-                  ...(tank.asset_serial_number
-                    ? [
-                        {
-                          label: 'Device Serial',
-                          value: tank.asset_serial_number,
-                          icon: Hash,
-                          copyable: true,
                         },
                       ]
                     : []),
@@ -428,29 +410,6 @@ export default function CustomerTankDetail() {
                         },
                       ]
                     : []),
-                  ...(deliveryStats.consumptionTrend
-                    ? [
-                        {
-                          label: 'Usage Trend',
-                          value: (
-                            <span className={cn(
-                              'flex items-center gap-1',
-                              deliveryStats.consumptionTrend.direction === 'up' && 'text-orange-600',
-                              deliveryStats.consumptionTrend.direction === 'down' && 'text-green-600',
-                              deliveryStats.consumptionTrend.direction === 'stable' && 'text-gray-600'
-                            )}>
-                              {deliveryStats.consumptionTrend.direction === 'up' && <TrendingUp size={14} />}
-                              {deliveryStats.consumptionTrend.direction === 'down' && <TrendingDown size={14} />}
-                              {deliveryStats.consumptionTrend.direction === 'stable' && <BarChart3 size={14} />}
-                              {deliveryStats.consumptionTrend.direction === 'stable'
-                                ? 'Stable'
-                                : `${deliveryStats.consumptionTrend.percent}% ${deliveryStats.consumptionTrend.direction}`}
-                            </span>
-                          ),
-                          icon: BarChart3,
-                        },
-                      ]
-                    : []),
                 ],
               },
             ]}
@@ -471,7 +430,6 @@ export default function CustomerTankDetail() {
                         weekday: 'long',
                         day: 'numeric',
                         month: 'long',
-                        year: 'numeric',
                       })}
                     </p>
                   </div>
@@ -479,35 +437,38 @@ export default function CustomerTankDetail() {
               </CardContent>
             </Card>
           )}
-
-          {/* Fuel Cost Estimate */}
-          {tank.asset_daily_consumption && tank.asset_daily_consumption > 0 && (
-            <FuelCostWidget
-              dailyConsumption={tank.asset_daily_consumption}
-              currentLevelLiters={currentLitres}
-              daysRemaining={tank.asset_days_remaining ?? null}
-              productType={tank.product_type}
-            />
-          )}
-
-          {/* Location Map */}
-          {tank.lat && tank.lng && (
-            <CustomerMapWidget
-              tanks={[tank]}
-              height={200}
-              showTitle={false}
-            />
-          )}
-
-          {/* Weather Forecast */}
-          {tank.lat && tank.lng && (
-            <WeatherWidget
-              lat={tank.lat}
-              lng={tank.lng}
-              locationName={tank.location_id || tank.address1 || 'Tank Location'}
-            />
-          )}
         </div>
+      </div>
+
+      {/* Secondary Content Row - Below Chart */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Fuel Cost Estimate */}
+        {tank.asset_daily_consumption && tank.asset_daily_consumption > 0 && (
+          <FuelCostWidget
+            dailyConsumption={tank.asset_daily_consumption}
+            currentLevelLiters={currentLitres}
+            daysRemaining={tank.asset_days_remaining ?? null}
+            productType={tank.product_type}
+          />
+        )}
+
+        {/* Location Map */}
+        {tank.lat && tank.lng && (
+          <CustomerMapWidget
+            tanks={[tank]}
+            height={200}
+            showTitle={true}
+          />
+        )}
+
+        {/* Weather Forecast */}
+        {tank.lat && tank.lng && (
+          <WeatherWidget
+            lat={tank.lat}
+            lng={tank.lng}
+            locationName={tank.location_id || tank.address1 || 'Tank Location'}
+          />
+        )}
       </div>
     </div>
   );
