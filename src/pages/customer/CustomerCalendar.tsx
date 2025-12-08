@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RefillCalendar } from '@/components/calendar/RefillCalendar';
+import { RefillTimelineStrip } from '@/components/calendar/RefillTimelineStrip';
 import { useCustomerRefillCalendar } from '@/hooks/useRefillCalendar';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { KPICard } from '@/components/ui/KPICard';
@@ -32,6 +33,10 @@ export default function CustomerCalendar() {
 
   const handleTankClick = (tank: RefillPrediction) => {
     navigate(`/customer/tanks/${tank.tankId}`);
+  };
+
+  const handleTimelineTankClick = (tankId: string) => {
+    navigate(`/customer/tanks/${tankId}`);
   };
 
   return (
@@ -101,10 +106,23 @@ export default function CustomerCalendar() {
         </motion.div>
       </motion.div>
 
-      {/* Main Content */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Calendar */}
-        <div className="lg:col-span-2">
+      {/* Timeline Strip - Primary View */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <RefillTimelineStrip
+          predictions={predictions || []}
+          maxDays={30}
+          onTankClick={handleTimelineTankClick}
+        />
+      </motion.div>
+
+      {/* Secondary Content - Calendar + List */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Calendar - now smaller, on the left */}
+        <div>
           <RefillCalendar
             predictions={predictions || []}
             onTankClick={handleTankClick}
@@ -112,7 +130,7 @@ export default function CustomerCalendar() {
           />
         </div>
 
-        {/* Upcoming Refills List */}
+        {/* Upcoming Refills List - on the right */}
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
