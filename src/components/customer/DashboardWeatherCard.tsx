@@ -110,7 +110,9 @@ export function DashboardWeatherCard({
   if (observations?.temp != null) {
     // Use actual observed temperature from BOM
     currentTemp = observations.temp;
+    console.log('[Weather] Using BOM observations:', observations.temp, '°C from', observations.station_name);
   } else {
+    console.log('[Weather] No observations available, falling back to forecast');
     // Fallback to hourly forecast if no observations
     const currentHourIndex = weather.hourly?.time?.findIndex((t: string) => {
       const hourTime = new Date(t);
