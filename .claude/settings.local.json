@@ -36,7 +36,12 @@
       "Bash(git commit:*)",
       "Bash(git reset:*)",
       "WebFetch(domain:api.open-meteo.com)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "WebSearch",
+      "WebFetch(domain:reg.bom.gov.au)",
+      "WebFetch(domain:www.bom.gov.au)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:community.home-assistant.io)"
     ],
     "deny": [],
     "ask": []
