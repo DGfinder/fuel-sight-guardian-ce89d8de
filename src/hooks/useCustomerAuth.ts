@@ -75,6 +75,16 @@ export interface CustomerTank {
   tank_id?: string | null;
   // Industry type for feature visibility (per-tank override)
   industry_type?: 'farming' | 'mining' | 'general' | null;
+  // Analytics data from ta_tank_analytics
+  previous_day_use?: number | null;
+  trend_direction?: 'increasing' | 'decreasing' | 'stable' | null;
+  trend_percent_change?: number | null;
+  consumption_7_days?: number | null;
+  consumption_30_days?: number | null;
+  order_urgency?: 'critical' | 'urgent' | 'soon' | 'ok' | null;
+  optimal_order_date?: string | null;
+  data_quality?: 'good' | 'fair' | 'poor' | null;
+  readings_in_period?: number | null;
 }
 
 /**
@@ -190,7 +200,7 @@ export function useCustomerTanks() {
           asset_id: tank.agbot_asset_id,
           asset_serial_number: null,
           device_online: tank.device_online,
-          // Use AgBot data first, fall back to dip data for manual tanks
+          // Use unified data (ta_tank_analytics priority), fall back to dip data for manual tanks
           asset_days_remaining: tank.days_remaining ?? tank.dip_days_remaining,
           asset_daily_consumption: tank.daily_consumption_liters ?? tank.dip_daily_consumption_liters,
           asset_profile_water_capacity: tank.capacity_liters,
@@ -201,6 +211,16 @@ export function useCustomerTanks() {
           smartfill_tank_id: tank.smartfill_tank_id,
           tank_id: tank.tank_id,
           industry_type: tank.industry_type || null,
+          // New analytics fields from ta_tank_analytics
+          previous_day_use: tank.previous_day_use,
+          trend_direction: tank.trend_direction as CustomerTank['trend_direction'],
+          trend_percent_change: tank.trend_percent_change,
+          consumption_7_days: tank.consumption_7_days,
+          consumption_30_days: tank.consumption_30_days,
+          order_urgency: tank.order_urgency as CustomerTank['order_urgency'],
+          optimal_order_date: tank.optimal_order_date,
+          data_quality: tank.data_quality as CustomerTank['data_quality'],
+          readings_in_period: tank.readings_in_period,
         } as CustomerTank));
       }
 
@@ -455,6 +475,10 @@ export function useCustomerPortalSummary() {
   const { data: tanks } = useCustomerTanks();
   const { data: requests } = useCustomerDeliveryRequests();
 
+  // Check if this account has any telemetry devices (AgBot or SmartFill)
+  // If all tanks are manual dip, hide "online/offline" status
+  const hasTelemetry = tanks?.some(t => t.source_type === 'agbot' || t.source_type === 'smartfill') ?? false;
+
   const summary = {
     totalTanks: tanks?.length || 0,
     lowFuelTanks: tanks?.filter(t => (t.latest_calibrated_fill_percentage || 0) < 25).length || 0,
@@ -462,6 +486,8 @@ export function useCustomerPortalSummary() {
     onlineTanks: tanks?.filter(t => t.device_online).length || 0,
     pendingRequests: requests?.filter(r => r.status === 'pending').length || 0,
     scheduledDeliveries: requests?.filter(r => r.status === 'scheduled').length || 0,
+    // New: whether account has telemetry devices (for showing/hiding device status)
+    hasTelemetry,
   };
 
   return summary;

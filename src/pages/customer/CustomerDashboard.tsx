@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,7 @@ export default function CustomerDashboard() {
   const { data: fleetHealth, isLoading: healthLoading } = useFleetHealth();
   const { agriculturalIntelligence } = useCustomerFeatures();
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [selectedChartTankId, setSelectedChartTankId] = useState<string>('fleet');
 
   // Check if password change is required on mount and when account data changes
   useEffect(() => {
@@ -93,6 +94,21 @@ export default function CustomerDashboard() {
     weatherLocation.lng,
     7
   );
+
+  // Create tank options for chart dropdown
+  const chartTankOptions = useMemo(() => {
+    if (!tanks?.length) return [];
+    return tanks.map(t => ({
+      id: t.id,
+      name: t.location_id || t.customer_name || 'Tank',
+      fillPercent: t.latest_calibrated_fill_percentage || 0,
+    }));
+  }, [tanks]);
+
+  // Handle tank selection change in chart
+  const handleChartTankSelect = useCallback((tankId: string) => {
+    setSelectedChartTankId(tankId);
+  }, []);
 
   // Calculate fleet-wide fuel metrics (PRIMARY - FUEL FIRST!)
   const fleetMetrics = useMemo(() => {
@@ -205,7 +221,7 @@ export default function CustomerDashboard() {
         </div>
       )}
 
-      {/* 7-Day Chart - Full Width */}
+      {/* 7-Day Chart - Full Width with Tank Selector */}
       <WeatherOverlayChart
         consumptionData={fleetConsumption || []}
         weatherData={weather?.daily.time.map((date, i) => ({
@@ -216,10 +232,13 @@ export default function CustomerDashboard() {
         }))}
         totalCapacity={fleetMetrics?.totalCapacity}
         height={300}
+        tanks={chartTankOptions}
+        selectedTankId={selectedChartTankId}
+        onTankSelect={handleChartTankSelect}
       />
 
-      {/* Weather + Device Health + Map - 3 Column Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Weather + Device Health (if telemetry) + Map - Responsive Row */}
+      <div className={`grid grid-cols-1 gap-4 ${summary.hasTelemetry ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <DashboardWeatherCard
           lat={weatherLocation.lat}
           lng={weatherLocation.lng}
@@ -231,10 +250,13 @@ export default function CustomerDashboard() {
           capacityLiters={primaryTank?.asset_profile_water_capacity}
           roadProfile={primaryTank?.road_risk_profile}
         />
-        <DeviceHealthCard
-          devices={fleetHealth || []}
-          isLoading={healthLoading}
-        />
+        {/* Device Health - only show for telemetry accounts (AgBot/SmartFill) */}
+        {summary.hasTelemetry && (
+          <DeviceHealthCard
+            devices={fleetHealth || []}
+            isLoading={healthLoading}
+          />
+        )}
         {/* Map Widget - shows tank location with weather */}
         {tanks && tanks.length > 0 && (
           <CustomerMapWidget
@@ -322,6 +344,7 @@ export default function CustomerDashboard() {
 function TankStatusRow({ tank }: { tank: any }) {
   const level = tank.latest_calibrated_fill_percentage || 0;
   const urgency = level < 15 ? 'critical' : level < 25 ? 'warning' : 'normal';
+  const hasTelemetry = tank.source_type === 'agbot' || tank.source_type === 'smartfill';
 
   return (
     <Link
@@ -347,21 +370,23 @@ function TankStatusRow({ tank }: { tank: any }) {
       </div>
 
       {/* Days remaining */}
-      {tank.asset_days_remaining && (
+      {tank.asset_days_remaining != null && tank.asset_days_remaining > 0 && (
         <div className="text-right">
           <p className="text-sm font-medium">{Math.round(tank.asset_days_remaining)} days</p>
           <p className="text-xs text-gray-500">remaining</p>
         </div>
       )}
 
-      {/* Device status */}
-      <div
-        className={cn(
-          'w-2 h-2 rounded-full',
-          tank.device_online ? 'bg-green-500' : 'bg-gray-400'
-        )}
-        title={tank.device_online ? 'Online' : 'Offline'}
-      />
+      {/* Device status - only show for telemetry tanks */}
+      {hasTelemetry && (
+        <div
+          className={cn(
+            'w-2 h-2 rounded-full',
+            tank.device_online ? 'bg-green-500' : 'bg-gray-400'
+          )}
+          title={tank.device_online ? 'Online' : 'Offline'}
+        />
+      )}
     </Link>
   );
 }

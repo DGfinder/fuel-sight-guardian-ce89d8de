@@ -1,5 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   ComposedChart,
   Line,
   Bar,
@@ -10,8 +17,14 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingDown } from 'lucide-react';
+import { TrendingDown, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface TankOption {
+  id: string;
+  name: string;
+  fillPercent: number;
+}
 
 interface WeatherOverlayChartProps {
   consumptionData: Array<{
@@ -28,6 +41,10 @@ interface WeatherOverlayChartProps {
   }>;
   totalCapacity?: number;
   height?: number;
+  // Tank selector props
+  tanks?: TankOption[];
+  selectedTankId?: string;
+  onTankSelect?: (tankId: string) => void;
 }
 
 export function WeatherOverlayChart({
@@ -35,7 +52,12 @@ export function WeatherOverlayChart({
   weatherData,
   totalCapacity,
   height = 300,
+  tanks,
+  selectedTankId,
+  onTankSelect,
 }: WeatherOverlayChartProps) {
+  const showTankSelector = tanks && tanks.length > 1 && onTankSelect;
+  const isFleetView = !selectedTankId || selectedTankId === 'fleet';
   // Merge consumption and weather data, converting % to litres
   const mergedData = consumptionData.map((item) => {
     // Match weather by comparing formatted dates or ISO dates
@@ -79,11 +101,36 @@ export function WeatherOverlayChart({
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingDown className="h-5 w-5" />
-            7-Day Fuel Overview
-          </CardTitle>
-          <p className="text-sm text-gray-500 mt-1">Fuel levels and daily usage</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingDown className="h-5 w-5" />
+                7-Day Fuel Overview
+              </CardTitle>
+              <p className="text-sm text-gray-500 mt-1">Fuel levels and daily usage</p>
+            </div>
+            {showTankSelector && (
+              <Select value={selectedTankId || 'fleet'} onValueChange={onTankSelect}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select tank..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fleet">Fleet Average</SelectItem>
+                  {tanks?.map((tank) => (
+                    <SelectItem key={tank.id} value={tank.id}>
+                      <span className="flex items-center gap-2">
+                        {tank.name}
+                        <span className={`text-xs ${tank.fillPercent < 25 ? 'text-red-500' : 'text-gray-500'}`}>
+                          ({Math.round(tank.fillPercent)}%)
+                        </span>
+                        {tank.fillPercent < 15 && <AlertTriangle className="h-3 w-3 text-red-500" />}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-center py-6 text-gray-500">
@@ -99,15 +146,41 @@ export function WeatherOverlayChart({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <TrendingDown className="h-5 w-5" />
-          7-Day Fuel Overview
-        </CardTitle>
-        <p className="text-sm text-gray-500 mt-1">
-          {hasConsumption
-            ? 'Fuel level and daily consumption'
-            : 'Average fuel levels across all tanks'}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingDown className="h-5 w-5" />
+              7-Day Fuel Overview
+            </CardTitle>
+            <p className="text-sm text-gray-500 mt-1">
+              {isFleetView
+                ? (hasConsumption ? 'Fleet fuel level and daily consumption' : 'Average fuel levels across all tanks')
+                : `Fuel data for ${tanks?.find(t => t.id === selectedTankId)?.name || 'selected tank'}`
+              }
+            </p>
+          </div>
+          {showTankSelector && (
+            <Select value={selectedTankId || 'fleet'} onValueChange={onTankSelect}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select tank..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fleet">Fleet Average</SelectItem>
+                {tanks?.map((tank) => (
+                  <SelectItem key={tank.id} value={tank.id}>
+                    <span className="flex items-center gap-2">
+                      {tank.name}
+                      <span className={`text-xs ${tank.fillPercent < 25 ? 'text-red-500' : 'text-gray-500'}`}>
+                        ({Math.round(tank.fillPercent)}%)
+                      </span>
+                      {tank.fillPercent < 15 && <AlertTriangle className="h-3 w-3 text-red-500" />}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={height}>

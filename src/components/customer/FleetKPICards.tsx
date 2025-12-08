@@ -16,6 +16,7 @@ interface TankSummary {
   onlineTanks: number;
   lowFuelTanks: number;
   criticalTanks: number;
+  hasTelemetry?: boolean; // Whether account has any telemetry devices
 }
 
 interface FleetMetrics {
@@ -54,7 +55,7 @@ export function FleetKPICards({ summary, fleetMetrics, tankCount = 0, singleTank
         <KPICard
           title={tankName}
           value={`${Math.round(fuelPercent)}%`}
-          subtitle={tankOnline ? 'Online' : 'Offline'}
+          subtitle={summary.hasTelemetry ? (tankOnline ? 'Online' : 'Offline') : 'Manual dip'}
           icon={tankOnline ? CheckCircle : Activity}
           color={
             fuelPercent < 15 ? 'red' :
@@ -68,7 +69,8 @@ export function FleetKPICards({ summary, fleetMetrics, tankCount = 0, singleTank
               : 'No data yet'
           }
         />
-      ) : (
+      ) : summary.hasTelemetry ? (
+        // Telemetry accounts: show online/offline status
         <KPICard
           title="Fleet Status"
           value={summary.onlineTanks}
@@ -81,6 +83,17 @@ export function FleetKPICards({ summary, fleetMetrics, tankCount = 0, singleTank
               ? 'All systems operational'
               : `${summary.totalTanks - summary.onlineTanks} offline`
           }
+        />
+      ) : (
+        // Dip-only accounts: show tank count without online/offline language
+        <KPICard
+          title="Fleet Status"
+          value={summary.totalTanks}
+          subtitle="tanks"
+          icon={Fuel}
+          color="blue"
+          trend="neutral"
+          trendValue="Manual dip tracking"
         />
       )}
 
