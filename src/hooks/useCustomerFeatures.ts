@@ -164,23 +164,31 @@ const FEATURE_MAP: Record<IndustryType, CustomerFeatures> = {
  *
  * Usage:
  * ```tsx
+ * // Use customer account's industry type
  * const { agriculturalIntelligence, roadRisk } = useCustomerFeatures();
+ *
+ * // Override with tank's industry type (for viewing other customers' tanks)
+ * const { agriculturalIntelligence } = useCustomerFeatures(tank?.industry_type);
  *
  * if (!agriculturalIntelligence) {
  *   return null; // Don't render agricultural components
  * }
  * ```
  */
-export function useCustomerFeatures(): CustomerFeatures & {
+export function useCustomerFeatures(
+  overrideIndustryType?: IndustryType | null
+): CustomerFeatures & {
   isLoading: boolean;
   industryType: IndustryType;
 } {
   const { data: customerAccount, isLoading } = useCustomerAccount();
 
+  // Use override if provided (e.g., tank's industry type), otherwise fall back to customer account
   // Default to 'farming' for backwards compatibility
-  // (existing customers without industry_type set should see full features)
   const industryType: IndustryType =
-    (customerAccount?.industry_type as IndustryType) || 'farming';
+    overrideIndustryType ||
+    (customerAccount?.industry_type as IndustryType) ||
+    'farming';
 
   const features = useMemo(() => FEATURE_MAP[industryType], [industryType]);
 

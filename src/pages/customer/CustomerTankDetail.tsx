@@ -42,7 +42,7 @@ import { AgIntelligenceDashboard } from '@/components/customer/AgIntelligenceDas
 import { IndustryIntelligenceDashboard } from '@/components/customer/IndustryIntelligenceDashboard';
 import { CustomerMapWidget } from '@/components/customer/CustomerMapWidget';
 import { useRoadRiskProfile } from '@/hooks/useRoadRisk';
-import { useCustomerFeatures } from '@/hooks/useCustomerFeatures';
+import { useCustomerFeatures, type IndustryType } from '@/hooks/useCustomerFeatures';
 
 export default function CustomerTankDetail() {
   const { tankId } = useParams<{ tankId: string }>();
@@ -54,8 +54,11 @@ export default function CustomerTankDetail() {
   // Road risk profile for agricultural intelligence
   const { data: roadProfile } = useRoadRiskProfile(tankId);
 
-  // Feature flags
-  const { agriculturalIntelligence } = useCustomerFeatures();
+  // Feature flags - use tank's industry type to determine features
+  // This ensures features match the tank, not the logged-in user's account
+  const { agriculturalIntelligence } = useCustomerFeatures(
+    tank?.industry_type as IndustryType | undefined
+  );
 
   // Get consumption readings for delivery stats (90 days for good refill frequency)
   const { data: consumptionReadings } = useTankReadingsWithConsumption(tank?.asset_id, 90);

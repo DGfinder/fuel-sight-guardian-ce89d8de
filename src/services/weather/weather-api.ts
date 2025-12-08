@@ -20,12 +20,13 @@ export class WeatherAPI {
   }
 
   async getSoilMoisture(lat: number, lng: number): Promise<any> {
-    // Open-Meteo provides soil moisture data
+    // Open-Meteo provides soil moisture as hourly data with specific depth ranges
+    // Available depths: 0-1cm, 1-3cm, 3-9cm, 9-27cm, 27-81cm
     const params = new URLSearchParams({
       latitude: lat.toString(),
       longitude: lng.toString(),
-      daily: 'soil_moisture_0_to_10cm,soil_moisture_10_to_40cm',
-      forecast_days: '16',
+      hourly: 'soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm',
+      forecast_days: '7',
       timezone: 'Australia/Perth',
     });
 

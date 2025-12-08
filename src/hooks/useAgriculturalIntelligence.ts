@@ -84,9 +84,16 @@ export function useAgriculturalIntelligence(
         });
       }
 
+      // Soil moisture from Open-Meteo: use hourly data with correct depth ranges
+      // Combine 0-1cm + 1-3cm + 3-9cm for approximate 0-10cm equivalent
+      const soilMoisture0to1 = soilData?.hourly?.soil_moisture_0_to_1cm?.[0] || 0;
+      const soilMoisture1to3 = soilData?.hourly?.soil_moisture_1_to_3cm?.[0] || 0;
+      const soilMoisture3to9 = soilData?.hourly?.soil_moisture_3_to_9cm?.[0] || 0;
+      const avgSoilMoisture = (soilMoisture0to1 + soilMoisture1to3 + soilMoisture3to9) / 3;
+
       const seedingWindow = operationsPredictor.predictSeedingWindow(
         weather,
-        soilData?.daily?.soil_moisture_0_to_10cm?.[0] || 0,
+        avgSoilMoisture,
         'Eastern Wheatbelt',
         currentMonth
       );

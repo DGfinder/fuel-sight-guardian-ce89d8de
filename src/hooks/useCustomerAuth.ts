@@ -73,6 +73,8 @@ export interface CustomerTank {
   agbot_location_id?: string | null;
   smartfill_tank_id?: string | null;
   tank_id?: string | null;
+  // Industry type for feature visibility (per-tank override)
+  industry_type?: 'farming' | 'mining' | 'general' | null;
 }
 
 /**
@@ -132,13 +134,14 @@ export function useIsGSFStaff() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      const { data, error } = await supabase
+      // Use maybeSingle() to avoid 406 error when no role exists
+      const { data } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error) {
+      if (!data) {
         // No role found - not GSF staff
         return false;
       }
@@ -196,6 +199,7 @@ export function useCustomerTanks() {
           agbot_location_id: tank.agbot_location_id,
           smartfill_tank_id: tank.smartfill_tank_id,
           tank_id: tank.tank_id,
+          industry_type: tank.industry_type || null,
         } as CustomerTank));
       }
 
@@ -240,6 +244,7 @@ export function useCustomerTanks() {
           calibrated_fill_level,
           last_telemetry_epoch,
           is_disabled,
+          industry_type,
           ta_agbot_assets (
             id,
             serial_number,
@@ -298,6 +303,7 @@ export function useCustomerTanks() {
           agbot_location_id: loc.id,
           smartfill_tank_id: null,
           tank_id: null,
+          industry_type: loc.industry_type || null,
         } as CustomerTank;
       });
     },
