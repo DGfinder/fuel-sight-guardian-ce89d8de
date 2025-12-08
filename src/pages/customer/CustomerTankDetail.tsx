@@ -41,6 +41,7 @@ import { WeatherWidget } from '@/components/customer/WeatherWidget';
 import { AgIntelligenceDashboard } from '@/components/customer/AgIntelligenceDashboard';
 import { IndustryIntelligenceDashboard } from '@/components/customer/IndustryIntelligenceDashboard';
 import { CustomerMapWidget } from '@/components/customer/CustomerMapWidget';
+import { FuelCostWidget } from '@/components/customer/FuelCostWidget';
 import { useRoadRiskProfile } from '@/hooks/useRoadRisk';
 import { useCustomerFeatures, type IndustryType } from '@/hooks/useCustomerFeatures';
 
@@ -477,6 +478,16 @@ export default function CustomerTankDetail() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Fuel Cost Estimate */}
+          {tank.asset_daily_consumption && tank.asset_daily_consumption > 0 && (
+            <FuelCostWidget
+              dailyConsumption={tank.asset_daily_consumption}
+              currentLevelLiters={currentLitres}
+              daysRemaining={tank.asset_days_remaining ?? null}
+              productType={tank.product_type}
+            />
           )}
 
           {/* Location Map */}
