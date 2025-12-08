@@ -2,7 +2,7 @@ import { Calendar, Droplet, TrendingDown, WifiOff, Wifi, Radio, Gauge, Clipboard
 import { format, formatDistanceToNow } from 'date-fns';
 import { CustomerTank, TankSourceType } from '../../hooks/useCustomerAuth';
 import { LastRefillData } from '../../hooks/useCustomerAnalytics';
-import { calculateUrgencyWithFallback, getUrgencyClasses } from '../../lib/urgency-calculator';
+import { calculateUrgencyWithFallback, getUrgencyClasses, formatDaysRemaining } from '../../lib/urgency-calculator';
 
 interface TankCardProps {
   tank: CustomerTank;
@@ -157,14 +157,14 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
           </div>
         </div>
 
-        {/* Days Remaining */}
+        {/* Days to Min Level */}
         <div className="flex flex-col justify-center">
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
             <Calendar className="w-4 h-4" />
-            <span className="font-medium">Remaining</span>
+            <span className="font-medium">Days to Min</span>
           </div>
           <div className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">
-            {daysRemaining ? `${daysRemaining} days` : '—'}
+            {formatDaysRemaining(daysRemaining ?? null)}
           </div>
         </div>
 
