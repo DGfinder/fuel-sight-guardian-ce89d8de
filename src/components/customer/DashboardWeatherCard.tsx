@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useWeatherForecast } from '@/hooks/useWeatherForecast';
+import { useWeatherForecast, useCurrentObservations } from '@/hooks/useWeatherForecast';
 import { useAgriculturalIntelligence } from '@/hooks/useAgriculturalIntelligence';
 import { useCustomerFeatures } from '@/hooks/useCustomerFeatures';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -62,6 +62,7 @@ export function DashboardWeatherCard({
 }: DashboardWeatherCardProps) {
   const { operationsBadges, roadRisk: showRoadRisk, fullWeather } = useCustomerFeatures();
   const { data: weather, isLoading } = useWeatherForecast(lat, lng, 7);
+  const { data: observations } = useCurrentObservations(lat, lng);
 
   // Only fetch agricultural intelligence if we need to show badges
   const { data: intelligence } = useAgriculturalIntelligence(
@@ -99,24 +100,33 @@ export function DashboardWeatherCard({
   }
 
   // Calculate current conditions
-  // Get current hour index from hourly data
   const now = new Date();
-  const currentHourIndex = weather.hourly?.time?.findIndex((t: string) => {
-    const hourTime = new Date(t);
-    return hourTime.getHours() === now.getHours() &&
-           hourTime.getDate() === now.getDate();
-  }) ?? 0;
 
-  // Use hourly data for current temp if available, otherwise fall back to daily
-  const currentTemp = weather.hourly?.temperature_2m?.[currentHourIndex]
-    ?? weather.daily.temperature_2m_max[0];
+  // Priority for current temperature:
+  // 1. BOM observations (actual real-time temperature)
+  // 2. Hourly forecast for current hour
+  // 3. Daily max as fallback
+  let currentTemp: number;
+  if (observations?.temp != null) {
+    // Use actual observed temperature from BOM
+    currentTemp = observations.temp;
+  } else {
+    // Fallback to hourly forecast if no observations
+    const currentHourIndex = weather.hourly?.time?.findIndex((t: string) => {
+      const hourTime = new Date(t);
+      return hourTime.getHours() === now.getHours() &&
+             hourTime.getDate() === now.getDate();
+    }) ?? 0;
+    currentTemp = weather.hourly?.temperature_2m?.[currentHourIndex]
+      ?? weather.daily.temperature_2m_max[0];
+  }
 
   const today = {
     tempCurrent: currentTemp,
     tempMin: weather.daily.temperature_2m_min[0],
     tempMax: weather.daily.temperature_2m_max[0],
     rain: weather.daily.rain_sum[0],
-    windMax: weather.daily.windspeed_10m_max[0],
+    windMax: observations?.wind_speed_kmh ?? weather.daily.windspeed_10m_max[0],
   };
 
   const getWeatherCondition = () => {

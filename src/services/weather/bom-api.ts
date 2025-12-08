@@ -15,6 +15,22 @@ const BOM_API_BASE = 'https://api.weather.bom.gov.au/v1';
 const CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours in ms
 const forecastCache = new Map<string, { data: WeatherForecast; timestamp: number }>();
 
+// Cache for observations (15-minute TTL as BOM updates frequently)
+const OBSERVATIONS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes in ms
+const observationsCache = new Map<string, { data: BOMObservations; timestamp: number }>();
+
+export interface BOMObservations {
+  temp: number | null;
+  temp_feels_like: number | null;
+  humidity: number | null;
+  wind_speed_kmh: number | null;
+  wind_direction: string | null;
+  gust_speed_kmh: number | null;
+  rain_since_9am: number | null;
+  station_name: string | null;
+  observation_time: string | null;
+}
+
 interface BOMForecastDay {
   date: string;
   temp_max: number | null;
@@ -112,6 +128,61 @@ export async function getBOMForecast(lat: number, lng: number): Promise<WeatherF
 
   } catch (error) {
     console.error('[BOM API] Error fetching forecast:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetch current observations (actual temperature) from BOM API
+ */
+export async function getBOMObservations(lat: number, lng: number): Promise<BOMObservations | null> {
+  // Only use BOM for Australian coordinates
+  if (!isInAustralia(lat, lng)) {
+    return null;
+  }
+
+  const geohash = encodeGeohash(lat, lng, 7);
+
+  // Check cache first
+  const cached = observationsCache.get(geohash);
+  if (cached && Date.now() - cached.timestamp < OBSERVATIONS_CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    const response = await fetch(`${BOM_API_BASE}/locations/${geohash}/observations`);
+
+    if (!response.ok) {
+      console.warn(`[BOM API] Observations failed for geohash ${geohash}:`, response.status);
+      return null;
+    }
+
+    const rawData = await response.json();
+    const data = rawData.data;
+
+    const observations: BOMObservations = {
+      temp: data.temp ?? null,
+      temp_feels_like: data.temp_feels_like ?? null,
+      humidity: data.humidity ?? null,
+      wind_speed_kmh: data.wind?.speed_kilometre ?? null,
+      wind_direction: data.wind?.direction ?? null,
+      gust_speed_kmh: data.gust?.speed_kilometre ?? null,
+      rain_since_9am: data.rain_since_9am ?? null,
+      station_name: data.station?.name ?? null,
+      observation_time: rawData.metadata?.observation_time ?? null,
+    };
+
+    // Cache the result
+    observationsCache.set(geohash, {
+      data: observations,
+      timestamp: Date.now(),
+    });
+
+    console.log(`[BOM API] Observations loaded from ${observations.station_name}: ${observations.temp}°C`);
+    return observations;
+
+  } catch (error) {
+    console.error('[BOM API] Error fetching observations:', error);
     return null;
   }
 }
