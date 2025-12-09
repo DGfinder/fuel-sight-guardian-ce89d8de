@@ -66,7 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           postcode,
           calibrated_fill_level,
           ta_agbot_assets (
-            capacity_liters
+            capacity_liters,
+            commodity
           )
         )
       `)
@@ -122,6 +123,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const tankCapacity = Array.isArray(tank.ta_agbot_assets) && tank.ta_agbot_assets[0]?.capacity_liters
       ? tank.ta_agbot_assets[0].capacity_liters.toLocaleString()
       : 'Unknown';
+    const fuelType = Array.isArray(tank.ta_agbot_assets) && tank.ta_agbot_assets[0]?.commodity
+      ? tank.ta_agbot_assets[0].commodity
+      : 'Diesel';
 
     const requestedLitres = request.requested_litres
       ? `${request.requested_litres.toLocaleString()}L`
@@ -196,6 +200,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       <div class="detail-row">
         <div class="detail-label">Capacity:</div>
         <div class="detail-value">${tankCapacity}L</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Fuel Type:</div>
+        <div class="detail-value"><strong>${fuelType}</strong></div>
       </div>
 
       <h2 style="margin-top: 24px; color: #1f2937;">Delivery Request</h2>
@@ -275,6 +283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       <div class="detail-box">
         <h3 style="margin-top: 0; color: #1f2937;">Request Summary</h3>
         <p style="margin: 8px 0;"><strong>Tank:</strong> ${tankName}</p>
+        <p style="margin: 8px 0;"><strong>Fuel Type:</strong> ${fuelType}</p>
         <p style="margin: 8px 0;"><strong>Current Level:</strong> ${currentLevel}%</p>
         <p style="margin: 8px 0;"><strong>Priority:</strong> ${priorityLabel}</p>
         <p style="margin: 8px 0;"><strong>Requested Amount:</strong> ${requestedLitres}</p>
