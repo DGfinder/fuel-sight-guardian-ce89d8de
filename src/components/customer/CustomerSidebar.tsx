@@ -27,9 +27,24 @@ interface CustomerSidebarProps {
   onClose?: () => void;
 }
 
+// Navigation item type
+interface NavItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  end?: boolean;
+  isAction?: boolean; // For items that trigger actions instead of navigation
+}
+
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
 // Grouped navigation with section headers
-const navGroups = [
+const navGroups: NavGroup[] = [
   {
+    label: 'Overview',
     items: [
       { path: '/customer', label: 'Dashboard', icon: LayoutDashboard, end: true },
       { path: '/customer/tanks', label: 'My Tanks', icon: Fuel },
@@ -43,9 +58,11 @@ const navGroups = [
       { path: '/customer/calendar', label: 'Refill Calendar', icon: CalendarDays },
       { path: '/customer/request', label: 'Request Delivery', icon: Truck },
       { path: '/customer/history', label: 'Delivery History', icon: History },
+      { path: '#report-hazard', label: 'Report Hazard', icon: AlertTriangle, isAction: true },
     ],
   },
   {
+    label: 'Account',
     items: [
       { path: '/customer/reports', label: 'Reports', icon: FileText },
       { path: '/customer/settings', label: 'Settings', icon: Settings },
@@ -127,23 +144,40 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
                     </div>
                   )}
                   {group.items.map((item) => (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      end={item.end}
-                      onClick={onClose}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                          isActive
-                            ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
-                            : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                        )
-                      }
-                    >
-                      <item.icon size={20} />
-                      <span className="font-medium">{item.label}</span>
-                    </NavLink>
+                    item.isAction ? (
+                      <button
+                        key={item.path}
+                        onClick={() => {
+                          openHazardReport();
+                          onClose?.();
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full text-left",
+                          "text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                        )}
+                      >
+                        <item.icon size={20} />
+                        <span className="font-medium">{item.label}</span>
+                      </button>
+                    ) : (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        end={item.end}
+                        onClick={onClose}
+                        className={({ isActive }) =>
+                          cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                            isActive
+                              ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
+                              : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                          )
+                        }
+                      >
+                        <item.icon size={20} />
+                        <span className="font-medium">{item.label}</span>
+                      </NavLink>
+                    )
                   ))}
                 </div>
               ))}
@@ -162,21 +196,6 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
                 </div>
               </div>
             )}
-
-            {/* Report Hazard Button */}
-            <div className="px-4 mb-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2 border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20"
-                onClick={() => {
-                  openHazardReport();
-                  onClose?.();
-                }}
-              >
-                <AlertTriangle size={18} />
-                Report Hazard
-              </Button>
-            </div>
 
             {/* User info & Sign out */}
             <div className="p-4 border-t dark:border-gray-800">
@@ -226,22 +245,36 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
                 </div>
               )}
               {group.items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                      isActive
-                        ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
-                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                    )
-                  }
-                >
-                  <item.icon size={20} />
-                  <span className="font-medium">{item.label}</span>
-                </NavLink>
+                item.isAction ? (
+                  <button
+                    key={item.path}
+                    onClick={() => openHazardReport()}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full text-left",
+                      "text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                    )}
+                  >
+                    <item.icon size={20} />
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                ) : (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.end}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                        isActive
+                          ? "bg-customer-primary/10 text-customer-primary dark:bg-customer-primary/20 dark:text-customer-primary"
+                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                      )
+                    }
+                  >
+                    <item.icon size={20} />
+                    <span className="font-medium">{item.label}</span>
+                  </NavLink>
+                )
               ))}
             </div>
           ))}
@@ -260,18 +293,6 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
             </div>
           </div>
         )}
-
-        {/* Report Hazard Button */}
-        <div className="px-4 mb-2">
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-2 border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20"
-            onClick={() => openHazardReport()}
-          >
-            <AlertTriangle size={18} />
-            Report Hazard
-          </Button>
-        </div>
 
         {/* User info & Sign out */}
         <div className="p-4 border-t dark:border-gray-800">

@@ -45,6 +45,8 @@ import {
   Upload,
   X,
   ImageIcon,
+  Camera,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { springs } from '@/lib/motion-variants';
@@ -57,6 +59,7 @@ export function HazardReportDialog() {
   const [submitted, setSubmitted] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoExpanded, setPhotoExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -93,6 +96,7 @@ export function HazardReportDialog() {
         setSubmitted(false);
         setPhotoFile(null);
         setPhotoPreview(null);
+        setPhotoExpanded(false);
       }, 300);
     }
   }, [isOpen, reset]);
@@ -278,9 +282,15 @@ export function HazardReportDialog() {
                   </RadioGroup>
                 </div>
 
-                {/* Hazard Type */}
-                <div className="space-y-2">
-                  <Label>Type of Hazard</Label>
+                {/* Hazard Type - Progressive disclosure with animation */}
+                <motion.div
+                  key={hazardCategory}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2"
+                >
+                  <Label>Type of {hazardCategory === 'access' ? 'Access Issue' : 'Safety Hazard'}</Label>
                   <Select
                     value={watch('hazard_type')}
                     onValueChange={(value) => setValue('hazard_type', value)}
@@ -302,26 +312,26 @@ export function HazardReportDialog() {
                   {errors.hazard_type && (
                     <p className="text-xs text-red-500">{errors.hazard_type.message}</p>
                   )}
-                </div>
+                </motion.div>
 
-                {/* Severity */}
+                {/* Severity - Horizontal strip selector */}
                 <div className="space-y-2">
                   <Label>Severity</Label>
                   <RadioGroup
                     value={selectedSeverity}
                     onValueChange={(value) => setValue('severity', value as HazardSeverity)}
-                    className="grid grid-cols-2 gap-2"
+                    className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700"
                   >
                     {(Object.entries(SEVERITY_CONFIG) as [HazardSeverity, typeof SEVERITY_CONFIG[HazardSeverity]][]).map(
-                      ([value, config]) => (
+                      ([value, config], index, arr) => (
                         <Label
                           key={value}
                           htmlFor={`severity-${value}`}
                           className={cn(
-                            'flex flex-col p-3 rounded-lg border-2 cursor-pointer transition-all',
+                            'flex-1 py-2.5 px-2 text-center cursor-pointer transition-all border-r last:border-r-0 border-gray-200 dark:border-gray-700',
                             selectedSeverity === value
-                              ? `${config.bgColor} border-current ${config.color}`
-                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                              ? `${config.bgColor} ${config.color} font-semibold`
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
                           )}
                         >
                           <RadioGroupItem
@@ -329,14 +339,15 @@ export function HazardReportDialog() {
                             id={`severity-${value}`}
                             className="sr-only"
                           />
-                          <div className={cn('font-medium', selectedSeverity === value && config.color)}>
-                            {config.label}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5">{config.description}</div>
+                          <span className="text-sm">{config.label}</span>
                         </Label>
                       )
                     )}
                   </RadioGroup>
+                  {/* Show description for selected severity */}
+                  <p className="text-xs text-gray-500">
+                    {SEVERITY_CONFIG[selectedSeverity]?.description}
+                  </p>
                 </div>
 
                 {/* Description */}
@@ -353,10 +364,10 @@ export function HazardReportDialog() {
                   )}
                 </div>
 
-                {/* Photo Upload */}
+                {/* Photo Upload - Collapsible */}
                 <div className="space-y-2">
-                  <Label>Photo (optional)</Label>
                   {photoPreview ? (
+                    // Show photo preview when uploaded
                     <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
                       <img
                         src={photoPreview}
@@ -374,14 +385,45 @@ export function HazardReportDialog() {
                       </Button>
                     </div>
                   ) : (
-                    <label
-                      htmlFor="photo-upload"
-                      className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-gray-300 transition-colors"
-                    >
-                      <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-500">Click to upload a photo</span>
-                      <span className="text-xs text-gray-400 mt-1">Max 10MB</span>
-                    </label>
+                    // Collapsible photo section when no photo
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setPhotoExpanded(!photoExpanded)}
+                        className="flex items-center justify-between w-full py-2 text-left text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+                      >
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          <Camera className="h-4 w-4" />
+                          Add Photo (optional)
+                        </span>
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 transition-transform",
+                            photoExpanded && "rotate-180"
+                          )}
+                        />
+                      </button>
+                      <AnimatePresence>
+                        {photoExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <label
+                              htmlFor="photo-upload"
+                              className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-gray-300 transition-colors"
+                            >
+                              <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
+                              <span className="text-sm text-gray-500">Click to upload a photo</span>
+                              <span className="text-xs text-gray-400 mt-1">Max 10MB</span>
+                            </label>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
                   )}
                   <input
                     ref={fileInputRef}
