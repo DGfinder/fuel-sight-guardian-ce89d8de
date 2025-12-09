@@ -34,6 +34,7 @@ const requestSchema = z.object({
   tankId: z.string().min(1, 'Please select a tank'),
   requestType: z.enum(['standard', 'urgent', 'scheduled']),
   requestedDate: z.string().optional(),
+  purchaseOrder: z.string().max(100).optional(),
   requestedLitres: z.number().optional(),
   notes: z.string().optional(),
 });
@@ -60,6 +61,7 @@ export default function RequestDelivery() {
     defaultValues: {
       tankId: preselectedTank || '',
       requestType: 'standard',
+      purchaseOrder: '',
       notes: '',
     },
   });
@@ -87,6 +89,7 @@ export default function RequestDelivery() {
         agbot_location_id: data.tankId,
         request_type: data.requestType,
         requested_date: data.requestedDate,
+        purchase_order: data.purchaseOrder,
         requested_litres: data.requestedLitres,
         current_level_pct: selectedTank?.latest_calibrated_fill_percentage,
         notes: data.notes,
@@ -470,6 +473,32 @@ export default function RequestDelivery() {
             </AnimatePresence>
           </CardContent>
         </Card>
+        </motion.div>
+
+        {/* Purchase Order - Optional field */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...springs.gentle, delay: 0.15 }}
+        >
+          <Card className="relative overflow-hidden backdrop-blur-sm bg-gradient-to-br from-white/80 to-gray-50/80 dark:from-gray-900/80 dark:to-gray-950/80 border-gray-200/50 dark:border-gray-700/50">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent dark:from-gray-700/10 pointer-events-none" />
+            <CardContent className="pt-6 relative z-10">
+              <Label htmlFor="purchaseOrder" className="text-sm font-medium">
+                Purchase Order Number <span className="text-gray-400 font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="purchaseOrder"
+                placeholder="e.g., PO-2024-001234"
+                {...register('purchaseOrder')}
+                className="mt-1.5"
+                maxLength={100}
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                Add a PO number for your records and invoicing
+              </p>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Additional Details - Step 3 with glassmorphism */}

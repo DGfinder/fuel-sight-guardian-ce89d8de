@@ -439,6 +439,7 @@ export function useCreateDeliveryRequest() {
       agbot_location_id: string;
       request_type: 'standard' | 'urgent' | 'scheduled';
       requested_date?: string;
+      purchase_order?: string;
       requested_litres?: number;
       current_level_pct?: number;
       notes?: string;
@@ -454,6 +455,7 @@ export function useCreateDeliveryRequest() {
           agbot_location_id: request.agbot_location_id,
           request_type: request.request_type,
           requested_date: request.requested_date,
+          purchase_order: request.purchase_order,
           requested_litres: request.requested_litres,
           current_level_pct: request.current_level_pct,
           notes: request.notes,

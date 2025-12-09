@@ -215,6 +215,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         <div class="detail-label">Priority:</div>
         <div class="detail-value" ${request.request_type === 'urgent' ? 'class="priority-urgent"' : ''}>${priorityLabel}</div>
       </div>
+      ${request.purchase_order ? `
+      <div class="detail-row">
+        <div class="detail-label">PO Number:</div>
+        <div class="detail-value"><strong>${request.purchase_order}</strong></div>
+      </div>
+      ` : ''}
       ${request.notes ? `
       <div class="detail-row">
         <div class="detail-label">Notes:</div>
@@ -287,6 +293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         <p style="margin: 8px 0;"><strong>Current Level:</strong> ${currentLevel}%</p>
         <p style="margin: 8px 0;"><strong>Priority:</strong> ${priorityLabel}</p>
         <p style="margin: 8px 0;"><strong>Requested Amount:</strong> ${requestedLitres}</p>
+        ${request.purchase_order ? `<p style="margin: 8px 0;"><strong>PO Number:</strong> ${request.purchase_order}</p>` : ''}
       </div>
 
       <h3>What happens next?</h3>
