@@ -108,6 +108,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Initialize Resend
     const resend = new Resend(resendApiKey);
 
+    // Use verified domain from environment or fallback to tankalert.greatsouthernfuels.com.au
+    const fromEmail = process.env.RESEND_VERIFIED_EMAIL || 'Tank Alert <alert@tankalert.greatsouthernfuels.com.au>';
+
     const errors: string[] = [];
     let depotSent = false;
     let customerSent = false;
@@ -225,7 +228,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
       await resend.emails.send({
-        from: 'Great Southern Fuels <orders@gsfs.com.au>',
+        from: fromEmail,
         to: AGBOT_RECIPIENTS,
         subject: depotSubject,
         html: depotHtml,
@@ -297,7 +300,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       try {
         await resend.emails.send({
-          from: 'Great Southern Fuels <orders@gsfs.com.au>',
+          from: fromEmail,
           to: customerEmail,
           subject: customerSubject,
           html: customerHtml,

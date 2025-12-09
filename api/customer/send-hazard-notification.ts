@@ -227,8 +227,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `.trim();
 
     // Send email to AgBot recipients
+    // Use verified domain from environment or fallback to tankalert.greatsouthernfuels.com.au
+    const fromEmail = process.env.RESEND_VERIFIED_EMAIL || 'Tank Alert <alert@tankalert.greatsouthernfuels.com.au>';
     const { data: sendResult, error: sendError } = await resend.emails.send({
-      from: 'TankAlert <alerts@gsfs.com.au>',
+      from: fromEmail,
       to: AGBOT_RECIPIENTS,
       subject: `[${severityLabel}] Hazard Report: ${hazardTypeLabel} at ${tank?.name || 'Unknown Location'}`,
       html: emailHtml,
