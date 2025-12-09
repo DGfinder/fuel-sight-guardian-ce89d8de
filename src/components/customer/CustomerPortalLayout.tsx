@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { CustomerSidebar } from './CustomerSidebar';
 import { CustomerLogo } from './CustomerLogo';
 import { CustomerBrandingProvider } from '@/contexts/CustomerBrandingContext';
+import { HazardReportProvider } from '@/contexts/HazardReportContext';
+import { HazardReportDialog } from './HazardReportDialog';
+import { HazardReportButton } from './HazardReportButton';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,57 +29,65 @@ export function CustomerPortalLayout({ children }: CustomerPortalLayoutProps) {
   }, []);
 
   return (
-    <CustomerBrandingProvider>
-      <div className="flex h-screen w-full bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden">
-      {/* Mobile Header */}
-      {isMobile && (
-        <header className="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-gray-900 shadow-md z-50 flex items-center justify-between px-3">
-          <div className="flex items-center gap-2">
-            <CustomerLogo size="md" />
-            <div>
-              <span className="font-bold text-base text-gray-900 dark:text-white">TankAlert</span>
-              <span className="text-xs text-gray-500 ml-1">Customer</span>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            aria-label="Open menu"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="h-11 w-11 p-0 flex items-center justify-center"
+    <HazardReportProvider>
+      <CustomerBrandingProvider>
+        <div className="flex h-screen w-full bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden">
+          {/* Mobile Header */}
+          {isMobile && (
+            <header className="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-gray-900 shadow-md z-50 flex items-center justify-between px-3">
+              <div className="flex items-center gap-2">
+                <CustomerLogo size="md" />
+                <div>
+                  <span className="font-bold text-base text-gray-900 dark:text-white">TankAlert</span>
+                  <span className="text-xs text-gray-500 ml-1">Customer</span>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                aria-label="Open menu"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="h-11 w-11 p-0 flex items-center justify-center"
+              >
+                <Menu size={28} />
+              </Button>
+            </header>
+          )}
+
+          {/* Sidebar */}
+          <CustomerSidebar
+            isMobile={isMobile}
+            open={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
+
+          {/* Main Content */}
+          <div
+            className={cn(
+              "flex-1 flex flex-col overflow-hidden",
+              isMobile ? "mt-14" : "ml-64"
+            )}
           >
-            <Menu size={28} />
-          </Button>
-        </header>
-      )}
+            <main className="flex-1 w-full bg-gray-50 dark:bg-gray-950 p-4 md:p-6 overflow-auto">
+              {children}
+            </main>
 
-      {/* Sidebar */}
-      <CustomerSidebar
-        isMobile={isMobile}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+            {/* Footer */}
+            <footer className="hidden md:block px-6 py-3 bg-white dark:bg-gray-900 border-t dark:border-gray-800 text-center text-xs text-gray-500">
+              <p>Powered by Great Southern Fuels</p>
+            </footer>
+          </div>
 
-      {/* Main Content */}
-      <div
-        className={cn(
-          "flex-1 flex flex-col overflow-hidden",
-          isMobile ? "mt-14" : "ml-64"
-        )}
-      >
-        <main className="flex-1 w-full bg-gray-50 dark:bg-gray-950 p-4 md:p-6 overflow-auto">
-          {children}
-        </main>
+          {/* Mobile Bottom Nav */}
+          {isMobile && <CustomerMobileNav />}
 
-        {/* Footer */}
-        <footer className="hidden md:block px-6 py-3 bg-white dark:bg-gray-900 border-t dark:border-gray-800 text-center text-xs text-gray-500">
-          <p>Powered by Great Southern Fuels</p>
-        </footer>
-      </div>
+          {/* Hazard Report Floating Button */}
+          <HazardReportButton isMobile={isMobile} />
 
-      {/* Mobile Bottom Nav */}
-      {isMobile && <CustomerMobileNav />}
-      </div>
-    </CustomerBrandingProvider>
+          {/* Hazard Report Dialog (global) */}
+          <HazardReportDialog />
+        </div>
+      </CustomerBrandingProvider>
+    </HazardReportProvider>
   );
 }
 

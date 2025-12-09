@@ -11,6 +11,14 @@ import { Resend } from 'resend';
  *
  * Body: { deliveryRequestId: string }
  */
+
+// AgBot customer email recipients (orders and key contacts)
+const AGBOT_RECIPIENTS = [
+  'orders.kewdale@gsfs.com.au',
+  'Christopher.forte@gsfs.com.au',
+  'hayden@stevemacs.com.au',
+];
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -218,7 +226,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       await resend.emails.send({
         from: 'Great Southern Fuels <orders@gsfs.com.au>',
-        to: depotEmail,
+        to: AGBOT_RECIPIENTS,
         subject: depotSubject,
         html: depotHtml,
         tags: [

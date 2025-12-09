@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useCustomerAccount, useCustomerPortalSummary, useCustomerTanks } from '@/hooks/useCustomerAuth';
+import { useHazardReportContext } from '@/contexts/HazardReportContext';
 import { CustomerLogo } from './CustomerLogo';
 import {
   LayoutDashboard,
@@ -57,6 +58,7 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
   const { data: customerAccount } = useCustomerAccount();
   const { data: tanks } = useCustomerTanks();
   const summary = useCustomerPortalSummary();
+  const { openHazardReport } = useHazardReportContext();
 
   // Check if account has any telemetry devices (AgBot or SmartFill)
   // If all tanks are manual dip, hide Device Health from nav
@@ -161,6 +163,21 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
               </div>
             )}
 
+            {/* Report Hazard Button */}
+            <div className="px-4 mb-2">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                onClick={() => {
+                  openHazardReport();
+                  onClose?.();
+                }}
+              >
+                <AlertTriangle size={18} />
+                Report Hazard
+              </Button>
+            </div>
+
             {/* User info & Sign out */}
             <div className="p-4 border-t dark:border-gray-800">
               <div className="mb-3">
@@ -243,6 +260,18 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
             </div>
           </div>
         )}
+
+        {/* Report Hazard Button */}
+        <div className="px-4 mb-2">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2 border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20"
+            onClick={() => openHazardReport()}
+          >
+            <AlertTriangle size={18} />
+            Report Hazard
+          </Button>
+        </div>
 
         {/* User info & Sign out */}
         <div className="p-4 border-t dark:border-gray-800">
