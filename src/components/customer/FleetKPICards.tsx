@@ -4,6 +4,7 @@ import { staggerContainerVariants } from '@/lib/motion-variants';
 import { KPICard } from '@/components/ui/KPICard';
 import type { CustomerTank } from '@/hooks/useCustomerAuth';
 import { formatDistanceToNow } from 'date-fns';
+import { getDbUrgency } from '@/lib/tank-utils';
 
 // Format last seen time from epoch timestamp
 function formatLastSeen(epochSeconds: number): string {
@@ -58,8 +59,10 @@ export function FleetKPICards({ summary, fleetMetrics, tankCount = 0, singleTank
           subtitle={summary.hasTelemetry ? (tankOnline ? 'Online' : 'Offline') : 'Manual dip'}
           icon={tankOnline ? CheckCircle : Activity}
           color={
-            fuelPercent < 15 ? 'red' :
-            fuelPercent < 25 ? 'yellow' :
+            // Use database urgency for consistent thresholds with admin panel
+            getDbUrgency(singleTank) === 'critical' ? 'red' :
+            getDbUrgency(singleTank) === 'urgent' ? 'red' :
+            getDbUrgency(singleTank) === 'warning' ? 'yellow' :
             'green'
           }
           trend="neutral"

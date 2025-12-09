@@ -2,7 +2,8 @@ import { Calendar, Droplet, TrendingDown, WifiOff, Wifi, Radio, Gauge, Clipboard
 import { format, formatDistanceToNow } from 'date-fns';
 import { CustomerTank, TankSourceType } from '../../hooks/useCustomerAuth';
 import { LastRefillData } from '../../hooks/useCustomerAnalytics';
-import { calculateUrgencyWithFallback, getUrgencyClasses, formatDaysRemaining } from '../../lib/urgency-calculator';
+import { getUrgencyClasses, formatDaysRemaining } from '../../lib/urgency-calculator';
+import { getDbUrgency } from '../../lib/tank-utils';
 
 interface TankCardProps {
   tank: CustomerTank;
@@ -17,18 +18,27 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
   const dailyConsumption = tank.asset_daily_consumption || 0;
   const daysRemaining = tank.asset_days_remaining;
 
-  // Calculate urgency for border coloring
-  const urgency = calculateUrgencyWithFallback(daysRemaining, fillPercentage);
+  // Use database urgency for consistent thresholds with admin panel
+  // Falls back to 'ok' if database urgency not yet populated
+  const dbUrgency = getDbUrgency(tank);
+  // Map database urgency to display urgency for getUrgencyClasses
+  const urgency = dbUrgency === 'critical' ? 'critical' :
+                  dbUrgency === 'urgent' ? 'critical' :  // Show urgent same as critical for border
+                  dbUrgency === 'warning' || dbUrgency === 'soon' ? 'warning' : 'ok';
   const urgencyClasses = getUrgencyClasses(urgency);
 
   // Manual dip tanks don't have telemetry devices - hide online/offline status
   const isManualTank = tank.source_type === 'dip' || tank.source_type === 'manual';
   const showDeviceStatus = !isManualTank;
 
-  // Determine color based on fill level
+  // Determine color based on database urgency for consistent thresholds
   const getFillColor = () => {
-    if (fillPercentage < 15) return 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
-    if (fillPercentage < 25) return 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400';
+    if (dbUrgency === 'critical' || dbUrgency === 'urgent') {
+      return 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
+    }
+    if (dbUrgency === 'warning' || dbUrgency === 'soon') {
+      return 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400';
+    }
     return 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400';
   };
 

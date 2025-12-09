@@ -8,12 +8,11 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { TankCard as TankCardComponent } from '@/components/customer/TankCard';
 import { KPICard } from '@/components/ui/KPICard';
 import { FilterCard } from '@/components/ui/FilterCard';
-import {
-  calculateUrgency,
-  calculateUrgencyWithFallback,
-  sortByUrgency,
-  UrgencyLevel,
-} from '@/lib/urgency-calculator';
+import { sortByUrgency } from '@/lib/tank-utils';
+import type { CustomerTank } from '@/hooks/useCustomerAuth';
+
+// Urgency level type for filter - matches database urgency categories
+type UrgencyLevel = 'critical' | 'urgent' | 'warning' | 'normal';
 import {
   Fuel,
   Wifi,
@@ -47,17 +46,24 @@ export default function CustomerTanks() {
       );
     }
 
-    // Urgency filter - use fallback to fill % for manual dip tanks
+    // Urgency filter - use database urgency (order_urgency) for consistent thresholds
     if (urgencyFilter !== 'all') {
-      result = result.filter(
-        (t) => calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage) === urgencyFilter
-      );
+      result = result.filter((t) => {
+        // Map database urgency to filter urgency
+        const dbUrgency = t.order_urgency;
+        if (urgencyFilter === 'critical') return dbUrgency === 'critical' || dbUrgency === 'urgent';
+        if (urgencyFilter === 'warning') return dbUrgency === 'warning' || dbUrgency === 'soon';
+        if (urgencyFilter === 'normal') return dbUrgency === 'ok' || !dbUrgency;
+        return true;
+      });
     }
 
-    // Add urgency to each tank for consistency
+    // Add urgency to each tank for consistency (use database urgency)
     const withUrgency = result.map((t) => ({
       ...t,
-      urgency: calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage),
+      // Map database urgency to display urgency
+      urgency: (t.order_urgency === 'critical' || t.order_urgency === 'urgent') ? 'critical' :
+               (t.order_urgency === 'warning' || t.order_urgency === 'soon') ? 'warning' : 'normal',
       daysRemaining: t.asset_days_remaining,
     }));
 
@@ -99,7 +105,7 @@ export default function CustomerTanks() {
     }
   }, [tanks, searchQuery, urgencyFilter, sortBy]);
 
-  // Stats - use fallback to fill % for manual dip tanks
+  // Stats - use database urgency for consistent thresholds with admin panel
   const stats = useMemo(() => {
     const all = tanks || [];
     // For manual dip tanks, device_online is null/false but that's expected
@@ -108,8 +114,9 @@ export default function CustomerTanks() {
       total: all.length,
       // Only count online for tanks that have telemetry devices
       online: hasTelemetry ? all.filter((t) => t.device_online).length : all.length,
-      critical: all.filter((t) => calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage) === 'critical').length,
-      warning: all.filter((t) => calculateUrgencyWithFallback(t.asset_days_remaining, t.latest_calibrated_fill_percentage) === 'warning').length,
+      // Use database urgency (critical includes urgent from DB)
+      critical: all.filter((t) => t.order_urgency === 'critical' || t.order_urgency === 'urgent').length,
+      warning: all.filter((t) => t.order_urgency === 'warning' || t.order_urgency === 'soon').length,
       hasTelemetry,
     };
   }, [tanks]);

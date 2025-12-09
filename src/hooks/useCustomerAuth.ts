@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { calculateFleetSummary } from '../lib/tank-utils';
 
 // Types for customer portal
 export interface CustomerAccount {
@@ -83,7 +84,7 @@ export interface CustomerTank {
   trend_percent_change?: number | null;
   consumption_7_days?: number | null;
   consumption_30_days?: number | null;
-  order_urgency?: 'critical' | 'urgent' | 'soon' | 'ok' | null;
+  order_urgency?: 'critical' | 'urgent' | 'warning' | 'soon' | 'ok' | null;
   optimal_order_date?: string | null;
   data_quality?: 'good' | 'fair' | 'poor' | null;
   readings_in_period?: number | null;
@@ -223,7 +224,8 @@ export function useCustomerTanks() {
           trend_percent_change: tank.trend_percent_change,
           consumption_7_days: tank.consumption_7_days,
           consumption_30_days: tank.consumption_30_days,
-          order_urgency: tank.order_urgency as CustomerTank['order_urgency'],
+          // Map urgency_status from unified view to order_urgency (matches admin panel thresholds)
+          order_urgency: (tank.urgency_status || tank.order_urgency) as CustomerTank['order_urgency'],
           optimal_order_date: tank.optimal_order_date,
           data_quality: tank.data_quality as CustomerTank['data_quality'],
           readings_in_period: tank.readings_in_period,
@@ -496,24 +498,28 @@ export function useCreateDeliveryRequest() {
 
 /**
  * Hook to get customer portal summary stats
+ * Uses calculateFleetSummary from tank-utils for consistent urgency calculations
+ * that match admin panel thresholds (critical ≤10%, urgent ≤20%/≤3d, warning ≤30%/≤7d)
  */
 export function useCustomerPortalSummary() {
   const { data: tanks } = useCustomerTanks();
   const { data: requests } = useCustomerDeliveryRequests();
 
-  // Check if this account has any telemetry devices (AgBot or SmartFill)
-  // If all tanks are manual dip, hide "online/offline" status
-  const hasTelemetry = tanks?.some(t => t.source_type === 'agbot' || t.source_type === 'smartfill') ?? false;
+  // Use centralized fleet summary calculation for consistent urgency counts
+  const fleetSummary = calculateFleetSummary(tanks);
 
   const summary = {
-    totalTanks: tanks?.length || 0,
-    lowFuelTanks: tanks?.filter(t => (t.latest_calibrated_fill_percentage || 0) < 25).length || 0,
-    criticalTanks: tanks?.filter(t => (t.latest_calibrated_fill_percentage || 0) < 15).length || 0,
-    onlineTanks: tanks?.filter(t => t.device_online).length || 0,
+    totalTanks: fleetSummary.totalTanks,
+    // Low fuel = any tank that needs attention (warning, urgent, or critical)
+    lowFuelTanks: fleetSummary.warningCount + fleetSummary.urgentCount + fleetSummary.criticalCount,
+    criticalTanks: fleetSummary.criticalCount,
+    urgentTanks: fleetSummary.urgentCount,
+    warningTanks: fleetSummary.warningCount,
+    onlineTanks: fleetSummary.onlineCount,
     pendingRequests: requests?.filter(r => r.status === 'pending').length || 0,
     scheduledDeliveries: requests?.filter(r => r.status === 'scheduled').length || 0,
-    // New: whether account has telemetry devices (for showing/hiding device status)
-    hasTelemetry,
+    // Whether account has telemetry devices (for showing/hiding device status)
+    hasTelemetry: fleetSummary.hasTelemetry,
   };
 
   return summary;

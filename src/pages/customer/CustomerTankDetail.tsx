@@ -10,13 +10,12 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { KPICard } from '@/components/ui/KPICard';
 import { DetailCard } from '@/components/ui/DetailCard';
 import {
-  calculateUrgency,
-  calculateUrgencyWithFallback,
   getUrgencyClasses,
   getUrgencyLabel,
   formatDaysRemaining,
   calculatePredictedRefillDate,
 } from '@/lib/urgency-calculator';
+import { getDbUrgency } from '@/lib/tank-utils';
 import {
   ArrowLeft,
   Fuel,
@@ -141,11 +140,11 @@ export default function CustomerTankDetail() {
     );
   }
 
-  // Use fallback urgency calculation for manual dip tanks (no days remaining data)
-  const urgency = calculateUrgencyWithFallback(
-    tank.asset_days_remaining,
-    tank.latest_calibrated_fill_percentage
-  );
+  // Use database urgency for consistent thresholds with admin panel
+  // Maps: critical/urgent → 'critical', warning/soon → 'warning', ok → 'normal'
+  const dbUrgency = getDbUrgency(tank);
+  const urgency = dbUrgency === 'critical' || dbUrgency === 'urgent' ? 'critical' :
+                  dbUrgency === 'warning' || dbUrgency === 'soon' ? 'warning' : 'normal';
   const urgencyClasses = getUrgencyClasses(urgency);
   const predictedDate = calculatePredictedRefillDate(tank.asset_days_remaining ?? null);
 

@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { sortByUrgency } from '@/lib/tank-utils';
 
 // Default location: Indusolutions business address (used when tank GPS is not set)
 const DEFAULT_LOCATION = {
@@ -160,10 +161,8 @@ export default function CustomerDashboard() {
     );
   }
 
-  // Get tanks sorted by fuel level (lowest first)
-  const sortedTanks = [...(tanks || [])].sort(
-    (a, b) => (a.latest_calibrated_fill_percentage || 0) - (b.latest_calibrated_fill_percentage || 0)
-  );
+  // Get tanks sorted by urgency (most urgent first - uses database urgency_status)
+  const sortedTanks = sortByUrgency(tanks || []);
 
   // Get recent requests
   const recentRequests = (requests || []).slice(0, 5);
@@ -340,10 +339,14 @@ export default function CustomerDashboard() {
 }
 
 
-// Tank Status Row
+// Tank Status Row - uses database urgency for consistent thresholds with admin panel
 function TankStatusRow({ tank }: { tank: any }) {
   const level = tank.latest_calibrated_fill_percentage || 0;
-  const urgency = level < 15 ? 'critical' : level < 25 ? 'warning' : 'normal';
+  // Use database urgency_status (mapped to order_urgency) for consistent thresholds
+  const dbUrgency = tank.order_urgency;
+  // Map database urgency to display urgency: critical/urgent = critical, warning = warning, ok = normal
+  const urgency = dbUrgency === 'critical' || dbUrgency === 'urgent' ? 'critical' :
+                  dbUrgency === 'warning' || dbUrgency === 'soon' ? 'warning' : 'normal';
   const hasTelemetry = tank.source_type === 'agbot' || tank.source_type === 'smartfill';
 
   return (
