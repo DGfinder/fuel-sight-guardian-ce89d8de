@@ -146,9 +146,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       timeStyle: 'short',
     });
 
-    // Build tank location string
+    // Build tank location string (avoid duplicate if name and address are the same)
     const tankLocation = tank
-      ? [tank.name, tank.address, tank.state, tank.postcode].filter(Boolean).join(', ')
+      ? [
+          tank.name,
+          tank.address && tank.address !== tank.name ? tank.address : null,
+          tank.state,
+          tank.postcode
+        ].filter(Boolean).join(', ')
       : 'No specific tank selected';
 
     // Build Google Maps link if coordinates available

@@ -320,7 +320,7 @@ export function HazardReportDialog() {
                   <RadioGroup
                     value={selectedSeverity}
                     onValueChange={(value) => setValue('severity', value as HazardSeverity)}
-                    className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+                    className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 divide-x divide-gray-200 dark:divide-gray-700"
                   >
                     {(Object.entries(SEVERITY_CONFIG) as [HazardSeverity, typeof SEVERITY_CONFIG[HazardSeverity]][]).map(
                       ([value, config], index, arr) => (
@@ -328,7 +328,7 @@ export function HazardReportDialog() {
                           key={value}
                           htmlFor={`severity-${value}`}
                           className={cn(
-                            'flex-1 py-2.5 px-2 text-center cursor-pointer transition-all border-r last:border-r-0 border-gray-200 dark:border-gray-700',
+                            'flex-1 py-2.5 px-2 text-center cursor-pointer transition-all',
                             selectedSeverity === value
                               ? `${config.bgColor} ${config.color} font-semibold`
                               : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'

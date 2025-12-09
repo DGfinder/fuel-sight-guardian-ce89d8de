@@ -194,17 +194,20 @@ export function useCustomerTanks() {
           postcode: null,
           lat: tank.latitude,
           lng: tank.longitude,
-          latest_calibrated_fill_percentage: tank.current_level_percent,
+          latest_calibrated_fill_percentage: tank.current_level_percent ? Number(tank.current_level_percent) : null,
           latest_telemetry_epoch: tank.last_reading_at ? new Date(tank.last_reading_at).getTime() / 1000 : null,
           disabled: false,
           asset_id: tank.agbot_asset_id,
           asset_serial_number: null,
           device_online: tank.device_online,
           // Use unified data (ta_tank_analytics priority), fall back to dip data for manual tanks
-          asset_days_remaining: tank.days_remaining ?? tank.dip_days_remaining,
-          asset_daily_consumption: tank.daily_consumption_liters ?? tank.dip_daily_consumption_liters,
-          asset_profile_water_capacity: tank.capacity_liters,
-          asset_current_level_liters: tank.current_level_liters,
+          // Ensure numeric types are properly converted from Supabase numeric strings
+          asset_days_remaining: tank.days_remaining ?? tank.dip_days_remaining ?? null,
+          asset_daily_consumption: (tank.daily_consumption_liters ?? tank.dip_daily_consumption_liters)
+            ? Number(tank.daily_consumption_liters ?? tank.dip_daily_consumption_liters)
+            : null,
+          asset_profile_water_capacity: tank.capacity_liters ? Number(tank.capacity_liters) : null,
+          asset_current_level_liters: tank.current_level_liters ? Number(tank.current_level_liters) : null,
           access_level: tank.access_level || 'read',
           source_type: (tank.source_type as TankSourceType) || 'unknown',
           agbot_location_id: tank.agbot_location_id,
