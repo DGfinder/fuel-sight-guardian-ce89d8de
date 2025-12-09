@@ -430,6 +430,11 @@ export default function CustomerTankDetail() {
                       ]
                     : []),
                   {
+                    label: 'Fuel Type',
+                    value: tank.product_type || 'Diesel',
+                    icon: Fuel,
+                  },
+                  {
                     label: 'Status',
                     value: (
                       <Badge className={cn(urgencyClasses.bg, urgencyClasses.text, 'border-0')}>

@@ -96,6 +96,14 @@ export function TankCard({ tank, lastRefill, onClick }: TankCardProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Fuel Type Badge */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+          >
+            <Droplet className="w-3 h-3" />
+            {tank.product_type || 'Diesel'}
+          </div>
+
           {/* Source Type Badge */}
           <div
             className={`

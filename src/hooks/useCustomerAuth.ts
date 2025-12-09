@@ -75,6 +75,8 @@ export interface CustomerTank {
   tank_id?: string | null;
   // Industry type for feature visibility (per-tank override)
   industry_type?: 'farming' | 'mining' | 'general' | null;
+  // Product/fuel type (Diesel, ULP, etc.)
+  product_type?: string | null;
   // Analytics data from ta_tank_analytics
   previous_day_use?: number | null;
   trend_direction?: 'increasing' | 'decreasing' | 'stable' | null;
@@ -214,6 +216,7 @@ export function useCustomerTanks() {
           smartfill_tank_id: tank.smartfill_tank_id,
           tank_id: tank.tank_id,
           industry_type: tank.industry_type || null,
+          product_type: tank.product_type || 'Diesel',
           // New analytics fields from ta_tank_analytics
           previous_day_use: tank.previous_day_use,
           trend_direction: tank.trend_direction as CustomerTank['trend_direction'],
