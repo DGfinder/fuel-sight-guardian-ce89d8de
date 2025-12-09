@@ -21,7 +21,7 @@ export function HazardReportButton({ isMobile = false }: HazardReportButtonProps
   return (
     <motion.div
       className={cn(
-        'fixed z-40',
+        'fixed z-[500]',
         isMobile
           ? 'bottom-20 right-4' // Above mobile bottom nav
           : 'bottom-6 right-6'

@@ -463,6 +463,24 @@ export function useCreateDeliveryRequest() {
         throw error;
       }
 
+      // Send email notification to depot and customer
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch('/api/customer/send-delivery-notification', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ deliveryRequestId: data.id }),
+          });
+        }
+      } catch (notifyError) {
+        // Log but don't fail the request creation if notification fails
+        console.error('Failed to send delivery notification:', notifyError);
+      }
+
       return data;
     },
     onSuccess: () => {
