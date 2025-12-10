@@ -10,6 +10,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SmartFillConsumptionService } from '../services/SmartFillConsumptionService.js';
 
 // SmartFill API Configuration
 const SMARTFILL_API_URL = 'https://www.fmtdata.com/API/api.php';
@@ -462,6 +463,20 @@ async function syncCustomer(
           .insert(newReadings);
         if (readError) throw new Error(`Reading insert error: ${readError.message}`);
       }
+    }
+
+    // Calculate consumption for all tanks (non-blocking, errors logged but don't fail sync)
+    try {
+      if (tanks.length > 0) {
+        const consumptionService = new SmartFillConsumptionService(supabase);
+        const tankIds = tanks.map(t => t.id);
+        const consumptionResult = await consumptionService.calculateAndUpdateTanks(tankIds);
+        if (consumptionResult.updated > 0) {
+          console.log(`[SMARTFILL CRON] 📈 ${customer.name}: Consumption calculated for ${consumptionResult.updated}/${tanks.length} tanks`);
+        }
+      }
+    } catch (consumptionError) {
+      console.warn(`[SMARTFILL CRON] ⚠️ ${customer.name}: Consumption calculation failed: ${(consumptionError as Error).message}`);
     }
 
     // Update customer sync status
