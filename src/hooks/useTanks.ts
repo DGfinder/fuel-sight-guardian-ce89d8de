@@ -77,16 +77,18 @@ export const useTanks = () => {
         }
 
       // Step 1: Get ALL tank data from fuel_tanks table (single source of truth)
+      // Filter for active tanks only - excludes archived and decommissioned
       const { data: baseData, error: baseError } = await supabase
         .from('fuel_tanks')
         .select(`
-          id, location, product_type, safe_level, min_level,
+          id, location, product_type, safe_level, min_level, status,
           group_id, subgroup, address, vehicle, discharge,
           bp_portal, delivery_window, afterhours_contact,
           notes, serviced_on, serviced_by, latitude, longitude,
           created_at, updated_at
         `)
-        .eq('status', 'active')
+        .neq('status', 'archived')
+        .neq('status', 'decommissioned')
         .order('location');
 
       if (baseError) {
@@ -265,6 +267,13 @@ export const useTanks = () => {
         };
       }) || [];
 
+      // Step 5: Filter out archived/decommissioned tanks (client-side safety net)
+      // This ensures archived tanks don't show even if DB filter fails
+      const activeTankData = tankData.filter(tank => {
+        const status = (tank as any).status;
+        // Include tanks with 'active' status or null/undefined status (legacy data)
+        return !status || status === 'active';
+      });
 
       // Step 6: Calculate analytics for each tank (optimized processing)
       // Use analyticsResult from the parallel Promise.all above
@@ -278,32 +287,28 @@ export const useTanks = () => {
         readingsByTank.get(reading.tank_id).push(reading);
       });
 
-      const tanksWithAnalytics = (tankData || []).map(tank => {
+      const tanksWithAnalytics = (activeTankData || []).map(tank => {
         // Get pre-grouped readings for this tank (already time-ordered from query)
         const allTankReadings = readingsByTank.get(tank.id) || [];
 
-        // Filter readings with minimum time threshold to avoid artificially close readings
-        // while preserving data granularity for accurate rolling averages
-        const MINIMUM_HOURS_BETWEEN_READINGS = 4;
-        const tankReadings: any[] = [];
-
-	        for (let i = 0; i < allTankReadings.length; i++) {
-          const currentReading = allTankReadings[i];
-
-          if (tankReadings.length === 0) {
-            // Always include the first reading
-            tankReadings.push(currentReading);
-          } else {
-            const lastIncluded = tankReadings[tankReadings.length - 1];
-	            // allTankReadings are ascending; compute time from last included to current
-	            const hoursBetween = (new Date(currentReading.created_at).getTime() - new Date(lastIncluded.created_at).getTime()) / (1000 * 60 * 60);
-
-            // Include reading if it's been at least MINIMUM_HOURS since the last included reading
-            if (hoursBetween >= MINIMUM_HOURS_BETWEEN_READINGS) {
-              tankReadings.push(currentReading);
-            }
+        // Deduplicate to ONE reading per day (keep the latest for each day)
+        // This treats same-day readings as corrections - the newest is most accurate
+        // Prevents division-by-tiny-numbers issues in rate calculations
+        const readingsByDay = new Map<string, any>();
+        for (const reading of allTankReadings) {
+          try {
+            const dayKey = new Date(reading.created_at).toISOString().split('T')[0];
+            // Always overwrite - allTankReadings is ascending, so last one is latest
+            readingsByDay.set(dayKey, reading);
+          } catch (e) {
+            // Skip invalid dates
           }
         }
+
+        // Convert back to sorted array
+        const tankReadings = Array.from(readingsByDay.values()).sort((a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
 
         // Calculate rolling average
         let totalConsumption = 0;

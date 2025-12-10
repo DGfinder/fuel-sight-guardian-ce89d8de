@@ -129,13 +129,38 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
   const dipHistory = useMemo(() => dipHistoryQuery.data?.readings || [], [dipHistoryQuery.data]);
   // Note: Removed redundant refetch() useEffect - the query's `enabled` condition handles this
 
-  const sortedDipHistory = useMemo(() => 
-    Array.isArray(dipHistory) ? [...dipHistory].sort((a: DipReading, b: DipReading) => 
+  const sortedDipHistory = useMemo(() =>
+    Array.isArray(dipHistory) ? [...dipHistory].sort((a: DipReading, b: DipReading) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     ) : []
   , [dipHistory]);
-  
-  const last30Dips = useMemo(() => sortedDipHistory.slice(-30), [sortedDipHistory]);
+
+  // For analytics: deduplicate to ONE dip per day (the latest reading for each day)
+  // This treats same-day dips as corrections - the newest one is the most accurate
+  // Full history remains available in sortedDipHistory for the "Previous Dips" tab
+  const dailyDips = useMemo(() => {
+    const dipsByDay = new Map<string, DipReading>();
+
+    for (const dip of sortedDipHistory) {
+      try {
+        // Use date string as key (e.g., "2024-01-15")
+        const dayKey = format(new Date(dip.created_at), 'yyyy-MM-dd');
+        // Keep the latest dip for each day (sortedDipHistory is already chronological)
+        // So we always overwrite - the last one processed for each day is the latest
+        dipsByDay.set(dayKey, dip);
+      } catch (e) {
+        // Skip invalid dates
+      }
+    }
+
+    // Convert back to array, sorted by date
+    return Array.from(dipsByDay.values()).sort((a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }, [sortedDipHistory]);
+
+  // Use daily dips for charts (last 30 days of unique daily readings)
+  const last30Dips = useMemo(() => dailyDips.slice(-30), [dailyDips]);
 
   const volumeChartData: ChartData<'line'> = useMemo(() => ({
     labels:
@@ -184,20 +209,25 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
   const { burnRateData, burnRateLabels } = useMemo(() => {
     const data: number[] = [];
     const labels: string[] = [];
-    
+
+    // last30Dips is already deduplicated to one reading per day
+    // So daysDiff will always be >= 1 day (no division by tiny numbers)
     for (let i = 1; i < last30Dips.length; i++) {
       const current = last30Dips[i];
       const previous = last30Dips[i - 1];
       const daysDiff = (new Date(current.created_at).getTime() - new Date(previous.created_at).getTime()) / (1000 * 60 * 60 * 24);
-      
-      if (daysDiff > 0 && daysDiff <= 7 && 
-          typeof previous.value === 'number' && 
+
+      // Only calculate for reasonable time gaps (1-7 days)
+      // Gaps > 7 days likely indicate missing data, not useful for rate calculation
+      if (daysDiff >= 0.5 && daysDiff <= 7 &&
+          typeof previous.value === 'number' &&
           typeof current.value === 'number') {
         const volumeDiff = previous.value - current.value;
         const dailyBurnRate = volumeDiff / daysDiff;
-        
+
+        // Only include positive consumption (negative = refill, skip it)
         if (dailyBurnRate > 0 && isFinite(dailyBurnRate)) {
-          data.push(dailyBurnRate);
+          data.push(Math.round(dailyBurnRate));
           try {
             labels.push(format(new Date(current.created_at), 'MMM d'));
           } catch (e) {
@@ -206,7 +236,7 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
         }
       }
     }
-    
+
     return { burnRateData: data, burnRateLabels: labels };
   }, [last30Dips]);
 
