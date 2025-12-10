@@ -187,14 +187,31 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
         pointBorderWidth: 2,
         pointHoverRadius: 6,
       },
+      // Safe Fill (100% capacity) - green dashed line at top
+      ...(tank?.safe_level
+        ? [
+            {
+              label: 'Safe Fill (100%)',
+              data: Array(last30Dips.length || 1).fill(tank.safe_level),
+              borderColor: '#22c55e', // Green
+              borderDash: [5, 5],
+              borderWidth: 2,
+              pointRadius: 0,
+              fill: false,
+              tension: 0,
+              pointHoverRadius: 0,
+              pointHitRadius: 0,
+            },
+          ]
+        : []),
+      // Minimum Level - red solid line
       ...(tank?.min_level
         ? [
             {
               label: 'Minimum Level',
               data: Array(last30Dips.length || 1).fill(tank.min_level),
               borderColor: '#dc2626', // Bright red
-              backgroundColor: 'rgba(220, 38, 38, 0.2)',
-              borderWidth: 4, // Thicker line
+              borderWidth: 3,
               pointRadius: 0,
               fill: false,
               tension: 0,
@@ -204,7 +221,7 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
           ]
         : []),
     ],
-  }), [last30Dips, tank?.min_level]);
+  }), [last30Dips, tank?.min_level, tank?.safe_level]);
 
   const { burnRateData, burnRateLabels } = useMemo(() => {
     const data: number[] = [];
@@ -240,6 +257,13 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
     return { burnRateData: data, burnRateLabels: labels };
   }, [last30Dips]);
 
+  // Calculate local average from the chart data (more reliable than tank.rolling_avg)
+  const localAvgBurnRate = useMemo(() => {
+    if (burnRateData.length === 0) return null;
+    const sum = burnRateData.reduce((acc, val) => acc + val, 0);
+    return Math.round(sum / burnRateData.length);
+  }, [burnRateData]);
+
   const burnRateChartData: ChartData<'line'> = useMemo(() => ({
     labels: burnRateLabels.length > 0 ? burnRateLabels : ['No Data'],
     datasets: [
@@ -253,12 +277,12 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
         pointBorderWidth: 2,
         pointHoverRadius: 6,
       },
-      // Add average burn rate reference line
-      ...(tank?.rolling_avg
+      // Add average burn rate reference line (use local calculation)
+      ...(localAvgBurnRate
         ? [
             {
               label: 'Average Burn Rate',
-              data: Array(burnRateLabels.length || 1).fill(tank.rolling_avg),
+              data: Array(burnRateLabels.length || 1).fill(localAvgBurnRate),
               borderColor: '#6b7280', // gray-500
               borderDash: [5, 5],
               pointRadius: 0,
@@ -268,7 +292,7 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
           ]
         : []),
     ],
-  }), [burnRateData, burnRateLabels, tank?.rolling_avg]);
+  }), [burnRateData, burnRateLabels, localAvgBurnRate]);
 
   const volumeChartOptions: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
@@ -290,6 +314,17 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
         bodyColor: '#ffffff',
         cornerRadius: 8,
         padding: 12,
+        callbacks: {
+          label: function(context) {
+            const value = context.parsed.y;
+            const safeLevel = tank?.safe_level || 0;
+            const percentage = safeLevel > 0 ? Math.round((value / safeLevel) * 100) : 0;
+            if (context.dataset.label === 'Volume (L)') {
+              return `${context.dataset.label}: ${value.toLocaleString()}L (${percentage}%)`;
+            }
+            return `${context.dataset.label}: ${value.toLocaleString()}L`;
+          }
+        }
       },
     },
     scales: {
@@ -309,17 +344,24 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
           text: 'Volume (L)',
           font: { size: 12, weight: 'bold' },
         },
-        beginAtZero: false,
+        // Set Y-axis from 0 to safe_level to show tank capacity context
+        min: 0,
+        max: tank?.safe_level ? Math.ceil(tank.safe_level * 1.05) : undefined, // 5% padding above safe fill
         grid: {
           color: 'rgba(0, 0, 0, 0.1)',
         },
+        ticks: {
+          callback: function(value) {
+            return Number(value).toLocaleString() + 'L';
+          }
+        }
       },
     },
     interaction: {
       intersect: false,
       mode: 'index',
     },
-  }), []);
+  }), [tank?.safe_level]);
 
   const burnRateChartOptions: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
@@ -615,7 +657,7 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
                           </div>
                           <div className="flex-1">
                             <span className="text-xs text-gray-500">Burn Rate</span>
-                            <p className="font-semibold">{tank.rolling_avg ? `${tank.rolling_avg} L/day` : 'Calculating...'}</p>
+                            <p className="font-semibold">{localAvgBurnRate ? `${localAvgBurnRate.toLocaleString()} L/day` : 'Calculating...'}</p>
                           </div>
                         </div>
 
@@ -715,12 +757,17 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
                 {/* Volume Trends Chart */}
                 <Card className="border border-gray-200 bg-white/90 backdrop-blur-sm shadow-sm">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center gap-2">
+                    <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
                       <TrendingUp className="w-5 h-5 text-blue-600" />
                       Volume Trends
+                      {tank.safe_level && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                          Safe Fill: {tank.safe_level.toLocaleString()}L
+                        </Badge>
+                      )}
                       {tank.min_level && (
-                        <Badge variant="outline" className="text-xs">
-                          Min Level: {tank.min_level.toLocaleString()}L
+                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+                          Min: {tank.min_level.toLocaleString()}L
                         </Badge>
                       )}
                     </CardTitle>
@@ -750,9 +797,9 @@ export const TankDetailsModal = React.memo(function TankDetailsModal({
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Activity className="w-5 h-5 text-orange-600" />
                       Daily Consumption Rate
-                      {tank.rolling_avg && (
+                      {localAvgBurnRate && (
                         <Badge variant="outline" className="text-xs">
-                          Avg: {tank.rolling_avg}L/day
+                          Avg: {localAvgBurnRate.toLocaleString()}L/day
                         </Badge>
                       )}
                     </CardTitle>

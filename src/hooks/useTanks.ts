@@ -12,7 +12,10 @@ const calculateConsumption = (olderReading: any, newerReading: any): number => {
 };
 
 const daysBetween = (date1: Date, date2: Date): number => {
-  return Math.abs((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
+  const days = Math.abs((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
+  // Ensure minimum of ~1 day to prevent division issues
+  // With one-per-day deduplication, this should rarely trigger
+  return Math.max(0.5, days);
 };
 
 export interface Tank {
@@ -343,6 +346,14 @@ export const useTanks = () => {
           if (totalDaysSpan > 0 && totalChange > 0) {
             rolling_avg = Math.round(totalChange / totalDaysSpan);
           }
+        }
+
+        // Sanity check: cap rolling_avg at tank capacity per day
+        // No tank realistically consumes more than its full capacity in a single day
+        const maxReasonableRate = tank.safe_level || 100000;
+        if (rolling_avg > maxReasonableRate) {
+          logger.warn(`Tank ${tank.location}: rolling_avg ${rolling_avg} exceeds safe_level ${maxReasonableRate}, capping`);
+          rolling_avg = 0; // Reset to 0 if calculation is clearly wrong
         }
 
         // Calculate previous day usage (latest minus previous reading)
