@@ -3,17 +3,27 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface ErrorFallbackProps {
-  error: Error | string;
+  error: Error | string | { message?: string; code?: string; details?: unknown };
   resetErrorBoundary?: () => void;
   className?: string;
 }
 
-export function ErrorFallback({ 
-  error, 
+export function ErrorFallback({
+  error,
   resetErrorBoundary,
-  className 
+  className
 }: ErrorFallbackProps) {
-  const errorMessage = error instanceof Error ? error.message : error;
+  // Handle various error formats: Error object, string, or Supabase error object
+  let errorMessage: string;
+  if (typeof error === 'string') {
+    errorMessage = error;
+  } else if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (error && typeof error === 'object' && 'message' in error) {
+    errorMessage = String(error.message || 'Unknown error');
+  } else {
+    errorMessage = 'An unexpected error occurred';
+  }
 
   return (
     <div className={cn(
