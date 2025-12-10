@@ -46,9 +46,11 @@ export const useTaTanksCompat = () => {
       // Session already validated by enabled check
 
       // Single optimized query to ta_tank_full_status view
+      // Filter for active tanks only - archived tanks should not show in frontend
       const { data, error } = await supabase
         .from('ta_tank_full_status')
         .select('*')
+        .eq('status', 'active')
         .order('priority_score', { ascending: true })
         .order('fill_percent', { ascending: true });
 

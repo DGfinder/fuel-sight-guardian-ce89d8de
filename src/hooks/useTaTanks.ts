@@ -100,8 +100,12 @@ export const useTaTanks = (options?: {
       if (options?.urgencyStatus) {
         query = query.eq('urgency_status', options.urgencyStatus);
       }
+      // Filter by status - default to 'active' if not specified
+      // This ensures archived tanks don't show in frontend
       if (options?.status) {
         query = query.eq('status', options.status);
+      } else {
+        query = query.eq('status', 'active');
       }
 
       const { data, error } = await query;
