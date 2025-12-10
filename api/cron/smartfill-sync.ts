@@ -17,6 +17,11 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 second, exponential backoff
 
+// Value validation constants
+const MAX_REASONABLE_VOLUME = 9999999999.99; // Max for DECIMAL(15,2)
+const MAX_REASONABLE_CAPACITY = 9999999999.99;
+const SUSPICIOUS_VALUE_THRESHOLD = 100000000; // 100 million liters - log warning
+
 interface SmartFillCustomer {
   id: string;
   api_reference: string;
@@ -119,6 +124,29 @@ async function makeSmartFillRequest(
   }
 }
 
+// Helper: Validate and clamp numeric values with logging
+function validateNumericValue(
+  value: number,
+  fieldName: string,
+  customerName: string,
+  tankInfo: string
+): number | null {
+  if (isNaN(value)) return null;
+
+  // Log suspicious values
+  if (value > SUSPICIOUS_VALUE_THRESHOLD) {
+    console.warn(`[SMARTFILL CRON] ⚠️ Suspicious ${fieldName} value for ${customerName} ${tankInfo}: ${value}`);
+  }
+
+  // Clamp to max reasonable value
+  if (value > MAX_REASONABLE_VOLUME) {
+    console.error(`[SMARTFILL CRON] ❌ ${fieldName} overflow for ${customerName} ${tankInfo}: ${value} (clamped to ${MAX_REASONABLE_VOLUME})`);
+    return MAX_REASONABLE_VOLUME;
+  }
+
+  return value;
+}
+
 // Helper: Transform API data to database format
 function transformSmartFillData(
   apiResult: { columns: string[]; values: any[][] },
@@ -207,10 +235,19 @@ function transformSmartFillData(
     unitTanks.forEach(tankData => {
       const tankId = crypto.randomUUID();
       const tankNumber = tankData['Tank Number'] || '1';
-      const volume = parseFloat(tankData['Volume']);
-      const volumePercent = parseFloat(tankData['Volume Percent']);
-      const capacity = parseFloat(tankData['Capacity']);
-      const safeLevel = parseFloat(tankData['Tank SFL']);
+      const tankInfo = `Unit ${unitNumber} Tank ${tankNumber}`;
+
+      // Parse and validate numeric values
+      const rawVolume = parseFloat(tankData['Volume']);
+      const rawVolumePercent = parseFloat(tankData['Volume Percent']);
+      const rawCapacity = parseFloat(tankData['Capacity']);
+      const rawSafeLevel = parseFloat(tankData['Tank SFL']);
+
+      const volume = validateNumericValue(rawVolume, 'volume', customerName, tankInfo);
+      const volumePercent = !isNaN(rawVolumePercent) ? rawVolumePercent : null;
+      const capacity = validateNumericValue(rawCapacity, 'capacity', customerName, tankInfo);
+      const safeLevel = validateNumericValue(rawSafeLevel, 'safe_fill_level', customerName, tankInfo);
+      const ullage = (capacity !== null && volume !== null) ? Math.max(0, capacity - volume) : null;
 
       tanks.push({
         id: tankId,
@@ -221,13 +258,14 @@ function transformSmartFillData(
         tank_number: tankNumber.toString(),
         name: tankData.Description || `Tank ${tankNumber}`,
         description: tankData.Description,
-        capacity: !isNaN(capacity) ? capacity : null,
-        safe_fill_level: !isNaN(safeLevel) ? safeLevel : null,
-        current_volume: !isNaN(volume) ? volume : null,
-        current_volume_percent: !isNaN(volumePercent) ? volumePercent : null,
+        capacity,
+        safe_fill_level: safeLevel,
+        current_volume: volume,
+        current_volume_percent: volumePercent,
         current_status: tankData.Status || 'Unknown',
-        current_ullage: !isNaN(capacity) && !isNaN(volume) ? Math.max(0, capacity - volume) : null,
-        health_status: volumePercent < 20 ? 'critical' : volumePercent < 40 ? 'warning' : 'healthy',
+        current_ullage: ullage,
+        health_status: (volumePercent !== null && volumePercent < 20) ? 'critical' :
+                       (volumePercent !== null && volumePercent < 40) ? 'warning' : 'healthy',
         last_reading_at: tankData['Last Updated'] ? new Date(tankData['Last Updated']).toISOString() : null,
         is_active: true,
         is_monitored: true,
@@ -236,16 +274,16 @@ function transformSmartFillData(
       });
 
       // Reading record
-      if (!isNaN(volume) || !isNaN(volumePercent)) {
+      if (volume !== null || volumePercent !== null) {
         readings.push({
           id: crypto.randomUUID(),
           tank_id: tankId,
-          volume: !isNaN(volume) ? volume : null,
-          volume_percent: !isNaN(volumePercent) ? volumePercent : null,
+          volume,
+          volume_percent: volumePercent,
           status: tankData.Status || 'Unknown',
-          capacity: !isNaN(capacity) ? capacity : null,
-          safe_fill_level: !isNaN(safeLevel) ? safeLevel : null,
-          ullage: !isNaN(capacity) && !isNaN(volume) ? Math.max(0, capacity - volume) : null,
+          capacity,
+          safe_fill_level: safeLevel,
+          ullage,
           reading_at: tankData['Last Updated'] ? new Date(tankData['Last Updated']).toISOString() : new Date().toISOString(),
           api_timestamp: tankData['Last Updated'],
           timezone: tankData.Timezone || 'Australia/Perth',
@@ -320,25 +358,110 @@ async function syncCustomer(
       return result;
     }
 
-    // Delete existing data for this customer (full refresh)
-    await supabase.from('ta_smartfill_readings').delete().eq('tank_id', tanks.map(t => t.id));
-    await supabase.from('ta_smartfill_tanks').delete().eq('customer_id', customer.id);
-    await supabase.from('ta_smartfill_locations').delete().eq('customer_id', customer.id);
+    // ========================================================================
+    // UPSERT STRATEGY (like AgBot):
+    // - Locations: upsert by external_guid (maintains stable IDs)
+    // - Tanks: upsert by external_guid (maintains stable IDs for readings)
+    // - Readings: append with deduplication (for historical analytics)
+    // ========================================================================
 
-    // Insert new data
+    // Get existing locations and tanks to maintain stable IDs
+    const { data: existingLocations } = await supabase
+      .from('ta_smartfill_locations')
+      .select('id, external_guid')
+      .eq('customer_id', customer.id);
+
+    const { data: existingTanks } = await supabase
+      .from('ta_smartfill_tanks')
+      .select('id, external_guid')
+      .eq('customer_id', customer.id);
+
+    // Build maps for ID lookup
+    const existingLocationMap = new Map<string, string>();
+    (existingLocations || []).forEach(l => existingLocationMap.set(l.external_guid, l.id));
+
+    const existingTankMap = new Map<string, string>();
+    (existingTanks || []).forEach(t => existingTankMap.set(t.external_guid, t.id));
+
+    // Reuse existing IDs for locations (maintains referential integrity)
+    for (const loc of locations) {
+      const existingId = existingLocationMap.get(loc.external_guid);
+      if (existingId) {
+        loc.id = existingId;
+        delete loc.created_at; // Don't overwrite created_at on update
+      }
+    }
+
+    // Reuse existing IDs for tanks (critical for readings history)
+    const tankIdMap = new Map<string, string>(); // new_id -> stable_id
+    for (const tank of tanks) {
+      const existingId = existingTankMap.get(tank.external_guid);
+      const originalId = tank.id;
+      if (existingId) {
+        tank.id = existingId;
+        delete tank.created_at;
+      }
+      tankIdMap.set(originalId, tank.id);
+    }
+
+    // Update reading tank_ids to use stable IDs
+    for (const reading of readings) {
+      const stableId = tankIdMap.get(reading.tank_id);
+      if (stableId) {
+        reading.tank_id = stableId;
+      }
+    }
+
+    // Upsert locations (insert or update)
     if (locations.length > 0) {
-      const { error: locError } = await supabase.from('ta_smartfill_locations').insert(locations);
-      if (locError) throw new Error(`Location insert error: ${locError.message}`);
+      const { error: locError } = await supabase
+        .from('ta_smartfill_locations')
+        .upsert(locations, { onConflict: 'external_guid' });
+      if (locError) throw new Error(`Location upsert error: ${locError.message}`);
     }
 
+    // Upsert tanks (insert or update)
     if (tanks.length > 0) {
-      const { error: tankError } = await supabase.from('ta_smartfill_tanks').insert(tanks);
-      if (tankError) throw new Error(`Tank insert error: ${tankError.message}`);
+      const { error: tankError } = await supabase
+        .from('ta_smartfill_tanks')
+        .upsert(tanks, { onConflict: 'external_guid' });
+      if (tankError) throw new Error(`Tank upsert error: ${tankError.message}`);
     }
 
+    // Append readings with deduplication
+    // Only insert readings that don't already exist (based on tank_id + reading_at)
+    let newReadingsCount = 0;
     if (readings.length > 0) {
-      const { error: readError } = await supabase.from('ta_smartfill_readings').insert(readings);
-      if (readError) throw new Error(`Reading insert error: ${readError.message}`);
+      // Get the reading timestamps we're about to insert
+      const readingTimestamps = readings.map(r => r.reading_at);
+      const readingTankIds = Array.from(new Set(readings.map(r => r.tank_id)));
+
+      // Check for existing readings with same tank_id and reading_at
+      const { data: existingReadings } = await supabase
+        .from('ta_smartfill_readings')
+        .select('tank_id, reading_at')
+        .in('tank_id', readingTankIds)
+        .in('reading_at', readingTimestamps);
+
+      // Build a set of existing reading keys for fast lookup
+      const existingReadingKeys = new Set(
+        (existingReadings || []).map(r => `${r.tank_id}|${r.reading_at}`)
+      );
+
+      // Filter out duplicate readings
+      const newReadings = readings.filter(r => {
+        const key = `${r.tank_id}|${r.reading_at}`;
+        return !existingReadingKeys.has(key);
+      });
+
+      newReadingsCount = newReadings.length;
+
+      if (newReadings.length > 0) {
+        const { error: readError } = await supabase
+          .from('ta_smartfill_readings')
+          .insert(newReadings);
+        if (readError) throw new Error(`Reading insert error: ${readError.message}`);
+      }
     }
 
     // Update customer sync status
@@ -354,10 +477,11 @@ async function syncCustomer(
     result.status = 'success';
     result.locations_processed = locations.length;
     result.tanks_processed = tanks.length;
-    result.readings_stored = readings.length;
+    result.readings_stored = newReadingsCount;
     result.duration_ms = Date.now() - startTime;
 
-    console.log(`[SMARTFILL CRON] ✅ ${customer.name}: ${locations.length} locations, ${tanks.length} tanks (${result.duration_ms}ms)`);
+    const duplicateCount = readings.length - newReadingsCount;
+    console.log(`[SMARTFILL CRON] ✅ ${customer.name}: ${locations.length} locations, ${tanks.length} tanks, ${newReadingsCount} new readings${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''} (${result.duration_ms}ms)`);
 
     return result;
   } catch (error) {
