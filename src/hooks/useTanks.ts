@@ -4,20 +4,6 @@ import { generateAlerts } from '../lib/alertService';
 import { validateTimestamp } from '../utils/timezone';
 import { logger } from '../lib/logger';
 
-// Helper functions for analytics calculations
-const calculateConsumption = (olderReading: any, newerReading: any): number => {
-  if (!olderReading || !newerReading) return 0;
-  const consumption = olderReading.value - newerReading.value;
-  return Math.max(0, consumption);
-};
-
-const daysBetween = (date1: Date, date2: Date): number => {
-  const days = Math.abs((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
-  // Ensure minimum of ~1 day to prevent division issues
-  // With one-per-day deduplication, this should rarely trigger
-  return Math.max(0.5, days);
-};
-
 export interface Tank {
   id: string;
   location: string;
@@ -291,70 +277,42 @@ export const useTanks = () => {
       });
 
       const tanksWithAnalytics = (activeTankData || []).map(tank => {
-        // Get pre-grouped readings for this tank (already time-ordered from query)
+        // Get 7-day readings for this tank (already time-ordered ascending from query)
         const allTankReadings = readingsByTank.get(tank.id) || [];
 
-        // Deduplicate to ONE reading per day (keep the latest for each day)
-        // This treats same-day readings as corrections - the newest is most accurate
-        // Prevents division-by-tiny-numbers issues in rate calculations
+        // Step 1: Deduplicate to ONE reading per day (keep the latest for each day)
+        // If someone enters multiple dips on same day, the last one is the correction
         const readingsByDay = new Map<string, any>();
         for (const reading of allTankReadings) {
-          try {
-            const dayKey = new Date(reading.created_at).toISOString().split('T')[0];
-            // Always overwrite - allTankReadings is ascending, so last one is latest
-            readingsByDay.set(dayKey, reading);
-          } catch (e) {
-            // Skip invalid dates
-          }
+          const dayKey = new Date(reading.created_at).toISOString().split('T')[0];
+          readingsByDay.set(dayKey, reading); // Overwrites, so last (latest) wins
         }
 
-        // Convert back to sorted array
-        const tankReadings = Array.from(readingsByDay.values()).sort((a, b) =>
+        // Convert to sorted array (oldest to newest)
+        const dailyReadings = Array.from(readingsByDay.values()).sort((a, b) =>
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
 
-        // Calculate rolling average
+        // Step 2: Calculate rolling average (7-day consumption, ignoring refills)
+        // Walk through consecutive days, sum consumption (level drops), skip refills (level rises)
         let totalConsumption = 0;
-        let totalDays = 0;
-        const dailyConsumptions: number[] = [];
+        let consumptionDays = 0;
 
-        for (let i = 1; i < tankReadings.length; i++) {
-          const older = tankReadings[i - 1];
-          const newer = tankReadings[i];
+        for (let i = 1; i < dailyReadings.length; i++) {
+          const prevDay = dailyReadings[i - 1];
+          const currDay = dailyReadings[i];
+          const levelChange = prevDay.value - currDay.value;
 
-          const consumption = calculateConsumption(older, newer);
-          const days = daysBetween(new Date(older.created_at), new Date(newer.created_at));
-
-          if (days > 0 && consumption > 0) {
-            const dailyRate = consumption / days;
-            dailyConsumptions.push(dailyRate);
-            totalConsumption += consumption;
-            totalDays += days;
+          if (levelChange > 0) {
+            // Level dropped = consumption
+            totalConsumption += levelChange;
+            consumptionDays++;
           }
+          // If levelChange <= 0, it's a refill - skip it (don't count the day)
         }
 
-        // If no valid consumption data, try alternative calculation
-        let rolling_avg = totalDays > 0 ? Math.round(totalConsumption / totalDays) : 0;
-
-        // FALLBACK: If no consumption detected, estimate from overall level change
-        if (rolling_avg === 0 && tankReadings.length >= 2) {
-          const firstReading = tankReadings[0];
-          const lastReading = tankReadings[tankReadings.length - 1];
-          const totalChange = firstReading.value - lastReading.value;
-          const totalDaysSpan = daysBetween(new Date(firstReading.created_at), new Date(lastReading.created_at));
-
-          if (totalDaysSpan > 0 && totalChange > 0) {
-            rolling_avg = Math.round(totalChange / totalDaysSpan);
-          }
-        }
-
-        // Sanity check: cap rolling_avg at tank capacity per day
-        // No tank realistically consumes more than its full capacity in a single day
-        const maxReasonableRate = tank.safe_level || 100000;
-        if (rolling_avg > maxReasonableRate) {
-          logger.warn(`Tank ${tank.location}: rolling_avg ${rolling_avg} exceeds safe_level ${maxReasonableRate}, capping`);
-          rolling_avg = 0; // Reset to 0 if calculation is clearly wrong
-        }
+        // Rolling avg = total consumption / number of consumption days
+        const rolling_avg = consumptionDays > 0 ? Math.round(totalConsumption / consumptionDays) : 0;
 
         // Calculate previous day usage (latest minus previous reading)
         // Use original readings to get actual latest vs previous, not filtered by date
