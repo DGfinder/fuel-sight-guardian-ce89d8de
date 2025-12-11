@@ -141,8 +141,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } else if (agbotReadings) {
           const enriched = agbotReadings.map(reading => {
             const tank = agbotTanks.find(t => t.agbot_asset_id === reading.asset_id);
+            // Convert level_percent to number (Supabase returns numeric as string)
+            const levelPercent = reading.level_percent != null
+              ? Number(reading.level_percent)
+              : null;
             return {
               ...reading,
+              level_percent: levelPercent,
               tank_id: tank?.agbot_location_id || tank?.tank_id || '',
               tank_name: tank?.tank_name || '',
               tank_address: tank?.address || '',
@@ -174,9 +179,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const enriched = dipReadings.map(reading => {
             const tank = dipTanks.find(t => t.tank_id === reading.tank_id);
             // Calculate level_percent from litres if not provided
-            let levelPercent = reading.level_percent;
+            // Also convert to number (Supabase returns numeric as string)
+            let levelPercent: number | null = reading.level_percent != null
+              ? Number(reading.level_percent)
+              : null;
             if (levelPercent === null && reading.level_liters != null && tank?.capacity_liters) {
-              levelPercent = (reading.level_liters / Number(tank.capacity_liters)) * 100;
+              levelPercent = (Number(reading.level_liters) / Number(tank.capacity_liters)) * 100;
             }
             return {
               asset_id: reading.tank_id, // Use tank_id as asset_id for consistency

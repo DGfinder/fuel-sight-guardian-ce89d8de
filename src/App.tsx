@@ -542,9 +542,11 @@ function AppContent() {
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Agbot Predictions" showHomeButton={true}>
-                          <Suspense fallback={<PageLoader />}>
-                            <AgbotPredictions />
-                          </Suspense>
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <Suspense fallback={<PageLoader />}>
+                              <AgbotPredictions />
+                            </Suspense>
+                          </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
                     }
@@ -690,12 +692,12 @@ function AppContent() {
                     }
                   />
 
-                  {/* GSF Fleet Refill Calendar */}
+                  {/* AgBot Refill Calendar */}
                   <Route
-                    path="/fleet-calendar"
+                    path="/agbot/calendar"
                     element={
                       <ProtectedRoute>
-                        <RouteErrorBoundary routeName="Fleet Calendar" showHomeButton={true}>
+                        <RouteErrorBoundary routeName="Refill Calendar" showHomeButton={true}>
                           <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
                             <FleetRefillCalendar />
                           </AppLayout>

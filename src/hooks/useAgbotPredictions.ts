@@ -19,6 +19,7 @@ import {
 
 interface AgbotLocation {
   id: string;
+  name: string;
   customer_name: string;
   external_guid: string;
   calibrated_fill_level: number | null;
@@ -52,6 +53,7 @@ export function useAgbotPredictions(options?: { days?: number; enabled?: boolean
         .from('ta_agbot_locations')
         .select(`
           id,
+          name,
           customer_name,
           external_guid,
           calibrated_fill_level,
@@ -63,7 +65,7 @@ export function useAgbotPredictions(options?: { days?: number; enabled?: boolean
             is_online
           )
         `)
-        .order('customer_name');
+        .order('name');
 
       if (locationsError) throw locationsError;
 
@@ -131,13 +133,15 @@ export function useAgbotPredictions(options?: { days?: number; enabled?: boolean
       for (const location of validLocations) {
         const asset = location.assets[0]; // Primary asset
         const assetReadings = readingsByAsset.get(asset.id) || [];
+        // Use tank name, fallback to customer name if not available
+        const displayName = location.name?.trim() || location.customer_name;
 
         if (assetReadings.length >= 5) {
           // Device health prediction
           const healthPrediction = predictDeviceHealth(
             assetReadings,
             asset.id,
-            location.customer_name
+            displayName
           );
           deviceHealth.push(healthPrediction);
 
@@ -145,7 +149,7 @@ export function useAgbotPredictions(options?: { days?: number; enabled?: boolean
           const forecast = forecastConsumption(
             assetReadings,
             asset.id,
-            location.customer_name
+            displayName
           );
           consumptionForecasts.push(forecast);
 
@@ -153,7 +157,7 @@ export function useAgbotPredictions(options?: { days?: number; enabled?: boolean
           const anomalies = detectAnomalies(
             assetReadings,
             asset.id,
-            location.customer_name
+            displayName
           );
           anomalyReports.push(anomalies);
         }

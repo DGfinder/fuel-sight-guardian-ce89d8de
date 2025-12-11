@@ -125,10 +125,10 @@ export function DashboardWeatherCard({
 
   const today = {
     tempCurrent: currentTemp,
-    tempMin: weather.daily.temperature_2m_min[0],
-    tempMax: weather.daily.temperature_2m_max[0],
-    rain: weather.daily.rain_sum[0],
-    windMax: observations?.wind_speed_kmh ?? weather.daily.windspeed_10m_max[0],
+    tempMin: weather.daily.temperature_2m_min[0] ?? 0,
+    tempMax: weather.daily.temperature_2m_max[0] ?? 0,
+    rain: weather.daily.rain_sum?.[0] ?? 0,
+    windMax: observations?.wind_speed_kmh ?? weather.daily.windspeed_10m_max?.[0] ?? 0,
   };
 
   const getWeatherCondition = () => {
@@ -142,11 +142,11 @@ export function DashboardWeatherCard({
   };
 
   // Next 7 days for mini forecast
-  const next7Days = weather.daily.time.slice(0, 7).map((date, i) => ({
+  const next7Days = (weather.daily.time || []).slice(0, 7).map((date, i) => ({
     date: new Date(date),
-    tempMax: weather.daily.temperature_2m_max[i],
-    tempMin: weather.daily.temperature_2m_min[i],
-    rain: weather.daily.rain_sum[i],
+    tempMax: weather.daily.temperature_2m_max?.[i] ?? 0,
+    tempMin: weather.daily.temperature_2m_min?.[i] ?? 0,
+    rain: weather.daily.rain_sum?.[i] ?? 0,
   }));
 
   const totalRain7Days = next7Days.reduce((sum, day) => sum + day.rain, 0);

@@ -48,8 +48,8 @@ export class GasbotDataTransformer {
       latitude: this.parseFloat(gasbotData.LocationLat),
       longitude: this.parseFloat(gasbotData.LocationLng),
 
-      // Status
-      installation_status: gasbotData.LocationInstallationStatus || (gasbotData.DeviceOnline ? 1 : 0),
+      // Status - sanitize to prevent integer overflow (LocationInstallationStatus sometimes contains device IDs)
+      installation_status: this.sanitizeInstallationStatus(gasbotData.LocationInstallationStatus, gasbotData.DeviceOnline),
       installation_status_label: gasbotData.DeviceOnline ? 'Active' : 'Offline',
       is_disabled: gasbotData.LocationDisabledStatus || false,
 
@@ -201,6 +201,28 @@ export class GasbotDataTransformer {
         (gasbotData.AssetLastCalibratedTelemetryTimestamp ?
           Math.floor(new Date(gasbotData.AssetLastCalibratedTelemetryTimestamp as any).getTime()) : Date.now())
     };
+  }
+
+  /**
+   * Sanitizes installation status to prevent integer overflow
+   * LocationInstallationStatus sometimes contains device IDs instead of status codes
+   * Valid status values are typically 0-10, anything larger is treated as invalid
+   */
+  private sanitizeInstallationStatus(value: any, deviceOnline?: boolean): number {
+    if (value === null || value === undefined) {
+      return deviceOnline ? 1 : 0;
+    }
+
+    const parsed = parseInt(value, 10);
+
+    // If NaN or unreasonably large (> 100), fall back to DeviceOnline-based status
+    // PostgreSQL integer max is 2147483647, but installation status should be 0-10
+    if (isNaN(parsed) || parsed > 100 || parsed < 0) {
+      console.warn(`   ⚠️  Invalid LocationInstallationStatus: ${value}, using DeviceOnline fallback`);
+      return deviceOnline ? 1 : 0;
+    }
+
+    return parsed;
   }
 
   /**

@@ -50,7 +50,8 @@ const ALL_NAV_ITEMS = [
     badge: null,
     group: null,
     children: [
-      { path: '/agbot/predictions', label: 'Predictions', icon: TrendingUp }
+      { path: '/agbot/predictions', label: 'Predictions', icon: TrendingUp },
+      { path: '/agbot/calendar', label: 'Refill Calendar', icon: Calendar }
     ]
   },
   { path: '/smartfill', label: 'SmartFill', icon: Database, badge: null, group: null },
@@ -114,7 +115,6 @@ const ALL_NAV_ITEMS = [
       { path: '/groups/bgc/dip-history', label: 'Dip History', icon: History }
     ]
   },
-  { path: '/fleet-calendar', label: 'Fleet Calendar', icon: Calendar, badge: null, group: null, adminOnly: true },
   { path: '/settings/customers', label: 'Customer Portal', icon: Users, badge: null, group: null, adminOnly: true },
   { path: '/admin/fuel-management', label: 'Fuel Admin', icon: Wrench, badge: null, group: null, adminOnly: true }
 ];

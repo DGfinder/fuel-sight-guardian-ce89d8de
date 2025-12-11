@@ -36,8 +36,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Droplets
+  Droplets,
+  CalendarDays
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -174,11 +176,23 @@ function DeviceHealthList({
     return devices.filter(d => d.locationName.toLowerCase().includes(lower));
   }, [devices, searchTerm]);
 
+  // Sort: offline first, then by voltage anomaly, then by name
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      // Sort by health status (critical first, then warning, then good)
-      const healthOrder = { critical: 0, warning: 1, good: 2 };
-      return healthOrder[a.overallHealth] - healthOrder[b.overallHealth];
+      // Offline devices first
+      const aOffline = a.offlineFrequency > 0.5;
+      const bOffline = b.offlineFrequency > 0.5;
+      if (aOffline !== bOffline) return aOffline ? -1 : 1;
+
+      // Then by voltage issues (low voltage first)
+      const aVoltage = a.batteryPrediction.currentVoltage ?? 999;
+      const bVoltage = b.batteryPrediction.currentVoltage ?? 999;
+      if (aVoltage < 3.5 || bVoltage < 3.5) {
+        return aVoltage - bVoltage;
+      }
+
+      // Then alphabetically
+      return a.locationName.localeCompare(b.locationName);
     });
   }, [filtered]);
 
@@ -190,80 +204,113 @@ function DeviceHealthList({
     );
   }
 
+  // Helper to determine device status
+  // Note: AgBot devices typically run at ~3.5V (solar powered), so only flag truly low voltage
+  const getDeviceStatus = (device: DeviceHealthPrediction) => {
+    const isOffline = device.offlineFrequency > 0.5;
+    const voltage = device.batteryPrediction.currentVoltage;
+    const hasLowVoltage = voltage !== null && voltage < 3.2; // Critical: likely to fail soon
+    const hasVoltageWarning = voltage !== null && voltage < 3.4 && voltage >= 3.2; // Warning: below normal
+    const hasHighTemp = device.temperatureAvg !== null && device.temperatureAvg > 55; // High temp threshold
+    const hasTempVariance = device.temperatureVariance > 20; // Excessive temperature swings
+
+    if (isOffline) return { status: 'offline', color: 'red', label: 'Offline' };
+    if (hasLowVoltage) return { status: 'critical', color: 'red', label: 'Low Voltage' };
+    if (hasVoltageWarning || hasHighTemp) return { status: 'warning', color: 'amber', label: 'Warning' };
+    if (hasTempVariance) return { status: 'check', color: 'amber', label: 'Check Temp' };
+    return { status: 'operational', color: 'green', label: 'Operational' };
+  };
+
   return (
-    <div className="space-y-3">
-      {sorted.slice(0, 10).map(device => (
-        <Card key={device.assetId} className={cn(
-          'border-l-4',
-          device.overallHealth === 'critical' ? 'border-l-red-500' :
-          device.overallHealth === 'warning' ? 'border-l-yellow-500' : 'border-l-green-500'
-        )}>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-semibold">{device.locationName}</h4>
-                  <Badge variant={
-                    device.overallHealth === 'critical' ? 'destructive' :
-                    device.overallHealth === 'warning' ? 'secondary' : 'default'
-                  }>
-                    {device.overallHealth}
-                  </Badge>
-                </div>
+    <div className="space-y-2">
+      {sorted.map(device => {
+        const status = getDeviceStatus(device);
+        const voltage = device.batteryPrediction.currentVoltage;
 
-                <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <Battery className={cn('h-4 w-4',
-                      device.batteryPrediction.alertLevel === 'critical' ? 'text-red-500' :
-                      device.batteryPrediction.alertLevel === 'warning' ? 'text-yellow-500' : 'text-green-500'
-                    )} />
-                    <span>{device.batteryPrediction.currentVoltage?.toFixed(2) || 'N/A'}V</span>
-                    {device.batteryPrediction.estimatedDaysRemaining !== null && (
-                      <span className="text-gray-400">
-                        ({device.batteryPrediction.estimatedDaysRemaining}d remaining)
-                      </span>
-                    )}
-                  </div>
+        return (
+          <div
+            key={device.assetId}
+            className={cn(
+              'flex items-center justify-between p-3 rounded-lg border',
+              status.color === 'red' ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' :
+              status.color === 'amber' ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800' :
+              'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
+            )}
+          >
+            {/* Device Info */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {/* Status indicator */}
+              <div className={cn(
+                'w-3 h-3 rounded-full flex-shrink-0',
+                status.color === 'red' ? 'bg-red-500' :
+                status.color === 'amber' ? 'bg-amber-500' :
+                'bg-green-500'
+              )} />
 
-                  <div className="flex items-center gap-1">
-                    {device.offlineFrequency > 2 ? (
-                      <SignalZero className="h-4 w-4 text-red-500" />
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {device.locationName}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  {/* Online/Offline */}
+                  <span className={cn(
+                    'flex items-center gap-1',
+                    device.offlineFrequency > 0.5 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                  )}>
+                    {device.offlineFrequency > 0.5 ? (
+                      <><SignalZero className="h-3 w-3" /> Offline</>
                     ) : (
-                      <Signal className="h-4 w-4 text-green-500" />
+                      <><Signal className="h-3 w-3" /> Online</>
                     )}
-                    <span>{device.offlineFrequency.toFixed(1)} offline/week</span>
-                  </div>
+                  </span>
 
+                  {/* Voltage */}
+                  {voltage !== null && (
+                    <span className={cn(
+                      'flex items-center gap-1',
+                      voltage < 3.2 ? 'text-red-600 dark:text-red-400' :
+                      voltage < 3.4 ? 'text-amber-600 dark:text-amber-400' :
+                      'text-gray-500 dark:text-gray-400'
+                    )}>
+                      <Battery className="h-3 w-3" />
+                      {voltage.toFixed(2)}V
+                    </span>
+                  )}
+
+                  {/* Temperature */}
                   {device.temperatureAvg !== null && (
-                    <div className="flex items-center gap-1">
-                      <Thermometer className="h-4 w-4 text-blue-500" />
-                      <span>{device.temperatureAvg}°C</span>
-                    </div>
+                    <span className={cn(
+                      'flex items-center gap-1',
+                      device.temperatureAvg > 55 ? 'text-red-600 dark:text-red-400' :
+                      device.temperatureVariance > 20 ? 'text-amber-600 dark:text-amber-400' :
+                      'text-gray-500 dark:text-gray-400'
+                    )}>
+                      <Thermometer className="h-3 w-3" />
+                      {device.temperatureAvg.toFixed(0)}°C
+                      {device.temperatureVariance > 15 && (
+                        <span className="text-[10px]">(±{device.temperatureVariance.toFixed(0)}°)</span>
+                      )}
+                    </span>
                   )}
                 </div>
-
-                {device.predictedIssues.length > 0 && (
-                  <div className="mt-2">
-                    {device.predictedIssues.map((issue, i) => (
-                      <div key={i} className="flex items-center gap-1 text-sm text-yellow-700">
-                        <AlertTriangle className="h-3 w-3" />
-                        <span>{issue}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="text-right">
-                <div className="text-2xl font-bold text-gray-700">
-                  {device.failureProbability}%
-                </div>
-                <div className="text-xs text-gray-500">failure risk</div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+
+            {/* Status Badge */}
+            <Badge
+              variant="outline"
+              className={cn(
+                'flex-shrink-0',
+                status.color === 'red' ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-300' :
+                status.color === 'amber' ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900 dark:text-amber-300' :
+                'bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300'
+              )}
+            >
+              {status.label}
+            </Badge>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -489,13 +536,21 @@ export default function AgbotPredictions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Agbot Predictions</h1>
-          <p className="text-gray-500">Predictive analytics and health monitoring</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Fleet Predictions</h1>
+          <p className="text-gray-500 dark:text-gray-400">Predictive analytics and health monitoring for AgBot tanks</p>
         </div>
-        <Button onClick={() => refetch()} variant="outline" disabled={isRefetching}>
-          <RefreshCw className={cn('h-4 w-4 mr-2', isRefetching && 'animate-spin')} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link to="/agbot/calendar">
+            <Button variant="outline">
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Refill Calendar
+            </Button>
+          </Link>
+          <Button onClick={() => refetch()} variant="outline" disabled={isRefetching}>
+            <RefreshCw className={cn('h-4 w-4 mr-2', isRefetching && 'animate-spin')} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

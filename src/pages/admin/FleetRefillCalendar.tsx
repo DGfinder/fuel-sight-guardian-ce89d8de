@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -11,6 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RefillCalendar } from '@/components/calendar/RefillCalendar';
+import { TankRunwayBar } from '@/components/calendar/TankRunwayBar';
+import { WeekSummaryCard } from '@/components/calendar/WeekSummaryCard';
 import { useFleetRefillCalendar, getUniqueCustomers } from '@/hooks/useRefillCalendar';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
@@ -25,17 +28,23 @@ import {
   CheckCircle,
   HelpCircle,
   Search,
-  Filter,
   Download,
   CalendarDays,
+  LayoutGrid,
+  List,
+  Users,
+  Fuel,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+type ViewMode = 'calendar' | 'timeline' | 'customer';
 
 export default function FleetRefillCalendar() {
   const { data: predictions, isLoading } = useFleetRefillCalendar();
   const [searchQuery, setSearchQuery] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyLevel | 'all'>('all');
   const [customerFilter, setCustomerFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
 
   // Get unique customers for filter
   const customers = useMemo(() => {
@@ -73,20 +82,27 @@ export default function FleetRefillCalendar() {
   const summary = calculateUrgencySummary(filteredPredictions);
   const sortedPredictions = sortByUrgency(filteredPredictions);
 
-  // Get tanks needing attention this week
-  const thisWeekTanks = useMemo(() => {
-    const today = new Date();
-    const weekEnd = new Date(today);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-
-    return filteredPredictions.filter((p) => {
-      if (!p.predictedRefillDate) return false;
-      return p.predictedRefillDate >= today && p.predictedRefillDate <= weekEnd;
+  // Group by customer for customer view
+  const customerGroups = useMemo(() => {
+    const groups = new Map<string, RefillPrediction[]>();
+    sortedPredictions.forEach((tank) => {
+      if (!groups.has(tank.customerName)) {
+        groups.set(tank.customerName, []);
+      }
+      groups.get(tank.customerName)!.push(tank);
     });
-  }, [filteredPredictions]);
+    // Sort groups by most urgent tank in each group
+    return Array.from(groups.entries()).sort((a, b) => {
+      const aUrgent = a[1].some((t) => t.urgency === 'critical');
+      const bUrgent = b[1].some((t) => t.urgency === 'critical');
+      if (aUrgent && !bUrgent) return -1;
+      if (!aUrgent && bUrgent) return 1;
+      return a[0].localeCompare(b[0]);
+    });
+  }, [sortedPredictions]);
 
-  const handleExport = () => {
-    // Export to CSV
+  // Export to CSV
+  const handleExportCSV = () => {
     const headers = ['Tank', 'Customer', 'Address', 'Level %', 'Days Remaining', 'Urgency', 'Predicted Date'];
     const rows = sortedPredictions.map((p) => [
       p.tankName,
@@ -103,7 +119,49 @@ export default function FleetRefillCalendar() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `fleet-refill-calendar-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `refill-calendar-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export to iCal format
+  const handleExportICal = () => {
+    const events = sortedPredictions
+      .filter((p) => p.predictedRefillDate)
+      .map((p) => {
+        const date = p.predictedRefillDate!;
+        const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
+        const urgencyLabel = p.urgency === 'critical' ? '[CRITICAL] ' : p.urgency === 'warning' ? '[WARNING] ' : '';
+
+        return [
+          'BEGIN:VEVENT',
+          `DTSTART;VALUE=DATE:${dateStr}`,
+          `DTEND;VALUE=DATE:${dateStr}`,
+          `SUMMARY:${urgencyLabel}Refill: ${p.tankName}`,
+          `DESCRIPTION:Tank: ${p.tankName}\\nCustomer: ${p.customerName}\\nCurrent Level: ${p.currentLevel.toFixed(1)}%\\nDays Remaining: ${p.daysRemaining?.toFixed(0) || 'N/A'}\\nAddress: ${p.address}`,
+          `LOCATION:${p.address}`,
+          `UID:${p.tankId}-${dateStr}@tankalert`,
+          `STATUS:CONFIRMED`,
+          'END:VEVENT',
+        ].join('\r\n');
+      });
+
+    const ical = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//TankAlert//Refill Calendar//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-CALNAME:TankAlert Refill Calendar',
+      ...events,
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const blob = new Blob([ical], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `refill-calendar-${new Date().toISOString().split('T')[0]}.ics`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -119,21 +177,34 @@ export default function FleetRefillCalendar() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <CalendarDays className="h-6 w-6" />
-            Fleet Refill Calendar
+            AgBot Refill Calendar
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
             Predicted refill dates for all AgBot monitored tanks
           </p>
         </div>
-        <Button variant="outline" onClick={handleExport} className="gap-2">
-          <Download size={16} />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportCSV} className="gap-2">
+            <Download size={16} />
+            CSV
+          </Button>
+          <Button variant="outline" onClick={handleExportICal} className="gap-2">
+            <CalendarDays size={16} />
+            iCal
+          </Button>
+        </div>
       </div>
+
+      {/* This Week Summary */}
+      <WeekSummaryCard
+        predictions={filteredPredictions}
+        onExportCSV={handleExportCSV}
+        onExportICal={handleExportICal}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -149,7 +220,7 @@ export default function FleetRefillCalendar() {
           description="< 3 days"
           icon={AlertTriangle}
           color="red"
-          onClick={() => setUrgencyFilter('critical')}
+          onClick={() => setUrgencyFilter(urgencyFilter === 'critical' ? 'all' : 'critical')}
           active={urgencyFilter === 'critical'}
         />
         <SummaryCard
@@ -158,7 +229,7 @@ export default function FleetRefillCalendar() {
           description="3-7 days"
           icon={Clock}
           color="yellow"
-          onClick={() => setUrgencyFilter('warning')}
+          onClick={() => setUrgencyFilter(urgencyFilter === 'warning' ? 'all' : 'warning')}
           active={urgencyFilter === 'warning'}
         />
         <SummaryCard
@@ -167,7 +238,7 @@ export default function FleetRefillCalendar() {
           description="7+ days"
           icon={CheckCircle}
           color="green"
-          onClick={() => setUrgencyFilter('normal')}
+          onClick={() => setUrgencyFilter(urgencyFilter === 'normal' ? 'all' : 'normal')}
           active={urgencyFilter === 'normal'}
         />
         <SummaryCard
@@ -176,35 +247,15 @@ export default function FleetRefillCalendar() {
           description="No data"
           icon={HelpCircle}
           color="gray"
-          onClick={() => setUrgencyFilter('unknown')}
+          onClick={() => setUrgencyFilter(urgencyFilter === 'unknown' ? 'all' : 'unknown')}
           active={urgencyFilter === 'unknown'}
         />
       </div>
 
-      {/* This Week Alert */}
-      {thisWeekTanks.length > 0 && (
-        <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              <div>
-                <p className="font-medium text-amber-800 dark:text-amber-200">
-                  {thisWeekTanks.length} tank{thisWeekTanks.length > 1 ? 's' : ''} need refill this week
-                </p>
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  {thisWeekTanks.filter((t) => t.urgency === 'critical').length} critical,{' '}
-                  {thisWeekTanks.filter((t) => t.urgency === 'warning').length} warning
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Filters */}
+      {/* Filters & View Toggle */}
       <Card>
         <CardContent className="pt-4">
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4 items-center">
             {/* Search */}
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
@@ -263,43 +314,127 @@ export default function FleetRefillCalendar() {
                 Clear Filters
               </Button>
             )}
+
+            {/* View Toggle */}
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)} className="ml-auto">
+              <TabsList>
+                <TabsTrigger value="calendar" className="gap-1">
+                  <LayoutGrid className="h-4 w-4" />
+                  <span className="hidden sm:inline">Calendar</span>
+                </TabsTrigger>
+                <TabsTrigger value="timeline" className="gap-1">
+                  <List className="h-4 w-4" />
+                  <span className="hidden sm:inline">Timeline</span>
+                </TabsTrigger>
+                <TabsTrigger value="customer" className="gap-1">
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">By Customer</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </CardContent>
       </Card>
 
-      {/* Main Content */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Calendar */}
-        <div className="lg:col-span-2">
-          <RefillCalendar
-            predictions={filteredPredictions}
-            showCustomerName={true}
-          />
-        </div>
+      {/* Main Content - View Specific */}
+      {viewMode === 'calendar' && (
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Calendar */}
+          <div className="lg:col-span-2">
+            <RefillCalendar
+              predictions={filteredPredictions}
+              showCustomerName={true}
+            />
+          </div>
 
-        {/* Tank List */}
-        <div>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span>All Tanks</span>
-                <Badge variant="outline">{filteredPredictions.length}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {sortedPredictions.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No tanks match filters</p>
-                ) : (
-                  sortedPredictions.map((tank) => (
-                    <FleetTankRow key={tank.tankId} tank={tank} />
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Tank List with Runway Bars */}
+          <div>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <span>All Tanks</span>
+                  <Badge variant="outline">{filteredPredictions.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  {sortedPredictions.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No tanks match filters</p>
+                  ) : (
+                    sortedPredictions.map((tank) => (
+                      <TankRunwayBar key={tank.tankId} tank={tank} maxDays={30} />
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      )}
+
+      {viewMode === 'timeline' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">30-Day Refill Timeline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {sortedPredictions.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No tanks match filters</p>
+              ) : (
+                sortedPredictions.map((tank) => (
+                  <TankRunwayBar key={tank.tankId} tank={tank} maxDays={30} />
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {viewMode === 'customer' && (
+        <div className="space-y-6">
+          {customerGroups.length === 0 ? (
+            <Card>
+              <CardContent className="py-8">
+                <p className="text-gray-500 text-center">No tanks match filters</p>
+              </CardContent>
+            </Card>
+          ) : (
+            customerGroups.map(([customerName, tanks]) => (
+              <Card key={customerName}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-gray-400" />
+                      {customerName}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {tanks.some((t) => t.urgency === 'critical') && (
+                        <Badge variant="destructive" className="text-xs">
+                          {tanks.filter((t) => t.urgency === 'critical').length} Critical
+                        </Badge>
+                      )}
+                      {tanks.some((t) => t.urgency === 'warning') && (
+                        <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-300">
+                          {tanks.filter((t) => t.urgency === 'warning').length} Warning
+                        </Badge>
+                      )}
+                      <Badge variant="outline">{tanks.length} tanks</Badge>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {tanks.map((tank) => (
+                      <TankRunwayBar key={tank.tankId} tank={tank} maxDays={30} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -350,47 +485,5 @@ function SummaryCard({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function FleetTankRow({ tank }: { tank: RefillPrediction }) {
-  const urgencyColors = {
-    critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200',
-    warning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200',
-    normal: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200',
-    unknown: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200',
-  };
-
-  return (
-    <div
-      className={cn(
-        'p-3 rounded-lg border transition-colors',
-        urgencyColors[tank.urgency]
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            'w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm bg-white dark:bg-gray-900'
-          )}
-        >
-          {tank.currentLevel.toFixed(0)}%
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{tank.tankName}</p>
-          <p className="text-xs opacity-75 truncate">{tank.customerName}</p>
-        </div>
-        <div className="text-right">
-          {tank.daysRemaining !== null ? (
-            <>
-              <p className="text-sm font-medium">{Math.round(tank.daysRemaining)}d</p>
-              <p className="text-xs opacity-75">remaining</p>
-            </>
-          ) : (
-            <p className="text-xs opacity-75">No data</p>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
