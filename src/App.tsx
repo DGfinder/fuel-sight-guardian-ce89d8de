@@ -196,7 +196,17 @@ function ForceRefreshListener() {
           if (currentUser && sessionId) {
             // Send acknowledgment BEFORE reload on dedicated ack channel
             const ackChannel = supabase.channel('force-refresh-ack');
-            await ackChannel.subscribe();
+
+            // Wait for subscription before sending
+            await new Promise<void>((resolve) => {
+              ackChannel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                  resolve();
+                }
+              });
+              // Fallback timeout
+              setTimeout(resolve, 1000);
+            });
 
             await ackChannel.send({
               type: 'broadcast',
@@ -238,7 +248,9 @@ function ForceRefreshListener() {
         // Force hard reload (bypass cache)
         window.location.reload();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[FORCE REFRESH] Listener subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);

@@ -385,15 +385,20 @@ async function syncCustomer(
     (existingTanks || []).forEach(t => existingTankMap.set(t.external_guid, t.id));
 
     // Reuse existing IDs for locations (maintains referential integrity)
+    // Also track old->new ID mapping for tank location_id updates
+    const locationIdMap = new Map<string, string>(); // original_id -> stable_id
     for (const loc of locations) {
+      const originalId = loc.id;
       const existingId = existingLocationMap.get(loc.external_guid);
       if (existingId) {
         loc.id = existingId;
         delete loc.created_at; // Don't overwrite created_at on update
       }
+      locationIdMap.set(originalId, loc.id);
     }
 
     // Reuse existing IDs for tanks (critical for readings history)
+    // Also update tank.location_id to use stable location IDs
     const tankIdMap = new Map<string, string>(); // new_id -> stable_id
     for (const tank of tanks) {
       const existingId = existingTankMap.get(tank.external_guid);
@@ -403,6 +408,12 @@ async function syncCustomer(
         delete tank.created_at;
       }
       tankIdMap.set(originalId, tank.id);
+
+      // CRITICAL: Update location_id to use the stable location ID
+      const stableLocationId = locationIdMap.get(tank.location_id);
+      if (stableLocationId) {
+        tank.location_id = stableLocationId;
+      }
     }
 
     // Update reading tank_ids to use stable IDs

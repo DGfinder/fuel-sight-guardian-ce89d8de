@@ -880,7 +880,25 @@ function Settings() {
 
                               try {
                                 const channel = supabase.channel('force-refresh');
-                                await channel.subscribe();
+
+                                // Wait for actual WebSocket subscription before sending
+                                await new Promise<void>((resolve, reject) => {
+                                  const timeout = setTimeout(() => {
+                                    reject(new Error('Subscription timeout'));
+                                  }, 5000);
+
+                                  channel.subscribe((status) => {
+                                    if (status === 'SUBSCRIBED') {
+                                      clearTimeout(timeout);
+                                      resolve();
+                                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                                      clearTimeout(timeout);
+                                      reject(new Error(`Subscription failed: ${status}`));
+                                    }
+                                  });
+                                });
+
+                                // Send via WebSocket (not REST fallback)
                                 await channel.send({
                                   type: 'broadcast',
                                   event: 'refresh',
@@ -890,7 +908,11 @@ function Settings() {
                                     triggeredBy: user?.email
                                   }
                                 });
+
+                                // Small delay to ensure message delivery before cleanup
+                                await new Promise(resolve => setTimeout(resolve, 200));
                                 await supabase.removeChannel(channel);
+
                                 toast({
                                   title: 'Refresh Broadcast Sent',
                                   description: 'Monitoring for user acknowledgments...',
