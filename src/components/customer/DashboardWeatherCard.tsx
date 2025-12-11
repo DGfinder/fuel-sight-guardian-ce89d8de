@@ -142,8 +142,10 @@ export function DashboardWeatherCard({
   };
 
   // Next 7 days for mini forecast
+  // Note: Append T12:00:00 to parse date as local noon, avoiding UTC midnight timezone issues
+  // (new Date("2025-12-11") parses as UTC midnight = previous day in Perth)
   const next7Days = (weather.daily.time || []).slice(0, 7).map((date, i) => ({
-    date: new Date(date),
+    date: new Date(`${date}T12:00:00`),
     tempMax: weather.daily.temperature_2m_max?.[i] ?? 0,
     tempMin: weather.daily.temperature_2m_min?.[i] ?? 0,
     rain: weather.daily.rain_sum?.[i] ?? 0,
