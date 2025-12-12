@@ -67,6 +67,9 @@ const FleetRefillCalendar = lazy(() => import('@/pages/admin/FleetRefillCalendar
 const CustomerAccountManagement = lazy(() => import('@/pages/admin/CustomerAccountManagement'));
 const FuelManagement = lazy(() => import('@/pages/admin/FuelManagement'));
 
+// Group Pages
+const GroupRefillSchedule = lazy(() => import('@/pages/groups/GroupRefillSchedule'));
+
 // Customer Portal Layout
 import { CustomerPortalLayout } from '@/components/customer/CustomerPortalLayout';
 
@@ -513,8 +516,8 @@ function AppContent() {
                       </RouteErrorBoundary>
                     </ProtectedRoute>
                   } />
-                  <Route 
-                    path="/groups/:groupName/dip-history" 
+                  <Route
+                    path="/groups/:groupName/dip-history"
                     element={
                       <ProtectedRoute>
                         <RouteErrorBoundary routeName="Dip History" showHomeButton={true}>
@@ -523,7 +526,27 @@ function AppContent() {
                           </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>
-                    } 
+                    }
+                  />
+                  <Route
+                    path="/groups/swan-transit/refill-schedule"
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="Swan Transit Refill Schedule" showHomeButton={true}>
+                          <GroupRefillSchedule groupName="Swan Transit" />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/groups/bgc/refill-schedule"
+                    element={
+                      <ProtectedRoute>
+                        <RouteErrorBoundary routeName="BGC Refill Schedule" showHomeButton={true}>
+                          <GroupRefillSchedule groupName="BGC" />
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
                   />
                   <Route
                     path="/agbot"

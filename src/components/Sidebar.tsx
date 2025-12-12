@@ -55,14 +55,15 @@ const ALL_NAV_ITEMS = [
     ]
   },
   { path: '/smartfill', label: 'SmartFill', icon: Database, badge: null, group: null },
-  { 
-    path: '/swan-transit', 
-    label: 'Swan Transit', 
-    icon: BusIcon, 
-    badge: null, 
+  {
+    path: '/swan-transit',
+    label: 'Swan Transit',
+    icon: BusIcon,
+    badge: null,
     group: 'Swan Transit',
     children: [
-      { path: '/groups/swan-transit/dip-history', label: 'Dip History', icon: History }
+      { path: '/groups/swan-transit/dip-history', label: 'Dip History', icon: History },
+      { path: '/groups/swan-transit/refill-schedule', label: 'Refill Schedule', icon: Calendar }
     ]
   },
   { 
@@ -112,7 +113,8 @@ const ALL_NAV_ITEMS = [
     badge: null,
     group: 'BGC',
     children: [
-      { path: '/groups/bgc/dip-history', label: 'Dip History', icon: History }
+      { path: '/groups/bgc/dip-history', label: 'Dip History', icon: History },
+      { path: '/groups/bgc/refill-schedule', label: 'Refill Schedule', icon: Calendar }
     ]
   },
   { path: '/settings/customers', label: 'Customer Portal', icon: Users, badge: null, group: null, adminOnly: true },
