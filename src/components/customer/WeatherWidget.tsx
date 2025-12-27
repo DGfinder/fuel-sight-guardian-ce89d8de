@@ -34,8 +34,10 @@ export function WeatherWidget({ lat, lng, locationName }: WeatherWidgetProps) {
   }
 
   // Next 7 days summary
+  // Note: Append T12:00:00 to parse date as local noon, avoiding UTC midnight timezone issues
+  // (new Date("2025-12-11") parses as UTC midnight = previous day in Perth)
   const next7Days = weather.daily.time.slice(0, 7).map((date, i) => ({
-    date: new Date(date),
+    date: new Date(`${date}T12:00:00`),
     tempMax: weather.daily.temperature_2m_max[i],
     tempMin: weather.daily.temperature_2m_min[i],
     rain: weather.daily.rain_sum[i],

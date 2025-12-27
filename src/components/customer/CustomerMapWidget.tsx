@@ -212,8 +212,9 @@ function TankPopupContent({ tank, weather }: { tank: CustomerTank; weather: any 
   const todayRain = weather?.daily?.rain_sum?.[0] ?? 0;
 
   // 7-day forecast mini
+  // Note: Append T12:00:00 to parse date as local noon, avoiding UTC midnight timezone issues
   const next7Days = weather?.daily?.time?.slice(0, 7).map((date: string, i: number) => ({
-    day: i === 0 ? 'T' : format(new Date(date), 'EEEEE'),
+    day: i === 0 ? 'T' : format(new Date(`${date}T12:00:00`), 'EEEEE'),
     rain: weather.daily.rain_sum[i] ?? 0,
   })) ?? [];
 

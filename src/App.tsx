@@ -66,6 +66,7 @@ const CustomerRecordDip = lazy(() => import('@/pages/customer/CustomerRecordDip'
 const FleetRefillCalendar = lazy(() => import('@/pages/admin/FleetRefillCalendar'));
 const CustomerAccountManagement = lazy(() => import('@/pages/admin/CustomerAccountManagement'));
 const FuelManagement = lazy(() => import('@/pages/admin/FuelManagement'));
+const ActivityDashboard = lazy(() => import('@/pages/admin/ActivityDashboard'));
 
 // Group Pages
 const GroupRefillSchedule = lazy(() => import('@/pages/groups/GroupRefillSchedule'));
@@ -751,6 +752,20 @@ function AppContent() {
                         <RouteErrorBoundary routeName="Fuel Management" showHomeButton={true}>
                           <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
                             <FuelManagement />
+                          </AppLayout>
+                        </RouteErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Activity Log Admin */}
+                  <Route
+                    path="/admin/activity"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <RouteErrorBoundary routeName="Activity Log" showHomeButton={true}>
+                          <AppLayout selectedGroup={selectedGroup} onGroupSelect={setSelectedGroup}>
+                            <ActivityDashboard />
                           </AppLayout>
                         </RouteErrorBoundary>
                       </ProtectedRoute>

@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useCustomerAccount, useCustomerPortalSummary, useCustomerTanks } from '@/hooks/useCustomerAuth';
 import { useHazardReportContext } from '@/contexts/HazardReportContext';
 import { CustomerLogo } from './CustomerLogo';
+import { logLogout } from '@/lib/activityLogger';
 import {
   LayoutDashboard,
   Fuel,
@@ -99,6 +100,8 @@ export function CustomerSidebar({ isMobile, open, onClose }: CustomerSidebarProp
   }, [hasTelemetry]);
 
   const handleSignOut = async () => {
+    // Log logout to activity log before signing out
+    await logLogout().catch(console.error);
     await supabase.auth.signOut();
     window.location.replace('/login');
   };

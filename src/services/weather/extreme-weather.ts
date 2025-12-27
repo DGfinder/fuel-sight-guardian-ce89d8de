@@ -114,7 +114,7 @@ export class ExtremeWeatherDetector {
 
     for (let i = 0; i < daily.temperature_2m_max.length; i++) {
       const maxTemp = daily.temperature_2m_max[i];
-      const date = new Date(daily.time[i]);
+      const date = new Date(`${daily.time[i]}T12:00:00`); // Append T12:00:00 to avoid UTC midnight timezone issues
 
       // Only trigger heat events at 45°C+ (was 35°C - too sensitive for mining)
       if (maxTemp >= thresholds.extremeHeat) {
@@ -210,7 +210,7 @@ export class ExtremeWeatherDetector {
     for (let i = 0; i < daily.windspeed_10m_max.length; i++) {
       const windSpeed = daily.windspeed_10m_max[i];
       const rain = daily.rain_sum[i] || 0;
-      const date = new Date(daily.time[i]);
+      const date = new Date(`${daily.time[i]}T12:00:00`); // Append T12:00:00 to avoid UTC midnight timezone issues
 
       if (windSpeed >= thresholds.cycloneWind) {
         const severity: WeatherSeverity = windSpeed >= 120 ? 'alert' : 'warning';
@@ -255,7 +255,7 @@ export class ExtremeWeatherDetector {
     for (let i = 0; i < daily.windspeed_10m_max.length; i++) {
       const windSpeed = daily.windspeed_10m_max[i];
       const rain = daily.rain_sum[i] || 0;
-      const date = new Date(daily.time[i]);
+      const date = new Date(`${daily.time[i]}T12:00:00`); // Append T12:00:00 to avoid UTC midnight timezone issues
 
       // Storm: high wind + rain, but not cyclone level
       if (windSpeed >= thresholds.stormWind && windSpeed < thresholds.cycloneWind && rain >= 10) {
@@ -316,7 +316,7 @@ export class ExtremeWeatherDetector {
     // Check 24h rainfall
     for (let i = 0; i < daily.rain_sum.length; i++) {
       const rain = daily.rain_sum[i] || 0;
-      const date = new Date(daily.time[i]);
+      const date = new Date(`${daily.time[i]}T12:00:00`); // Append T12:00:00 to avoid UTC midnight timezone issues
 
       // Only show rain alerts if:
       // 1. This is a region that cares (Kalgoorlie, Pilbara), OR
