@@ -758,12 +758,46 @@ export async function testSmartFillAPIConnection(
 }
 
 // Get all SmartFill locations with tanks
+// Uses ta_smartfill_* tables (new schema) and transforms to legacy field names for UI compatibility
 export async function getSmartFillLocations(): Promise<SmartFillLocation[]> {
   const { data, error } = await supabase
-    .from('smartfill_locations')
+    .from('ta_smartfill_locations')
     .select(`
-      *,
-      tanks:smartfill_tanks(*)
+      id,
+      external_guid,
+      unit_number,
+      name,
+      description,
+      timezone,
+      latitude,
+      longitude,
+      total_capacity,
+      avg_fill_percent,
+      latest_status,
+      latest_update_at,
+      created_at,
+      updated_at,
+      customer:ta_smartfill_customers(id, customer_name, external_guid),
+      tanks:ta_smartfill_tanks(
+        id,
+        location_id,
+        external_guid,
+        customer_id,
+        unit_number,
+        tank_number,
+        name,
+        description,
+        capacity,
+        safe_fill_level,
+        current_volume,
+        current_volume_percent,
+        current_status,
+        last_reading_at,
+        avg_daily_consumption,
+        days_remaining,
+        created_at,
+        updated_at
+      )
     `)
     .order('unit_number');
 
@@ -772,18 +806,56 @@ export async function getSmartFillLocations(): Promise<SmartFillLocation[]> {
     throw error;
   }
 
-  return data || [];
+  // Transform new schema fields to legacy field names for UI compatibility
+  return (data || []).map((loc: any) => ({
+    id: loc.id,
+    location_guid: loc.external_guid,
+    customer_name: loc.customer?.customer_name || loc.name || 'Unknown',
+    customer_guid: loc.customer?.external_guid || '',
+    customer_id: loc.customer?.id || 0,
+    unit_number: loc.unit_number,
+    description: loc.description || loc.name,
+    timezone: loc.timezone || 'Australia/Perth',
+    latitude: loc.latitude,
+    longitude: loc.longitude,
+    latest_volume: loc.total_capacity ? Math.round((loc.avg_fill_percent / 100) * loc.total_capacity) : 0,
+    latest_volume_percent: loc.avg_fill_percent || 0,
+    latest_status: loc.latest_status || 'Unknown',
+    latest_update_time: loc.latest_update_at,
+    created_at: loc.created_at,
+    updated_at: loc.updated_at,
+    tanks: (loc.tanks || []).map((tank: any) => ({
+      id: tank.id,
+      location_id: tank.location_id,
+      tank_guid: tank.external_guid,
+      customer_id: tank.customer_id,
+      unit_number: tank.unit_number,
+      tank_number: tank.tank_number,
+      description: tank.description || tank.name,
+      capacity: tank.capacity,
+      safe_fill_level: tank.safe_fill_level,
+      latest_volume: tank.current_volume,
+      latest_volume_percent: tank.current_volume_percent,
+      latest_status: tank.current_status,
+      latest_update_time: tank.last_reading_at,
+      avg_daily_consumption: tank.avg_daily_consumption,
+      days_remaining: tank.days_remaining,
+      created_at: tank.created_at,
+      updated_at: tank.updated_at,
+    })),
+  }));
 }
 
 // Get recent sync logs with caching
+// Uses ta_smartfill_sync_logs table (new schema)
 export async function getSmartFillSyncLogs(limit: number = 10) {
   const cacheKey = `${CACHE_KEYS.SMARTFILL_SYNC}logs_${limit}`;
-  
+
   return await cacheApiResponse(
     cacheKey,
     async () => {
       const { data, error } = await supabase
-        .from('smartfill_sync_logs')
+        .from('ta_smartfill_sync_logs')
         .select('*')
         .order('started_at', { ascending: false })
         .limit(limit);
