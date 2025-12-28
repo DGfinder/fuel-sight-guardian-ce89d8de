@@ -29,6 +29,7 @@ import {
   useSmartFillSyncLogs,
   useSmartFillActiveAlerts,
   useSmartFillManualSync,
+  useSyncHealthStatus,
   formatSmartFillRelativeTime,
 } from '@/hooks/useSmartFillAnalytics';
 
@@ -45,6 +46,7 @@ export function SmartFillDashboard({
   const { data: syncLogs } = useSmartFillSyncLogs(5);
   const { data: alerts } = useSmartFillActiveAlerts();
   const syncMutation = useSmartFillManualSync();
+  const syncHealth = useSyncHealthStatus();
 
   const lastSync = syncLogs?.[0];
   const criticalAlerts = alerts?.filter(a => a.severity === 'critical') || [];
@@ -80,6 +82,108 @@ export function SmartFillDashboard({
           {syncMutation.isPending ? 'Syncing...' : 'Sync Now'}
         </Button>
       </motion.div>
+
+      {/* Sync Health Status Banner */}
+      {syncHealth.level !== 'healthy' && (
+        <motion.div variants={fadeUpItemVariants}>
+          <div
+            className={`p-4 rounded-lg border-l-4 flex items-center justify-between ${
+              syncHealth.level === 'critical'
+                ? 'bg-red-50 border-red-500'
+                : syncHealth.level === 'warning'
+                  ? 'bg-yellow-50 border-yellow-500'
+                  : 'bg-gray-50 border-gray-400'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2 rounded-full ${
+                  syncHealth.level === 'critical'
+                    ? 'bg-red-100'
+                    : syncHealth.level === 'warning'
+                      ? 'bg-yellow-100'
+                      : 'bg-gray-100'
+                }`}
+              >
+                <AlertTriangle
+                  className={`w-5 h-5 ${
+                    syncHealth.level === 'critical'
+                      ? 'text-red-600'
+                      : syncHealth.level === 'warning'
+                        ? 'text-yellow-600'
+                        : 'text-gray-600'
+                  }`}
+                />
+              </div>
+              <div>
+                <p
+                  className={`font-medium ${
+                    syncHealth.level === 'critical'
+                      ? 'text-red-800'
+                      : syncHealth.level === 'warning'
+                        ? 'text-yellow-800'
+                        : 'text-gray-800'
+                  }`}
+                >
+                  {syncHealth.level === 'critical'
+                    ? 'Sync Not Running'
+                    : syncHealth.level === 'warning'
+                      ? 'Sync Delayed'
+                      : 'Sync Status Unknown'}
+                </p>
+                <p
+                  className={`text-sm ${
+                    syncHealth.level === 'critical'
+                      ? 'text-red-600'
+                      : syncHealth.level === 'warning'
+                        ? 'text-yellow-600'
+                        : 'text-gray-600'
+                  }`}
+                >
+                  {syncHealth.message}
+                  {syncHealth.hoursSinceSync !== null && syncHealth.hoursSinceSync > 24 && (
+                    <span className="ml-1">
+                      ({Math.floor(syncHealth.hoursSinceSync / 24)} days ago)
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              variant={syncHealth.level === 'critical' ? 'destructive' : 'outline'}
+              size="sm"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              {syncMutation.isPending ? 'Syncing...' : 'Sync Now'}
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Sync Health Status Card (when healthy) */}
+      {syncHealth.level === 'healthy' && (
+        <motion.div variants={fadeUpItemVariants}>
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="text-sm font-medium text-green-800">Sync Active</p>
+                <p className="text-xs text-green-600">
+                  {syncHealth.message}
+                  {syncHealth.lastSyncReadingsStored !== undefined && syncHealth.lastSyncReadingsStored > 0 && (
+                    <span className="ml-1">• {syncHealth.lastSyncReadingsStored} readings stored</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+              {syncHealth.lastSyncCustomersSuccess}/{(syncHealth.lastSyncCustomersSuccess || 0) + (syncHealth.lastSyncCustomersFailed || 0)} customers
+            </Badge>
+          </div>
+        </motion.div>
+      )}
 
       {/* KPI Cards Grid */}
       <motion.div

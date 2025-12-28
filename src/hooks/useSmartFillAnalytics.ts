@@ -680,6 +680,88 @@ export function getSmartFillHealthColor(status: string): string {
 }
 
 // ============================================================================
+// Sync Health Status Hook
+// ============================================================================
+
+export type SyncHealthLevel = 'healthy' | 'warning' | 'critical' | 'unknown';
+
+export interface SyncHealthStatus {
+  level: SyncHealthLevel;
+  lastSyncAt: string | null;
+  hoursSinceSync: number | null;
+  message: string;
+  isStale: boolean;
+}
+
+export function useSyncHealthStatus() {
+  const { data: syncLogs, isLoading } = useSmartFillSyncLogs(1);
+
+  const getHealthStatus = (): SyncHealthStatus => {
+    if (!syncLogs || syncLogs.length === 0) {
+      return {
+        level: 'unknown',
+        lastSyncAt: null,
+        hoursSinceSync: null,
+        message: 'No sync history available',
+        isStale: true,
+      };
+    }
+
+    const lastSync = syncLogs[0];
+    const lastSyncTime = lastSync.completed_at || lastSync.started_at;
+
+    if (!lastSyncTime) {
+      return {
+        level: 'unknown',
+        lastSyncAt: null,
+        hoursSinceSync: null,
+        message: 'No sync timestamp available',
+        isStale: true,
+      };
+    }
+
+    const now = new Date();
+    const syncDate = new Date(lastSyncTime);
+    const hoursSince = (now.getTime() - syncDate.getTime()) / (1000 * 60 * 60);
+
+    if (hoursSince <= 2) {
+      return {
+        level: 'healthy',
+        lastSyncAt: lastSyncTime,
+        hoursSinceSync: hoursSince,
+        message: `Synced ${formatSmartFillRelativeTime(lastSyncTime)}`,
+        isStale: false,
+      };
+    } else if (hoursSince <= 6) {
+      return {
+        level: 'warning',
+        lastSyncAt: lastSyncTime,
+        hoursSinceSync: hoursSince,
+        message: `Last sync ${formatSmartFillRelativeTime(lastSyncTime)} - sync may be delayed`,
+        isStale: false,
+      };
+    } else {
+      return {
+        level: 'critical',
+        lastSyncAt: lastSyncTime,
+        hoursSinceSync: hoursSince,
+        message: `Sync stale - last synced ${formatSmartFillRelativeTime(lastSyncTime)}`,
+        isStale: true,
+      };
+    }
+  };
+
+  return {
+    ...getHealthStatus(),
+    isLoading,
+    lastSyncStatus: syncLogs?.[0]?.sync_status,
+    lastSyncCustomersSuccess: syncLogs?.[0]?.customers_success,
+    lastSyncCustomersFailed: syncLogs?.[0]?.customers_failed,
+    lastSyncReadingsStored: syncLogs?.[0]?.readings_stored,
+  };
+}
+
+// ============================================================================
 // Helper: Format relative time
 // ============================================================================
 

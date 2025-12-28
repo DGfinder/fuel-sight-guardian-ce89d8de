@@ -440,54 +440,74 @@ async function syncCustomer(
       if (tankError) throw new Error(`Tank upsert error: ${tankError.message}`);
     }
 
-    // Append readings with deduplication
-    // Only insert readings that don't already exist (based on tank_id + reading_at)
+    // Append readings with deduplication using upsert
+    // Uses ON CONFLICT DO NOTHING to prevent duplicates at database level
     let newReadingsCount = 0;
+    const tanksWithNewReadings: string[] = [];
+
     if (readings.length > 0) {
-      // Get the reading timestamps we're about to insert
-      const readingTimestamps = readings.map(r => r.reading_at);
-      const readingTankIds = Array.from(new Set(readings.map(r => r.tank_id)));
-
-      // Check for existing readings with same tank_id and reading_at
-      const { data: existingReadings } = await supabase
+      // Use upsert with onConflict to handle duplicates at database level
+      // This is more reliable than application-level deduplication
+      const { data: insertedReadings, error: readError } = await supabase
         .from('ta_smartfill_readings')
-        .select('tank_id, reading_at')
-        .in('tank_id', readingTankIds)
-        .in('reading_at', readingTimestamps);
+        .upsert(readings, {
+          onConflict: 'tank_id,reading_at',
+          ignoreDuplicates: true
+        })
+        .select('tank_id');
 
-      // Build a set of existing reading keys for fast lookup
-      const existingReadingKeys = new Set(
-        (existingReadings || []).map(r => `${r.tank_id}|${r.reading_at}`)
-      );
-
-      // Filter out duplicate readings
-      const newReadings = readings.filter(r => {
-        const key = `${r.tank_id}|${r.reading_at}`;
-        return !existingReadingKeys.has(key);
-      });
-
-      newReadingsCount = newReadings.length;
-
-      if (newReadings.length > 0) {
-        const { error: readError } = await supabase
+      if (readError) {
+        // If upsert fails (e.g., no unique constraint), fall back to insert
+        // and let the database reject duplicates
+        console.warn(`[SMARTFILL CRON] Upsert failed, trying insert: ${readError.message}`);
+        const { error: insertError } = await supabase
           .from('ta_smartfill_readings')
-          .insert(newReadings);
-        if (readError) throw new Error(`Reading insert error: ${readError.message}`);
+          .insert(readings);
+        if (insertError && !insertError.message.includes('duplicate')) {
+          throw new Error(`Reading insert error: ${insertError.message}`);
+        }
+        // Estimate new readings (can't know exact count with fallback)
+        newReadingsCount = readings.length;
+        tanksWithNewReadings.push(...readings.map(r => r.tank_id));
+      } else {
+        // Count actually inserted readings
+        newReadingsCount = insertedReadings?.length || 0;
+        if (insertedReadings) {
+          tanksWithNewReadings.push(...insertedReadings.map(r => r.tank_id));
+        }
       }
     }
 
-    // Calculate consumption for all tanks (non-blocking, errors logged but don't fail sync)
+    // Calculate consumption only for tanks with new readings (optimization)
     try {
-      if (tanks.length > 0) {
+      const uniqueTanksWithNewReadings = [...new Set(tanksWithNewReadings)];
+      if (uniqueTanksWithNewReadings.length > 0) {
         const consumptionService = new SmartFillConsumptionService(supabase);
-        const tankIds = tanks.map(t => t.id);
-        const consumptionResult = await consumptionService.calculateAndUpdateTanks(tankIds);
+        const consumptionResult = await consumptionService.calculateAndUpdateTanks(uniqueTanksWithNewReadings);
         if (consumptionResult.updated > 0) {
-          console.log(`[SMARTFILL CRON] 📈 ${customer.name}: Consumption calculated for ${consumptionResult.updated}/${tanks.length} tanks`);
+          console.log(`[SMARTFILL CRON] 📈 ${customer.name}: Consumption calculated for ${consumptionResult.updated}/${uniqueTanksWithNewReadings.length} tanks`);
         }
       }
     } catch (consumptionError) {
       console.warn(`[SMARTFILL CRON] ⚠️ ${customer.name}: Consumption calculation failed: ${(consumptionError as Error).message}`);
+    }
+
+    // Flag inactive tanks (sensors with readings older than 30 days)
+    const INACTIVE_THRESHOLD_DAYS = 30;
+    const inactiveTanks = tanks.filter(t => {
+      if (!t.last_reading_at) return true;
+      const readingDate = new Date(t.last_reading_at);
+      const daysSinceReading = (Date.now() - readingDate.getTime()) / (1000 * 60 * 60 * 24);
+      return daysSinceReading > INACTIVE_THRESHOLD_DAYS;
+    });
+
+    if (inactiveTanks.length > 0) {
+      const inactiveIds = inactiveTanks.map(t => t.id);
+      await supabase
+        .from('ta_smartfill_tanks')
+        .update({ is_monitored: false })
+        .in('id', inactiveIds);
+      console.log(`[SMARTFILL CRON] ⚠️ ${customer.name}: ${inactiveTanks.length} tanks marked inactive (no readings in ${INACTIVE_THRESHOLD_DAYS}+ days)`);
     }
 
     // Update customer sync status
@@ -573,15 +593,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Create sync log entry
+    // Create sync log entry with error handling
     const syncLogId = crypto.randomUUID();
-    await supabase.from('ta_smartfill_sync_logs').insert({
+    const { error: syncLogInsertError } = await supabase.from('ta_smartfill_sync_logs').insert({
       id: syncLogId,
       sync_type: 'scheduled',
       trigger_source: isVercelCron ? 'cron' : 'api',
       sync_status: 'running',
       started_at: new Date().toISOString(),
     });
+
+    if (syncLogInsertError) {
+      console.error(`[SMARTFILL CRON] Failed to create sync log: ${syncLogInsertError.message}`);
+      // Continue anyway - sync log is not critical for data sync
+    } else {
+      console.log(`[SMARTFILL CRON] Sync log created: ${syncLogId}`);
+    }
 
     // Get active customers ordered by priority
     const { data: customers, error: customerError } = await supabase
@@ -672,8 +699,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? 'partial'
         : 'failed';
 
-    // Update sync log
-    await supabase
+    // Update sync log with error handling
+    const { error: syncLogUpdateError } = await supabase
       .from('ta_smartfill_sync_logs')
       .update({
         sync_status: syncStatus,
@@ -691,6 +718,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : null,
       })
       .eq('id', syncLogId);
+
+    if (syncLogUpdateError) {
+      console.error(`[SMARTFILL CRON] Failed to update sync log: ${syncLogUpdateError.message}`);
+    } else {
+      console.log(`[SMARTFILL CRON] Sync log updated: ${syncLogId}`);
+    }
 
     // Log summary
     console.log('\n[SMARTFILL CRON] SYNC SUMMARY');
