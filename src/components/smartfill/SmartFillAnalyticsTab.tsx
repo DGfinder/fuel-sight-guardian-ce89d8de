@@ -46,6 +46,7 @@ import {
   useSmartFillFleetOverview,
   useSmartFillCustomerSummaries,
 } from '@/hooks/useSmartFillAnalytics';
+import { SmartFillSyncHistory } from './SmartFillSyncHistory';
 
 const CHART_COLORS = {
   healthy: '#22c55e',
@@ -379,6 +380,9 @@ export function SmartFillAnalyticsTab() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Sync History */}
+      <SmartFillSyncHistory limit={15} />
     </motion.div>
   );
 }

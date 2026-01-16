@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import logo from '@/assets/logo.png';
 import { useQueryClient } from '@tanstack/react-query';
 import TruckHeroSection from '@/components/TruckHeroSection';
+import { logLogin, logPasswordResetRequest } from '@/lib/activityLogger';
 
 // shadcn UI components
 import { Input } from '@/components/ui/input';
@@ -64,8 +65,10 @@ export default function Login() {
 
   // Auth state listener
   useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        // Log successful login to activity log
+        await logLogin(session.user.email).catch(console.error);
         queryClient.invalidateQueries();
         navigate('/', { replace: true });
       }
@@ -75,22 +78,49 @@ export default function Login() {
     };
   }, [navigate, queryClient]);
 
-  // Sign in handler
+  // Sign in handler with rate limiting
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setError(null);
 
     try {
+      // Check rate limit before attempting login
+      const { data: rateLimitData, error: rateLimitError } = await supabase.rpc(
+        'check_login_rate_limit',
+        { p_email: data.email }
+      );
+
+      if (rateLimitError) {
+        console.error('Rate limit check error:', rateLimitError);
+        // Continue with login attempt if rate limit check fails
+      } else if (rateLimitData && rateLimitData.length > 0 && rateLimitData[0].is_limited) {
+        const retryAfter = rateLimitData[0].retry_after_seconds;
+        const minutes = Math.ceil(retryAfter / 60);
+        setError(`Too many failed attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`);
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       });
 
       if (error) {
-        setError(error.message);
+        // Record the failed attempt
+        await supabase.rpc('record_failed_login', {
+          p_email: data.email,
+          p_ip_address: null, // IP not available client-side
+          p_user_agent: navigator.userAgent
+        }).catch(err => console.error('Failed to record login attempt:', err));
+
+        // Use generic error message to prevent account enumeration
+        console.error('Login error:', error.message);
+        setError('Invalid email or password. Please try again.');
         setIsLoading(false);
       }
       // Success is handled by onAuthStateChange listener
+      // Note: We could clear failed attempts here, but it's optional since they expire
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
@@ -116,6 +146,8 @@ export default function Login() {
         setResetStatus('error');
         setResetError(error.message);
       } else {
+        // Log password reset request
+        await logPasswordResetRequest(resetEmail).catch(console.error);
         setResetStatus('success');
       }
     } catch (err) {

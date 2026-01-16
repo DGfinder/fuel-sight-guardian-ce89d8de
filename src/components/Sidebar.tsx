@@ -38,6 +38,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getActiveAlertsCount } from '@/lib/alertService';
 import { Skeleton } from "@/components/ui/skeleton";
 import { logger } from '@/lib/logger';
+import { logLogout } from '@/lib/activityLogger';
 
 const ALL_NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: HomeIcon, badge: null, group: null },
@@ -55,14 +56,15 @@ const ALL_NAV_ITEMS = [
     ]
   },
   { path: '/smartfill', label: 'SmartFill', icon: Database, badge: null, group: null },
-  { 
-    path: '/swan-transit', 
-    label: 'Swan Transit', 
-    icon: BusIcon, 
-    badge: null, 
+  {
+    path: '/swan-transit',
+    label: 'Swan Transit',
+    icon: BusIcon,
+    badge: null,
     group: 'Swan Transit',
     children: [
-      { path: '/groups/swan-transit/dip-history', label: 'Dip History', icon: History }
+      { path: '/groups/swan-transit/dip-history', label: 'Dip History', icon: History },
+      { path: '/groups/swan-transit/refill-schedule', label: 'Refill Schedule', icon: Calendar }
     ]
   },
   { 
@@ -112,11 +114,13 @@ const ALL_NAV_ITEMS = [
     badge: null,
     group: 'BGC',
     children: [
-      { path: '/groups/bgc/dip-history', label: 'Dip History', icon: History }
+      { path: '/groups/bgc/dip-history', label: 'Dip History', icon: History },
+      { path: '/groups/bgc/refill-schedule', label: 'Refill Schedule', icon: Calendar }
     ]
   },
   { path: '/settings/customers', label: 'Customer Portal', icon: Users, badge: null, group: null, adminOnly: true },
-  { path: '/admin/fuel-management', label: 'Fuel Admin', icon: Wrench, badge: null, group: null, adminOnly: true }
+  { path: '/admin/fuel-management', label: 'Fuel Admin', icon: Wrench, badge: null, group: null, adminOnly: true },
+  { path: '/admin/activity', label: 'Activity Log', icon: History, badge: null, group: null, adminOnly: true }
 ];
 
 const SidebarSkeleton = () => (
@@ -313,6 +317,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleLogout = async () => {
     try {
       logger.debug('[AUTH] Starting logout process...');
+
+      // Step 0: Log logout to activity log (do this first while we still have auth)
+      await logLogout().catch(err => logger.debug('[AUTH] Activity log failed:', err));
 
       // Step 1: Clear React Query cache first to prevent stale data
       queryClient.clear();

@@ -54,17 +54,29 @@ export default function SubgroupChartSection({ tanks, onSubgroupChange }: Subgro
         t.current_level_percent !== null && t.current_level_percent !== undefined
       );
 
+      // Warning: 15-30% (matches yellow bars in TankBarChart)
       const lowFuelCount = tanksWithLevels.filter(t =>
-        t.current_level_percent! < 20 && t.current_level_percent! > 0
+        t.current_level_percent! >= 15 && t.current_level_percent! <= 30
       ).length;
 
+      // Critical: < 15% (matches red bars in TankBarChart)
       const criticalCount = tanksWithLevels.filter(t =>
-        t.current_level_percent === 0
+        t.current_level_percent! < 15
       ).length;
 
       const avgFuelLevel = tanksWithLevels.length > 0
-        ? tanksWithLevels.reduce((sum, t) => sum + (t.current_level_percent || 0), 0) / tanksWithLevels.length
+        ? tanksWithLevels.reduce((sum, t) => {
+            const level = Number(t.current_level_percent) || 0;
+            return sum + level;
+          }, 0) / tanksWithLevels.length
         : 0;
+
+      // Debug logging for Avg calculation
+      console.log(`[SubgroupChartSection] ${name} avg calc:`, {
+        tanksWithLevels: tanksWithLevels.length,
+        levels: tanksWithLevels.map(t => t.current_level_percent),
+        calculated: Math.round(avgFuelLevel)
+      });
 
       return {
         name,
