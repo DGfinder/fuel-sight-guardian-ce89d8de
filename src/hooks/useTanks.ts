@@ -216,7 +216,7 @@ export const useTanks = () => {
       // Step 4: Combine tank data with latest readings
       const tankData = baseData?.map(tank => {
         const latest = latestByTank.get(tank.id);
-        const currentLevel = latest?.value ?? null; // Use null instead of 0 for missing readings
+        const currentLevel = latest?.level_liters ?? null; // Use null instead of 0 for missing readings
         const safeLevel = tank.safe_level || 0;
         const minLevel = tank.min_level || 0;
 
@@ -244,9 +244,9 @@ export const useTanks = () => {
 
           // Structured last_dip object
           last_dip: latest ? {
-            value: latest.value,
+            value: latest.level_liters,
             created_at: latest.created_at,
-            recorded_by: latest.recorded_by || 'Unknown'
+            recorded_by: latest.measured_by || 'Unknown'
           } : null,
 
           // Analytics placeholders (calculated below)
@@ -301,7 +301,7 @@ export const useTanks = () => {
         for (let i = 1; i < dailyReadings.length; i++) {
           const prevDay = dailyReadings[i - 1];
           const currDay = dailyReadings[i];
-          const levelChange = prevDay.value - currDay.value;
+          const levelChange = prevDay.level_liters - currDay.level_liters;
 
           if (levelChange > 0) {
             // Level dropped = consumption
@@ -322,7 +322,7 @@ export const useTanks = () => {
         if (allTankReadings.length >= 2) {
           const latestReading = allTankReadings[allTankReadings.length - 1];
           const previousReading = allTankReadings[allTankReadings.length - 2];
-          const rawDifference = latestReading.value - previousReading.value;
+          const rawDifference = latestReading.level_liters - previousReading.level_liters;
 
           // Business logic: Detect if this is likely a refill
           // If the increase is >= 100L, it's likely a refill or top-up
